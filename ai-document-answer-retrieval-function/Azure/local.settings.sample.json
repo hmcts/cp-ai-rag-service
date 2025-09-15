@@ -1,0 +1,15 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "<your-storage-connection-string>",
+    "FUNCTIONS_WORKER_RUNTIME": "java",
+    "FUNCTIONS_EXTENSION_VERSION": "~4",
+    "AZURE_SEARCH_ENDPOINT": "<your-search-endpoint>",
+    "AZURE_SEARCH_API_KEY": "<your-search-api-key>",
+    "AZURE_OPENAI_ENDPOINT": "<your-openai-endpoint>",
+    "AZURE_OPENAI_API_KEY": "<your-openai-api-key>",
+    "AZURE_OPENAI_DEPLOYMENT_NAME": "<your-openai-deployment-name>",
+    "SCORING_QUEUE_NAME": "answer-scoring-queue",
+    "APPINSIGHTS_INSTRUMENTATIONKEY": "<your-app-insights-key>"
+  }
+}
