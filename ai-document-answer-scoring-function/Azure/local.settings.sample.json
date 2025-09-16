@@ -1,0 +1,11 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "<your-storage-connection-string>",
+    "FUNCTIONS_WORKER_RUNTIME": "java",
+    "FUNCTIONS_EXTENSION_VERSION": "~4",
+    "SCORING_QUEUE_NAME": "answer-scoring-queue",
+    "APPINSIGHTS_INSTRUMENTATIONKEY": "<your-app-insights-key>",
+    "AZURE_MONITOR_CONNECTION_STRING": "<your-azure-monitor-connection-string>"
+  }
+}
