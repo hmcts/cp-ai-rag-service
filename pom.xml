@@ -2,6 +2,12 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <parent>
+        <groupId>uk.gov.moj.cpp.common</groupId>
+        <artifactId>service-parent-pom</artifactId>
+        <version>17.101.0-M1</version>
+    </parent>
+
     <groupId>uk.gov.moj.cp.azure.ragservice</groupId>
     <artifactId>cp-ai-rag-service</artifactId>
     <version>17.0.7-SNAPSHOT</version>
@@ -21,13 +27,9 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <azure.functions.maven.plugin.version>1.24.0</azure.functions.maven.plugin.version>
         <azure.functions.java.library.version>3.1.0</azure.functions.java.library.version>
-
-        <!-- SonarQube Properties -->
+        <jgitflow.maven.developBranchName>main</jgitflow.maven.developBranchName>
         <sonar.projectKey>uk.gov.moj.cp.azure.ragservice:cp-ai-rag-service</sonar.projectKey>
         <sonar.projectName>CP AI RAG Service</sonar.projectName>
-        <sonar.host.url>${env.SONAR_HOST_URL}</sonar.host.url>
-        <sonar.login>${env.SONAR_TOKEN}</sonar.login>
-        <sonar.skip>${env.SONAR_SKIP}</sonar.skip>
     </properties>
 
     <dependencyManagement>
@@ -41,5 +43,6 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
 
 </project>
