@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <parent>
-        <groupId>uk.gov.moj.cpp.common</groupId>
-        <artifactId>service-parent-pom</artifactId>
-        <version>17.101.0-M1</version>
-    </parent>
+    <!--    <parent>-->
+    <!--        <groupId>uk.gov.moj.cpp.common</groupId>-->
+    <!--        <artifactId>service-parent-pom</artifactId>-->
+    <!--        <version>17.101.0-M1</version>-->
+    <!--    </parent>-->
 
     <groupId>uk.gov.moj.cp.azure.ragservice</groupId>
     <artifactId>cp-ai-rag-service</artifactId>
@@ -22,15 +24,48 @@
     </modules>
 
     <properties>
+
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <azure.functions.maven.plugin.version>1.24.0</azure.functions.maven.plugin.version>
         <azure.functions.java.library.version>3.1.0</azure.functions.java.library.version>
-        <jgitflow.maven.developBranchName>main</jgitflow.maven.developBranchName>
+        <plugins.maven.jgitflow.version>1.0-m5.1</plugins.maven.jgitflow.version>
         <sonar.projectKey>uk.gov.moj.cp.azure.ragservice:cp-ai-rag-service</sonar.projectKey>
         <sonar.projectName>CP AI RAG Service</sonar.projectName>
     </properties>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>external.atlassian.jgitflow</groupId>
+                    <artifactId>jgitflow-maven-plugin</artifactId>
+                    <version>${plugins.maven.jgitflow.version}</version>
+                    <configuration>
+                        <flowInitContext>
+                            <masterBranchName>dev/release</masterBranchName>
+                            <developBranchName>main</developBranchName>
+                            <featureBranchPrefix>dev/feature-</featureBranchPrefix>
+                            <releaseBranchPrefix>dev/release-</releaseBranchPrefix>
+                            <hotfixBranchPrefix>dev/hotfix-</hotfixBranchPrefix>
+                            <versionTagPrefix>v</versionTagPrefix>
+                        </flowInitContext>
+                        <autoVersionSubmodules>true</autoVersionSubmodules>
+                        <enableSshAgent>true</enableSshAgent>
+                        <pushReleases>true</pushReleases>
+                    </configuration>
+                </plugin>
+            </plugins>
+
+        </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>external.atlassian.jgitflow</groupId>
+                <artifactId>jgitflow-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 
     <dependencyManagement>
         <dependencies>
