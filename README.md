@@ -244,5 +244,5 @@ Each function requires specific configuration values:
 1. Ensure all tests pass before submitting changes
 2. Never commit secrets or sensitive configuration
 3. Update documentation for any new configuration requirements
-4. Follow the existing code structure and naming conventions
+4. Follow the existing code structure and naming convention
 
