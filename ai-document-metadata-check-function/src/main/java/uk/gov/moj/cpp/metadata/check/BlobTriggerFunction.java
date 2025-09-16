@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.metadata.check;
+package uk.gov.moj.cpp.metadata.check;
 
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.BindingName;

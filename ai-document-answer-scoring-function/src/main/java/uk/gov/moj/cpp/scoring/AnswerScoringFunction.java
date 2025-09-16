@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.scoring;
+package uk.gov.moj.cpp.scoring;
 
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.FunctionName;
