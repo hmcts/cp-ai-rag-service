@@ -1,4 +1,4 @@
-package uk.gov.moj.cpp.ingestion;
+package uk.gov.moj.cp.ingestion;
 
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.FunctionName;

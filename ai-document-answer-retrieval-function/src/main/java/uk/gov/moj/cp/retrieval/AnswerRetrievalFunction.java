@@ -1,10 +1,9 @@
-package uk.gov.moj.cpp.retrieval;
+package uk.gov.moj.cp.retrieval;
 
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
 import com.microsoft.azure.functions.HttpMethod;
-import com.microsoft.azure.functions.annotation.BindingName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
