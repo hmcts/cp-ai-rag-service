@@ -1,5 +1,14 @@
 package uk.gov.moj.cp.scoring;
 
+import static java.util.logging.Level.INFO;
+import static java.util.logging.Level.SEVERE;
+
+import uk.gov.moj.cp.scoring.model.ModelScore;
+import uk.gov.moj.cp.scoring.model.QueryResponse;
+import uk.gov.moj.cp.scoring.service.ScoringService;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
@@ -11,50 +20,40 @@ import org.slf4j.LoggerFactory;
  * Scores generated responses and records telemetry in Azure Monitor.
  */
 public class AnswerScoringFunction {
-    
-    private static final Logger logger = LoggerFactory.getLogger(AnswerScoringFunction.class);
-    
+
     /**
      * Function triggered by queue messages for answer scoring.
-     * 
+     *
      * @param message The queue message containing answer scoring information
      * @param context The execution context
      */
     @FunctionName("AnswerScoring")
     public void run(
             @QueueTrigger(
-                name = "message",
-                queueName = "answer-scoring-queue",
-                connection = "AzureWebJobsStorage"
+                    name = "message",
+                    queueName = "answer-scoring-queue",
+                    connection = "AzureWebJobsStorage"
             ) String message,
             final ExecutionContext context) {
-        
-        logger.info("Answer scoring function processed a request");
-        logger.info("Queue message: {}", message);
-        logger.info("Function execution ID: {}", context.getInvocationId());
-        
+
+        final java.util.logging.Logger logger = context.getLogger();
+
         try {
-            // Basic validation
-            if (message == null || message.trim().isEmpty()) {
-                logger.error("Invalid queue message: {}", message);
-                return;
-            }
-            
-            // Log processing start
-            logger.info("Starting answer scoring processing for message: {}", message);
-            
-            // TODO: Add actual scoring logic here
-            // - Parse answer and query from message
-            // - Score answer quality and relevance
-            // - Record metrics and telemetry
-            // - Store results in Azure Monitor
-            // - Update performance dashboards
-            
-            logger.info("Answer scoring processing completed successfully for message: {}", message);
-            
+            final QueryResponse queryResponse = new ObjectMapper().readValue(message, QueryResponse.class);
+
+            logger.log(INFO, () -> "Starting process to score answer for query: " + queryResponse.getUserQuery());
+
+            final ModelScore modelScore = new ScoringService().evaluateGroundedness(queryResponse.getLlmResponse(), queryResponse.getUserQuery(), queryResponse.getChunkedEntries());
+
+            logger.log(INFO, () -> "Answer scoring processing completed successfully for message with score : " + modelScore.getScore());
+
         } catch (Exception e) {
-            logger.error("Error processing answer scoring for message: {}", message, e);
-            throw e;
+            logger.log(SEVERE, e, () -> "Error processing answer scoring for message: " + message);
+            try {
+                throw e;
+            } catch (JsonProcessingException ex) {
+                throw new RuntimeException(ex);
+            }
         }
     }
 }

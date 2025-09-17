@@ -1,11 +1,12 @@
 {
   "IsEncrypted": false,
   "Values": {
-    "AzureWebJobsStorage": "<your-storage-connection-string>",
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true or <storage-connection-string>",
     "FUNCTIONS_WORKER_RUNTIME": "java",
     "FUNCTIONS_EXTENSION_VERSION": "~4",
-    "SCORING_QUEUE_NAME": "answer-scoring-queue",
-    "APPINSIGHTS_INSTRUMENTATIONKEY": "<your-app-insights-key>",
-    "AZURE_MONITOR_CONNECTION_STRING": "<your-azure-monitor-connection-string>"
+
+    "AZURE_JUDGE_OPENAI_ENDPOINT": "<model-connection-string>>",
+    "AZURE_JUDGE_OPENAI_API_KEY": "<model-api-key>",
+    "AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME": "<model-deployment-name>"
   }
 }

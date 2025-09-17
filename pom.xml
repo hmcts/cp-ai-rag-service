@@ -2,12 +2,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <!--    <parent>-->
-    <!--        <groupId>uk.gov.moj.cpp.common</groupId>-->
-    <!--        <artifactId>service-parent-pom</artifactId>-->
-    <!--        <version>17.101.0-M1</version>-->
-    <!--    </parent>-->
-
     <groupId>uk.gov.moj.cp.azure.ragservice</groupId>
     <artifactId>cp-ai-rag-service</artifactId>
     <version>17.0.9-SNAPSHOT</version>
@@ -29,8 +23,14 @@
         <azure.functions.maven.plugin.version>1.24.0</azure.functions.maven.plugin.version>
         <azure.functions.java.library.version>3.1.0</azure.functions.java.library.version>
         <plugins.maven.jgitflow.version>1.0-m5.1</plugins.maven.jgitflow.version>
+        <azure.openai.version>1.0.0-beta.1</azure.openai.version>
+
+        <!-- SonarQube Properties -->
         <sonar.projectKey>uk.gov.moj.cp.azure.ragservice:cp-ai-rag-service</sonar.projectKey>
         <sonar.projectName>CP AI RAG Service</sonar.projectName>
+        <sonar.host.url>${env.SONAR_HOST_URL}</sonar.host.url>
+        <sonar.login>${env.SONAR_TOKEN}</sonar.login>
+        <sonar.skip>${env.SONAR_SKIP}</sonar.skip>
     </properties>
 
     <build>
