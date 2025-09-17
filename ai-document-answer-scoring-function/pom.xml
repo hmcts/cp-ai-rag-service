@@ -37,6 +37,19 @@
             <artifactId>azure-functions-java-library</artifactId>
             <version>${azure.functions.java.library.version}</version>
         </dependency>
+
+        <!-- Azure OpenAI SDK -->
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-ai-openai</artifactId>
+            <version>${azure.openai.version}</version>
+        </dependency>
+
+        <!-- Azure Identity (for Managed Identity or Azure AD authentication) -->
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-identity</artifactId>
+        </dependency>
         
     </dependencies>
 
