@@ -4,16 +4,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class ModelScore {
 
-    private static final String SCORE = "groundedness_score";
-    private static final String REASONING = "reasoning";
-
-    @JsonProperty(SCORE)
+    @JsonProperty("groundedness_score")
     private Double score;
 
-    @JsonProperty(REASONING)
+    @JsonProperty("reasoning")
     private String reasoning;
 
-    public ModelScore() {}
+    public ModelScore() {
+    }
 
     public ModelScore(final Double score, final String reasoning) {
         this.score = score;
