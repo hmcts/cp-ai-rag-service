@@ -4,17 +4,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class ChunkedEntry {
 
-    private static final String CHUNK = "chunk";
-    private static final String DOCUMENT_FILE_NAME = "documentFileName";
-    private static final String PAGE_NUMBER = "pageNumber";
-
-    @JsonProperty(DOCUMENT_FILE_NAME)
+    @JsonProperty("documentFileName")
     private String documentFileName;
 
-    @JsonProperty(CHUNK)
+    @JsonProperty("chunk")
     private String chunk;
 
-    @JsonProperty(PAGE_NUMBER)
+    @JsonProperty("pageNumber")
     private Integer pageNumber;
 
     @JsonProperty("score")
