@@ -45,7 +45,7 @@ public class AnswerScoringFunction {
 
             final ModelScore modelScore = new ScoringService().evaluateGroundedness(queryResponse.llmResponse(), queryResponse.userQuery(), queryResponse.chunkedEntries());
 
-            LOGGER.log(INFO, () -> "Answer scoring processing completed successfully for message with score : " + modelScore.score());
+            LOGGER.log(INFO, () -> "Answer scoring processing completed successfully for message with score : " + modelScore.groundednessScore());
 
         } catch (Exception e) {
             LOGGER.log(SEVERE, e, () -> "Error processing answer scoring for message: " + message);

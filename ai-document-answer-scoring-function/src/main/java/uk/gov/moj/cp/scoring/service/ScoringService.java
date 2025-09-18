@@ -3,6 +3,7 @@ package uk.gov.moj.cp.scoring.service;
 import uk.gov.moj.cp.scoring.model.ChunkedEntry;
 import uk.gov.moj.cp.scoring.model.ModelScore;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
@@ -32,7 +33,7 @@ public class ScoringService {
             
             Your output MUST be a JSON object with the following keys:
             {
-              "groundedness_score": <Your numeric score 1-5>,
+              "groundednessScore": <Your numeric score 1-5>,
               "reasoning": "<A brief explanation for the score>"
             }
             
@@ -42,6 +43,10 @@ public class ScoringService {
             User Query: %s
             Answer to Evaluate: %s
             """;
+    private static final int MAX_TOKENS = 200;
+    private static final double TEMPERATURE = 0.0;
+    private static final double TOP_P = 0.0;
+    private static final String CHAT_USER_INSTRUCTION = "Evaluate the answer.";
 
     private final OpenAIClient judgeOpenAIClient;
     private final String judgeChatDeploymentName;
@@ -98,24 +103,23 @@ public class ScoringService {
         // Construct the context string for the Judge LLM
         StringBuilder contextBuilder = new StringBuilder();
         if (retrievedDocuments != null && !retrievedDocuments.isEmpty()) {
-            for (ChunkedEntry entry : retrievedDocuments) {
+            retrievedDocuments.forEach(entry -> {
                 String content = entry.chunk();
                 String fileName = entry.documentFileName();
                 Integer pageNumber = entry.pageNumber();
-
                 contextBuilder.append("Document: ").append(fileName);
                 if (pageNumber != null) {
                     contextBuilder.append(", Page: ").append(pageNumber);
                 }
                 contextBuilder.append("\nContent: ").append(content).append("\n\n");
-            }
+            });
         }
         final List<ChatMessage> chatMessages = getChatMessages(llmResponse, userQuery, contextBuilder);
 
         ChatCompletionsOptions chatCompletionsOptions = new ChatCompletionsOptions(chatMessages)
-                .setMaxTokens(200) // Keep the judge's response concise
-                .setTemperature(0.0) // Low temperature for deterministic scoring
-                .setTopP(0.0)
+                .setMaxTokens(MAX_TOKENS) // Keep the judge's response concise
+                .setTemperature(TEMPERATURE) // Low temperature for deterministic scoring
+                .setTopP(TOP_P)
                 .setStream(false);
 
         try {
@@ -132,7 +136,7 @@ public class ScoringService {
             logger.log(Level.SEVERE, e, () -> "Error calling Judge LLM for evaluation");
         }
 
-        return new ModelScore(0.0, "Error generating score"); // Return a default score of 0.0 on error
+        return new ModelScore(BigDecimal.ZERO, "Error generating score"); // Return a default score of 0.0 on error
     }
 
     private List<ChatMessage> getChatMessages(final String llmResponse, final String userQuery, final StringBuilder contextBuilder) {
@@ -145,7 +149,7 @@ public class ScoringService {
         final ChatMessage e1 = new ChatMessage(ChatRole.SYSTEM);
         e1.setContent(judgePromptContent);
         final ChatMessage e2 = new ChatMessage(ChatRole.USER);
-        e2.setContent("Evaluate the answer.");
+        e2.setContent(CHAT_USER_INSTRUCTION);
         chatMessages.add(e1);
         chatMessages.add(e2);
         return chatMessages;
