@@ -99,9 +99,9 @@ public class ScoringService {
         StringBuilder contextBuilder = new StringBuilder();
         if (retrievedDocuments != null && !retrievedDocuments.isEmpty()) {
             for (ChunkedEntry entry : retrievedDocuments) {
-                String content = entry.getChunk();
-                String fileName = entry.getDocumentFileName();
-                Integer pageNumber = entry.getPageNumber();
+                String content = entry.chunk();
+                String fileName = entry.documentFileName();
+                Integer pageNumber = entry.pageNumber();
 
                 contextBuilder.append("Document: ").append(fileName);
                 if (pageNumber != null) {

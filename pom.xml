@@ -28,9 +28,6 @@
         <!-- SonarQube Properties -->
         <sonar.projectKey>uk.gov.moj.cp.azure.ragservice:cp-ai-rag-service</sonar.projectKey>
         <sonar.projectName>CP AI RAG Service</sonar.projectName>
-        <sonar.host.url>${env.SONAR_HOST_URL}</sonar.host.url>
-        <sonar.login>${env.SONAR_TOKEN}</sonar.login>
-        <sonar.skip>${env.SONAR_SKIP}</sonar.skip>
     </properties>
 
     <build>

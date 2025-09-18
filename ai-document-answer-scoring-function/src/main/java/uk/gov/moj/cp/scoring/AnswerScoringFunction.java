@@ -7,19 +7,21 @@ import uk.gov.moj.cp.scoring.model.ModelScore;
 import uk.gov.moj.cp.scoring.model.QueryResponse;
 import uk.gov.moj.cp.scoring.service.ScoringService;
 
+import java.util.logging.Logger;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Azure Function for answer scoring and telemetry.
  * Scores generated responses and records telemetry in Azure Monitor.
  */
 public class AnswerScoringFunction {
+
+    private static final Logger LOGGER = Logger.getLogger(AnswerScoringFunction.class.getName());
 
     /**
      * Function triggered by queue messages for answer scoring.
@@ -36,19 +38,17 @@ public class AnswerScoringFunction {
             ) String message,
             final ExecutionContext context) {
 
-        final java.util.logging.Logger logger = context.getLogger();
-
         try {
             final QueryResponse queryResponse = new ObjectMapper().readValue(message, QueryResponse.class);
 
-            logger.log(INFO, () -> "Starting process to score answer for query: " + queryResponse.getUserQuery());
+            LOGGER.log(INFO, () -> "Starting process to score answer for query: " + queryResponse.userQuery());
 
-            final ModelScore modelScore = new ScoringService().evaluateGroundedness(queryResponse.getLlmResponse(), queryResponse.getUserQuery(), queryResponse.getChunkedEntries());
+            final ModelScore modelScore = new ScoringService().evaluateGroundedness(queryResponse.llmResponse(), queryResponse.userQuery(), queryResponse.chunkedEntries());
 
-            logger.log(INFO, () -> "Answer scoring processing completed successfully for message with score : " + modelScore.getScore());
+            LOGGER.log(INFO, () -> "Answer scoring processing completed successfully for message with score : " + modelScore.score());
 
         } catch (Exception e) {
-            logger.log(SEVERE, e, () -> "Error processing answer scoring for message: " + message);
+            LOGGER.log(SEVERE, e, () -> "Error processing answer scoring for message: " + message);
             try {
                 throw e;
             } catch (JsonProcessingException ex) {
