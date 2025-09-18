@@ -1,11 +1,13 @@
 package uk.gov.moj.cp.scoring.model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import java.math.BigDecimal;
 
 public record ChunkedEntry(
-        @JsonProperty("documentFileName") String documentFileName,
-        @JsonProperty("chunk") String chunk,
-        @JsonProperty("pageNumber") Integer pageNumber,
-        @JsonProperty("score") double score
+        String documentFileName,
+        String chunk,
+        Integer pageNumber,
+        BigDecimal score
+
+
 ) {
 }

@@ -1,8 +1,8 @@
 package uk.gov.moj.cp.scoring.model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import java.math.BigDecimal;
 
 public record ModelScore(
-        @JsonProperty("groundedness_score") double score,
-        @JsonProperty("reasoning") String reasoning
+        BigDecimal groundednessScore,
+        String reasoning
 ) {}
