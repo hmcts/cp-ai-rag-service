@@ -6,27 +6,25 @@
         <groupId>uk.gov.moj.cp.azure.ragservice</groupId>
         <artifactId>cp-ai-rag-service</artifactId>
         <version>17.0.10-SNAPSHOT</version>
-        <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>cp-ai-rag-service-common</artifactId>
+    <artifactId>ai-document-shared-artefacts</artifactId>
     <packaging>jar</packaging>
-    <name>CP AI RAG Service Common</name>
+    <name>AI document shared artefacts module</name>
     <description>Common utilities and models for the CP AI RAG Service</description>
 
     <dependencies>
-        <!-- Jackson for JSON processing -->
+        <!-- Azure OpenAI SDK -->
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>2.15.2</version>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-ai-openai</artifactId>
+            <version>${azure.openai.version}</version>
         </dependency>
-        
-        <!-- Logging -->
+
+        <!-- Azure Identity (for Managed Identity or Azure AD authentication) -->
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>2.0.7</version>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-identity</artifactId>
         </dependency>
     </dependencies>
 </project>

@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.scoring.model;
+package uk.gov.moj.cp.ai.model;
 
 import java.util.List;
 

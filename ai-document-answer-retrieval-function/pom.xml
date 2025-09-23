@@ -27,7 +27,7 @@
         <!-- Common library -->
         <dependency>
             <groupId>uk.gov.moj.cp.azure.ragservice</groupId>
-            <artifactId>cp-ai-rag-service-common</artifactId>
+            <artifactId>ai-document-shared-artefacts</artifactId>
             <version>${project.version}</version>
         </dependency>
         
