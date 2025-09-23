@@ -4,7 +4,7 @@
 
     <groupId>uk.gov.moj.cp.azure.ragservice</groupId>
     <artifactId>cp-ai-rag-service</artifactId>
-    <version>17.0.10</version>
+    <version>17.0.11-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <modules>
