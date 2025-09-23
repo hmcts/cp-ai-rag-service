@@ -1,23 +1,13 @@
 package uk.gov.moj.cp.scoring.service;
 
-import uk.gov.moj.cp.scoring.model.ChunkedEntry;
+import uk.gov.moj.cp.ai.service.ChatService;
+import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.scoring.model.ModelScore;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import com.azure.ai.openai.OpenAIClient;
-import com.azure.ai.openai.OpenAIClientBuilder;
-import com.azure.ai.openai.models.ChatCompletions;
-import com.azure.ai.openai.models.ChatCompletionsOptions;
-import com.azure.ai.openai.models.ChatMessage;
-import com.azure.ai.openai.models.ChatRole;
-import com.azure.core.credential.AzureKeyCredential;
-import com.azure.identity.DefaultAzureCredentialBuilder;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class ScoringService {
 
@@ -43,49 +33,21 @@ public class ScoringService {
             User Query: %s
             Answer to Evaluate: %s
             """;
-    private static final int MAX_TOKENS = 200;
-    private static final double TEMPERATURE = 0.0;
-    private static final double TOP_P = 0.0;
+
     private static final String CHAT_USER_INSTRUCTION = "Evaluate the answer.";
 
-    private final OpenAIClient judgeOpenAIClient;
-    private final String judgeChatDeploymentName;
+    private final ChatService chatService;
     private final Logger logger = Logger.getLogger(ScoringService.class.getName());
 
-    // --- Constructor: Initialize OpenAIClient ---
     public ScoringService() {
-
         String judgeModelEndpoint = System.getenv("AZURE_JUDGE_OPENAI_ENDPOINT");
         String judgeModelKey = System.getenv("AZURE_JUDGE_OPENAI_API_KEY");
-        this.judgeChatDeploymentName = System.getenv("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME");
+        String judgeChatDeploymentName = System.getenv("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME");
+        chatService = new ChatService(judgeModelEndpoint, judgeModelKey, judgeChatDeploymentName);
+    }
 
-        if (judgeModelEndpoint == null || judgeModelEndpoint.isEmpty()) {
-            throw new IllegalArgumentException("AZURE_JUDGE_OPENAI_ENDPOINT environment variable must be set.");
-        }
-        if (judgeChatDeploymentName == null || judgeChatDeploymentName.isEmpty()) {
-            throw new IllegalArgumentException("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME environment variable must be set.");
-        }
-
-        // Choose authentication method: API Key or Managed Identity
-        if (judgeModelKey != null && !judgeModelKey.isEmpty()) {
-            // Option 1: API Key Authentication (simpler for dev, less secure for prod)
-            this.judgeOpenAIClient = new OpenAIClientBuilder()
-                    .endpoint(judgeModelEndpoint)
-                    .credential(new AzureKeyCredential(judgeModelKey))
-                    .buildClient();
-
-
-            logger.info("Initialized Azure OpenAI client with API Key.");
-        } else {
-            // Option 2: Azure Managed Identity (Recommended for production)
-            // Ensure your Azure App Service/Function App has a Managed Identity enabled
-            // and granted 'Cognitive Services OpenAI User' role on your Azure OpenAI resource.
-            this.judgeOpenAIClient = new OpenAIClientBuilder()
-                    .endpoint(judgeModelEndpoint)
-                    .credential(new DefaultAzureCredentialBuilder().build())
-                    .buildClient();
-            logger.info("Initialized Azure OpenAI client with Managed Identity.");
-        }
+    ScoringService(ChatService chatService) {
+        this.chatService = chatService;
     }
 
     /**
@@ -98,61 +60,32 @@ public class ScoringService {
      * @return The groundedness score from the judge, or a default value on error.
      */
     public ModelScore evaluateGroundedness(String llmResponse, String userQuery, List<ChunkedEntry> retrievedDocuments) {
-        logger.info("Evaluating groundedness of response with Judge LLM...");
+        logger.info("Evaluating groundedness of response...");
 
-        // Construct the context string for the Judge LLM
-        StringBuilder contextBuilder = new StringBuilder();
-        if (retrievedDocuments != null && !retrievedDocuments.isEmpty()) {
-            retrievedDocuments.forEach(entry -> {
-                String content = entry.chunk();
-                String fileName = entry.documentFileName();
-                Integer pageNumber = entry.pageNumber();
-                contextBuilder.append("Document: ").append(fileName);
-                if (pageNumber != null) {
-                    contextBuilder.append(", Page: ").append(pageNumber);
-                }
-                contextBuilder.append("\nContent: ").append(content).append("\n\n");
-            });
-        }
-        final List<ChatMessage> chatMessages = getChatMessages(llmResponse, userQuery, contextBuilder);
-
-        ChatCompletionsOptions chatCompletionsOptions = new ChatCompletionsOptions(chatMessages)
-                .setMaxTokens(MAX_TOKENS) // Keep the judge's response concise
-                .setTemperature(TEMPERATURE) // Low temperature for deterministic scoring
-                .setTopP(TOP_P)
-                .setStream(false);
+        final String systemPromptInstruction = getSystemPromptInstruction(llmResponse, userQuery, retrievedDocuments);
 
         try {
-            ChatCompletions chatCompletions = judgeOpenAIClient.getChatCompletions(judgeChatDeploymentName, chatCompletionsOptions);
-
-            if (chatCompletions.getChoices() != null && !chatCompletions.getChoices().isEmpty()) {
-                String jsonResponse = chatCompletions.getChoices().get(0).getMessage().getContent();
-
-                // Parse the JSON response from the judge
-                return new ObjectMapper().readValue(jsonResponse, ModelScore.class);
-
-            }
+            return chatService.callModel(systemPromptInstruction, CHAT_USER_INSTRUCTION, ModelScore.class)
+                    .orElse(new ModelScore(BigDecimal.ZERO, "Error generating score"));
         } catch (Exception e) {
-            logger.log(Level.SEVERE, e, () -> "Error calling Judge LLM for evaluation");
+            logger.log(Level.SEVERE, "Error calling Judge LLM for evaluation", e);
+            return new ModelScore(BigDecimal.ZERO, "Error generating score");
         }
-
-        return new ModelScore(BigDecimal.ZERO, "Error generating score"); // Return a default score of 0.0 on error
     }
 
-    private List<ChatMessage> getChatMessages(final String llmResponse, final String userQuery, final StringBuilder contextBuilder) {
-        String retrievedContextsString = contextBuilder.toString();
+    private String getSystemPromptInstruction(final String llmResponse, final String userQuery, final List<ChunkedEntry> retrievedDocuments) {
+        StringBuilder retrievedDocumentsContext = new StringBuilder();
+        if (retrievedDocuments != null) {
+            retrievedDocuments.forEach(entry -> {
+                retrievedDocumentsContext.append("Document: ").append(entry.documentFileName());
+                if (entry.pageNumber() != null) {
+                    retrievedDocumentsContext.append(", Page: ").append(entry.pageNumber());
+                }
+                retrievedDocumentsContext.append("\nContent: ").append(entry.chunk()).append("\n\n");
+            });
+        }
 
-        // Define the prompt for the Judge LLM
-        String judgePromptContent = getJudgeLLMPrompt(llmResponse, userQuery, retrievedContextsString);
-
-        List<ChatMessage> chatMessages = new ArrayList<>();
-        final ChatMessage e1 = new ChatMessage(ChatRole.SYSTEM);
-        e1.setContent(judgePromptContent);
-        final ChatMessage e2 = new ChatMessage(ChatRole.USER);
-        e2.setContent(CHAT_USER_INSTRUCTION);
-        chatMessages.add(e1);
-        chatMessages.add(e2);
-        return chatMessages;
+        return getJudgeLLMPrompt(llmResponse, userQuery, retrievedDocumentsContext.toString());
     }
 
     private String getJudgeLLMPrompt(final String llmResponse, final String userQuery, final String retrievedContextsString) {
