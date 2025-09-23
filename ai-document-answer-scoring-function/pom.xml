@@ -27,7 +27,7 @@
         <!-- Common library -->
         <dependency>
             <groupId>uk.gov.moj.cp.azure.ragservice</groupId>
-            <artifactId>cp-ai-rag-service-common</artifactId>
+            <artifactId>ai-document-shared-artefacts</artifactId>
             <version>${project.version}</version>
         </dependency>
         
@@ -36,19 +36,6 @@
             <groupId>com.microsoft.azure.functions</groupId>
             <artifactId>azure-functions-java-library</artifactId>
             <version>${azure.functions.java.library.version}</version>
-        </dependency>
-
-        <!-- Azure OpenAI SDK -->
-        <dependency>
-            <groupId>com.azure</groupId>
-            <artifactId>azure-ai-openai</artifactId>
-            <version>${azure.openai.version}</version>
-        </dependency>
-
-        <!-- Azure Identity (for Managed Identity or Azure AD authentication) -->
-        <dependency>
-            <groupId>com.azure</groupId>
-            <artifactId>azure-identity</artifactId>
         </dependency>
         
     </dependencies>
