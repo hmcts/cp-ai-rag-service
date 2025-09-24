@@ -7,6 +7,8 @@
 
     "AZURE_JUDGE_OPENAI_ENDPOINT": "<model-connection-string>>",
     "AZURE_JUDGE_OPENAI_API_KEY": "<model-api-key>",
-    "AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME": "<model-deployment-name>"
+    "AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME": "<model-deployment-name>",
+
+    "RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING": "<azure-insights-resource-connection-string>"
   }
 }
