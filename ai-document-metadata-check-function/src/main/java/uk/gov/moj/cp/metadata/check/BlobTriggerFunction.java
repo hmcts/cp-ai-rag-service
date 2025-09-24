@@ -1,76 +1,70 @@
 package uk.gov.moj.cp.metadata.check;
 
+import static uk.gov.moj.cp.metadata.check.util.BlobUtil.createQueueMessage;
+import static uk.gov.moj.cp.metadata.check.util.BlobUtil.isValidMetadata;
+
+import uk.gov.moj.cp.metadata.check.config.Config;
+import uk.gov.moj.cp.metadata.check.service.BlobMetadataValidationService;
+import uk.gov.moj.cp.metadata.check.service.QueueStorageService;
+
+import java.util.Map;
+
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.BlobTrigger;
 import com.microsoft.azure.functions.annotation.FunctionName;
-import com.microsoft.azure.functions.annotation.StorageAccount;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Azure Function triggered by blob storage events.
- * This function validates document metadata when a new blob is uploaded.
- * 
- * TODO: Add logic to check if blob has been processed before
- * TODO: Add logic to validate metadata
- * TODO: Add logic to enqueue document for processing
+ * This function extracts/validates metadata when a new blob is uploaded and puts the message in a storage queue.
  */
 public class BlobTriggerFunction {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(BlobTriggerFunction.class);
-    
-    /**
-     * Function triggered when a blob is created or updated in the specified container.
-     * 
-     * @param blobContent The blob content (not used for large files)
-     * @param blobName The name of the blob that triggered the function
-     * @param blobSize The size of the blob in bytes
-     * @param context The execution context
-     */
+
+    private final BlobMetadataValidationService blobMetadataValidationService;
+    private final QueueStorageService queueStorageService;
+
+    public BlobTriggerFunction(final BlobMetadataValidationService blobMetadataValidationService,
+                               final QueueStorageService queueStorageService) {
+        this.blobMetadataValidationService = blobMetadataValidationService;
+        this.queueStorageService = queueStorageService;
+    }
+
     @FunctionName("DocumentMetadataCheck")
-    @StorageAccount("AzureWebJobsStorage")
     public void run(
             @BlobTrigger(
-                name = "blob",
-                path = "documents/{name}",
-                connection = "AzureWebJobsStorage"
-            ) byte[] blobContent,
-            @BindingName("name") String blobName,
-            @BindingName("length") long blobSize,
+                    name = "blob",
+                    path = "documents/{name}",
+                    connection = "AzureWebJobsStorage"
+            ) String documentName,
+            @BindingName("name") String blobNameParam,
             final ExecutionContext context) {
-        
-        logger.info("Blob trigger function processed a request for blob: {}", blobName);
-        logger.info("Blob size: {} bytes", blobSize);
+
+        logger.info("Blob trigger function processed a request for document: {}", documentName);
         logger.info("Function execution ID: {}", context.getInvocationId());
-        
+
         try {
-            if (blobName == null || blobName.trim().isEmpty()) {
-                logger.error("Invalid blob name: {}", blobName);
-                return;
-            }
-            
-            if (blobSize <= 0) {
-                logger.error("Invalid blob size: {} bytes for blob: {}", blobSize, blobName);
+
+            Map<String, String> blobMetadata = blobMetadataValidationService.extractBlobMetadata(documentName);
+
+            if (!isValidMetadata(blobMetadata)) {
+                logger.error("Invalid metadata for blob: {}", documentName);
                 return;
             }
 
-            logger.info("Processing document: {}", blobName);
-            logger.info("Document size: {} bytes", blobSize);
-            
-            // TODO: Check if blob has been processed before
-            logger.info("TODO: Check if document {} has been processed before", blobName);
-            
-            // TODO: Validate document metadata
-            logger.info("TODO: Validate metadata for document: {}", blobName);
-            
-            // TODO: Enqueue document for processing
-            logger.info("TODO: Enqueue document {} for processing", blobName);
-            
-            logger.info("Document metadata check completed successfully for: {}", blobName);
-            
+            Map<String, Object> queueMessage = createQueueMessage(documentName, blobMetadata,
+                    Config.getStorageAccountName(), Config.getContainerName());
+
+
+            queueStorageService.sendToQueue(queueMessage);
+
+            logger.info("Document {} successfully processed and queued", documentName);
+
         } catch (Exception e) {
-            logger.error("Error processing blob: {}", blobName, e);
+            logger.error("Error processing blob: {}", documentName, e);
             throw e;
         }
     }

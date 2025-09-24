@@ -26,6 +26,9 @@
         <azure.openai.version>1.0.0-beta.1</azure.openai.version>
         <junit-jupiter-engine.version>5.11.0-M2</junit-jupiter-engine.version>
         <mockito-junit-jupiter.version>5.20.0</mockito-junit-jupiter.version>
+        <azure.storage.version>8.6.6</azure.storage.version>
+        <azure.storage.blob>12.21.0</azure.storage.blob>
+        <azure.storage.queue>12.21.0</azure.storage.queue>
 
         <!-- SonarQube Properties -->
         <sonar.projectKey>uk.gov.moj.cp.azure.ragservice:cp-ai-rag-service</sonar.projectKey>
