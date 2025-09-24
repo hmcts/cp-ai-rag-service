@@ -2,6 +2,7 @@ package uk.gov.moj.cp.metadata.check.service;
 
 import static uk.gov.moj.cp.metadata.check.config.Config.getContainerName;
 import static uk.gov.moj.cp.metadata.check.config.Config.getStorageConnectionString;
+import static uk.gov.moj.cp.metadata.check.util.StringUtils.isNullOrBlank;
 
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
@@ -12,7 +13,7 @@ public class BlobClientService {
     public BlobClient getBlobClient(final String documentName) {
 
         String connectionString = getStorageConnectionString();
-        if (connectionString == null) {
+        if (isNullOrBlank(connectionString)) {
             throw new IllegalStateException("AzureWebJobsStorage env var not set");
         }
         String containerName = getContainerName();
