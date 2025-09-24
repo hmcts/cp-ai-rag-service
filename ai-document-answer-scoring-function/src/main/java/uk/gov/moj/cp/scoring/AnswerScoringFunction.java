@@ -3,8 +3,9 @@ package uk.gov.moj.cp.scoring;
 import static java.util.logging.Level.INFO;
 import static java.util.logging.Level.SEVERE;
 
-import uk.gov.moj.cp.scoring.model.ModelScore;
 import uk.gov.moj.cp.ai.model.QueryResponse;
+import uk.gov.moj.cp.scoring.model.ModelScore;
+import uk.gov.moj.cp.scoring.service.PublishScoreService;
 import uk.gov.moj.cp.scoring.service.ScoringService;
 
 import java.util.logging.Logger;
@@ -23,14 +24,17 @@ public class AnswerScoringFunction {
 
     private static final Logger LOGGER = Logger.getLogger(AnswerScoringFunction.class.getName());
 
-    private ScoringService scoringService;
+    private final ScoringService scoringService;
+    private PublishScoreService publishScoreService;
 
     public AnswerScoringFunction() {
         scoringService = new ScoringService();
+        publishScoreService = new PublishScoreService();
     }
 
-    AnswerScoringFunction(ScoringService scoringService) {
+    AnswerScoringFunction(ScoringService scoringService, PublishScoreService publishScoreService) {
         this.scoringService = scoringService;
+        this.publishScoreService = publishScoreService;
     }
 
     /**
@@ -54,6 +58,10 @@ public class AnswerScoringFunction {
             LOGGER.log(INFO, () -> "Starting process to score answer for query: " + queryResponse.userQuery());
 
             final ModelScore modelScore = scoringService.evaluateGroundedness(queryResponse.llmResponse(), queryResponse.userQuery(), queryResponse.chunkedEntries());
+
+            LOGGER.log(INFO, () -> "Score now available for the answer : " + modelScore.groundednessScore());
+
+            publishScoreService.publishGroundednessScore(modelScore.groundednessScore(), queryResponse.userQuery());
 
             LOGGER.log(INFO, () -> "Answer scoring processing completed successfully for message with score : " + modelScore.groundednessScore());
 
