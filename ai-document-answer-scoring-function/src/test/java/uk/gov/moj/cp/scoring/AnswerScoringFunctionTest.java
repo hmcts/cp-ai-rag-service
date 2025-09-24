@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import uk.gov.moj.cp.scoring.model.ModelScore;
+import uk.gov.moj.cp.scoring.service.PublishScoreService;
 import uk.gov.moj.cp.scoring.service.ScoringService;
 
 import java.math.BigDecimal;
@@ -24,27 +25,33 @@ class AnswerScoringFunctionTest {
 
     private AnswerScoringFunction answerScoringFunction;
     private ScoringService scoringServiceMock;
+    private PublishScoreService publishScoreService;
     private ExecutionContext contextMock;
 
     @BeforeEach
     void setUp() {
         scoringServiceMock = mock(ScoringService.class);
+        publishScoreService = mock(PublishScoreService.class);
         contextMock = mock(ExecutionContext.class);
-        answerScoringFunction = new AnswerScoringFunction(scoringServiceMock);
+        answerScoringFunction = new AnswerScoringFunction(scoringServiceMock, publishScoreService);
     }
 
     @Test
     @DisplayName("Processes valid message and logs success")
-    void processesValidMessageAndLogsSuccess() throws Exception {
+    void processesValidMessageAndLogsSuccess() {
         String message = "{\"llmResponse\":\"response\",\"userQuery\":\"query\",\"chunkedEntries\":[]}";
-        ModelScore modelScore = new ModelScore(BigDecimal.valueOf(5), "Well supported");
+        final BigDecimal llmScore = BigDecimal.valueOf(5);
+        final String userQuery = "query";
 
-        when(scoringServiceMock.evaluateGroundedness("response", "query", List.of()))
+        ModelScore modelScore = new ModelScore(llmScore, "Well supported");
+
+        when(scoringServiceMock.evaluateGroundedness("response", userQuery, List.of()))
                 .thenReturn(modelScore);
 
         answerScoringFunction.run(message, contextMock);
 
-        verify(scoringServiceMock).evaluateGroundedness("response", "query", List.of());
+        verify(scoringServiceMock).evaluateGroundedness("response", userQuery, List.of());
+        verify(publishScoreService).publishGroundednessScore(llmScore, userQuery);
     }
 
     @Test
