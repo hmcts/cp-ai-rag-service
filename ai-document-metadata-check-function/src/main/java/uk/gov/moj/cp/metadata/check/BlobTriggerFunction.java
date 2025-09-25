@@ -1,10 +1,9 @@
 package uk.gov.moj.cp.metadata.check;
 
-import static uk.gov.moj.cp.metadata.check.util.BlobUtil.createQueueMessage;
-import static uk.gov.moj.cp.metadata.check.util.BlobUtil.isValidMetadata;
+import static uk.gov.moj.cp.metadata.check.config.Config.getContainerName;
 
-import uk.gov.moj.cp.ai.model.BlobMetadata;
-import uk.gov.moj.cp.metadata.check.config.Config;
+import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
+import uk.gov.moj.cp.ai.model.QueueTaskResult;
 import uk.gov.moj.cp.metadata.check.service.BlobMetadataService;
 import uk.gov.moj.cp.metadata.check.service.QueueStorageService;
 
@@ -24,14 +23,15 @@ import org.slf4j.LoggerFactory;
 public class BlobTriggerFunction {
 
     private static final Logger logger = LoggerFactory.getLogger(BlobTriggerFunction.class);
-
+    private static final String STORAGE_CONTAINER = getContainerName();
     private final BlobMetadataService blobMetadataService;
     private final QueueStorageService queueStorageService;
 
-    public BlobTriggerFunction(final BlobMetadataService blobMetadataService,
-                               final QueueStorageService queueStorageService) {
-        this.blobMetadataService = blobMetadataService;
-        this.queueStorageService = queueStorageService;
+
+    public BlobTriggerFunction() {
+        this.blobMetadataService = new BlobMetadataService();
+        this.queueStorageService =
+                new QueueStorageService();
     }
 
     @FunctionName("DocumentMetadataCheck")
@@ -40,32 +40,26 @@ public class BlobTriggerFunction {
                     name = "blob",
                     path = "documents/{name}",
                     connection = "AzureWebJobsStorage"
-            ) String documentName,
-            @BindingName("name") String blobNameParam,
+            )
+            @BindingName("name")
+            String documentName,
             final ExecutionContext context) {
 
-        logger.info("Blob trigger function processed a request for document: {}", documentName);
+        logger.info("Blob trigger function processed a request for {}: {}", STORAGE_CONTAINER, documentName);
         logger.info("Function execution ID: {}", context.getInvocationId());
 
-        try {
 
-            Map<String, String> blobMetadata = blobMetadataService.extractBlobMetadata(documentName);
+        Map<String, String> blobMetadata = blobMetadataService.processBlobMetadata(documentName);
 
-            if (!isValidMetadata(blobMetadata)) {
-                logger.error("Invalid metadata for blob: {}", documentName);
-                return;
-            }
+        QueueIngestionMetadata queueMessage = queueStorageService.createQueueMessage(documentName, blobMetadata);
 
-            BlobMetadata queueMessage = createQueueMessage(documentName, blobMetadata,
-                    Config.getStorageAccountName(), Config.getContainerName());
+        QueueTaskResult queueTaskResult = queueStorageService.sendToQueue(queueMessage);
 
-            queueStorageService.sendToQueue(queueMessage);
-
+        if (queueTaskResult.success()) {
             logger.info("Document {} successfully processed and queued", documentName);
-
-        } catch (Exception e) {
-            logger.error("Error processing blob: {}", documentName, e);
-            throw e;
+        } else {
+            logger.error("Failed to queue {} {}: {}", STORAGE_CONTAINER, documentName, queueTaskResult.errorMessage());
         }
+
     }
 }

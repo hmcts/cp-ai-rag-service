@@ -26,10 +26,10 @@
         <azure.openai.version>1.0.0-beta.1</azure.openai.version>
         <junit-jupiter-engine.version>5.11.0-M2</junit-jupiter-engine.version>
         <mockito-junit-jupiter.version>5.20.0</mockito-junit-jupiter.version>
-        <assertj-core.version>3.24.2</assertj-core.version>
         <azure.storage.version>8.6.6</azure.storage.version>
         <azure.storage.blob>12.21.0</azure.storage.blob>
         <azure.storage.queue>12.21.0</azure.storage.queue>
+        <azure.data.tables>12.4.0</azure.data.tables>
         <jackson.version>2.15.2</jackson.version>
 
         <!-- SonarQube Properties -->
@@ -89,7 +89,6 @@
                 <artifactId>azure-functions-java-library</artifactId>
                 <version>${azure.functions.java.library.version}</version>
             </dependency>
-
             <dependency>
                 <groupId>com.microsoft.azure</groupId>
                 <artifactId>azure-storage</artifactId>
@@ -106,6 +105,13 @@
                 <artifactId>azure-storage-queue</artifactId>
                 <version>${azure.storage.queue}</version>
             </dependency>
+
+            <dependency>
+                <groupId>com.azure</groupId>
+                <artifactId>azure-data-tables</artifactId>
+                <version>${azure.data.tables}</version>
+            </dependency>
+
             <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-core</artifactId>
@@ -165,15 +171,10 @@
                 <version>${mockito-junit-jupiter.version}</version>
                 <scope>test</scope>
             </dependency>
-            <dependency>
-                <groupId>org.assertj</groupId>
-                <artifactId>assertj-core</artifactId>
-                <version>${assertj-core.version}</version>
-                <scope>test</scope>
-            </dependency>
         </dependencies>
     </dependencyManagement>
     <dependencies>
+
         <!-- Log dependencies -->
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -196,6 +197,5 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
 
 </project>

@@ -1,7 +1,5 @@
 package uk.gov.moj.cp.metadata.check.config;
 
-import uk.gov.moj.cp.metadata.check.exception.PropertyValueNotFoundException;
-
 /**
  * Simple static configuration class.
  */
@@ -12,7 +10,11 @@ public class Config {
     }
     
     public static String getQueueName() {
-        return getKeyValue("DOCUMENT_PROCESSING_QUEUE_NAME");
+        return getKeyValue("DOCUMENT_INGESTION_QUEUE");
+    }
+
+    public static String getTableName() {
+        return getKeyValue("DOCUMENT_INGESTION_OUTCOME_TABLE");
     }
     
     public static String getContainerName() {
@@ -21,6 +23,10 @@ public class Config {
     
     public static String getStorageAccountName() {
         return getKeyValue("STORAGE_ACCOUNT_NAME");
+    }
+    
+    public static String getStorageEndpoint() {
+        return getKeyValue("STORAGE_ENDPOINT");
     }
 
     private static String getKeyValue(String key) {

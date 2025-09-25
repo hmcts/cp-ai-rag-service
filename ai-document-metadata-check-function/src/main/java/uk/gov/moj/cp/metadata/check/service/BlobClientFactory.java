@@ -8,20 +8,20 @@ import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 
-public class BlobClientService {
-    public BlobClient getBlobClient(final String documentName) {
+public class BlobClientFactory {
+    private final BlobContainerClient containerClient;
+    private static final String STORAGE_CONNECTION_STRING = getStorageConnectionString();
 
-        String connectionString = getStorageConnectionString();
-        String containerName = getContainerName();
-
+    public BlobClientFactory() {
         BlobServiceClient blobServiceClient = new BlobServiceClientBuilder()
                 // TODO change to ManagedIdentity
-                .connectionString(connectionString)
+                .connectionString(STORAGE_CONNECTION_STRING)
                 .buildClient();
 
-        BlobContainerClient containerClient = blobServiceClient.getBlobContainerClient(containerName);
+        this.containerClient = blobServiceClient.getBlobContainerClient(getContainerName());
+    }
 
+    public BlobClient getBlobClient(final String documentName) {
         return containerClient.getBlobClient(documentName);
-
     }
 }
