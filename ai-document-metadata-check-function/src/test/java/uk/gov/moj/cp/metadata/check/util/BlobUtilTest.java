@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import uk.gov.moj.cp.ai.model.BlobMetadata;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -101,15 +103,15 @@ class BlobUtilTest {
         blobMetadata.put("material_id", "MAT-001");
 
         // when
-        Map<String, Object> result = BlobUtil.createQueueMessage(blobName, blobMetadata, storageAccountName, containerName);
+        BlobMetadata result = BlobUtil.createQueueMessage(blobName, blobMetadata, storageAccountName, containerName);
 
         // then
         assertNotNull(result);
-        assertEquals("123e4567-e89b-12d3-a456-426614174000", result.get("document_id"));
-        assertEquals("CASE-12345", result.get("case_id"));
-        assertEquals("MAT-001", result.get("material_id"));
-        assertEquals("https://teststorageaccount.blob.core.windows.net/testcontainer/test-document.pdf", result.get("blob_url"));
-        assertNotNull(result.get("current_timestamp"));
+        assertEquals("123e4567-e89b-12d3-a456-426614174000", result.documentId());
+        assertEquals("CASE-12345", result.additionalMetadata().get("case_id"));
+        assertEquals("MAT-001", result.additionalMetadata().get("material_id"));
+        assertEquals("https://teststorageaccount.blob.core.windows.net/testcontainer/test-document.pdf", result.blobUrl());
+        assertNotNull(result.currentTimestamp());
     }
 
     @Test
@@ -123,14 +125,14 @@ class BlobUtilTest {
         blobMetadata.put("document_id", "123e4567-e89b-12d3-a456-426614174000");
 
         // when
-        Map<String, Object> result = BlobUtil.createQueueMessage(blobName, blobMetadata, storageAccountName, containerName);
+        BlobMetadata result = BlobUtil.createQueueMessage(blobName, blobMetadata, storageAccountName, containerName);
 
         // then
         assertNotNull(result);
-        assertEquals("123e4567-e89b-12d3-a456-426614174000", result.get("document_id"));
-        assertEquals("https://teststorageaccount.blob.core.windows.net/testcontainer/minimal-document.pdf", result.get("blob_url"));
-        assertNotNull(result.get("current_timestamp"));
-        assertEquals(3, result.size()); // document_id, blob_url, current_timestamp
+        assertEquals("123e4567-e89b-12d3-a456-426614174000", result.documentId());
+        assertEquals("https://teststorageaccount.blob.core.windows.net/testcontainer/minimal-document.pdf", result.blobUrl());
+        assertNotNull(result.currentTimestamp());
+        assertTrue(result.additionalMetadata().isEmpty()); // No additional metadata
     }
 
     @Test
@@ -145,18 +147,14 @@ class BlobUtilTest {
         blobMetadata.put("case_id", "CASE-12345");
 
         // when
-        Map<String, Object> result = BlobUtil.createQueueMessage(blobName, blobMetadata, storageAccountName, containerName);
+        BlobMetadata result = BlobUtil.createQueueMessage(blobName, blobMetadata, storageAccountName, containerName);
 
         // then
         assertNotNull(result);
-        assertEquals("123e4567-e89b-12d3-a456-426614174000", result.get("document_id"));
-        assertEquals("CASE-12345", result.get("case_id"));
-        assertEquals(4, result.size()); // document_id, case_id, blob_url, current_timestamp
-        // Ensure document_id appears only once
-        long documentIdCount = result.entrySet().stream()
-                .filter(entry -> "document_id".equals(entry.getKey()))
-                .count();
-        assertEquals(1, documentIdCount);
+        assertEquals("123e4567-e89b-12d3-a456-426614174000", result.documentId());
+        assertEquals("CASE-12345", result.additionalMetadata().get("case_id"));
+        // Ensure document_id is not in additionalMetadata
+        assertFalse(result.additionalMetadata().containsKey("document_id"));
     }
 
     @Test
@@ -170,10 +168,10 @@ class BlobUtilTest {
         blobMetadata.put("document_id", "123e4567-e89b-12d3-a456-426614174000");
 
         // when
-        Map<String, Object> result = BlobUtil.createQueueMessage(blobName, blobMetadata, storageAccountName, containerName);
+        BlobMetadata result = BlobUtil.createQueueMessage(blobName, blobMetadata, storageAccountName, containerName);
 
         // then
         assertNotNull(result);
-        assertEquals("https://teststorageaccount.blob.core.windows.net/testcontainer/test document (1).pdf", result.get("blob_url"));
+        assertEquals("https://teststorageaccount.blob.core.windows.net/testcontainer/test document (1).pdf", result.blobUrl());
     }
 }

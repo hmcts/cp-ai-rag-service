@@ -1,10 +1,14 @@
 package uk.gov.moj.cp.metadata.check.util;
 
-
+/**
+ * Utility class for string operations.
+ */
 public class StringUtils {
-
-    public static boolean isNullOrBlank(String input) {
-        return input == null || input.trim().isEmpty();
+    
+    /**
+     * Checks if a string is null or blank (empty or whitespace only).
+     */
+    public static boolean isNullOrBlank(String str) {
+        return str == null || str.trim().isEmpty();
     }
 }
-

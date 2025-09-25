@@ -3,8 +3,9 @@ package uk.gov.moj.cp.metadata.check;
 import static uk.gov.moj.cp.metadata.check.util.BlobUtil.createQueueMessage;
 import static uk.gov.moj.cp.metadata.check.util.BlobUtil.isValidMetadata;
 
+import uk.gov.moj.cp.ai.model.BlobMetadata;
 import uk.gov.moj.cp.metadata.check.config.Config;
-import uk.gov.moj.cp.metadata.check.service.BlobMetadataValidationService;
+import uk.gov.moj.cp.metadata.check.service.BlobMetadataService;
 import uk.gov.moj.cp.metadata.check.service.QueueStorageService;
 
 import java.util.Map;
@@ -24,12 +25,12 @@ public class BlobTriggerFunction {
 
     private static final Logger logger = LoggerFactory.getLogger(BlobTriggerFunction.class);
 
-    private final BlobMetadataValidationService blobMetadataValidationService;
+    private final BlobMetadataService blobMetadataService;
     private final QueueStorageService queueStorageService;
 
-    public BlobTriggerFunction(final BlobMetadataValidationService blobMetadataValidationService,
+    public BlobTriggerFunction(final BlobMetadataService blobMetadataService,
                                final QueueStorageService queueStorageService) {
-        this.blobMetadataValidationService = blobMetadataValidationService;
+        this.blobMetadataService = blobMetadataService;
         this.queueStorageService = queueStorageService;
     }
 
@@ -48,16 +49,15 @@ public class BlobTriggerFunction {
 
         try {
 
-            Map<String, String> blobMetadata = blobMetadataValidationService.extractBlobMetadata(documentName);
+            Map<String, String> blobMetadata = blobMetadataService.extractBlobMetadata(documentName);
 
             if (!isValidMetadata(blobMetadata)) {
                 logger.error("Invalid metadata for blob: {}", documentName);
                 return;
             }
 
-            Map<String, Object> queueMessage = createQueueMessage(documentName, blobMetadata,
+            BlobMetadata queueMessage = createQueueMessage(documentName, blobMetadata,
                     Config.getStorageAccountName(), Config.getContainerName());
-
 
             queueStorageService.sendToQueue(queueMessage);
 

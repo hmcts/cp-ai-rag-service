@@ -6,37 +6,30 @@ package uk.gov.moj.cp.metadata.check.config;
 public class Config {
     
     public static String getStorageConnectionString() {
-        String envValue = System.getenv("AzureWebJobsStorage");
-        if (envValue != null) {
-            return envValue;
-        }
-        return System.getProperty("AzureWebJobsStorage");
+        return getKeyValue("AzureWebJobsStorage");
     }
     
     public static String getQueueName() {
-        String envValue = System.getenv("DOCUMENT_PROCESSING_QUEUE_NAME");
-        if (envValue != null) {
-            return envValue;
-        }
-        String propValue = System.getProperty("DOCUMENT_PROCESSING_QUEUE_NAME");
-        return propValue != null ? propValue : "document-processing-queue";
+        return getKeyValue("DOCUMENT_PROCESSING_QUEUE_NAME");
     }
     
     public static String getContainerName() {
-        String envValue = System.getenv("DOCUMENT_CONTAINER_NAME");
-        if (envValue != null) {
-            return envValue;
-        }
-        String propValue = System.getProperty("DOCUMENT_CONTAINER_NAME");
-        return propValue != null ? propValue : "documents";
+        return getKeyValue("DOCUMENT_CONTAINER_NAME");
     }
     
     public static String getStorageAccountName() {
-        String envValue = System.getenv("STORAGE_ACCOUNT_NAME");
+        return getKeyValue("STORAGE_ACCOUNT_NAME");
+    }
+
+    private static String getKeyValue(String key) {
+        String envValue = System.getenv(key);
         if (envValue != null) {
             return envValue;
         }
-        String propValue = System.getProperty("STORAGE_ACCOUNT_NAME");
-        return propValue != null ? propValue : "defaultstorageaccount";
+        String propValue = System.getProperty(key);
+        if (propValue != null) {
+            return propValue;
+        }
+        throw new PropertyValueNotFoundException("Required configuration property '" + key + "' not found in environment variables or system properties");
     }
 }

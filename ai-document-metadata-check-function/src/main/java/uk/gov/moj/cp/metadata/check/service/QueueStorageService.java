@@ -2,8 +2,7 @@ package uk.gov.moj.cp.metadata.check.service;
 
 import static uk.gov.moj.cp.metadata.check.config.Config.getQueueName;
 import static uk.gov.moj.cp.metadata.check.config.Config.getStorageConnectionString;
-
-import java.util.Map;
+import uk.gov.moj.cp.ai.model.BlobMetadata;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +19,7 @@ public class QueueStorageService {
     /**
      * Sends message to Azure Storage Queue.
      */
-    public void sendToQueue(Map<String, Object> message) {
+    public void sendToQueue(BlobMetadata message) {
         try {
 
             String connectionString = getStorageConnectionString();

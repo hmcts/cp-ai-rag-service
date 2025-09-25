@@ -6,7 +6,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import uk.gov.moj.cp.metadata.check.service.BlobMetadataValidationService;
+import uk.gov.moj.cp.ai.model.BlobMetadata;
+import uk.gov.moj.cp.metadata.check.service.BlobMetadataService;
 import uk.gov.moj.cp.metadata.check.service.QueueStorageService;
 
 import java.util.HashMap;
@@ -20,21 +21,25 @@ import org.junit.jupiter.api.Test;
 class BlobTriggerFunctionTest {
 
     private BlobTriggerFunction blobTriggerFunction;
-    private BlobMetadataValidationService blobMetadataValidationServiceMock;
+    private BlobMetadataService blobMetadataServiceMock;
     private QueueStorageService queueStorageServiceMock;
     private ExecutionContext contextMock;
 
     @BeforeEach
     void setUp() {
-        blobMetadataValidationServiceMock = mock(BlobMetadataValidationService.class);
+        // Set required system properties for testing
+        System.setProperty("STORAGE_ACCOUNT_NAME", "teststorageaccount");
+        System.setProperty("DOCUMENT_CONTAINER_NAME", "testcontainer");
+
+        blobMetadataServiceMock = mock(BlobMetadataService.class);
         queueStorageServiceMock = mock(QueueStorageService.class);
         contextMock = mock(ExecutionContext.class);
-        blobTriggerFunction = new BlobTriggerFunction(blobMetadataValidationServiceMock, queueStorageServiceMock);
+        blobTriggerFunction = new BlobTriggerFunction(blobMetadataServiceMock, queueStorageServiceMock);
     }
 
     @Test
     @DisplayName("Processes Document with valid Metadata")
-    void shouldProcessValidBlobWithMetadata() throws Exception {
+    void shouldProcessValidBlobWithMetadata() {
         // given
         String documentName = "test-document.pdf";
         String invocationId = "test-invocation-123";
@@ -45,20 +50,20 @@ class BlobTriggerFunctionTest {
 
         //when
         when(contextMock.getInvocationId()).thenReturn(invocationId);
-        when(blobMetadataValidationServiceMock.extractBlobMetadata(documentName)).thenReturn(blobMetadata);
-        doNothing().when(queueStorageServiceMock).sendToQueue(any(Map.class));
+        when(blobMetadataServiceMock.extractBlobMetadata(documentName)).thenReturn(blobMetadata);
+        doNothing().when(queueStorageServiceMock).sendToQueue(any(BlobMetadata.class));
 
         // then
         blobTriggerFunction.run(documentName, documentName, contextMock);
 
         // Assert
-        verify(blobMetadataValidationServiceMock).extractBlobMetadata(documentName);
-        verify(queueStorageServiceMock).sendToQueue(any(Map.class));
+        verify(blobMetadataServiceMock).extractBlobMetadata(documentName);
+        verify(queueStorageServiceMock).sendToQueue(any(BlobMetadata.class));
     }
 
     @Test
     @DisplayName("Handles document with invalid metadata and does not send to queue")
-    void shouldHandleInvalidMetadata() throws Exception {
+    void shouldHandleInvalidMetadata() {
         // Given
         String documentName = "test-document.pdf";
         String invocationId = "test-invocation-456";
@@ -69,12 +74,12 @@ class BlobTriggerFunctionTest {
 
 
         when(contextMock.getInvocationId()).thenReturn(invocationId);
-        when(blobMetadataValidationServiceMock.extractBlobMetadata(documentName)).thenReturn(invalidMetadata);
+        when(blobMetadataServiceMock.extractBlobMetadata(documentName)).thenReturn(invalidMetadata);
 
         // then
         blobTriggerFunction.run(documentName, documentName, contextMock);
 
         // Assert
-        verify(blobMetadataValidationServiceMock).extractBlobMetadata(documentName);
+        verify(blobMetadataServiceMock).extractBlobMetadata(documentName);
     }
 }

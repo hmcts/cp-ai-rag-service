@@ -18,13 +18,13 @@ import org.junit.jupiter.api.Test;
 
 class BlobMetadataValidationTest {
 
-    private BlobMetadataValidationService blobMetadataValidationService;
+    private BlobMetadataService blobMetadataService;
     private BlobClientService blobClientServiceMock;
 
     @BeforeEach
     void setUp() {
         blobClientServiceMock = mock(BlobClientService.class);
-        blobMetadataValidationService = new BlobMetadataValidationService(blobClientServiceMock);
+        blobMetadataService = new BlobMetadataService(blobClientServiceMock);
     }
 
     @Test
@@ -46,7 +46,7 @@ class BlobMetadataValidationTest {
         when(blobPropertiesMock.getMetadata()).thenReturn(expectedMetadata);
 
         // Then
-        Map<String, String> result = blobMetadataValidationService.extractBlobMetadata(blobName);
+        Map<String, String> result = blobMetadataService.extractBlobMetadata(blobName);
 
         // Assert
         assertNotNull(result);
@@ -64,7 +64,7 @@ class BlobMetadataValidationTest {
         when(blobClientMock.exists()).thenReturn(false);
 
         //Then
-        Map<String, String> result = blobMetadataValidationService.extractBlobMetadata(blobName);
+        Map<String, String> result = blobMetadataService.extractBlobMetadata(blobName);
 
         // Assert
         assertNotNull(result);

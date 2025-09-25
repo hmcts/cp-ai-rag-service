@@ -12,8 +12,9 @@ class BlobClientServiceTest {
 
     @BeforeEach
     void setUp() {
-        // Set environment variable for testing
+        // Set required system properties for testing
         System.setProperty("AzureWebJobsStorage", "UseDevelopmentStorage=true");
+        System.setProperty("DOCUMENT_CONTAINER_NAME", "testcontainer");
         blobClientService = new BlobClientService();
     }
 

@@ -4,6 +4,8 @@ import static java.time.Instant.now;
 import static java.util.UUID.fromString;
 import static uk.gov.moj.cp.metadata.check.util.StringUtils.isNullOrBlank;
 
+import uk.gov.moj.cp.ai.model.BlobMetadata;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -35,28 +37,24 @@ public class BlobUtil {
     }
 
     /**
-     * Creates the queue message payload as a flat Map<String, Object>.
+     * Creates the queue message payload as a BlobMetadata record.
      */
-    public static Map<String, Object> createQueueMessage(String blobName, Map<String, String> blobMetadata,
-                                                         String storageAccountName, String containerName) {
-        Map<String, Object> queueMessage = new HashMap<>();
-
-        queueMessage.put(DOCUMENT_ID, blobMetadata.get(DOCUMENT_ID));
-
+    public static BlobMetadata createQueueMessage(String blobName, Map<String, String> blobMetadata,
+                                                  String storageAccountName, String containerName) {
+        String documentId = blobMetadata.get(DOCUMENT_ID);
+        
+        // Create additional metadata map (excluding document_id to avoid duplication)
+        Map<String, String> additionalMetadata = new HashMap<>();
         for (Map.Entry<String, String> entry : blobMetadata.entrySet()) {
-
-            if (!DOCUMENT_ID.equals(entry.getKey())) { // avoids duplicate
-                queueMessage.put(entry.getKey(), entry.getValue());
+            if (!DOCUMENT_ID.equals(entry.getKey())) {
+                additionalMetadata.put(entry.getKey(), entry.getValue());
             }
         }
 
-        String blobUrl = String.format(BLOB_URL,
-                storageAccountName, containerName, blobName);
+        String blobUrl = String.format(BLOB_URL, storageAccountName, containerName, blobName);
+        String currentTimestamp = now().toString();
 
-        queueMessage.put("blob_url", blobUrl);
-        queueMessage.put("current_timestamp", now().toString());
-
-        return queueMessage;
+        return new BlobMetadata(documentId, additionalMetadata, blobUrl, currentTimestamp);
     }
 
 }
