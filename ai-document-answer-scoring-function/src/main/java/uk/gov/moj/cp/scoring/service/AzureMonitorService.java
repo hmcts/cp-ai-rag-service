@@ -36,7 +36,7 @@ public class AzureMonitorService {
                     .setDescription(metricDescription)
                     .setUnit("1")
                     .build();
-            Attributes attributes = Attributes.of(AttributeKey.stringKey("keyDimension"), valueDimension);
+            Attributes attributes = Attributes.of(AttributeKey.stringKey(keyDimension), valueDimension);
             histogram.record(score, attributes);
             LOGGER.info("Metrics have been exported successfully for query type: {} with score: {}", keyDimension, score);
         }
