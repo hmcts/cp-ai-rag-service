@@ -26,6 +26,7 @@
         <azure.openai.version>1.0.0-beta.1</azure.openai.version>
         <junit-jupiter-engine.version>5.11.0-M2</junit-jupiter-engine.version>
         <mockito-junit-jupiter.version>5.20.0</mockito-junit-jupiter.version>
+        <assertj-core.version>3.24.2</assertj-core.version>
         <azure.storage.version>8.6.6</azure.storage.version>
         <azure.storage.blob>12.21.0</azure.storage.blob>
         <azure.storage.queue>12.21.0</azure.storage.queue>
@@ -105,6 +106,16 @@
                 <artifactId>azure-storage-queue</artifactId>
                 <version>${azure.storage.queue}</version>
             </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
 
             <dependency>
                 <groupId>com.azure</groupId>
@@ -169,6 +180,12 @@
                 <groupId>org.mockito</groupId>
                 <artifactId>mockito-junit-jupiter</artifactId>
                 <version>${mockito-junit-jupiter.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.assertj</groupId>
+                <artifactId>assertj-core</artifactId>
+                <version>${assertj-core.version}</version>
                 <scope>test</scope>
             </dependency>
         </dependencies>
