@@ -1,5 +1,7 @@
 package uk.gov.moj.cp.metadata.check.config;
 
+import uk.gov.moj.cp.metadata.check.exception.PropertyValueNotFoundException;
+
 /**
  * Simple static configuration class.
  */

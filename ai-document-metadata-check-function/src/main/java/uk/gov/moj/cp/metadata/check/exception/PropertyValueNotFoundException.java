@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.metadata.check.config;
+package uk.gov.moj.cp.metadata.check.exception;
 
 /**
  * Exception thrown when a required configuration property is not found.
