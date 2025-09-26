@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
@@ -11,16 +13,20 @@
     <artifactId>ai-document-answer-scoring-function</artifactId>
     <packaging>jar</packaging>
     <name>AI Document Answer Scoring Function</name>
-    <description>Azure Function worker that scores generated responses and stores telemetry in Azure Monitor</description>
+    <description>Azure Function worker that scores generated responses and stores telemetry in Azure
+        Monitor
+    </description>
 
     <properties>
         <azureEnv>ste</azureEnv>
         <java.version>17</java.version>
         <functionAppName>fa-${azureEnv}-ai-document-answer-scoring</functionAppName>
         <functionAppRegion>uksouth</functionAppRegion>
-        <stagingDirectory>${project.build.directory}/azure-functions/${functionAppName}</stagingDirectory>
+        <stagingDirectory>${project.build.directory}/azure-functions/${functionAppName}
+        </stagingDirectory>
         <functionResourceGroup>rg-${azureEnv}-cpairag</functionResourceGroup>
-        <stagingDirectory>${project.build.directory}/azure-functions/${functionAppName}</stagingDirectory>
+        <stagingDirectory>${project.build.directory}/azure-functions/${functionAppName}
+        </stagingDirectory>
     </properties>
 
     <dependencies>
@@ -30,31 +36,36 @@
             <artifactId>ai-document-shared-artefacts</artifactId>
             <version>${project.version}</version>
         </dependency>
-        
+
         <!-- Azure Functions -->
         <dependency>
             <groupId>com.microsoft.azure.functions</groupId>
             <artifactId>azure-functions-java-library</artifactId>
-            <version>${azure.functions.java.library.version}</version>
         </dependency>
 
+        <!-- Telemetry dependencies -->
         <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-monitor-opentelemetry-exporter</artifactId>
-            <version>1.0.0-beta.15</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
+
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-sdk</artifactId>
-            <version>1.34.0</version>
         </dependency>
+
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-sdk-metrics</artifactId>
-            <version>1.34.0</version>
         </dependency>
 
-        
+
     </dependencies>
 
     <build>
@@ -154,7 +165,7 @@
                     <dependency>
                         <groupId>com.microsoft.azure.functions</groupId>
                         <artifactId>azure-functions-java-library</artifactId>
-                        <version>3.1.0</version>
+                        <version>${azure.functions.java.library.version}</version>
                     </dependency>
                 </dependencies>
                 <configuration>

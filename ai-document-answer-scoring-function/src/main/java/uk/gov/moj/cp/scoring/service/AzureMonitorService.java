@@ -1,8 +1,5 @@
 package uk.gov.moj.cp.scoring.service;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import com.azure.monitor.opentelemetry.exporter.AzureMonitorExporterBuilder;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
@@ -11,10 +8,12 @@ import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.metrics.export.PeriodicMetricReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AzureMonitorService {
 
-    private final Logger logger = Logger.getLogger(AzureMonitorService.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(AzureMonitorService.class.getName());
 
     private final String azureInsightsConnectionString;
 
@@ -37,9 +36,9 @@ public class AzureMonitorService {
                     .setDescription(metricDescription)
                     .setUnit("1")
                     .build();
-            Attributes attributes = Attributes.of(AttributeKey.stringKey("keyDimension"), valueDimension);
+            Attributes attributes = Attributes.of(AttributeKey.stringKey(keyDimension), valueDimension);
             histogram.record(score, attributes);
-            logger.log(Level.INFO, () -> "Metrics have been exported successfully for query type: " + keyDimension + " with score: " + score);
+            LOGGER.info("Metrics have been exported successfully for query type: {} with score: {}", keyDimension, score);
         }
     }
 }

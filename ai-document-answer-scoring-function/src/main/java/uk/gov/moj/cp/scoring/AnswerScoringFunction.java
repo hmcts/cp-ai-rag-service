@@ -1,20 +1,17 @@
 package uk.gov.moj.cp.scoring;
 
-import static java.util.logging.Level.INFO;
-import static java.util.logging.Level.SEVERE;
-
 import uk.gov.moj.cp.ai.model.QueryResponse;
 import uk.gov.moj.cp.scoring.model.ModelScore;
 import uk.gov.moj.cp.scoring.service.PublishScoreService;
 import uk.gov.moj.cp.scoring.service.ScoringService;
-
-import java.util.logging.Logger;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Azure Function for answer scoring and telemetry.
@@ -22,7 +19,7 @@ import com.microsoft.azure.functions.annotation.QueueTrigger;
  */
 public class AnswerScoringFunction {
 
-    private static final Logger LOGGER = Logger.getLogger(AnswerScoringFunction.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(AnswerScoringFunction.class.getName());
 
     private final ScoringService scoringService;
     private PublishScoreService publishScoreService;
@@ -55,18 +52,18 @@ public class AnswerScoringFunction {
         try {
             final QueryResponse queryResponse = new ObjectMapper().readValue(message, QueryResponse.class);
 
-            LOGGER.log(INFO, () -> "Starting process to score answer for query: " + queryResponse.userQuery());
+            LOGGER.info("Starting process to score answer for query: {}", queryResponse.userQuery());
 
             final ModelScore modelScore = scoringService.evaluateGroundedness(queryResponse.llmResponse(), queryResponse.userQuery(), queryResponse.chunkedEntries());
 
-            LOGGER.log(INFO, () -> "Score now available for the answer : " + modelScore.groundednessScore());
+            LOGGER.info("Score now available for the answer : {}", modelScore.groundednessScore());
 
             publishScoreService.publishGroundednessScore(modelScore.groundednessScore(), queryResponse.userQuery());
 
-            LOGGER.log(INFO, () -> "Answer scoring processing completed successfully for message with score : " + modelScore.groundednessScore());
+            LOGGER.info("Answer scoring processing completed successfully for message with score : {}", modelScore.groundednessScore());
 
         } catch (Exception e) {
-            LOGGER.log(SEVERE, e, () -> "Error processing answer scoring for message: " + message);
+            LOGGER.error("Error processing answer scoring for message: " + message, e);
             try {
                 throw e;
             } catch (JsonProcessingException ex) {

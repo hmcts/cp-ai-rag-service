@@ -2,8 +2,6 @@ package uk.gov.moj.cp.ai.service;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import com.azure.ai.openai.OpenAIClient;
 import com.azure.ai.openai.OpenAIClientBuilder;
@@ -14,10 +12,12 @@ import com.azure.ai.openai.models.ChatRole;
 import com.azure.core.credential.AzureKeyCredential;
 import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ChatService {
 
-    private final Logger logger = Logger.getLogger(ChatService.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChatService.class.getName());
 
     private final OpenAIClient openAIClient;
 
@@ -43,7 +43,7 @@ public class ChatService {
                     .buildClient();
 
 
-            logger.info("Initialized Azure OpenAI client with API Key.");
+            LOGGER.info("Initialized Azure OpenAI client with API Key.");
         } else {
             // Option 2: Azure Managed Identity (Recommended for production)
             // Ensure your Azure App Service/Function App has a Managed Identity enabled
@@ -52,7 +52,7 @@ public class ChatService {
                     .endpoint(endpoint)
                     .credential(new DefaultAzureCredentialBuilder().build())
                     .buildClient();
-            logger.info("Initialized Azure OpenAI client with Managed Identity.");
+            LOGGER.info("Initialized Azure OpenAI client with Managed Identity.");
         }
     }
 
@@ -72,7 +72,7 @@ public class ChatService {
             final T responseModel = new ObjectMapper().readValue(jsonResponse, responseClass);
             return Optional.of(responseModel);
         } catch (Exception e) {
-            logger.log(Level.SEVERE, e, () -> "Error calling Judge LLM for evaluation");
+            LOGGER.error("Error calling Judge LLM for evaluation", e);
         }
         return Optional.empty();
     }

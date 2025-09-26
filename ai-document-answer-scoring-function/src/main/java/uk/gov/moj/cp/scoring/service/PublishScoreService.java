@@ -2,12 +2,13 @@ package uk.gov.moj.cp.scoring.service;
 
 import java.math.BigDecimal;
 import java.util.Objects;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class PublishScoreService {
 
-    private final Logger logger = Logger.getLogger(PublishScoreService.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(PublishScoreService.class.getName());
 
     private final AzureMonitorService azureMonitorService;
 
@@ -21,10 +22,10 @@ public class PublishScoreService {
 
     public void publishGroundednessScore(BigDecimal score, String userQuery) {
 
-        logger.log(Level.INFO, () -> "Publishing Groundedness score for message: " + score);
+        LOGGER.info("Publishing Groundedness score for message: {}", score);
 
         if (Objects.isNull(score) || Objects.isNull(userQuery) || userQuery.isBlank()) {
-            logger.log(Level.WARNING, "Score or user query is null/empty, skipping publishing.");
+            LOGGER.warn("Score or user query is null/empty, skipping publishing.");
             return;
         }
 
@@ -34,7 +35,7 @@ public class PublishScoreService {
                 score.doubleValue(),
                 "query_type",
                 userQuery);
-        logger.log(Level.INFO, "Finished publishing Groundedness score for message");
+        LOGGER.info("Finished publishing Groundedness score for message");
 
     }
 }

@@ -1,13 +1,14 @@
 package uk.gov.moj.cp.scoring.service;
 
-import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
+import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.scoring.model.ModelScore;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ScoringService {
 
@@ -37,7 +38,7 @@ public class ScoringService {
     private static final String CHAT_USER_INSTRUCTION = "Evaluate the answer.";
 
     private final ChatService chatService;
-    private final Logger logger = Logger.getLogger(ScoringService.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScoringService.class.getName());
 
     public ScoringService() {
         String judgeModelEndpoint = System.getenv("AZURE_JUDGE_OPENAI_ENDPOINT");
@@ -60,7 +61,7 @@ public class ScoringService {
      * @return The groundedness score from the judge, or a default value on error.
      */
     public ModelScore evaluateGroundedness(String llmResponse, String userQuery, List<ChunkedEntry> retrievedDocuments) {
-        logger.info("Evaluating groundedness of response...");
+        LOGGER.info("Evaluating groundedness of response...");
 
         final String systemPromptInstruction = getSystemPromptInstruction(llmResponse, userQuery, retrievedDocuments);
 
@@ -68,7 +69,7 @@ public class ScoringService {
             return chatService.callModel(systemPromptInstruction, CHAT_USER_INSTRUCTION, ModelScore.class)
                     .orElse(new ModelScore(BigDecimal.ZERO, "Error generating score"));
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "Error calling Judge LLM for evaluation", e);
+            LOGGER.error("Error calling Judge LLM for evaluation", e);
             return new ModelScore(BigDecimal.ZERO, "Error generating score");
         }
     }
