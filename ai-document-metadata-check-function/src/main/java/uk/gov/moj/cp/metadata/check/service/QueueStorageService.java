@@ -4,7 +4,7 @@ import static java.time.Instant.now;
 import static uk.gov.moj.cp.metadata.check.config.Config.getContainerName;
 import static uk.gov.moj.cp.metadata.check.config.Config.getStorageAccountName;
 import static uk.gov.moj.cp.metadata.check.util.BlobStatus.INGESTION_FAILED;
-import static uk.gov.moj.cp.metadata.check.util.BlobStatus.INGESTION_SUCCESS;
+import static uk.gov.moj.cp.metadata.check.util.BlobStatus.METADATA_VALIDATED;
 
 import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 
 public class QueueStorageService {
 
-    private static final Logger logger = LoggerFactory.getLogger(QueueStorageService.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(QueueStorageService.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final String BLOB_URL = "https://%s.blob.core.windows.net/%s/%s";
@@ -81,8 +81,8 @@ public class QueueStorageService {
             DocumentIngestionOutcome documentIngestionOutcome = new DocumentIngestionOutcome();
             documentIngestionOutcome.setDocumentId(message.documentId());
             documentIngestionOutcome.setDocumentName(message.documentName());
-            documentIngestionOutcome.setStatus(INGESTION_SUCCESS.name());
-            documentIngestionOutcome.setReason(INGESTION_SUCCESS.getReason());
+            documentIngestionOutcome.setStatus(METADATA_VALIDATED.name());
+            documentIngestionOutcome.setReason(METADATA_VALIDATED.getReason());
             documentIngestionOutcome.setBlobUrl(message.blobUrl());
             documentIngestionOutcome.setTimestamp(now().toString());
             // store the status to storage table
@@ -91,7 +91,7 @@ public class QueueStorageService {
             return new QueueTaskResult(true, messageText, null);
 
         } catch (Exception e) {
-            logger.error("Failed to send message to queue: {}", e.getMessage(), e);
+            LOGGER.error("Failed to send message to queue: {}", e.getMessage(), e);
             DocumentIngestionOutcome errorStatusEntity = new DocumentIngestionOutcome();
             errorStatusEntity.setDocumentId(message.documentId());
             errorStatusEntity.setDocumentName(message.documentName());
@@ -108,10 +108,10 @@ public class QueueStorageService {
     private void storeStatus(DocumentIngestionOutcome statusEntity) {
         try {
             tableClient.upsertEntity(statusEntity.toTableEntity());
-            logger.info("Stored status {} for doc {} in outcome table",
+            LOGGER.info("Stored status {} for doc {} in outcome table",
                     statusEntity.getStatus(), statusEntity.getDocumentId());
         } catch (Exception e) {
-            logger.error("Failed to store status for doc {}: {}",
+            LOGGER.error("Failed to store status for doc {}: {}",
                     statusEntity.getDocumentId(), e.getMessage(), e);
         }
     }

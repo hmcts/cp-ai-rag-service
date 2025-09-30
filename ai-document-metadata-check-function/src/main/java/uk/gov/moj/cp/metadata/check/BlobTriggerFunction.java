@@ -11,13 +11,12 @@ import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.BlobTrigger;
 import com.microsoft.azure.functions.annotation.FunctionName;
-import com.microsoft.azure.functions.annotation.StorageAccount;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class BlobTriggerFunction {
-    
-    private static final Logger logger = LoggerFactory.getLogger(BlobTriggerFunction.class);
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(BlobTriggerFunction.class);
     private final BlobMetadataService blobMetadataService;
     private final QueueStorageService queueStorageService;
 
@@ -27,7 +26,7 @@ public class BlobTriggerFunction {
         String documentIngestionOutcomeTable = System.getenv("DOCUMENT_INGESTION_OUTCOME_TABLE");
         String documentContainerName = System.getenv("DOCUMENT_CONTAINER_NAME");
 
-        this.blobMetadataService = new BlobMetadataService(storageConnectionString,documentContainerName,documentIngestionOutcomeTable);
+        this.blobMetadataService = new BlobMetadataService(storageConnectionString, documentContainerName, documentIngestionOutcomeTable);
         this.queueStorageService = new QueueStorageService(storageConnectionString, documentIngestionQueue, documentIngestionOutcomeTable);
     }
 
@@ -39,18 +38,18 @@ public class BlobTriggerFunction {
     @FunctionName("DocumentMetadataCheck")
     public void run(
             @BlobTrigger(
-                name = "blob",
-                path = "documents/{name}",
-                connection = "AzureWebJobsStorage"
+                    name = "blob",
+                    path = "documents/{name}",
+                    connection = "AzureWebJobsStorage"
             )
             @BindingName("name") String documentName,
             final ExecutionContext context) {
-        
-        logger.info("Blob trigger function processed a request for blob: {}", documentName);
-        logger.info("Function execution ID: {}", context.getInvocationId());
 
-        logger.info("Blob trigger function processed a request for {}", documentName);
-        logger.info("Function execution ID: {}", context.getInvocationId());
+        LOGGER.info("Blob trigger function processed a request for blob: {}", documentName);
+        LOGGER.info("Function execution ID: {}", context.getInvocationId());
+
+        LOGGER.info("Blob trigger function processed a request for {}", documentName);
+        LOGGER.info("Function execution ID: {}", context.getInvocationId());
 
 
         Map<String, String> blobMetadata = blobMetadataService.processBlobMetadata(documentName);
@@ -60,9 +59,9 @@ public class BlobTriggerFunction {
         QueueTaskResult queueTaskResult = queueStorageService.sendToQueue(queueMessage);
 
         if (queueTaskResult.success()) {
-            logger.info("Document {} successfully processed and queued", documentName);
+            LOGGER.info("Document {} successfully processed and queued", documentName);
         } else {
-            logger.error("Failed to queue {} {}", documentName, queueTaskResult.errorMessage());
+            LOGGER.error("Failed to queue {} {}", documentName, queueTaskResult.errorMessage());
         }
     }
 }

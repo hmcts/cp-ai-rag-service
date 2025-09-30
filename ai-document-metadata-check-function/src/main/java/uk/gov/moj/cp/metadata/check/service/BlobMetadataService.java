@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
  */
 public class BlobMetadataService {
 
-    private static final Logger logger = LoggerFactory.getLogger(BlobMetadataService.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(BlobMetadataService.class);
     private static final String DOCUMENT_ID = "document_id";
     private final BlobClientFactory blobClientFactory;
     private final OutcomeStorageService outcomeStorageService;
@@ -54,7 +54,7 @@ public class BlobMetadataService {
             return metadata;
 
         } catch (Exception e) {
-            logger.error("Failed to extract metadata for blob: {}", documentName, e);
+            LOGGER.error("Failed to extract metadata for blob: {}", documentName, e);
             throw new MetadataValidationException("Failed to extract metadata for blob: " + documentName);
         }
 

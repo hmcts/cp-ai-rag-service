@@ -3,6 +3,7 @@ package uk.gov.moj.cp.metadata.check.util;
 public enum BlobStatus {
     INGESTION_SUCCESS("Document Ingestion Success"),
     INGESTION_FAILED("Document Ingestion Failed"),
+    METADATA_VALIDATED("Document Metadata Validated"),
     METADATA_MISSING("Document is required but not found"),
     MANDATORY_DOCUMENT_ID("Document ID is required but not found"),
     INVALID_DOCUMENT_ID("Invalid document_id format"),
