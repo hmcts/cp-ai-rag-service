@@ -14,6 +14,10 @@ public class DocumentIngestionOutcome {
     private String timestamp;
 
     public DocumentIngestionOutcome() {
+        // Empty constructor required for:
+        // 1. Java Bean specification compliance for serialization/deserialization
+        // 2. Azure Table Storage entity mapping
+        // 3. Object instantiation before property population via setters
     }
 
     public String getDocumentName() {
@@ -65,7 +69,7 @@ public class DocumentIngestionOutcome {
     }
 
     public TableEntity toTableEntity() {
-        String partitionKey = LocalDate.now().toString().replaceAll("-", "");
+        String partitionKey = LocalDate.now().toString().replace("-", "");
         TableEntity entity = new TableEntity(partitionKey, documentId);
         entity.addProperty("documentName", documentName);
         entity.addProperty("documentId", documentId);
