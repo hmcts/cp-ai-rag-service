@@ -1,5 +1,12 @@
 package uk.gov.moj.cp.metadata.check;
 
+import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
+import uk.gov.moj.cp.ai.model.QueueTaskResult;
+import uk.gov.moj.cp.metadata.check.service.BlobMetadataService;
+import uk.gov.moj.cp.metadata.check.service.QueueStorageService;
+
+import java.util.Map;
+
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.BlobTrigger;
@@ -8,70 +15,54 @@ import com.microsoft.azure.functions.annotation.StorageAccount;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Azure Function triggered by blob storage events.
- * This function validates document metadata when a new blob is uploaded.
- * 
- * TODO: Add logic to check if blob has been processed before
- * TODO: Add logic to validate metadata
- * TODO: Add logic to enqueue document for processing
- */
 public class BlobTriggerFunction {
     
     private static final Logger logger = LoggerFactory.getLogger(BlobTriggerFunction.class);
-    
-    /**
-     * Function triggered when a blob is created or updated in the specified container.
-     * 
-     * @param blobContent The blob content (not used for large files)
-     * @param blobName The name of the blob that triggered the function
-     * @param blobSize The size of the blob in bytes
-     * @param context The execution context
-     */
+    private final BlobMetadataService blobMetadataService;
+    private final QueueStorageService queueStorageService;
+
+    public BlobTriggerFunction() {
+        String storageConnectionString = System.getenv("AZURE_STORAGE_CONNECTION_STRING");
+        String documentIngestionQueue = System.getenv("DOCUMENT_INGESTION_QUEUE");
+        String documentIngestionOutcomeTable = System.getenv("DOCUMENT_INGESTION_OUTCOME_TABLE");
+        String documentContainerName = System.getenv("DOCUMENT_CONTAINER_NAME");
+
+        this.blobMetadataService = new BlobMetadataService(storageConnectionString,documentContainerName,documentIngestionOutcomeTable);
+        this.queueStorageService = new QueueStorageService(storageConnectionString, documentIngestionQueue, documentIngestionOutcomeTable);
+    }
+
+    BlobTriggerFunction(BlobMetadataService blobMetadataService, QueueStorageService queueStorageService) {
+        this.blobMetadataService = blobMetadataService;
+        this.queueStorageService = queueStorageService;
+    }
+
     @FunctionName("DocumentMetadataCheck")
-    @StorageAccount("AzureWebJobsStorage")
     public void run(
             @BlobTrigger(
                 name = "blob",
                 path = "documents/{name}",
                 connection = "AzureWebJobsStorage"
-            ) byte[] blobContent,
-            @BindingName("name") String blobName,
-            @BindingName("length") long blobSize,
+            )
+            @BindingName("name") String documentName,
             final ExecutionContext context) {
         
-        logger.info("Blob trigger function processed a request for blob: {}", blobName);
-        logger.info("Blob size: {} bytes", blobSize);
+        logger.info("Blob trigger function processed a request for blob: {}", documentName);
         logger.info("Function execution ID: {}", context.getInvocationId());
-        
-        try {
-            if (blobName == null || blobName.trim().isEmpty()) {
-                logger.error("Invalid blob name: {}", blobName);
-                return;
-            }
-            
-            if (blobSize <= 0) {
-                logger.error("Invalid blob size: {} bytes for blob: {}", blobSize, blobName);
-                return;
-            }
 
-            logger.info("Processing document: {}", blobName);
-            logger.info("Document size: {} bytes", blobSize);
-            
-            // TODO: Check if blob has been processed before
-            logger.info("TODO: Check if document {} has been processed before", blobName);
-            
-            // TODO: Validate document metadata
-            logger.info("TODO: Validate metadata for document: {}", blobName);
-            
-            // TODO: Enqueue document for processing
-            logger.info("TODO: Enqueue document {} for processing", blobName);
-            
-            logger.info("Document metadata check completed successfully for: {}", blobName);
-            
-        } catch (Exception e) {
-            logger.error("Error processing blob: {}", blobName, e);
-            throw e;
+        logger.info("Blob trigger function processed a request for {}", documentName);
+        logger.info("Function execution ID: {}", context.getInvocationId());
+
+
+        Map<String, String> blobMetadata = blobMetadataService.processBlobMetadata(documentName);
+
+        QueueIngestionMetadata queueMessage = queueStorageService.createQueueMessage(documentName, blobMetadata);
+
+        QueueTaskResult queueTaskResult = queueStorageService.sendToQueue(queueMessage);
+
+        if (queueTaskResult.success()) {
+            logger.info("Document {} successfully processed and queued", documentName);
+        } else {
+            logger.error("Failed to queue {} {}", documentName, queueTaskResult.errorMessage());
         }
     }
 }
