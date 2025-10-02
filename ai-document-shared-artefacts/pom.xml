@@ -10,7 +10,7 @@
 
     <artifactId>ai-document-shared-artefacts</artifactId>
     <packaging>jar</packaging>
-    <name>AI document shared artefacts module</name>
+    <name>AI Document Shared Artefacts Module</name>
     <description>Common utilities and models for the CP AI RAG Service</description>
 
     <dependencies>
@@ -18,7 +18,6 @@
         <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-ai-openai</artifactId>
-            <version>${azure.openai.version}</version>
         </dependency>
 
         <!-- Azure Identity (for Managed Identity or Azure AD authentication) -->
@@ -26,13 +25,15 @@
             <groupId>com.azure</groupId>
             <artifactId>azure-identity</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.microsoft.azure</groupId>
-            <artifactId>azure-storage</artifactId>
-        </dependency>
+
         <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-data-tables</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-storage-queue</artifactId>
         </dependency>
     </dependencies>
 </project>

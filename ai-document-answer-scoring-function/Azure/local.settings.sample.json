@@ -5,6 +5,8 @@
     "FUNCTIONS_WORKER_RUNTIME": "java",
     "FUNCTIONS_EXTENSION_VERSION": "~4",
 
+    "AI_RAG_SERVICE_STORAGE_ACCOUNT": "UseDevelopmentStorage=true or <storage-connection-string>",
+
     "AZURE_JUDGE_OPENAI_ENDPOINT": "<model-connection-string>>",
     "AZURE_JUDGE_OPENAI_API_KEY": "<model-api-key>",
     "AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME": "<model-deployment-name>",

@@ -1,5 +1,7 @@
 package uk.gov.moj.cp.ai.service;
 
+import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -29,8 +31,8 @@ public class ChatService {
 
     public ChatService(String endpoint, String apiKey, String deploymentName) {
 
-        isNullOrEmpty(endpoint, "Endpoint environment variable must be set.");
-        isNullOrEmpty(deploymentName, "Deployment name environment variable must be set.");
+        validateNullOrEmpty(endpoint, "Endpoint environment variable must be set.");
+        validateNullOrEmpty(deploymentName, "Deployment name environment variable must be set.");
 
         this.deploymentName = deploymentName;
 
@@ -69,7 +71,12 @@ public class ChatService {
 
             final ChatCompletions chatCompletions = openAIClient.getChatCompletions(deploymentName, chatCompletionsOptions);
             String jsonResponse = chatCompletions.getChoices().get(0).getMessage().getContent();
-            final T responseModel = new ObjectMapper().readValue(jsonResponse, responseClass);
+            final T responseModel;
+            if (responseClass == String.class) {
+                responseModel = responseClass.cast(jsonResponse);
+            } else {
+                responseModel = new ObjectMapper().readValue(jsonResponse, responseClass);
+            }
             return Optional.of(responseModel);
         } catch (Exception e) {
             LOGGER.error("Error calling Judge LLM for evaluation", e);
@@ -84,9 +91,4 @@ public class ChatService {
         );
     }
 
-    private void isNullOrEmpty(final String value, final String errorMessage) {
-        if (value == null || value.isEmpty()) {
-            throw new IllegalArgumentException(errorMessage);
-        }
-    }
 }

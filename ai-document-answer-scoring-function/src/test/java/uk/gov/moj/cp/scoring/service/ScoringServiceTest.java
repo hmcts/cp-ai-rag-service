@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.scoring.service;
 
+import static java.util.UUID.randomUUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.eq;
@@ -7,8 +8,8 @@ import static org.mockito.Mockito.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
+import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.scoring.model.ModelScore;
 
 import java.math.BigDecimal;
@@ -101,8 +102,8 @@ class ScoringServiceTest {
     @DisplayName("Returns default score when retrieved documents contain empty chunks")
     void returnsDefaultScoreWhenRetrievedDocumentsContainEmptyChunks() {
         List<ChunkedEntry> retrievedDocuments = List.of(
-                new ChunkedEntry("doc1", "", 1, BigDecimal.valueOf(0.2)),
-                new ChunkedEntry("doc2", "", 2, BigDecimal.valueOf(0.4))
+                new ChunkedEntry(randomUUID().toString(), "", "doc1", 1, randomUUID().toString()),
+                new ChunkedEntry(randomUUID().toString(), "", "doc2", 2, randomUUID().toString())
         );
 
         ModelScore result = scoringService.evaluateGroundedness("response", "query", retrievedDocuments);
@@ -115,8 +116,8 @@ class ScoringServiceTest {
     @DisplayName("Returns default score when retrieved documents contain null chunks")
     void returnsDefaultScoreWhenRetrievedDocumentsContainNullChunks() {
         List<ChunkedEntry> retrievedDocuments = List.of(
-                new ChunkedEntry("doc1", null, 1, BigDecimal.valueOf(0.2)),
-                new ChunkedEntry("doc2", null, 1, BigDecimal.valueOf(0.2))
+                new ChunkedEntry(randomUUID().toString(), null, "doc1", 1, randomUUID().toString()),
+                new ChunkedEntry(randomUUID().toString(), null, "doc2", 2, randomUUID().toString())
         );
 
         ModelScore result = scoringService.evaluateGroundedness("response", "query", retrievedDocuments);

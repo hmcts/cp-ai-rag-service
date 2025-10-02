@@ -22,7 +22,7 @@ public class AnswerScoringFunction {
     private static final Logger LOGGER = LoggerFactory.getLogger(AnswerScoringFunction.class.getName());
 
     private final ScoringService scoringService;
-    private PublishScoreService publishScoreService;
+    private final PublishScoreService publishScoreService;
 
     public AnswerScoringFunction() {
         scoringService = new ScoringService();
@@ -44,8 +44,8 @@ public class AnswerScoringFunction {
     public void run(
             @QueueTrigger(
                     name = "message",
-                    queueName = "answer-scoring-queue",
-                    connection = "AzureWebJobsStorage"
+                    queueName = "%STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING%",
+                    connection = "AI_RAG_SERVICE_STORAGE_ACCOUNT"
             ) String message,
             final ExecutionContext context) {
 

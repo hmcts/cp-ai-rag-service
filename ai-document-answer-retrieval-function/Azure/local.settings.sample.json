@@ -4,12 +4,22 @@
     "AzureWebJobsStorage": "<your-storage-connection-string>",
     "FUNCTIONS_WORKER_RUNTIME": "java",
     "FUNCTIONS_EXTENSION_VERSION": "~4",
-    "AZURE_SEARCH_ENDPOINT": "<your-search-endpoint>",
-    "AZURE_SEARCH_API_KEY": "<your-search-api-key>",
-    "AZURE_OPENAI_ENDPOINT": "<your-openai-endpoint>",
-    "AZURE_OPENAI_API_KEY": "<your-openai-api-key>",
-    "AZURE_OPENAI_DEPLOYMENT_NAME": "<your-openai-deployment-name>",
-    "SCORING_QUEUE_NAME": "answer-scoring-queue",
-    "APPINSIGHTS_INSTRUMENTATIONKEY": "<your-app-insights-key>"
+
+    "AZURE_EMBEDDING_SERVICE_ENDPOINT": "<your-embedding-service-endpoint>",
+    "AZURE_EMBEDDING_SERVICE_API_KEY": "<your-embedding-service-api-key>",
+    "AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME": "<embedding-service-deployment-name>",
+
+    "AZURE_SEARCH_SERVICE_ENDPOINT": "<azure-ai-search-service-endpoint>",
+    "AZURE_SEARCH_QUERY_KEY": "<azure-ai-search-query-key>",
+    "AZURE_SEARCH_INDEX_NAME": "<azure-ai-search-index-name>",
+
+    "AZURE_OPENAI_ENDPOINT": "<azure-openai-endpoint>",
+    "AZURE_OPENAI_API_KEY": "<azure-openai-api-key>",
+    "AZURE_OPENAI_CHAT_DEPLOYMENT_NAME": "<azure-openai-chat-deployment-name>",
+
+    "STORAGE_ACCOUNT_NAME": "<your-storage-account-name>",
+    "STORAGE_ACCOUNT_CONNECTION_STRING": "<your-storage-connection-string>",
+    "STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING": "answer-scoring-queue"
   }
 }
+

@@ -40,7 +40,7 @@ public class BlobTriggerFunction {
             @BlobTrigger(
                     name = "blob",
                     path = "documents/{name}",
-                    connection = "AzureWebJobsStorage"
+                    connection = "AI_RAG_SERVICE_STORAGE_ACCOUNT"
             )
             @BindingName("name") String documentName,
             final ExecutionContext context) {
