@@ -1,5 +1,7 @@
 package uk.gov.moj.cp.retrieval.service;
 
+import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
+
 import uk.gov.moj.cp.ai.index.IndexConstants;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.retrieval.model.KeyValuePair;
@@ -24,11 +26,11 @@ import org.slf4j.LoggerFactory;
 public class AzureAISearchService {
 
     private final SearchClient searchClient;
-    private static final Logger LOGGER = LoggerFactory.getLogger(AzureAISearchService.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(AzureAISearchService.class);
 
     public AzureAISearchService(String endpoint, String apiKey, String searchIndexName) {
 
-        if (endpoint == null || searchIndexName == null) {
+        if (isNullOrEmpty(endpoint) || isNullOrEmpty(searchIndexName)) {
             throw new IllegalArgumentException("Azure AI Search endpoint and index name must be set as environment variables.");
         }
 
@@ -43,7 +45,7 @@ public class AzureAISearchService {
 
     public AzureAISearchService(String endpoint, String searchIndexName) {
 
-        if (endpoint == null || searchIndexName == null) {
+        if (isNullOrEmpty(endpoint) || isNullOrEmpty(searchIndexName)) {
             throw new IllegalArgumentException("Azure AI Search endpoint and index name must be set as environment variables.");
         }
 
@@ -63,21 +65,7 @@ public class AzureAISearchService {
 
         LOGGER.info("Retrieving documents for query with filters: {}", metadataFilters);
 
-        StringBuilder filterBuilder = new StringBuilder();
-
-        if (metadataFilters != null && !metadataFilters.isEmpty()) {
-            for (KeyValuePair pair : metadataFilters) {
-                String key = pair.key();
-                String value = pair.value();
-                if (!filterBuilder.isEmpty()) {
-                    filterBuilder.append(" and ");
-                }
-                // Use 'any' operator for Collection(Edm.ComplexType)
-                // This filters for any item in the 'customMetadata' collection where 'key' equals 'key' AND 'value' equals 'value'
-                filterBuilder.append(String.format("%s/any(m: m/key eq '%s' and m/value eq '%s')", IndexConstants.CUSTOM_METADATA, key, value));
-            }
-        }
-        String filterExpression = !filterBuilder.isEmpty() ? filterBuilder.toString() : null;
+        final String filterExpression = generateFilterExpression(metadataFilters);
         LOGGER.info("Retrieving documents for query with filters: {}", filterExpression);
 
 
@@ -127,5 +115,24 @@ public class AzureAISearchService {
             // Implement retry logic here if needed
             throw new RuntimeException("Failed to retrieve documents from Azure AI Search", e);
         }
+    }
+
+    private static String generateFilterExpression(final List<KeyValuePair> metadataFilters) {
+        StringBuilder filterBuilder = new StringBuilder();
+
+        if (metadataFilters != null && !metadataFilters.isEmpty()) {
+            for (KeyValuePair pair : metadataFilters) {
+                String key = pair.key();
+                String value = pair.value();
+                if (!filterBuilder.isEmpty()) {
+                    filterBuilder.append(" and ");
+                }
+                // Use 'any' operator for Collection(Edm.ComplexType)
+                // This filters for any item in the 'customMetadata' collection where 'key' equals 'key' AND 'value' equals 'value'
+                filterBuilder.append(String.format("%s/any(m: m/key eq '%s' and m/value eq '%s')", IndexConstants.CUSTOM_METADATA, key, value));
+            }
+        }
+        String filterExpression = !filterBuilder.isEmpty() ? filterBuilder.toString() : null;
+        return filterExpression;
     }
 }

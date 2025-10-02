@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 public class SearchService {
 
     private final AzureAISearchService azureAISearchService;
-    private static final Logger LOGGER = LoggerFactory.getLogger(SearchService.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(SearchService.class);
 
     // --- Constructor: Initialize Azure AI Search Client ---
     public SearchService() {

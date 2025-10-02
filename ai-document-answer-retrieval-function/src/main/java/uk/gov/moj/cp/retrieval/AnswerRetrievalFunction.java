@@ -1,11 +1,11 @@
 package uk.gov.moj.cp.retrieval;
 
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
+import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.QueryResponse;
-import uk.gov.moj.cp.ai.service.AzureQueueService;
 import uk.gov.moj.cp.retrieval.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
@@ -15,7 +15,6 @@ import uk.gov.moj.cp.retrieval.service.SearchService;
 import java.util.List;
 import java.util.Map;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
@@ -42,20 +41,16 @@ public class AnswerRetrievalFunction {
 
     private final ResponseGenerationService responseGenerationService;
 
-    private final AzureQueueService azureQueueService;
-
     public AnswerRetrievalFunction() {
         embedDataService = new EmbedDataService();
         searchService = new SearchService();
         responseGenerationService = new ResponseGenerationService();
-        azureQueueService = new AzureQueueService(System.getenv("STORAGE_ACCOUNT_CONNECTION_STRING"), System.getenv("STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING"));
     }
 
-    public AnswerRetrievalFunction(final EmbedDataService embedDataService, final SearchService searchService, final ResponseGenerationService responseGenerationService, final AzureQueueService azureQueueService) {
+    public AnswerRetrievalFunction(final EmbedDataService embedDataService, final SearchService searchService, final ResponseGenerationService responseGenerationService) {
         this.embedDataService = embedDataService;
         this.searchService = searchService;
         this.responseGenerationService = responseGenerationService;
-        this.azureQueueService = azureQueueService;
     }
 
     /**
@@ -98,7 +93,6 @@ public class AnswerRetrievalFunction {
 
             final String responseAsString = convertObjectToJson(queryResponse);
 
-//            azureQueueService.sendMessage(responseAsString);
             message.setValue(responseAsString);
 
             return generateResponse(request, HttpStatus.OK, responseAsString);
@@ -119,7 +113,7 @@ public class AnswerRetrievalFunction {
 
     private String convertObjectToJson(final Object object) {
         try {
-            return new ObjectMapper().writeValueAsString(object);
+            return getObjectMapper().writeValueAsString(object);
         } catch (Exception e) {
             LOGGER.error("Error converting object to JSON", e);
             return "{}";

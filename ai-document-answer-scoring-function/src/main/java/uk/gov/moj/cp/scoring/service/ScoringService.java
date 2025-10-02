@@ -38,7 +38,7 @@ public class ScoringService {
     private static final String CHAT_USER_INSTRUCTION = "Evaluate the answer.";
 
     private final ChatService chatService;
-    private static final Logger LOGGER = LoggerFactory.getLogger(ScoringService.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScoringService.class);
 
     public ScoringService() {
         String judgeModelEndpoint = System.getenv("AZURE_JUDGE_OPENAI_ENDPOINT");

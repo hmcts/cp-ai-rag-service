@@ -10,7 +10,6 @@ import static org.mockito.Mockito.when;
 import static uk.org.webcompere.modelassert.json.JsonAssertions.json;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
-import uk.gov.moj.cp.ai.service.AzureQueueService;
 import uk.gov.moj.cp.retrieval.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
@@ -52,15 +51,12 @@ class AnswerRetrievalFunctionTest {
     @Mock
     private HttpResponseMessage.Builder mockResponseBuilder;
 
-    @Mock
-    private AzureQueueService mockAzureQueueService;
-
     private AnswerRetrievalFunction function;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        function = new AnswerRetrievalFunction(mockEmbedDataService, mockSearchService, mockResponseGenerationService, mockAzureQueueService);
+        function = new AnswerRetrievalFunction(mockEmbedDataService, mockSearchService, mockResponseGenerationService);
     }
 
     @Test

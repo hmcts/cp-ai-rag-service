@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory;
 
 public class AzureMonitorService {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AzureMonitorService.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(AzureMonitorService.class);
 
     private final Meter meter; // Store the meter instance
 

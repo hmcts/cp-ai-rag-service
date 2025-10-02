@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory;
 
 public class PublishScoreService {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(PublishScoreService.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(PublishScoreService.class);
 
     private final AzureMonitorService azureMonitorService;
 

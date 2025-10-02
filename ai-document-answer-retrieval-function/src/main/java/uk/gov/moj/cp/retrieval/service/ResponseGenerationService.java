@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 
 public class ResponseGenerationService {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ResponseGenerationService.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(ResponseGenerationService.class);
 
     private static final String SYSTEM_PROMPT_TEMPLATE = """
             You are an expert Legal Advisor.
