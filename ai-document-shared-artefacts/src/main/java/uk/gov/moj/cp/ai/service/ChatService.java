@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 
 public class ChatService {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ChatService.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChatService.class);
 
     private final OpenAIClient openAIClient;
 

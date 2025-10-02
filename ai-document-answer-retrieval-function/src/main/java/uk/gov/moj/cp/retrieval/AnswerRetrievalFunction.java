@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Azure Function for answer retrieval and generation.
- * Processes client queries, performs retrieval/grounding, and generates answer summaries.
+ * Processes client queries and  generates answer summaries.
  */
 public class AnswerRetrievalFunction {
 
@@ -66,8 +66,6 @@ public class AnswerRetrievalFunction {
             @QueueOutput(name = "message", queueName = "%STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING%", connection = "AI_RAG_SERVICE_STORAGE_ACCOUNT") OutputBinding<String> message,
             final ExecutionContext context) {
 
-        LOGGER.info("Initiating answer generation process for query - {}", request.getBody().userQuery());
-
         try {
             // Extract query from request
             final String userQuery = request.getBody().userQuery();
@@ -75,10 +73,11 @@ public class AnswerRetrievalFunction {
             final List<KeyValuePair> metadataFilters = request.getBody().metadataFilter();
 
             if (isNullOrEmpty(userQuery) || isNullOrEmpty(userQueryPrompt) || metadataFilters == null || metadataFilters.isEmpty()) {
-                LOGGER.error("Invalid query: {}", userQuery);
+                LOGGER.error("Error: userQuery, queryPrompt and metadataFilter attributes are required");
                 final String errorMessage = convertObjectToJson(Map.of("errorMessage", "Error: userQuery, queryPrompt and metadataFilter attributes are required"));
                 return generateResponse(request, HttpStatus.BAD_REQUEST, errorMessage);
             }
+            LOGGER.info("Initiating answer generation process for query - {}", userQuery);
 
             // - Process the user query
             final List<Double> queryEmbeddings = embedDataService.getEmbedding(userQuery);

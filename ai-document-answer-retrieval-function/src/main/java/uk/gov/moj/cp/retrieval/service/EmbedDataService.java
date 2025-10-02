@@ -1,10 +1,16 @@
 package uk.gov.moj.cp.retrieval.service;
 
+import uk.gov.moj.cp.ai.EmbeddingServiceException;
 import uk.gov.moj.cp.ai.service.EmbeddingService;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class EmbedDataService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(EmbedDataService.class);
 
     private final EmbeddingService embeddingService;
 
@@ -14,7 +20,6 @@ public class EmbedDataService {
         String apiKey = System.getenv("AZURE_EMBEDDING_SERVICE_API_KEY");
         String deploymentName = System.getenv("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME");
         embeddingService = new EmbeddingService(endpoint, apiKey, deploymentName);
-
     }
 
     EmbedDataService(EmbeddingService embeddingService) {
@@ -22,10 +27,13 @@ public class EmbedDataService {
     }
 
     public List<Double> getEmbedding(String dataToEmbed) {
-        final List<Double> embeddings = embeddingService.embedStringData(dataToEmbed);
-        if (null == embeddings || embeddings.isEmpty()) {
-            throw new IllegalStateException("Failed to generate embeddings for the provided data.");
+        try {
+            List<Double> embeddings = embeddingService.embedStringData(dataToEmbed);
+            return (embeddings == null || embeddings.isEmpty()) ? List.of() : embeddings;
+        } catch (EmbeddingServiceException e) {
+            LOGGER.error("Error embedding data", e);
+            return List.of();
         }
-        return embeddings;
     }
+
 }

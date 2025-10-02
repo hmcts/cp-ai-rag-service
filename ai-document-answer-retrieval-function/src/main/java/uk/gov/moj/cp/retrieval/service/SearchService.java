@@ -2,6 +2,7 @@ package uk.gov.moj.cp.retrieval.service;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.util.StringUtil;
+import uk.gov.moj.cp.retrieval.SearchServiceException;
 import uk.gov.moj.cp.retrieval.model.KeyValuePair;
 
 import java.util.List;
@@ -37,6 +38,11 @@ public class SearchService {
             throw new IllegalArgumentException("Search Query or Metadata Filters are null or empty");
         }
 
-        return azureAISearchService.search(userQuery, vectorizedUserQuery, metadataFilters);
+        try {
+            return azureAISearchService.search(userQuery, vectorizedUserQuery, metadataFilters);
+        } catch (SearchServiceException e) {
+            LOGGER.error("Error occurred while searching documents: {}", e.getMessage());
+            return List.of();
+        }
     }
 }

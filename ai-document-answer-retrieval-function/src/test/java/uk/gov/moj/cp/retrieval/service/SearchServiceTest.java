@@ -1,17 +1,20 @@
 package uk.gov.moj.cp.retrieval.service;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
+import uk.gov.moj.cp.retrieval.SearchServiceException;
 import uk.gov.moj.cp.retrieval.model.KeyValuePair;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 class SearchServiceTest {
 
@@ -27,7 +30,7 @@ class SearchServiceTest {
     }
 
     @Test
-    void searchDocumentsMatchingFilterCriteria_ReturnsResults_WhenValidInputsProvided() {
+    void searchDocumentsMatchingFilterCriteria_ReturnsResults_WhenValidInputsProvided() throws SearchServiceException {
         String userQuery = "Find legal documents";
         List<Double> vectorizedUserQuery = List.of(0.1, 0.2, 0.3);
         List<KeyValuePair> metadataFilters = List.of(new KeyValuePair("key", "value"));
@@ -42,13 +45,13 @@ class SearchServiceTest {
     }
 
     @Test
-    void searchDocumentsMatchingFilterCriteria_ReturnsEmptyList_WhenNoResultsFound() {
+    void searchDocumentsMatchingFilterCriteria_ReturnsEmptyList_WhenNoResultsFound() throws SearchServiceException {
         String userQuery = "Find legal documents";
         List<Double> vectorizedUserQuery = List.of(0.1, 0.2, 0.3);
         List<KeyValuePair> metadataFilters = List.of(new KeyValuePair("key", "value"));
 
         when(mockAzureAISearchService.search(userQuery, vectorizedUserQuery, metadataFilters))
-            .thenReturn(List.of());
+                .thenReturn(List.of());
 
         List<ChunkedEntry> results = searchService.searchDocumentsMatchingFilterCriteria(userQuery, vectorizedUserQuery, metadataFilters);
 
@@ -57,32 +60,34 @@ class SearchServiceTest {
     }
 
     @Test
-    void searchDocumentsMatchingFilterCriteria_ThrowsException_WhenSearchServiceFails() {
+    void searchDocumentsMatchingFilterCriteria_ThrowsException_WhenSearchServiceFails() throws SearchServiceException {
         String userQuery = "Find legal documents";
         List<Double> vectorizedUserQuery = List.of(0.1, 0.2, 0.3);
         List<KeyValuePair> metadataFilters = List.of(new KeyValuePair("key", "value"));
 
         when(mockAzureAISearchService.search(userQuery, vectorizedUserQuery, metadataFilters))
-            .thenThrow(new RuntimeException("Search service error"));
+                .thenThrow(new SearchServiceException("Search service error"));
 
-        assertThrows(RuntimeException.class, () -> searchService.searchDocumentsMatchingFilterCriteria(userQuery, vectorizedUserQuery, metadataFilters));
+        final List<ChunkedEntry> chunkedEntries = searchService.searchDocumentsMatchingFilterCriteria(userQuery, vectorizedUserQuery, metadataFilters);
+        assertEquals(0, chunkedEntries.size());
         verify(mockAzureAISearchService).search(userQuery, vectorizedUserQuery, metadataFilters);
     }
 
     @Test
-    void searchDocumentsMatchingFilterCriteria_ThrowsException_WhenInputsAreNull() {
+    void searchDocumentsMatchingFilterCriteria_ThrowsException_WhenInputsAreNull() throws SearchServiceException {
 
-        String userQuery = "Find legal documents";List<Double> vectorizedUserQuery = List.of(0.1, 0.2, 0.3);
+        String userQuery = "Find legal documents";
+        List<Double> vectorizedUserQuery = List.of(0.1, 0.2, 0.3);
         List<KeyValuePair> metadataFilters = List.of(new KeyValuePair("key", "value"));
         when(mockAzureAISearchService.search(null, vectorizedUserQuery, metadataFilters))
-            .thenReturn(List.of());
+                .thenReturn(List.of());
 
-        assertThrows(IllegalArgumentException.class, () ->  searchService.searchDocumentsMatchingFilterCriteria("   ", vectorizedUserQuery, metadataFilters));
-        assertThrows(IllegalArgumentException.class, () ->  searchService.searchDocumentsMatchingFilterCriteria(null, vectorizedUserQuery, metadataFilters));
-        assertThrows(IllegalArgumentException.class, () ->  searchService.searchDocumentsMatchingFilterCriteria(userQuery, List.of(), metadataFilters));
-        assertThrows(IllegalArgumentException.class, () ->  searchService.searchDocumentsMatchingFilterCriteria(userQuery, null, metadataFilters));
-        assertThrows(IllegalArgumentException.class, () ->  searchService.searchDocumentsMatchingFilterCriteria(userQuery, vectorizedUserQuery, List.of()));
-        assertThrows(IllegalArgumentException.class, () ->  searchService.searchDocumentsMatchingFilterCriteria(userQuery, vectorizedUserQuery, null));
+        assertThrows(IllegalArgumentException.class, () -> searchService.searchDocumentsMatchingFilterCriteria("   ", vectorizedUserQuery, metadataFilters));
+        assertThrows(IllegalArgumentException.class, () -> searchService.searchDocumentsMatchingFilterCriteria(null, vectorizedUserQuery, metadataFilters));
+        assertThrows(IllegalArgumentException.class, () -> searchService.searchDocumentsMatchingFilterCriteria(userQuery, List.of(), metadataFilters));
+        assertThrows(IllegalArgumentException.class, () -> searchService.searchDocumentsMatchingFilterCriteria(userQuery, null, metadataFilters));
+        assertThrows(IllegalArgumentException.class, () -> searchService.searchDocumentsMatchingFilterCriteria(userQuery, vectorizedUserQuery, List.of()));
+        assertThrows(IllegalArgumentException.class, () -> searchService.searchDocumentsMatchingFilterCriteria(userQuery, vectorizedUserQuery, null));
 
     }
 }

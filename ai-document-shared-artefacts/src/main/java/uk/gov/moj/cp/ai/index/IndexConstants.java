@@ -12,4 +12,7 @@ public class IndexConstants {
     public static final String SCORE = "score";
     public static final String CHUNK_VECTOR = "chunkVector";
 
+    private IndexConstants() {
+    }
+
 }

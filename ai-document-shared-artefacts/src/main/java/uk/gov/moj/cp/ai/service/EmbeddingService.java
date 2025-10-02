@@ -2,6 +2,8 @@ package uk.gov.moj.cp.ai.service;
 
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
+import uk.gov.moj.cp.ai.EmbeddingServiceException;
+
 import java.util.List;
 
 import com.azure.ai.openai.OpenAIClient;
@@ -18,7 +20,7 @@ public class EmbeddingService {
     private final OpenAIClient openAIClient;
     private final String embeddingDeploymentName;
 
-    private final Logger LOGGER = LoggerFactory.getLogger(EmbeddingService.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddingService.class);
 
     // --- Constructor: Initialize OpenAIClient for Embeddings ---
     public EmbeddingService(String endpoint, String apiKey, String deploymentName) {
@@ -53,7 +55,7 @@ public class EmbeddingService {
     }
 
     // --- Method to Embed a single user query string ---
-    public List<Double> embedStringData(String content) {
+    public List<Double> embedStringData(String content) throws EmbeddingServiceException {
         validateNullOrEmpty(content, "Content to embed cannot be null or empty");
 
         LOGGER.info("Embedding user query: '{}'", content);
@@ -73,12 +75,11 @@ public class EmbeddingService {
                 return embedding;
             } else {
                 LOGGER.warn("No embedding data returned for query: {}", content);
-                return null; // Or throw a specific exception
+                return List.of();
             }
         } catch (Exception e) {
-            LOGGER.error("Error embedding query", e);
             // Implement retry logic here if needed (e.g., for 429 errors)
-            throw new RuntimeException("Failed to embed query: " + content, e);
+            throw new EmbeddingServiceException("Failed to embed content", e);
         }
     }
 
