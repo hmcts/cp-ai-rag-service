@@ -22,8 +22,8 @@ public class BlobTriggerFunction {
 
     public BlobTriggerFunction() {
         String storageConnectionString = System.getenv("STORAGE_ACCOUNT_CONNECTION_STRING");
-        String documentIngestionQueue = System.getenv("STORAGE_ACCOUNT_QUEUE");
-        String documentIngestionOutcomeTable = System.getenv("STORAGE_ACCOUNT_TABLE");
+        String documentIngestionQueue = System.getenv("STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION_QUEUE");
+        String documentIngestionOutcomeTable = System.getenv("STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME");
         String documentContainerName = System.getenv("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME");
 
         this.documentMetadataService = new DocumentMetadataService(storageConnectionString,
