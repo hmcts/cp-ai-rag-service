@@ -9,9 +9,6 @@ public enum DocumentStatus {
 
     QUEUE_FAILED("Document metadata validated but failed to enqueue for processing"),
 
-    MANDATORY_DOCUMENT_ID_MISSING("Document ID is required but missing from metadata"),
-    INVALID_DOCUMENT_ID("Document ID is not in a valid UUID format"),
-
     BLOB_NOT_FOUND("Blob does not exist in storage");
 
     private final String reason;
