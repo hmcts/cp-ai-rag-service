@@ -1,9 +1,9 @@
 package uk.gov.moj.cp.metadata.check.service;
 
 import static java.util.UUID.fromString;
-import static uk.gov.moj.cp.metadata.check.util.DocumentStatus.BLOB_NOT_FOUND;
-import static uk.gov.moj.cp.metadata.check.util.DocumentStatus.INVALID_METADATA;
-import static uk.gov.moj.cp.metadata.check.util.StringUtils.isNullOrBlank;
+import static uk.gov.moj.cp.ai.util.DocumentStatus.BLOB_NOT_FOUND;
+import static uk.gov.moj.cp.ai.util.DocumentStatus.INVALID_METADATA;
+import static uk.gov.moj.cp.ai.util.StringUtils.isNullOrBlank;
 
 import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.service.TableStorageService;

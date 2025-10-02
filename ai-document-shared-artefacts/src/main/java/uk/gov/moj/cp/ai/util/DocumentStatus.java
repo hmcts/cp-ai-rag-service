@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.metadata.check.util;
+package uk.gov.moj.cp.ai.util;
 
 public enum DocumentStatus {
     INGESTION_SUCCESS("Document ingestion completed successfully"),
