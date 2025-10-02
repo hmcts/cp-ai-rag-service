@@ -1,7 +1,9 @@
 package uk.gov.moj.cp.ai.model;
 
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.UUID;
 
 import com.azure.data.tables.models.TableEntity;
 
@@ -10,7 +12,6 @@ public class DocumentIngestionOutcome {
     private String reason;
     private String documentId;
     private String status;
-    private String blobUrl;
     private String timestamp;
 
     public DocumentIngestionOutcome() {
@@ -44,9 +45,7 @@ public class DocumentIngestionOutcome {
         return status;
     }
 
-    public String getBlobUrl() {
-        return blobUrl;
-    }
+
 
     public void setDocumentId(final String documentId) {
         this.documentId = documentId;
@@ -54,10 +53,6 @@ public class DocumentIngestionOutcome {
 
     public void setStatus(final String status) {
         this.status = status;
-    }
-
-    public void setBlobUrl(final String blobUrl) {
-        this.blobUrl = blobUrl;
     }
 
     public void setTimestamp(final String timestamp) {
@@ -70,14 +65,21 @@ public class DocumentIngestionOutcome {
 
     public TableEntity toTableEntity() {
         String partitionKey = LocalDate.now().toString().replace("-", "");
-        TableEntity entity = new TableEntity(partitionKey, documentId);
+        // Deterministic RowKey from blobName
+        String rowKey;
+        if (documentName != null && !documentName.isBlank()) {
+            rowKey = UUID.nameUUIDFromBytes(documentName.getBytes(StandardCharsets.UTF_8)).toString();
+        } else {
+            rowKey = UUID.randomUUID().toString(); // fallback
+        }
+
+        TableEntity entity = new TableEntity(partitionKey, rowKey);
         entity.addProperty("documentName", documentName);
         entity.addProperty("documentId", documentId);
         entity.addProperty("status", status);
         entity.addProperty("reason", reason);
         entity.addProperty("timestamp", timestamp);
-        entity.addProperty("blobUrl", blobUrl);
-        entity.addProperty("timestamp", timestamp);
+
         return entity;
     }
 }
