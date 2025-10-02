@@ -10,7 +10,6 @@
     "AZURE_STORAGE_CONNECTION_STRING": "<your-storage-connection-string>",
     "PROCESSING_QUEUE_NAME": "document-processing-queue",
     "APPINSIGHTS_INSTRUMENTATIONKEY": "<your-app-insights-key>",
-    "BLOB_STORAGE_CONNECTION_STRING": "<your-blob-storage-connection-string>",
     "DOCUMENT_CONTAINER_NAME": "documents"
   }
 }

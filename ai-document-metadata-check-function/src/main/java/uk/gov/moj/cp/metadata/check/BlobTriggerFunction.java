@@ -21,10 +21,10 @@ public class BlobTriggerFunction {
 
 
     public BlobTriggerFunction() {
-        String storageConnectionString = System.getenv("AZURE_STORAGE_CONNECTION_STRING");
-        String documentIngestionQueue = System.getenv("DOCUMENT_INGESTION_QUEUE");
-        String documentIngestionOutcomeTable = System.getenv("DOCUMENT_INGESTION_OUTCOME_TABLE");
-        String documentContainerName = System.getenv("DOCUMENT_CONTAINER_NAME");
+        String storageConnectionString = System.getenv("STORAGE_ACCOUNT_CONNECTION_STRING");
+        String documentIngestionQueue = System.getenv("STORAGE_ACCOUNT_QUEUE");
+        String documentIngestionOutcomeTable = System.getenv("STORAGE_ACCOUNT_TABLE");
+        String documentContainerName = System.getenv("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME");
 
         this.documentMetadataService = new DocumentMetadataService(storageConnectionString,
                 documentContainerName,

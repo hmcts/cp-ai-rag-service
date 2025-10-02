@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class DocumentMetadataService {
 
     private static final String DOCUMENT_ID = "document_id";
+    private static final String METADATA = "metadata";
     private final BlobClientFactory blobClientFactory;
     private final TableStorageService tableStorageService;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -47,21 +48,21 @@ public class DocumentMetadataService {
             throw new MetadataValidationException("Blob not found: " + documentName);
         }
 
-        Map<String, String> metadata = new HashMap<>(blobClient.getProperties().getMetadata());
-        return validateAndNormalizeMetadata(metadata, documentName);
+        Map<String, String> metadataMap = new HashMap<>(blobClient.getProperties().getMetadata());
+        return validateAndNormalizeMetadata(metadataMap, documentName);
     }
 
-    private Map<String, String> validateAndNormalizeMetadata(Map<String, String> metadata, String documentName) {
+    private Map<String, String> validateAndNormalizeMetadata(Map<String, String> metadataMap, String documentName) {
         try {
-            String documentId = metadata.get(DOCUMENT_ID);
+            String documentId = metadataMap.get(DOCUMENT_ID);
             if (isNullOrBlank(documentId)) {
                 throw new MetadataValidationException("Invalid metadata: Missing document ID: " + documentName);
             }
 
             fromString(documentId);
 
-            if (metadata.containsKey("metadata")) {
-                String metadataJson = metadata.get("metadata");
+            if (metadataMap.containsKey(METADATA)) {
+                String metadataJson = metadataMap.get(METADATA);
 
                 Map<String, String> nestedMetadata = objectMapper.readValue(metadataJson, Map.class);
                 for (Map.Entry<String, String> entry : nestedMetadata.entrySet()) {
@@ -71,11 +72,11 @@ public class DocumentMetadataService {
                         String reason = "Invalid nested metadata key/value: '" + key + "' in blob " + documentName;
                         throw new MetadataValidationException("Invalid metadata: " + reason);
                     }
-                    metadata.put(key, value);
+                    metadataMap.put(key, value);
                 }
-                metadata.remove("metadata");
+                metadataMap.remove(METADATA);
             }
-            return metadata;
+            return metadataMap;
         } catch (Exception e) {
             recordFailure(documentName, INVALID_METADATA.name(), INVALID_METADATA.getReason());
             throw new MetadataValidationException("Invalid metadata for " + documentName + ": " + e.getMessage(), e);

@@ -37,7 +37,7 @@ class QueueStorageServiceTest {
     void setUp() {
         // Set up required environment variables for testing
         System.setProperty("STORAGE_ACCOUNT_NAME", "teststorage");
-        System.setProperty("DOCUMENT_CONTAINER_NAME", "testcontainer");
+        System.setProperty("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME", "testcontainer");
         queueStorageService = new QueueStorageService(queueClient);
     }
 
