@@ -21,8 +21,10 @@ import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
+import com.microsoft.azure.functions.OutputBinding;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
+import com.microsoft.azure.functions.annotation.QueueOutput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,11 +67,8 @@ public class AnswerRetrievalFunction {
      */
     @FunctionName("AnswerRetrieval")
     public HttpResponseMessage run(
-            @HttpTrigger(
-                    name = "req",
-                    methods = {HttpMethod.POST},
-                    authLevel = FUNCTION
-            ) HttpRequestMessage<RequestPayload> request,
+            @HttpTrigger(name = "req", methods = {HttpMethod.POST}, authLevel = FUNCTION) HttpRequestMessage<RequestPayload> request,
+            @QueueOutput(name = "message", queueName = "%STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING%", connection = "AI_RAG_SERVICE_STORAGE_ACCOUNT") OutputBinding<String> message,
             final ExecutionContext context) {
 
         LOGGER.info("Initiating answer generation process for query - {}", request.getBody().userQuery());
@@ -99,7 +98,8 @@ public class AnswerRetrievalFunction {
 
             final String responseAsString = convertObjectToJson(queryResponse);
 
-            azureQueueService.sendMessage(responseAsString);
+//            azureQueueService.sendMessage(responseAsString);
+            message.setValue(responseAsString);
 
             return generateResponse(request, HttpStatus.OK, responseAsString);
 

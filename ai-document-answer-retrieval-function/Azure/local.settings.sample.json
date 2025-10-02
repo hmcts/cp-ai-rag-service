@@ -5,6 +5,8 @@
     "FUNCTIONS_WORKER_RUNTIME": "java",
     "FUNCTIONS_EXTENSION_VERSION": "~4",
 
+    "AI_RAG_SERVICE_STORAGE_ACCOUNT": "<your-storage-connection-string>",
+
     "AZURE_EMBEDDING_SERVICE_ENDPOINT": "<your-embedding-service-endpoint>",
     "AZURE_EMBEDDING_SERVICE_API_KEY": "<your-embedding-service-api-key>",
     "AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME": "<embedding-service-deployment-name>",

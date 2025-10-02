@@ -13,7 +13,7 @@ public class PublishScoreService {
     private final AzureMonitorService azureMonitorService;
 
     public PublishScoreService() {
-        azureMonitorService = new AzureMonitorService(System.getenv("RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING"));
+        azureMonitorService = AzureMonitorService.getInstance();
     }
 
     PublishScoreService(AzureMonitorService azureMonitorService) {
@@ -29,7 +29,7 @@ public class PublishScoreService {
             return;
         }
 
-        azureMonitorService.publishHistogramScore("ai-rag-service-meter",
+        azureMonitorService.publishHistogramScore(
                 "ai_rag_response_groundedness_score",
                 "Distribution of groundedness scores for LLM responses",
                 score.doubleValue(),

@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.scoring.service;
 
 import com.azure.monitor.opentelemetry.exporter.AzureMonitorExporterBuilder;
+import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.DoubleHistogram;
@@ -15,30 +16,46 @@ public class AzureMonitorService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AzureMonitorService.class.getName());
 
-    private final String azureInsightsConnectionString;
+    private final Meter meter; // Store the meter instance
 
-    public AzureMonitorService(String azureInsightsConnectionString) {
-        this.azureInsightsConnectionString = azureInsightsConnectionString;
-    }
+    public static final String SCOPE_NAME = "ai-rag-service-meter";
 
-    public void publishHistogramScore(String scopeName, String metricName, String metricDescription, double score, String keyDimension, String valueDimension) {
+    private static AzureMonitorService INSTANCE;
+
+    private AzureMonitorService() {
+        final String azureInsightsConnectionString = System.getenv("RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING");
+
+        // Initialize and register OpenTelemetrySdk only once in the constructor
         AzureMonitorExporterBuilder exporterBuilder = new AzureMonitorExporterBuilder()
                 .connectionString(azureInsightsConnectionString);
 
-        final SdkMeterProvider meterProvider = SdkMeterProvider.builder()
+        SdkMeterProvider meterProvider = SdkMeterProvider.builder()
                 .registerMetricReader(PeriodicMetricReader.builder(exporterBuilder.buildMetricExporter()).build())
                 .build();
 
-        try (final OpenTelemetrySdk openTelemetrySdk = OpenTelemetrySdk.builder().setMeterProvider(meterProvider).buildAndRegisterGlobal()) {
+        OpenTelemetrySdk.builder()
+                .setMeterProvider(meterProvider)
+                .buildAndRegisterGlobal();
 
-            Meter meter = openTelemetrySdk.getMeter(scopeName);
-            final DoubleHistogram histogram = meter.histogramBuilder(metricName)
-                    .setDescription(metricDescription)
-                    .setUnit("1")
-                    .build();
-            Attributes attributes = Attributes.of(AttributeKey.stringKey(keyDimension), valueDimension);
-            histogram.record(score, attributes);
-            LOGGER.info("Metrics have been exported successfully for query type: {} with score: {}", keyDimension, score);
+        // Get the meter instance from the globally registered OpenTelemetry
+        this.meter = GlobalOpenTelemetry.get().getMeter(SCOPE_NAME);
+    }
+
+    public static AzureMonitorService getInstance() {
+        if (null == INSTANCE) {
+            INSTANCE = new AzureMonitorService();
         }
+        return INSTANCE;
+    }
+
+    public void publishHistogramScore(String metricName, String metricDescription, double score, String keyDimension, String valueDimension) {
+        // Use the pre-initialized meter to record the metric
+        final DoubleHistogram histogram = meter.histogramBuilder(metricName)
+                .setDescription(metricDescription)
+                .setUnit("1")
+                .build();
+        Attributes attributes = Attributes.of(AttributeKey.stringKey(keyDimension), valueDimension);
+        histogram.record(score, attributes);
+        LOGGER.info("Metrics have been exported successfully for query type: {} with score: {}", keyDimension, score);
     }
 }

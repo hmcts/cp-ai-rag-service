@@ -2,7 +2,6 @@ package uk.gov.moj.cp.retrieval;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.anyMap;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -19,15 +18,14 @@ import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
 import uk.gov.moj.cp.retrieval.service.SearchService;
 
 import java.util.List;
-import java.util.Map;
 
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
+import com.microsoft.azure.functions.OutputBinding;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -38,6 +36,9 @@ class AnswerRetrievalFunctionTest {
 
     @Mock
     private ExecutionContext mockContext;
+
+    @Mock
+    private OutputBinding<String> mockOutputBinding;
 
     @Mock
     private EmbedDataService mockEmbedDataService;
@@ -72,7 +73,7 @@ class AnswerRetrievalFunctionTest {
         final HttpResponseMessage mockResponse = mock(HttpResponseMessage.class);
         when(mockResponseBuilder.build()).thenReturn(mockResponse);
 
-        HttpResponseMessage response = function.run(mockRequest, mockContext);
+        HttpResponseMessage response = function.run(mockRequest, mockOutputBinding, mockContext);
 
         assertEquals(mockResponse, response);
         verify(mockRequest).createResponseBuilder(HttpStatus.BAD_REQUEST);
@@ -91,7 +92,7 @@ class AnswerRetrievalFunctionTest {
         final HttpResponseMessage mockResponse = mock(HttpResponseMessage.class);
         when(mockResponseBuilder.build()).thenReturn(mockResponse);
 
-        HttpResponseMessage response = function.run(mockRequest, mockContext);
+        HttpResponseMessage response = function.run(mockRequest, mockOutputBinding, mockContext);
 
         assertEquals(mockResponse, response);
         verify(mockRequest).createResponseBuilder(HttpStatus.BAD_REQUEST);
@@ -118,7 +119,7 @@ class AnswerRetrievalFunctionTest {
         final HttpResponseMessage mockResponse = mock(HttpResponseMessage.class);
         when(mockResponseBuilder.build()).thenReturn(mockResponse);
 
-        function.run(mockRequest, mockContext);
+        function.run(mockRequest, mockOutputBinding, mockContext);
         verify(mockRequest).createResponseBuilder(HttpStatus.OK);
         verify(mockResponseBuilder).header("Content-Type", "application/json");
         verify(mockResponseBuilder).body(argThat(
@@ -140,7 +141,7 @@ class AnswerRetrievalFunctionTest {
         when(mockResponseBuilder.header("Content-Type", "application/json")).thenReturn(mockResponseBuilder);
         when(mockResponseBuilder.body(anyString())).thenReturn(mockResponseBuilder);
 
-        function.run(mockRequest, mockContext);
+        function.run(mockRequest, mockOutputBinding, mockContext);
 
         verify(mockRequest).createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR);
         verify(mockResponseBuilder).header("Content-Type", "application/json");
