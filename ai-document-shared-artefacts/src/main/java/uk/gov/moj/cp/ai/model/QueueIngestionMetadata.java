@@ -4,6 +4,6 @@ import java.util.Map;
 
 public record QueueIngestionMetadata(String documentId,
                                      String documentName,
-                                     Map<String, String> additionalMetadata,
+                                     Map<String, String> metadata,
                                      String blobUrl,
                                      String currentTimestamp ) {}

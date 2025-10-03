@@ -9,7 +9,7 @@ public class Config {
 
     
     public static String getContainerName() {
-        return getKeyValue("DOCUMENT_CONTAINER_NAME");
+        return getKeyValue("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME");
     }
     
     public static String getStorageAccountName() {
