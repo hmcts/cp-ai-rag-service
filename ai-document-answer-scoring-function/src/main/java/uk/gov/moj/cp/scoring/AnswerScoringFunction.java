@@ -1,12 +1,13 @@
 package uk.gov.moj.cp.scoring;
 
+import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
+
 import uk.gov.moj.cp.ai.model.QueryResponse;
 import uk.gov.moj.cp.scoring.model.ModelScore;
 import uk.gov.moj.cp.scoring.service.PublishScoreService;
 import uk.gov.moj.cp.scoring.service.ScoringService;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
@@ -19,10 +20,10 @@ import org.slf4j.LoggerFactory;
  */
 public class AnswerScoringFunction {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AnswerScoringFunction.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(AnswerScoringFunction.class);
 
     private final ScoringService scoringService;
-    private PublishScoreService publishScoreService;
+    private final PublishScoreService publishScoreService;
 
     public AnswerScoringFunction() {
         scoringService = new ScoringService();
@@ -44,13 +45,13 @@ public class AnswerScoringFunction {
     public void run(
             @QueueTrigger(
                     name = "message",
-                    queueName = "answer-scoring-queue",
-                    connection = "AzureWebJobsStorage"
+                    queueName = "%STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING%",
+                    connection = "AI_RAG_SERVICE_STORAGE_ACCOUNT"
             ) String message,
             final ExecutionContext context) {
 
         try {
-            final QueryResponse queryResponse = new ObjectMapper().readValue(message, QueryResponse.class);
+            final QueryResponse queryResponse = getObjectMapper().readValue(message, QueryResponse.class);
 
             LOGGER.info("Starting process to score answer for query: {}", queryResponse.userQuery());
 

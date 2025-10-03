@@ -1,10 +1,10 @@
 package uk.gov.moj.cp.metadata.check.service;
 
 import static java.util.UUID.fromString;
+import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.metadata.check.util.BlobStatus.BLOB_NOT_FOUND;
 import static uk.gov.moj.cp.metadata.check.util.BlobStatus.INVALID_DOCUMENT_ID;
 import static uk.gov.moj.cp.metadata.check.util.BlobStatus.MANDATORY_DOCUMENT_ID;
-import static uk.gov.moj.cp.metadata.check.util.StringUtils.isNullOrBlank;
 
 import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
@@ -36,7 +36,7 @@ public class BlobMetadataService {
         this.outcomeStorageService = new OutcomeStorageService(storageConnectionString, documentIngestionOutcomeTable);
     }
 
-     public BlobMetadataService(BlobClientFactory blobClientFactory, OutcomeStorageService outcomeStorageService) {
+    public BlobMetadataService(BlobClientFactory blobClientFactory, OutcomeStorageService outcomeStorageService) {
         this.blobClientFactory = blobClientFactory;
         this.outcomeStorageService = outcomeStorageService;
     }
@@ -62,7 +62,7 @@ public class BlobMetadataService {
 
     private void validateMetadata(Map<String, String> metadata, String documentName) {
         String documentId = metadata.get(DOCUMENT_ID);
-        if (isNullOrBlank(documentId)) {
+        if (isNullOrEmpty(documentId)) {
             recordFailure(documentName, MANDATORY_DOCUMENT_ID.name(), MANDATORY_DOCUMENT_ID.getReason());
             throw new MetadataValidationException("document_id is required but not found");
         }
