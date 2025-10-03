@@ -1,11 +1,10 @@
 package uk.gov.moj.cp.metadata.check.service;
 
 
-import static uk.gov.moj.cp.metadata.check.util.DocumentStatus.METADATA_VALIDATED;
-import static uk.gov.moj.cp.metadata.check.util.DocumentStatus.QUEUE_FAILED;
+import static uk.gov.moj.cp.ai.util.DocumentStatus.METADATA_VALIDATED;
+import static uk.gov.moj.cp.ai.util.DocumentStatus.QUEUE_FAILED;
 
 import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
-import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ai.service.TableStorageService;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
 import uk.gov.moj.cp.metadata.check.exception.QueueSendException;
