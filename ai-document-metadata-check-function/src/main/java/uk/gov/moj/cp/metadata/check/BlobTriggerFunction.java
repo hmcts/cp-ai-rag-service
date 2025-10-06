@@ -1,55 +1,35 @@
 package uk.gov.moj.cp.metadata.check;
 
-import uk.gov.moj.cp.ai.service.TableStorageService;
+import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
 import uk.gov.moj.cp.metadata.check.service.DocumentMetadataService;
 import uk.gov.moj.cp.metadata.check.service.IngestionOrchestratorService;
-import uk.gov.moj.cp.metadata.check.service.QueueStorageService;
 
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.BlobTrigger;
 import com.microsoft.azure.functions.annotation.FunctionName;
+import com.microsoft.azure.functions.annotation.QueueOutput;
+import com.microsoft.azure.functions.annotation.TableOutput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class BlobTriggerFunction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BlobTriggerFunction.class);
+    private static final String STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION = "%STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION%";
+    private static final String STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME = "%STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME%";
+    private static final String AI_RAG_SERVICE_STORAGE_ACCOUNT = "AI_RAG_SERVICE_STORAGE_ACCOUNT";
     private final DocumentMetadataService documentMetadataService;
-    private final QueueStorageService queueStorageService;
-    private final TableStorageService tableStorageService;
     private final IngestionOrchestratorService orchestratorService;
 
 
     public BlobTriggerFunction() {
-        String storageConnectionString = System.getenv("STORAGE_ACCOUNT_CONNECTION_STRING");
-        String documentIngestionQueue = System.getenv("STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION_QUEUE");
-        String documentIngestionOutcomeTable = System.getenv("STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME");
-        String documentContainerName = System.getenv("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME");
-
-        this.documentMetadataService = new DocumentMetadataService(storageConnectionString,
-                documentContainerName,
-                documentIngestionOutcomeTable);
-
-        this.queueStorageService = new QueueStorageService(storageConnectionString,
-                documentIngestionQueue);
-
-        this.tableStorageService =
-                new TableStorageService(storageConnectionString, documentIngestionOutcomeTable);
-
-        this.orchestratorService = new IngestionOrchestratorService(
-                documentMetadataService, queueStorageService, tableStorageService
-        );
+        this.documentMetadataService = new DocumentMetadataService();
+        this.orchestratorService = new IngestionOrchestratorService(documentMetadataService);
     }
 
     BlobTriggerFunction(DocumentMetadataService documentMetadataService,
-                        QueueStorageService queueStorageService,
-                        TableStorageService tableStorageService,
-                        IngestionOrchestratorService orchestratorService
-
-    ) {
+                        IngestionOrchestratorService orchestratorService) {
         this.documentMetadataService = documentMetadataService;
-        this.queueStorageService = queueStorageService;
-        this.tableStorageService = tableStorageService;
         this.orchestratorService = orchestratorService;
     }
 
@@ -58,12 +38,17 @@ public class BlobTriggerFunction {
             @BlobTrigger(
                     name = "blob",
                     path = "documents/{name}",
-                    connection = "AI_RAG_SERVICE_STORAGE_ACCOUNT"
+                    connection = "AzureWebJobsStorage"
             )
-            @BindingName("name") String documentName) {
+            @BindingName("name") String documentName,
+            @QueueOutput(name = "successMessage", queueName = STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION, connection = AI_RAG_SERVICE_STORAGE_ACCOUNT)
+            com.microsoft.azure.functions.OutputBinding<String> successMessage,
+            @TableOutput(name = "failureOutcome", tableName = STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME, connection = AI_RAG_SERVICE_STORAGE_ACCOUNT)
+            com.microsoft.azure.functions.OutputBinding<DocumentIngestionOutcome> failureOutcome) {
 
         LOGGER.info("Blob trigger function processed a request for document: {}", documentName);
-
-        orchestratorService.processDocument(documentName);
+        orchestratorService.processDocument(documentName, successMessage, failureOutcome);
     }
 }
+
+

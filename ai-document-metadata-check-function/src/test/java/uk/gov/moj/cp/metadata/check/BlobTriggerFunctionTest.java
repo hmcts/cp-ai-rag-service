@@ -2,10 +2,12 @@ package uk.gov.moj.cp.metadata.check;
 
 import static org.mockito.Mockito.verify;
 
-import uk.gov.moj.cp.ai.service.TableStorageService;
+import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
 import uk.gov.moj.cp.metadata.check.service.DocumentMetadataService;
 import uk.gov.moj.cp.metadata.check.service.IngestionOrchestratorService;
-import uk.gov.moj.cp.metadata.check.service.QueueStorageService;
+
+import com.microsoft.azure.functions.OutputBinding;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,23 +23,20 @@ class BlobTriggerFunctionTest {
     private DocumentMetadataService documentMetadataService;
 
     @Mock
-    private QueueStorageService queueStorageService;
-
-    @Mock
-    private TableStorageService tableStorageService;
-
-    @Mock
     private IngestionOrchestratorService ingestionOrchestratorService;
+
+    @Mock
+    private OutputBinding<String> successMessage;
+
+    @Mock
+    private OutputBinding<DocumentIngestionOutcome> failureOutcome;
 
     private BlobTriggerFunction blobTriggerFunction;
 
     @BeforeEach
     void setUp() {
         blobTriggerFunction = new BlobTriggerFunction(documentMetadataService,
-                queueStorageService,
-                tableStorageService,
-                ingestionOrchestratorService
-        );
+                ingestionOrchestratorService);
     }
 
     @Test
@@ -47,10 +46,10 @@ class BlobTriggerFunctionTest {
         String documentName = "test.pdf";
 
         // When
-        blobTriggerFunction.run(documentName);
+        blobTriggerFunction.run(documentName, successMessage, failureOutcome);
 
         // Then
-        verify(ingestionOrchestratorService).processDocument(documentName);
+        verify(ingestionOrchestratorService).processDocument(documentName, successMessage, failureOutcome);
     }
 
     @Test
@@ -59,9 +58,9 @@ class BlobTriggerFunctionTest {
         String documentName = "test-document.pdf";
 
         // when
-        blobTriggerFunction.run(documentName);
+        blobTriggerFunction.run(documentName, successMessage, failureOutcome);
 
         // then
-        verify(ingestionOrchestratorService).processDocument(documentName);
+        verify(ingestionOrchestratorService).processDocument(documentName, successMessage, failureOutcome);
     }
 }

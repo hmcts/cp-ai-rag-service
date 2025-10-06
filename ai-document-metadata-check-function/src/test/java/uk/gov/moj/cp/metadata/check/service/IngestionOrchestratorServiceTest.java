@@ -6,13 +6,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
-import uk.gov.moj.cp.ai.service.TableStorageService;
+import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
-import uk.gov.moj.cp.metadata.check.exception.QueueSendException;
 
+import com.microsoft.azure.functions.OutputBinding;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -25,17 +25,16 @@ class IngestionOrchestratorServiceTest {
     private DocumentMetadataService documentMetadataService;
 
     @Mock
-    private QueueStorageService queueStorageService;
+    private OutputBinding<String> successMessage;
 
     @Mock
-    private TableStorageService tableStorageService;
+    private OutputBinding<DocumentIngestionOutcome> failureOutcome;
 
     private IngestionOrchestratorService ingestionOrchestratorService;
 
     @BeforeEach
     void setUp() {
-        ingestionOrchestratorService = new IngestionOrchestratorService(
-                documentMetadataService, queueStorageService, tableStorageService);
+        ingestionOrchestratorService = new IngestionOrchestratorService(documentMetadataService);
     }
 
     @Test
@@ -50,68 +49,80 @@ class IngestionOrchestratorServiceTest {
         when(documentMetadataService.processDocumentMetadata(documentName)).thenReturn(metadata);
 
         // when
-        ingestionOrchestratorService.processDocument(documentName);
+        ingestionOrchestratorService.processDocument(documentName, successMessage, failureOutcome);
 
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
-        verify(queueStorageService).sendToQueue(documentName, metadata);
-        verify(tableStorageService).recordOutcome(any());
+        verify(successMessage).setValue(anyString());
+        verify(failureOutcome, never()).setValue(any()); // No failure outcome for success
     }
 
     @Test
-    @DisplayName("Handle Metadata Validation Exception")
-    void shouldHandleMetadataValidationException() {
+    @DisplayName("Handle Blob Not Found Exception")
+    void shouldHandleBlobNotFoundException() {
         // given
-        String documentName = "test.pdf";
+        String documentName = "nonexistent.pdf";
+        String documentId = null; // No documentId for blob not found
+        DocumentIngestionOutcome expectedOutcome = new DocumentIngestionOutcome();
+        expectedOutcome.setDocumentName(documentName);
+        expectedOutcome.setStatus("INVALID_METADATA");
+        expectedOutcome.setReason("Invalid or incomplete nested metadata detected");
 
         when(documentMetadataService.processDocumentMetadata(documentName))
-                .thenThrow(new MetadataValidationException("Invalid metadata"));
+                .thenThrow(new MetadataValidationException("Blob not found: " + documentName));
+        when(documentMetadataService.createInvalidMetadataOutcome(documentName, documentId)).thenReturn(expectedOutcome);
 
         // when
-        ingestionOrchestratorService.processDocument(documentName);
+        ingestionOrchestratorService.processDocument(documentName, successMessage, failureOutcome);
 
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
-        verify(queueStorageService, never()).sendToQueue(anyString(), any());
-        verify(tableStorageService, never()).recordOutcome(any());
+        verify(documentMetadataService).createInvalidMetadataOutcome(documentName, documentId);
+        verify(successMessage, never()).setValue(anyString());
+        verify(failureOutcome).setValue(any(DocumentIngestionOutcome.class));
     }
 
     @Test
-    @DisplayName("Handle Queue Send Exception")
-    void shouldHandleQueueSendException() {
+    @DisplayName("Handle Invalid Metadata Exception")
+    void shouldHandleInvalidMetadataException() {
         // given
-        String documentName = "test.pdf";
-        Map<String, String> metadata = new HashMap<>();
-        metadata.put("document_id", "123e4567-e89b-12d3-a456-426614174000");
+        String documentName = "invalid.pdf";
+        String documentId = null; // documentId will be null for invalid metadata
+        DocumentIngestionOutcome expectedOutcome = new DocumentIngestionOutcome();
+        expectedOutcome.setDocumentName(documentName);
+        expectedOutcome.setStatus("INVALID_METADATA");
+        expectedOutcome.setReason("Invalid or incomplete nested metadata detected");
 
-        when(documentMetadataService.processDocumentMetadata(documentName)).thenReturn(metadata);
-        doThrow(new QueueSendException("Queue unavailable")).when(queueStorageService).sendToQueue(documentName, metadata);
+        when(documentMetadataService.processDocumentMetadata(documentName))
+                .thenThrow(new MetadataValidationException("Invalid metadata: Missing document ID: " + documentName));
+        when(documentMetadataService.createInvalidMetadataOutcome(documentName, documentId)).thenReturn(expectedOutcome);
 
         // when
-        ingestionOrchestratorService.processDocument(documentName);
+        ingestionOrchestratorService.processDocument(documentName, successMessage, failureOutcome);
 
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
-        verify(queueStorageService).sendToQueue(documentName, metadata);
-        verify(tableStorageService).recordOutcome(any());
+        verify(documentMetadataService).createInvalidMetadataOutcome(documentName, documentId);
+        verify(successMessage, never()).setValue(anyString());
+        verify(failureOutcome).setValue(any(DocumentIngestionOutcome.class));
     }
 
     @Test
-    @DisplayName("Handle Missing Document ID")
-    void shouldHandleMissingDocumentId() {
+    @DisplayName("Handle General Exception")
+    void shouldHandleGeneralException() {
         // given
         String documentName = "test.pdf";
-        Map<String, String> metadata = new HashMap<>();
-        // Missing document_id
+        String documentId = "123e4567-e89b-12d3-a456-426614174000";
 
-        when(documentMetadataService.processDocumentMetadata(documentName)).thenReturn(metadata);
+        when(documentMetadataService.processDocumentMetadata(documentName))
+                .thenThrow(new RuntimeException("Connection failed"));
 
         // when
-        ingestionOrchestratorService.processDocument(documentName);
+        ingestionOrchestratorService.processDocument(documentName, successMessage, failureOutcome);
 
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
-        verify(queueStorageService).sendToQueue(documentName, metadata);
-        verify(tableStorageService).recordOutcome(any());
+        verify(successMessage, never()).setValue(anyString());
+        verify(failureOutcome).setValue(any(DocumentIngestionOutcome.class));
     }
 }

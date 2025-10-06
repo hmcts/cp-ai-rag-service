@@ -1,5 +1,22 @@
 package uk.gov.moj.cp.metadata.check.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
+import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+import com.azure.storage.blob.BlobClient;
+import com.azure.storage.blob.models.BlobProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -7,27 +24,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import uk.gov.moj.cp.ai.service.TableStorageService;
-import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
-
-import com.azure.storage.blob.BlobClient;
-import com.azure.storage.blob.models.BlobProperties;
-
-import java.util.HashMap;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class DocumentMetadataServiceTest {
 
     @Mock
     private BlobClientFactory blobClientFactory;
-
-    @Mock
-    private TableStorageService tableStorageService;
 
     @Mock
     private BlobClient blobClient;
@@ -39,7 +40,7 @@ class DocumentMetadataServiceTest {
 
     @BeforeEach
     void setUp() {
-        documentMetadataService = new DocumentMetadataService(blobClientFactory, tableStorageService);
+        documentMetadataService = new DocumentMetadataService(blobClientFactory);
     }
 
     @Test
@@ -69,7 +70,6 @@ class DocumentMetadataServiceTest {
         verify(blobClientFactory).getBlobClient(documentName);
         verify(blobClient).exists();
         verify(blobClient).getProperties();
-        verify(tableStorageService, never()).recordOutcome(any());
     }
 
     @Test
@@ -87,7 +87,6 @@ class DocumentMetadataServiceTest {
         assertEquals("Blob not found: " + documentName, exception.getMessage());
         verify(blobClientFactory).getBlobClient(documentName);
         verify(blobClient).exists();
-        verify(tableStorageService).recordOutcome(any());
     }
 
     @Test
@@ -109,7 +108,6 @@ class DocumentMetadataServiceTest {
                 () -> documentMetadataService.processDocumentMetadata(documentName));
 
         assertTrue(exception.getMessage().contains("Missing document ID: " + documentName));
-        verify(tableStorageService).recordOutcome(any());
     }
 
     @Test
@@ -130,7 +128,6 @@ class DocumentMetadataServiceTest {
         MetadataValidationException exception = assertThrows(MetadataValidationException.class, () -> documentMetadataService.processDocumentMetadata(documentName));
 
         assertTrue(exception.getMessage().contains("Missing document ID: " + documentName));
-        verify(tableStorageService).recordOutcome(any());
     }
 
     @Test
@@ -152,7 +149,6 @@ class DocumentMetadataServiceTest {
                 () -> documentMetadataService.processDocumentMetadata(documentName));
 
         assertTrue(exception.getMessage().contains("Invalid UUID string: invalid-uuid"));
-        verify(tableStorageService).recordOutcome(any());
     }
 
     @Test
@@ -174,7 +170,6 @@ class DocumentMetadataServiceTest {
                 () -> documentMetadataService.processDocumentMetadata(documentName));
 
         assertTrue(exception.getMessage().contains("Unrecognized token 'invalid'"));
-        verify(tableStorageService).recordOutcome(any());
     }
 
     @Test
@@ -196,7 +191,6 @@ class DocumentMetadataServiceTest {
                 () -> documentMetadataService.processDocumentMetadata(documentName));
 
         assertTrue(exception.getMessage().contains("Invalid nested metadata key/value: 'case_id' in blob " + documentName));
-        verify(tableStorageService, times(1)).recordOutcome(any());
     }
 
     @Test
@@ -211,5 +205,23 @@ class DocumentMetadataServiceTest {
         RuntimeException exception = assertThrows(RuntimeException.class, () -> documentMetadataService.processDocumentMetadata(documentName));
 
         assertEquals("Connection failed", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Create Invalid Metadata Outcome")
+    void shouldCreateInvalidMetadataOutcome() {
+        // given
+        String documentName = "invalid.pdf";
+        String documentId = UUID.randomUUID().toString();
+
+        // when
+        DocumentIngestionOutcome outcome = documentMetadataService.createInvalidMetadataOutcome(documentName, documentId);
+
+        // then
+        assertNotNull(outcome);
+        assertEquals(documentName, outcome.getDocumentName());
+        assertEquals("INVALID_METADATA", outcome.getStatus());
+        assertEquals("Invalid or incomplete nested metadata detected", outcome.getReason());
+        assertNotNull(outcome.getTimestamp());
     }
 }

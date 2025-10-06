@@ -1,12 +1,10 @@
 package uk.gov.moj.cp.metadata.check.service;
 
 import static java.util.UUID.fromString;
-import static uk.gov.moj.cp.ai.util.DocumentStatus.BLOB_NOT_FOUND;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.INVALID_METADATA;
-import static uk.gov.moj.cp.ai.util.StringUtils.isNullOrBlank;
+import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
-import uk.gov.moj.cp.ai.service.TableStorageService;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
 
 import java.time.Instant;
@@ -24,27 +22,28 @@ public class DocumentMetadataService {
     private static final String DOCUMENT_ID = "document_id";
     private static final String METADATA = "metadata";
     private final BlobClientFactory blobClientFactory;
-    private final TableStorageService tableStorageService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public DocumentMetadataService(final String storageConnectionString,
-                                   final String documentContainerName,
-                                   final String documentIngestionOutcomeTable) {
+    public DocumentMetadataService() {
+        String storageConnectionString = System.getenv("AI_RAG_SERVICE_STORAGE_ACCOUNT");
+        String documentContainerName = System.getenv("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME");
+
         this.blobClientFactory = new BlobClientFactory(storageConnectionString, documentContainerName);
-        this.tableStorageService = new TableStorageService(storageConnectionString, documentIngestionOutcomeTable);
     }
 
-    public DocumentMetadataService(final BlobClientFactory blobClientFactory,
-                                   final TableStorageService tableStorageService) {
+    public DocumentMetadataService(final String storageConnectionString,
+                                   final String documentContainerName) {
+        this.blobClientFactory = new BlobClientFactory(storageConnectionString, documentContainerName);
+    }
+
+    public DocumentMetadataService(final BlobClientFactory blobClientFactory) {
         this.blobClientFactory = blobClientFactory;
-        this.tableStorageService = tableStorageService;
     }
 
     public Map<String, String> processDocumentMetadata(String documentName) {
         BlobClient blobClient = blobClientFactory.getBlobClient(documentName);
 
         if (!blobClient.exists()) {
-            recordFailure(documentName, BLOB_NOT_FOUND.name(), BLOB_NOT_FOUND.getReason());
             throw new MetadataValidationException("Blob not found: " + documentName);
         }
 
@@ -55,7 +54,7 @@ public class DocumentMetadataService {
     private Map<String, String> validateAndNormalizeMetadata(Map<String, String> metadataMap, String documentName) {
         try {
             String documentId = metadataMap.get(DOCUMENT_ID);
-            if (isNullOrBlank(documentId)) {
+            if (isNullOrEmpty(documentId)) {
                 throw new MetadataValidationException("Invalid metadata: Missing document ID: " + documentName);
             }
 
@@ -68,7 +67,7 @@ public class DocumentMetadataService {
                 for (Map.Entry<String, String> entry : nestedMetadata.entrySet()) {
                     String key = entry.getKey();
                     String value = entry.getValue();
-                    if (isNullOrBlank(key) || isNullOrBlank(value)) {
+                    if (isNullOrEmpty(key) || isNullOrEmpty(value)) {
                         String reason = "Invalid nested metadata key/value: '" + key + "' in blob " + documentName;
                         throw new MetadataValidationException("Invalid metadata: " + reason);
                     }
@@ -78,19 +77,21 @@ public class DocumentMetadataService {
             }
             return metadataMap;
         } catch (Exception e) {
-            recordFailure(documentName, INVALID_METADATA.name(), INVALID_METADATA.getReason());
             throw new MetadataValidationException("Invalid metadata for " + documentName + ": " + e.getMessage(), e);
         }
-
     }
 
-    private void recordFailure(String documentName, String status, String reason) {
-        DocumentIngestionOutcome documentIngestionOutcome = new DocumentIngestionOutcome();
-        documentIngestionOutcome.setDocumentName(documentName);
-        documentIngestionOutcome.setStatus(status);
-        documentIngestionOutcome.setReason(reason);
-        documentIngestionOutcome.setTimestamp(Instant.now().toString());
+    public DocumentIngestionOutcome createInvalidMetadataOutcome(String documentName, final String documentId) {
 
-        tableStorageService.recordOutcome(documentIngestionOutcome);
+        DocumentIngestionOutcome ingestionOutcome = new DocumentIngestionOutcome();
+        ingestionOutcome.generateDefaultPartitionKey();
+        ingestionOutcome.generateRowKeyFrom(documentName);
+        ingestionOutcome.setDocumentName(documentName);
+        ingestionOutcome.setDocumentId(documentId);
+        ingestionOutcome.setStatus(INVALID_METADATA.name());
+        ingestionOutcome.setReason(INVALID_METADATA.getReason());
+        ingestionOutcome.setTimestamp(Instant.now().toString());
+        return ingestionOutcome;
     }
+
 }
