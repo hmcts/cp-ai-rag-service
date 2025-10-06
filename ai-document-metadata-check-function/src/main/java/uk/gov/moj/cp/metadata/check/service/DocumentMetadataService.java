@@ -31,11 +31,6 @@ public class DocumentMetadataService {
         this.blobClientFactory = new BlobClientFactory(storageConnectionString, documentContainerName);
     }
 
-    public DocumentMetadataService(final String storageConnectionString,
-                                   final String documentContainerName) {
-        this.blobClientFactory = new BlobClientFactory(storageConnectionString, documentContainerName);
-    }
-
     public DocumentMetadataService(final BlobClientFactory blobClientFactory) {
         this.blobClientFactory = blobClientFactory;
     }
