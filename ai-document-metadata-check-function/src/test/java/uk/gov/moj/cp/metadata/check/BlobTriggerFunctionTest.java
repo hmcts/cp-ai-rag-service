@@ -24,10 +24,10 @@ class BlobTriggerFunctionTest {
     private IngestionOrchestratorService ingestionOrchestratorService;
 
     @Mock
-    private OutputBinding<String> successMessage;
+    private OutputBinding<String> queueMessage;
 
     @Mock
-    private OutputBinding<DocumentIngestionOutcome> failureOutcome;
+    private OutputBinding<DocumentIngestionOutcome> messageOutcome;
 
     private BlobTriggerFunction blobTriggerFunction;
 
@@ -44,10 +44,10 @@ class BlobTriggerFunctionTest {
         String documentName = "test.pdf";
 
         // When
-        blobTriggerFunction.run(documentName, successMessage, failureOutcome);
+        blobTriggerFunction.run(documentName, queueMessage, messageOutcome);
 
         // Then
-        verify(ingestionOrchestratorService).processDocument(documentName, successMessage, failureOutcome);
+        verify(ingestionOrchestratorService).processDocument(documentName, queueMessage, messageOutcome);
     }
 
     @Test
@@ -56,9 +56,9 @@ class BlobTriggerFunctionTest {
         String documentName = "test-document.pdf";
 
         // when
-        blobTriggerFunction.run(documentName, successMessage, failureOutcome);
+        blobTriggerFunction.run(documentName, queueMessage, messageOutcome);
 
         // then
-        verify(ingestionOrchestratorService).processDocument(documentName, successMessage, failureOutcome);
+        verify(ingestionOrchestratorService).processDocument(documentName, queueMessage, messageOutcome);
     }
 }

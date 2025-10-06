@@ -207,21 +207,4 @@ class DocumentMetadataServiceTest {
         assertEquals("Connection failed", exception.getMessage());
     }
 
-    @Test
-    @DisplayName("Create Invalid Metadata Outcome")
-    void shouldCreateInvalidMetadataOutcome() {
-        // given
-        String documentName = "invalid.pdf";
-        String documentId = UUID.randomUUID().toString();
-
-        // when
-        DocumentIngestionOutcome outcome = documentMetadataService.createInvalidMetadataOutcome(documentName, documentId);
-
-        // then
-        assertNotNull(outcome);
-        assertEquals(documentName, outcome.getDocumentName());
-        assertEquals("INVALID_METADATA", outcome.getStatus());
-        assertEquals("Invalid or incomplete nested metadata detected", outcome.getReason());
-        assertNotNull(outcome.getTimestamp());
-    }
 }

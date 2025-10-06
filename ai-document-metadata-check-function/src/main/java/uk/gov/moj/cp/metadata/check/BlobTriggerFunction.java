@@ -38,16 +38,20 @@ public class BlobTriggerFunction {
             @BlobTrigger(
                     name = "blob",
                     path = "documents/{name}",
-                    connection = "AzureWebJobsStorage"
+                    connection = "AI_RAG_SERVICE_STORAGE_ACCOUNT"
             )
             @BindingName("name") String documentName,
-            @QueueOutput(name = "successMessage", queueName = STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION, connection = AI_RAG_SERVICE_STORAGE_ACCOUNT)
-            com.microsoft.azure.functions.OutputBinding<String> successMessage,
-            @TableOutput(name = "failureOutcome", tableName = STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME, connection = AI_RAG_SERVICE_STORAGE_ACCOUNT)
-            com.microsoft.azure.functions.OutputBinding<DocumentIngestionOutcome> failureOutcome) {
+            @QueueOutput(name = "queueMessage",
+                    queueName = STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION,
+                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT)
+            com.microsoft.azure.functions.OutputBinding<String> queueMessage,
+            @TableOutput(name = "messageOutcome",
+                    tableName = STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME,
+                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT)
+            com.microsoft.azure.functions.OutputBinding<DocumentIngestionOutcome> messageOutcome) {
 
         LOGGER.info("Blob trigger function processed a request for document: {}", documentName);
-        orchestratorService.processDocument(documentName, successMessage, failureOutcome);
+        orchestratorService.processDocument(documentName, queueMessage, messageOutcome);
     }
 }
 

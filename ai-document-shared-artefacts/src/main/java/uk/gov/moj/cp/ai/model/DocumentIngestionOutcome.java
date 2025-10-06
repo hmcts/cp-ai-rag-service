@@ -1,7 +1,5 @@
 package uk.gov.moj.cp.ai.model;
 
-import java.time.OffsetDateTime;
-
 public class DocumentIngestionOutcome extends BaseTableEntity {
 
     private String documentId;
@@ -52,20 +50,5 @@ public class DocumentIngestionOutcome extends BaseTableEntity {
 
     public void setTimestamp(String timestamp) {
         this.timestamp = timestamp;
-    }
-
-    public static DocumentIngestionOutcome build(String documentId,
-                                                 String documentName,
-                                                 String status,
-                                                 String reason) {
-        DocumentIngestionOutcome outcome = new DocumentIngestionOutcome();
-        outcome.setDocumentId(documentId);
-        outcome.setDocumentName(documentName);
-        outcome.setStatus(status);
-        outcome.setReason(reason);
-        outcome.setTimestamp(OffsetDateTime.now().toString());
-        outcome.generateDefaultPartitionKey();
-        outcome.generateRowKeyFrom(documentName != null ? documentName : documentId);
-        return outcome;
     }
 }

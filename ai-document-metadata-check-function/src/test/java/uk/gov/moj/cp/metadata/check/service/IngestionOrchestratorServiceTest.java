@@ -27,10 +27,10 @@ class IngestionOrchestratorServiceTest {
     private DocumentMetadataService documentMetadataService;
 
     @Mock
-    private OutputBinding<String> successMessage;
+    private OutputBinding<String> queueMessage;
 
     @Mock
-    private OutputBinding<DocumentIngestionOutcome> failureOutcome;
+    private OutputBinding<DocumentIngestionOutcome> messageOutcome;
 
     private IngestionOrchestratorService ingestionOrchestratorService;
 
@@ -44,43 +44,39 @@ class IngestionOrchestratorServiceTest {
     void shouldProcessDocumentSuccessfully() {
         // given
         String documentName = "test.pdf";
+        String documentId = "123e4567-e89b-12d3-a456-426614174000";
         Map<String, String> metadata = new HashMap<>();
-        metadata.put("document_id", "123e4567-e89b-12d3-a456-426614174000");
+        metadata.put("document_id", documentId);
         metadata.put("content_type", "application/pdf");
 
         when(documentMetadataService.processDocumentMetadata(documentName)).thenReturn(metadata);
 
         // when
-        ingestionOrchestratorService.processDocument(documentName, successMessage, failureOutcome);
+        ingestionOrchestratorService.processDocument(documentName, queueMessage, messageOutcome);
 
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
-        verify(successMessage).setValue(anyString());
-        verify(failureOutcome, never()).setValue(any()); // No failure outcome for success
+        verify(queueMessage).setValue(anyString());
+        verify(messageOutcome).setValue(any(DocumentIngestionOutcome.class)); // Success outcome should be recorded
     }
 
     @Test
-    @DisplayName("Handle Blob Not Found Exception")
-    void shouldHandleBlobNotFoundException() {
+    @DisplayName("Handle Metadata Validation Exception")
+    void shouldHandleMetadataValidationException() {
         // given
         String documentName = "nonexistent.pdf";
-        DocumentIngestionOutcome expectedOutcome = new DocumentIngestionOutcome();
-        expectedOutcome.setDocumentName(documentName);
-        expectedOutcome.setStatus("INVALID_METADATA");
-        expectedOutcome.setReason("Invalid or incomplete nested metadata detected");
+        String documentId = null;
 
         when(documentMetadataService.processDocumentMetadata(documentName))
                 .thenThrow(new MetadataValidationException("Blob not found: " + documentName));
-        when(documentMetadataService.createInvalidMetadataOutcome(documentName, null)).thenReturn(expectedOutcome);
 
         // when
-        ingestionOrchestratorService.processDocument(documentName, successMessage, failureOutcome);
+        ingestionOrchestratorService.processDocument(documentName, queueMessage, messageOutcome);
 
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
-        verify(documentMetadataService).createInvalidMetadataOutcome(documentName, null);
-        verify(successMessage, never()).setValue(anyString());
-        verify(failureOutcome).setValue(any(DocumentIngestionOutcome.class));
+        verify(queueMessage, never()).setValue(anyString());
+        verify(messageOutcome).setValue(any(DocumentIngestionOutcome.class)); // Failure outcome should be recorded
     }
 
     @Test
@@ -88,23 +84,18 @@ class IngestionOrchestratorServiceTest {
     void shouldHandleInvalidMetadataException() {
         // given
         String documentName = "invalid.pdf";
-        DocumentIngestionOutcome expectedOutcome = new DocumentIngestionOutcome();
-        expectedOutcome.setDocumentName(documentName);
-        expectedOutcome.setStatus("INVALID_METADATA");
-        expectedOutcome.setReason("Invalid or incomplete nested metadata detected");
+        String documentId = null;
 
         when(documentMetadataService.processDocumentMetadata(documentName))
                 .thenThrow(new MetadataValidationException("Invalid metadata: Missing document ID: " + documentName));
-        when(documentMetadataService.createInvalidMetadataOutcome(documentName, null)).thenReturn(expectedOutcome);
 
         // when
-        ingestionOrchestratorService.processDocument(documentName, successMessage, failureOutcome);
+        ingestionOrchestratorService.processDocument(documentName, queueMessage, messageOutcome);
 
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
-        verify(documentMetadataService).createInvalidMetadataOutcome(documentName, null);
-        verify(successMessage, never()).setValue(anyString());
-        verify(failureOutcome).setValue(any(DocumentIngestionOutcome.class));
+        verify(queueMessage, never()).setValue(anyString());
+        verify(messageOutcome).setValue(any(DocumentIngestionOutcome.class)); // Failure outcome should be recorded
     }
 
     @Test
@@ -112,16 +103,17 @@ class IngestionOrchestratorServiceTest {
     void shouldHandleGeneralException() {
         // given
         String documentName = "test.pdf";
+        String documentId = null;
 
         when(documentMetadataService.processDocumentMetadata(documentName))
                 .thenThrow(new RuntimeException("Connection failed"));
 
         // when
-        ingestionOrchestratorService.processDocument(documentName, successMessage, failureOutcome);
+        ingestionOrchestratorService.processDocument(documentName, queueMessage, messageOutcome);
 
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
-        verify(successMessage, never()).setValue(anyString());
-        verify(failureOutcome).setValue(any(DocumentIngestionOutcome.class));
+        verify(queueMessage, never()).setValue(anyString());
+        verify(messageOutcome).setValue(any(DocumentIngestionOutcome.class)); // Failure outcome should be recorded
     }
 }

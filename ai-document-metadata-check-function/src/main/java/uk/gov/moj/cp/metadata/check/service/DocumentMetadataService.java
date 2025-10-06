@@ -1,13 +1,10 @@
 package uk.gov.moj.cp.metadata.check.service;
 
 import static java.util.UUID.fromString;
-import static uk.gov.moj.cp.ai.util.DocumentStatus.INVALID_METADATA;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
-import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
 
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -75,18 +72,4 @@ public class DocumentMetadataService {
             throw new MetadataValidationException("Invalid metadata for " + documentName + ": " + e.getMessage(), e);
         }
     }
-
-    public DocumentIngestionOutcome createInvalidMetadataOutcome(String documentName, final String documentId) {
-
-        DocumentIngestionOutcome ingestionOutcome = new DocumentIngestionOutcome();
-        ingestionOutcome.generateDefaultPartitionKey();
-        ingestionOutcome.generateRowKeyFrom(documentName);
-        ingestionOutcome.setDocumentName(documentName);
-        ingestionOutcome.setDocumentId(documentId);
-        ingestionOutcome.setStatus(INVALID_METADATA.name());
-        ingestionOutcome.setReason(INVALID_METADATA.getReason());
-        ingestionOutcome.setTimestamp(Instant.now().toString());
-        return ingestionOutcome;
-    }
-
 }
