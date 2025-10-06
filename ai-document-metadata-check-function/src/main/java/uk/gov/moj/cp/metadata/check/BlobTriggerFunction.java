@@ -1,38 +1,37 @@
 package uk.gov.moj.cp.metadata.check;
 
-import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
-import uk.gov.moj.cp.ai.model.QueueTaskResult;
-import uk.gov.moj.cp.metadata.check.service.BlobMetadataService;
-import uk.gov.moj.cp.metadata.check.service.QueueStorageService;
+import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
+import uk.gov.moj.cp.metadata.check.service.DocumentMetadataService;
+import uk.gov.moj.cp.metadata.check.service.IngestionOrchestratorService;
 
-import java.util.Map;
-
-import com.microsoft.azure.functions.ExecutionContext;
+import com.microsoft.azure.functions.OutputBinding;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.BlobTrigger;
 import com.microsoft.azure.functions.annotation.FunctionName;
+import com.microsoft.azure.functions.annotation.QueueOutput;
+import com.microsoft.azure.functions.annotation.TableOutput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class BlobTriggerFunction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BlobTriggerFunction.class);
-    private final BlobMetadataService blobMetadataService;
-    private final QueueStorageService queueStorageService;
+    private static final String STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION = "%STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION%";
+    private static final String STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME = "%STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME%";
+    private static final String AI_RAG_SERVICE_STORAGE_ACCOUNT = "AI_RAG_SERVICE_STORAGE_ACCOUNT";
+    private final DocumentMetadataService documentMetadataService;
+    private final IngestionOrchestratorService orchestratorService;
+
 
     public BlobTriggerFunction() {
-        String storageConnectionString = System.getenv("AZURE_STORAGE_CONNECTION_STRING");
-        String documentIngestionQueue = System.getenv("DOCUMENT_INGESTION_QUEUE");
-        String documentIngestionOutcomeTable = System.getenv("DOCUMENT_INGESTION_OUTCOME_TABLE");
-        String documentContainerName = System.getenv("DOCUMENT_CONTAINER_NAME");
-
-        this.blobMetadataService = new BlobMetadataService(storageConnectionString, documentContainerName, documentIngestionOutcomeTable);
-        this.queueStorageService = new QueueStorageService(storageConnectionString, documentIngestionQueue, documentIngestionOutcomeTable);
+        this.documentMetadataService = new DocumentMetadataService();
+        this.orchestratorService = new IngestionOrchestratorService(documentMetadataService);
     }
 
-    BlobTriggerFunction(BlobMetadataService blobMetadataService, QueueStorageService queueStorageService) {
-        this.blobMetadataService = blobMetadataService;
-        this.queueStorageService = queueStorageService;
+    BlobTriggerFunction(DocumentMetadataService documentMetadataService,
+                        IngestionOrchestratorService orchestratorService) {
+        this.documentMetadataService = documentMetadataService;
+        this.orchestratorService = orchestratorService;
     }
 
     @FunctionName("DocumentMetadataCheck")
@@ -43,25 +42,18 @@ public class BlobTriggerFunction {
                     connection = "AI_RAG_SERVICE_STORAGE_ACCOUNT"
             )
             @BindingName("name") String documentName,
-            final ExecutionContext context) {
+            @QueueOutput(name = "queueMessage",
+                    queueName = STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION,
+                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT)
+            OutputBinding<String> queueMessage,
+            @TableOutput(name = "messageOutcome",
+                    tableName = STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME,
+                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT)
+            OutputBinding<DocumentIngestionOutcome> messageOutcome) {
 
-        LOGGER.info("Blob trigger function processed a request for blob: {}", documentName);
-        LOGGER.info("Function execution ID: {}", context.getInvocationId());
-
-        LOGGER.info("Blob trigger function processed a request for {}", documentName);
-        LOGGER.info("Function execution ID: {}", context.getInvocationId());
-
-
-        Map<String, String> blobMetadata = blobMetadataService.processBlobMetadata(documentName);
-
-        QueueIngestionMetadata queueMessage = queueStorageService.createQueueMessage(documentName, blobMetadata);
-
-        QueueTaskResult queueTaskResult = queueStorageService.sendToQueue(queueMessage);
-
-        if (queueTaskResult.success()) {
-            LOGGER.info("Document {} successfully processed and queued", documentName);
-        } else {
-            LOGGER.error("Failed to queue {} {}", documentName, queueTaskResult.errorMessage());
-        }
+        LOGGER.info("Blob trigger function processed a request for document: {}", documentName);
+        orchestratorService.processDocument(documentName, queueMessage, messageOutcome);
     }
 }
+
+
