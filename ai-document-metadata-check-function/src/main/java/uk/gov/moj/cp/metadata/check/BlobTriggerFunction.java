@@ -4,6 +4,7 @@ import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
 import uk.gov.moj.cp.metadata.check.service.DocumentMetadataService;
 import uk.gov.moj.cp.metadata.check.service.IngestionOrchestratorService;
 
+import com.microsoft.azure.functions.OutputBinding;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.BlobTrigger;
 import com.microsoft.azure.functions.annotation.FunctionName;
@@ -44,11 +45,11 @@ public class BlobTriggerFunction {
             @QueueOutput(name = "queueMessage",
                     queueName = STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION,
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT)
-            com.microsoft.azure.functions.OutputBinding<String> queueMessage,
+            OutputBinding<String> queueMessage,
             @TableOutput(name = "messageOutcome",
                     tableName = STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME,
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT)
-            com.microsoft.azure.functions.OutputBinding<DocumentIngestionOutcome> messageOutcome) {
+            OutputBinding<DocumentIngestionOutcome> messageOutcome) {
 
         LOGGER.info("Blob trigger function processed a request for document: {}", documentName);
         orchestratorService.processDocument(documentName, queueMessage, messageOutcome);
