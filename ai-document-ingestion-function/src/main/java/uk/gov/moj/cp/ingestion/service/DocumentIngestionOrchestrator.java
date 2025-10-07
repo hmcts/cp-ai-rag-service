@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.ingestion.service;
 
 
+import static java.util.Objects.requireNonNull;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.INGESTION_FAILED;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.INGESTION_SUCCESS;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
@@ -56,7 +57,6 @@ public class DocumentIngestionOrchestrator {
             // process the message using document intelligence
             documentProcessingOrchestrator.processDocument(queueIngestionMetadata);
 
-            int sum  = 10/0;
             // Step 2: Chunk document using LangChain4j
 
 
@@ -65,8 +65,6 @@ public class DocumentIngestionOrchestrator {
 
             // Step 4: Store chunks in Azure Search
 
-
-            // Record success
             recordOutcome(queueIngestionMetadata.documentName(), queueIngestionMetadata.documentId(),
                     INGESTION_SUCCESS.name(), INGESTION_SUCCESS.getReason());
 
@@ -74,7 +72,8 @@ public class DocumentIngestionOrchestrator {
                     queueIngestionMetadata.documentName(), queueIngestionMetadata.documentId());
 
         } catch (Exception e) {
-             // record failure
+
+            requireNonNull(queueIngestionMetadata, "Queue ingestion metadata must not be null");
             recordOutcome(queueIngestionMetadata.documentName(), queueIngestionMetadata.documentId(),
                     INGESTION_FAILED.name(), INGESTION_FAILED.getReason());
 
