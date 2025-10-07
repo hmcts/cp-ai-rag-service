@@ -39,7 +39,7 @@ public class BlobTriggerFunction {
             @BlobTrigger(
                     name = "blob",
                     path = "documents/{name}",
-                    connection = "AI_RAG_SERVICE_STORAGE_ACCOUNT"
+                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT
             )
             @BindingName("name") String documentName,
             @QueueOutput(name = "queueMessage",

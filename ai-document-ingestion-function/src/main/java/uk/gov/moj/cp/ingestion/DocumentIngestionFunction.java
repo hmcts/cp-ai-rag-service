@@ -1,6 +1,10 @@
 package uk.gov.moj.cp.ingestion;
 
-import com.microsoft.azure.functions.ExecutionContext;
+import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
+
+import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
+import uk.gov.moj.cp.ingestion.service.DocumentIngestionOrchestrator;
+
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
 import org.slf4j.Logger;
@@ -8,53 +12,46 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Azure Function for document ingestion processing.
- * Processes documents from the queue and orchestrates preprocessing, chunking, and embedding.
  */
 public class DocumentIngestionFunction {
-    
-    private static final Logger logger = LoggerFactory.getLogger(DocumentIngestionFunction.class);
-    
-    /**
-     * Function triggered by queue messages for document processing.
-     * 
-     * @param message The queue message containing document processing information
-     * @param context The execution context
-     */
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DocumentIngestionFunction.class);
+    private static final String STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION = "%STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION%";
+    private static final String AI_RAG_SERVICE_STORAGE_ACCOUNT = "AI_RAG_SERVICE_STORAGE_ACCOUNT";
+    private final DocumentIngestionOrchestrator documentIngestionOrchestrator;
+
+    public DocumentIngestionFunction() {
+        this.documentIngestionOrchestrator = new DocumentIngestionOrchestrator();
+    }
+
+    DocumentIngestionFunction(DocumentIngestionOrchestrator documentIngestionOrchestrator) {
+        this.documentIngestionOrchestrator = documentIngestionOrchestrator;
+    }
+
     @FunctionName("DocumentIngestion")
     public void run(
             @QueueTrigger(
-                name = "message",
-                queueName = "document-processing-queue",
-                connection = "AzureWebJobsStorage"
-            ) String message,
-            final ExecutionContext context) {
-        
-        logger.info("Document ingestion function processed a request");
-        logger.info("Queue message: {}", message);
-        logger.info("Function execution ID: {}", context.getInvocationId());
-        
+                    name = "queueMessage",
+                    queueName = STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION,
+                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT
+            ) String queueMessage) throws DocumentProcessingException {
+
+        LOGGER.info("Document ingestion function triggered ");
+
         try {
-            // Basic validation
-            if (message == null || message.trim().isEmpty()) {
-                logger.error("Invalid queue message: {}", message);
+            if (isNullOrEmpty(queueMessage)) {
+                LOGGER.error("Invalid queue queueMessage received: {}", queueMessage);
                 return;
             }
-            
-            // Log processing start
-            logger.info("Starting document ingestion processing for message: {}", message);
-            
-            // TODO: Add actual ingestion logic here
-            // - Parse document from blob storage
-            // - Preprocess document content
-            // - Chunk document into sections
-            // - Generate embeddings using Azure OpenAI
-            // - Store in vector database (Azure Search)
-            
-            logger.info("Document ingestion processing completed successfully for message: {}", message);
-            
+
+            documentIngestionOrchestrator.processQueueMessage(queueMessage);
+
+        } catch (DocumentProcessingException documentProcessingException) {
+            // Re-throw to trigger Azure Function retry mechanism
+            throw documentProcessingException;
         } catch (Exception e) {
-            logger.error("Error processing document ingestion for message: {}", message, e);
-            throw e;
+            LOGGER.error("Unexpected error in document ingestion function for queueMessage: {}", queueMessage, e);
+            throw new DocumentProcessingException("Function execution failed", e);
         }
     }
 }
