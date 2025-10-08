@@ -34,7 +34,7 @@ public class DocumentIngestionFunction {
                     name = "queueMessage",
                     queueName = STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION,
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT
-            ) String queueMessage) throws DocumentProcessingException {
+            ) String queueMessage) throws DocumentProcessingException, Exception {
 
         LOGGER.info("Document ingestion function triggered ");
 
@@ -49,9 +49,6 @@ public class DocumentIngestionFunction {
         } catch (DocumentProcessingException documentProcessingException) {
             // Re-throw to trigger Azure Function retry mechanism
             throw documentProcessingException;
-        } catch (Exception e) {
-            LOGGER.error("Unexpected error in document ingestion function for queueMessage: {}", queueMessage, e);
-            throw new DocumentProcessingException("Function execution failed", e);
         }
     }
 }

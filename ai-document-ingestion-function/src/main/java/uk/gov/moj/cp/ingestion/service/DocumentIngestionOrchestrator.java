@@ -10,7 +10,6 @@ import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ai.service.TableStorageService;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 
-import com.azure.ai.formrecognizer.documentanalysis.models.AnalyzeResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +35,7 @@ public class DocumentIngestionOrchestrator {
         );
     }
 
-    public DocumentIngestionOrchestrator(TableStorageService tableStorageService, 
+    public DocumentIngestionOrchestrator(TableStorageService tableStorageService,
                                          final DocumentAnalysisService documentAnalysisService) {
         this.tableStorageService = tableStorageService;
         this.documentAnalysisService = documentAnalysisService;
@@ -59,7 +58,7 @@ public class DocumentIngestionOrchestrator {
                     queueIngestionMetadata.blobUrl());
 
             // process the message using document intelligence
-            AnalyzeResult analyzeResult = documentAnalysisService.analyzeDocument(queueIngestionMetadata);
+            documentAnalysisService.analyzeDocument(queueIngestionMetadata);
 
             // Step 2: Chunk document using LangChain4j
 
