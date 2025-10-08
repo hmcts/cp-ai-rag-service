@@ -10,6 +10,7 @@ import com.azure.core.credential.AzureKeyCredential;
 import com.azure.core.util.logging.ClientLogger;
 import com.azure.core.util.polling.SyncPoller;
 
+import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 
 public class DocumentAnalysisService {
@@ -33,17 +34,17 @@ public class DocumentAnalysisService {
                 .buildClient();
     }
 
-    public AnalyzeResult analyzeDocument(String documentUrl, String documentName) throws DocumentProcessingException {
-        logger.info("Starting document analysis for: {}", documentName);
+    public AnalyzeResult analyzeDocument(QueueIngestionMetadata queueIngestionMetadata) throws DocumentProcessingException {
+        logger.info("Starting document analysis for: {}", queueIngestionMetadata.documentName());
 
         try {
             SyncPoller<OperationResult, AnalyzeResult> poller =
-                    documentAnalysisClient.beginAnalyzeDocumentFromUrl(MODEL_ID, documentUrl);
+                    documentAnalysisClient.beginAnalyzeDocumentFromUrl(MODEL_ID, queueIngestionMetadata.blobUrl());
 
             AnalyzeResult result = poller.getFinalResult();
 
             logger.info("Successfully analyzed document: {} with {} pages",
-                    documentName, result.getPages().size());
+                    queueIngestionMetadata.documentName(), result.getPages().size());
 
             return result;
 

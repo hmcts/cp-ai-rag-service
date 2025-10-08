@@ -10,6 +10,7 @@ import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ai.service.TableStorageService;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 
+import com.azure.ai.formrecognizer.documentanalysis.models.AnalyzeResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,21 +22,24 @@ public class DocumentIngestionOrchestrator {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentIngestionOrchestrator.class);
 
-    private final DocumentProcessingOrchestrator documentProcessingOrchestrator;
     private final TableStorageService tableStorageService;
+    private final DocumentAnalysisService documentAnalysisService;
 
     public DocumentIngestionOrchestrator() {
-        this.documentProcessingOrchestrator = new DocumentProcessingOrchestrator();
+        this.documentAnalysisService = new DocumentAnalysisService(
+                System.getenv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT"),
+                System.getenv("AZURE_DOCUMENT_INTELLIGENCE_KEY")
+        );
         this.tableStorageService = new TableStorageService(
                 System.getenv("AI_RAG_SERVICE_STORAGE_ACCOUNT"),
                 System.getenv("STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME")
         );
     }
 
-    public DocumentIngestionOrchestrator(DocumentProcessingOrchestrator documentProcessingOrchestrator,
-                                         TableStorageService tableStorageService) {
-        this.documentProcessingOrchestrator = documentProcessingOrchestrator;
+    public DocumentIngestionOrchestrator(TableStorageService tableStorageService, 
+                                         final DocumentAnalysisService documentAnalysisService) {
         this.tableStorageService = tableStorageService;
+        this.documentAnalysisService = documentAnalysisService;
     }
 
     public void processQueueMessage(String queueMessage)
@@ -55,7 +59,7 @@ public class DocumentIngestionOrchestrator {
                     queueIngestionMetadata.blobUrl());
 
             // process the message using document intelligence
-            documentProcessingOrchestrator.processDocument(queueIngestionMetadata);
+            AnalyzeResult analyzeResult = documentAnalysisService.analyzeDocument(queueIngestionMetadata);
 
             // Step 2: Chunk document using LangChain4j
 
