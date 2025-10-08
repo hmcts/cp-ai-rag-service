@@ -104,6 +104,6 @@ class DocumentIngestionFunctionTest {
         // when & then
         DocumentProcessingException exception = assertThrows(DocumentProcessingException.class,
                 () -> documentIngestionFunction.run(queueMessage));
-        assertEquals("Orchestrator failed", exception.getMessage());
+        assertEquals("Error processing queueMessage", exception.getMessage());
     }
 }
