@@ -2,7 +2,6 @@ package uk.gov.moj.cp.ai.model;
 
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
-import java.time.LocalDate;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
@@ -30,12 +29,14 @@ public abstract class BaseTableEntity {
     /**
      * Automatically generates a partition key for current date (YYYYMMDD format).
      */
-    public void generateDefaultPartitionKey() {
-        this.partitionKey = LocalDate.now().toString().replace("-", "");
+    public void generateDefaultPartitionKey(String documentId) {
+        this.partitionKey = isNullOrEmpty(documentId)
+                ? "UNKNOWN_DOCUMENT"
+                : documentId.trim();
     }
 
     /**
-     * Generates a deterministic RowKey from a name or documentId.
+     * Generates a deterministic RowKey from a name
      */
     public void generateRowKeyFrom(String name) {
         if (isNullOrEmpty(name)) {

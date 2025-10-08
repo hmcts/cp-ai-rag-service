@@ -1,9 +1,9 @@
 package uk.gov.moj.cp.metadata.check.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.microsoft.azure.functions.OutputBinding;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static uk.gov.moj.cp.ai.util.DocumentStatus.INVALID_METADATA;
+import static uk.gov.moj.cp.ai.util.DocumentStatus.METADATA_VALIDATED;
+import static uk.gov.moj.cp.ai.util.DocumentStatus.QUEUE_FAILED;
+
 import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
@@ -11,9 +11,10 @@ import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
 import java.time.Instant;
 import java.util.Map;
 
-import static uk.gov.moj.cp.ai.util.DocumentStatus.METADATA_VALIDATED;
-import static uk.gov.moj.cp.ai.util.DocumentStatus.QUEUE_FAILED;
-import static uk.gov.moj.cp.ai.util.DocumentStatus.INVALID_METADATA;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.microsoft.azure.functions.OutputBinding;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Orchestrates the document ingestion process:
@@ -102,7 +103,7 @@ public class IngestionOrchestratorService {
                                String reason) {
 
         DocumentIngestionOutcome outcome = new DocumentIngestionOutcome();
-        outcome.generateDefaultPartitionKey();
+        outcome.setPartitionKey(documentId);
         outcome.generateRowKeyFrom(documentName);
         outcome.setDocumentName(documentName);
         outcome.setDocumentId(documentId);
