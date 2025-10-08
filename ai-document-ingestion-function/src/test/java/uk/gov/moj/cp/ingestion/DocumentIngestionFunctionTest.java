@@ -7,9 +7,14 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 import uk.gov.moj.cp.ingestion.service.DocumentIngestionOrchestrator;
 
+import java.time.Instant;
+import java.util.Map;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,25 +39,22 @@ class DocumentIngestionFunctionTest {
     @DisplayName("Process Queue Message Successfully")
     void shouldProcessQueueMessageSuccessfully() throws Exception {
         // given
-        String queueMessage = """
-                {
-                  "documentId": "53ac8b90-c4c8-472c-a5ee-fe84ed96047b",
-                  "documentName": "Burglary-IDPC.pdf",
-                  "metadata": {
-                    "case_id": "b99704aa-b1b1-4d5f-bb39-47dc3f18ffa9",
-                    "document_id": "53ac8b90-c4c8-472c-a5ee-fe84ed96047b",
-                    "document_type": "MCC"
-                  },
-                  "blobUrl": "test-url",
-                  "currentTimestamp": "2025-10-06T05:14:39.658828Z"
-                }
-                """;
+        QueueIngestionMetadata metadata = new QueueIngestionMetadata(
+                "53ac8b90-c4c8-472c-a5ee-fe84ed96047b",
+                "Burglary-IDPC.pdf",
+                Map.of("case_id", "b99704aa-b1b1-4d5f-bb39-47dc3f18ffa9",
+                        "document_type", "MCC"),
+                "https://storage.blob.core.windows.net/documents/Burglary-IDPC.pdf",
+                Instant.now().toString()
+        );
+
+        String queueMessage = new ObjectMapper().writeValueAsString(metadata);
 
         // when
         documentIngestionFunction.run(queueMessage);
 
         // then
-        verify(documentIngestionOrchestrator).processQueueMessage(queueMessage);
+        verify(documentIngestionOrchestrator).processQueueMessage(metadata);
     }
 
     @Test
@@ -73,25 +75,22 @@ class DocumentIngestionFunctionTest {
     @DisplayName("Process Document with Different Metadata")
     void shouldProcessDocumentWithDifferentMetadata() throws Exception {
         // given
-        String queueMessage = """
-                {
-                  "documentId": "123e4567-e89b-12d3-a456-426614174000",
-                  "documentName": "Contract-Agreement.pdf",
-                  "metadata": {
-                    "case_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-                    "document_id": "123e4567-e89b-12d3-a456-426614174000",
-                    "document_type": "CONTRACT"
-                  },
-                  "blobUrl": "https://storage.blob.core.windows.net/container/Contract-Agreement.pdf",
-                  "currentTimestamp": "2025-10-07T10:30:45.123456Z"
-                }
-                """;
+        QueueIngestionMetadata metadata = new QueueIngestionMetadata(
+                "53ac8b90-c4c8-472c-a5ee-fe84ed96047b",
+                "Burglary-IDPC.pdf",
+                Map.of("case_id", "b99704aa-b1b1-4d5f-bb39-47dc3f18ffa9",
+                        "document_type", "MCC"),
+                "https://storage.blob.core.windows.net/documents/Burglary-IDPC.pdf",
+                Instant.now().toString()
+        );
+
+        String queueMessage = new ObjectMapper().writeValueAsString(metadata);
 
         // when
         documentIngestionFunction.run(queueMessage);
 
         // then
-        verify(documentIngestionOrchestrator).processQueueMessage(queueMessage);
+        verify(documentIngestionOrchestrator).processQueueMessage(metadata);
     }
 
     @Test

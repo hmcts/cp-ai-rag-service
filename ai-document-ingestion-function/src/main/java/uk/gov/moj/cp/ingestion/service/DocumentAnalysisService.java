@@ -21,11 +21,8 @@ public class DocumentAnalysisService {
 
 
     public DocumentAnalysisService(String endpoint, String apiKey) {
-        if (isNullOrEmpty(endpoint)) {
-            throw new IllegalArgumentException("Document Intelligence endpoint cannot be null or empty");
-        }
-        if (isNullOrEmpty(endpoint)) {
-            throw new IllegalArgumentException("Document Intelligence API key cannot be null or empty");
+        if (isNullOrEmpty(endpoint) || isNullOrEmpty(apiKey)) {
+            throw new IllegalArgumentException("Document Intelligence Endpoint and API key cannot be null or empty");
         }
 
         this.documentAnalysisClient = new DocumentAnalysisClientBuilder()

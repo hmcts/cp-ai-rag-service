@@ -1,5 +1,7 @@
 package uk.gov.moj.cp.ai.service;
 
+import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
+
 import com.azure.data.tables.TableClient;
 import com.azure.data.tables.TableClientBuilder;
 import com.azure.data.tables.models.TableEntity;
@@ -15,6 +17,10 @@ public class TableStorageService {
     private final TableClient tableClient;
 
     public TableStorageService(String connectionString, String tableName) {
+
+        if (isNullOrEmpty(connectionString) || isNullOrEmpty(tableName)) {
+            throw new IllegalArgumentException("Table connection string and name cannot be null or empty");
+        }
         this.tableClient = new TableClientBuilder()
                 .connectionString(connectionString)
                 .tableName(tableName)

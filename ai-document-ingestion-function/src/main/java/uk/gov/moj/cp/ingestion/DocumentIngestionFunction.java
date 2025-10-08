@@ -1,7 +1,9 @@
 package uk.gov.moj.cp.ingestion;
 
+import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
+import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 import uk.gov.moj.cp.ingestion.service.DocumentIngestionOrchestrator;
 
@@ -34,7 +36,7 @@ public class DocumentIngestionFunction {
                     name = "queueMessage",
                     queueName = STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION,
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT
-            ) String queueMessage) throws DocumentProcessingException, Exception {
+            ) String queueMessage) throws Exception {
 
         LOGGER.info("Document ingestion function triggered ");
 
@@ -44,7 +46,16 @@ public class DocumentIngestionFunction {
                 return;
             }
 
-            documentIngestionOrchestrator.processQueueMessage(queueMessage);
+            QueueIngestionMetadata queueIngestionMetadata =
+                    getObjectMapper().readValue(queueMessage, QueueIngestionMetadata.class);
+
+
+            LOGGER.info("Parsed ingestion metadata - ID: {}, Name: {}, Blob URL: {}",
+                    queueIngestionMetadata.documentId(),
+                    queueIngestionMetadata.documentName(),
+                    queueIngestionMetadata.blobUrl());
+
+            documentIngestionOrchestrator.processQueueMessage(queueIngestionMetadata);
 
         } catch (DocumentProcessingException documentProcessingException) {
             // Re-throw to trigger Azure Function retry mechanism

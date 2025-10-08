@@ -4,7 +4,6 @@ package uk.gov.moj.cp.ingestion.service;
 import static java.util.Objects.requireNonNull;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.INGESTION_FAILED;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.INGESTION_SUCCESS;
-import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ai.service.TableStorageService;
@@ -41,16 +40,12 @@ public class DocumentIngestionOrchestrator {
         this.documentAnalysisService = documentAnalysisService;
     }
 
-    public void processQueueMessage(String queueMessage)
+    public void processQueueMessage(QueueIngestionMetadata queueIngestionMetadata)
             throws DocumentProcessingException {
 
-        LOGGER.info("Starting document ingestion process for queueMessage: {}", queueMessage);
-
-        QueueIngestionMetadata queueIngestionMetadata = null;
+        LOGGER.info("Starting document ingestion process for document: {}", queueIngestionMetadata.documentName());
 
         try {
-            // parse the queue message
-            queueIngestionMetadata = getObjectMapper().readValue(queueMessage, QueueIngestionMetadata.class);
 
             LOGGER.info("Parsed ingestion metadata - ID: {}, Name: {}, Blob URL: {}",
                     queueIngestionMetadata.documentId(),
