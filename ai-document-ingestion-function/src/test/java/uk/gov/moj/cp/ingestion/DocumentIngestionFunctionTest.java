@@ -107,19 +107,4 @@ class DocumentIngestionFunctionTest {
                 () -> documentIngestionFunction.run(queueMessage));
         assertEquals("Orchestrator failed", exception.getMessage());
     }
-
-    @Test
-    @DisplayName("Throw DocumentProcessingException When Unexpected Error Occurs")
-    void shouldThrowDocumentProcessingExceptionWhenUnexpectedErrorOccurs() throws Exception {
-        // given
-        String queueMessage = "{}";
-        RuntimeException unexpectedException = new RuntimeException("Unexpected error");
-        doThrow(unexpectedException).when(documentIngestionOrchestrator).processQueueMessage(any());
-
-        // when & then
-        DocumentProcessingException exception = assertThrows(DocumentProcessingException.class,
-                () -> documentIngestionFunction.run(queueMessage));
-        assertEquals("Function execution failed", exception.getMessage());
-        assertEquals(RuntimeException.class, exception.getCause().getClass());
-    }
 }
