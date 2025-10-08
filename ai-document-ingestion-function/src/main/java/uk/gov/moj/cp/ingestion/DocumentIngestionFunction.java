@@ -7,6 +7,7 @@ import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 import uk.gov.moj.cp.ingestion.service.DocumentIngestionOrchestrator;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
 import org.slf4j.Logger;
@@ -36,7 +37,7 @@ public class DocumentIngestionFunction {
                     name = "queueMessage",
                     queueName = STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION,
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT
-            ) String queueMessage) throws Exception {
+            ) String queueMessage) throws DocumentProcessingException {
 
         LOGGER.info("Document ingestion function triggered ");
 
@@ -59,7 +60,9 @@ public class DocumentIngestionFunction {
 
         } catch (DocumentProcessingException documentProcessingException) {
             // Re-throw to trigger Azure Function retry mechanism
-            throw documentProcessingException;
+            throw new DocumentProcessingException("Error processing queueMessage", documentProcessingException);
+        } catch (JsonProcessingException e) {
+            LOGGER.error("Failed to deserialize queue message: {}", queueMessage, e);
         }
     }
 }
