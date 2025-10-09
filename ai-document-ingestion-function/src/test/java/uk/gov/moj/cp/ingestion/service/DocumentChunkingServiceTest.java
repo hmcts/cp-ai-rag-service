@@ -7,17 +7,16 @@ import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 import uk.gov.moj.cp.ingestion.model.PageChunk;
 
-import com.azure.ai.formrecognizer.documentanalysis.models.AnalyzeResult;
+import java.util.Collections;
+import java.util.List;
 
+import com.azure.ai.formrecognizer.documentanalysis.models.AnalyzeResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.Collections;
-import java.util.List;
 
 @ExtendWith(MockitoExtension.class)
 class DocumentChunkingServiceTest {
@@ -74,7 +73,6 @@ class DocumentChunkingServiceTest {
 
         // then
         assertNotNull(chunks);
-        // Note: The actual behavior depends on the implementation and mocked data
     }
 
     @Test
