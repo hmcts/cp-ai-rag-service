@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import uk.gov.moj.cp.ingestion.exception.DocumentUploadException;
-import uk.gov.moj.cp.ingestion.model.PageChunk;
+import uk.gov.moj.cp.ai.model.ChunkedEntry;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,7 +35,7 @@ class DocumentStorageServiceTest {
     @DisplayName("Handle Empty Chunks List")
     void shouldHandleEmptyChunksList() throws Exception {
         // given
-        List<PageChunk> emptyChunks = Collections.emptyList();
+        List<ChunkedEntry> emptyChunks = Collections.emptyList();
 
         // when & then
         assertDoesNotThrow(() -> documentStorageService.uploadChunks(emptyChunks));

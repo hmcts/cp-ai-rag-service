@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
-import uk.gov.moj.cp.ingestion.model.PageChunk;
+import uk.gov.moj.cp.ai.model.ChunkedEntry;
 
 import java.util.Collections;
 import java.util.List;
@@ -68,11 +68,11 @@ class DocumentChunkingServiceTest {
     @Test
     @DisplayName("Chunk Document with Valid Inputs")
     void shouldChunkDocumentWithValidInputs() throws Exception {
-        // when
-        List<PageChunk> chunks = documentChunkingService.chunkDocument(analyzeResult, metadata);
+            // when
+            List<ChunkedEntry> chunks = documentChunkingService.chunkDocument(analyzeResult, metadata);
 
-        // then
-        assertNotNull(chunks);
+            // then
+            assertNotNull(chunks);
     }
 
     @Test
@@ -87,10 +87,10 @@ class DocumentChunkingServiceTest {
                 "2025-10-06T05:14:39.658828Z"
         );
 
-        // when
-        List<PageChunk> chunks = documentChunkingService.chunkDocument(analyzeResult, mccMetadata);
+            // when
+            List<ChunkedEntry> chunks = documentChunkingService.chunkDocument(analyzeResult, mccMetadata);
 
-        // then
-        assertNotNull(chunks);
+            // then
+            assertNotNull(chunks);
     }
 }

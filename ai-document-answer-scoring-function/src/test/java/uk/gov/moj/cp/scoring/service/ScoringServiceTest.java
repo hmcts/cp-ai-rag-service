@@ -102,8 +102,20 @@ class ScoringServiceTest {
     @DisplayName("Returns default score when retrieved documents contain empty chunks")
     void returnsDefaultScoreWhenRetrievedDocumentsContainEmptyChunks() {
         List<ChunkedEntry> retrievedDocuments = List.of(
-                new ChunkedEntry(randomUUID().toString(), "", "doc1", 1, randomUUID().toString()),
-                new ChunkedEntry(randomUUID().toString(), "", "doc2", 2, randomUUID().toString())
+                ChunkedEntry.builder()
+                        .id(randomUUID().toString())
+                        .chunk("")
+                        .documentFileName("doc1")
+                        .pageNumber(1)
+                        .documentId(randomUUID().toString())
+                        .build(),
+                ChunkedEntry.builder()
+                        .id(randomUUID().toString())
+                        .chunk("")
+                        .documentFileName("doc2")
+                        .pageNumber(2)
+                        .documentId(randomUUID().toString())
+                        .build()
         );
 
         ModelScore result = scoringService.evaluateGroundedness("response", "query", retrievedDocuments);
@@ -116,8 +128,20 @@ class ScoringServiceTest {
     @DisplayName("Returns default score when retrieved documents contain null chunks")
     void returnsDefaultScoreWhenRetrievedDocumentsContainNullChunks() {
         List<ChunkedEntry> retrievedDocuments = List.of(
-                new ChunkedEntry(randomUUID().toString(), null, "doc1", 1, randomUUID().toString()),
-                new ChunkedEntry(randomUUID().toString(), null, "doc2", 2, randomUUID().toString())
+                ChunkedEntry.builder()
+                        .id(randomUUID().toString())
+                        .chunk(null)
+                        .documentFileName("doc1")
+                        .pageNumber(1)
+                        .documentId(randomUUID().toString())
+                        .build(),
+                ChunkedEntry.builder()
+                        .id(randomUUID().toString())
+                        .chunk(null)
+                        .documentFileName("doc2")
+                        .pageNumber(2)
+                        .documentId(randomUUID().toString())
+                        .build()
         );
 
         ModelScore result = scoringService.evaluateGroundedness("response", "query", retrievedDocuments);

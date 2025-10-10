@@ -6,8 +6,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
+import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.SearchServiceException;
-import uk.gov.moj.cp.retrieval.model.KeyValuePair;
 
 import java.util.List;
 
@@ -34,7 +34,13 @@ class SearchServiceTest {
         String userQuery = "Find legal documents";
         List<Double> vectorizedUserQuery = List.of(0.1, 0.2, 0.3);
         List<KeyValuePair> metadataFilters = List.of(new KeyValuePair("key", "value"));
-        List<ChunkedEntry> expectedResults = List.of(new ChunkedEntry("id1", "content1", "doc1", 1, "docId1"));
+        List<ChunkedEntry> expectedResults = List.of(ChunkedEntry.builder()
+                .id("id1")
+                .chunk("content1")
+                .documentFileName("doc1")
+                .pageNumber(1)
+                .documentId("docId1")
+                .build());
 
         when(mockAzureAISearchService.search(userQuery, vectorizedUserQuery, metadataFilters)).thenReturn(expectedResults);
 

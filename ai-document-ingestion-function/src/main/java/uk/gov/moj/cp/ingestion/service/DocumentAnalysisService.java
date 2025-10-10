@@ -2,10 +2,7 @@ package uk.gov.moj.cp.ingestion.service;
 
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
-import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
-
-import java.time.OffsetDateTime;
 
 import com.azure.ai.formrecognizer.documentanalysis.DocumentAnalysisClient;
 import com.azure.ai.formrecognizer.documentanalysis.DocumentAnalysisClientBuilder;
@@ -14,12 +11,6 @@ import com.azure.ai.formrecognizer.documentanalysis.models.OperationResult;
 import com.azure.core.credential.AzureKeyCredential;
 import com.azure.core.util.logging.ClientLogger;
 import com.azure.core.util.polling.SyncPoller;
-import com.azure.storage.blob.BlobClient;
-import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.BlobServiceClient;
-import com.azure.storage.blob.BlobServiceClientBuilder;
-import com.azure.storage.blob.sas.BlobSasPermission;
-import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 
 public class DocumentAnalysisService {
 
@@ -39,10 +30,10 @@ public class DocumentAnalysisService {
                 .buildClient();
     }
 
-    public AnalyzeResult analyzeDocument(QueueIngestionMetadata queueIngestionMetadata)
+    public AnalyzeResult analyzeDocument(final String documentName,
+                                         final String documentUrl)
             throws DocumentProcessingException {
-        String documentName = queueIngestionMetadata.documentName();
-        String documentUrl = queueIngestionMetadata.blobUrl();
+
         logger.info("Starting document analysis for: {}", documentName);
 
         try {

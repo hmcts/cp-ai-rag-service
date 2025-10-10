@@ -2,13 +2,16 @@ package uk.gov.moj.cp.ingestion.service;
 
 import static dev.langchain4j.data.document.splitter.DocumentSplitters.recursive;
 
+import uk.gov.moj.cp.ai.index.IndexConstants;
+import uk.gov.moj.cp.ai.model.ChunkedEntry;
+import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ingestion.config.ChunkingConfig;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
-import uk.gov.moj.cp.ingestion.model.PageChunk;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import com.azure.ai.formrecognizer.documentanalysis.models.AnalyzeResult;
 import com.azure.ai.formrecognizer.documentanalysis.models.DocumentLine;
@@ -23,25 +26,25 @@ public class DocumentChunkingService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentChunkingService.class);
 
-    public List<PageChunk> chunkDocument(AnalyzeResult result,
+    public List<ChunkedEntry> chunkDocument(AnalyzeResult result,
                                          QueueIngestionMetadata queueMetadata) throws DocumentProcessingException {
         return chunkDocument(result, queueMetadata, ChunkingConfig.getDefault());
     }
 
-    public List<PageChunk> chunkDocument(AnalyzeResult result,
+    public List<ChunkedEntry> chunkDocument(AnalyzeResult result,
                                          QueueIngestionMetadata queueMetadata,
                                          ChunkingConfig config) throws DocumentProcessingException {
 
         LOGGER.info("Starting document chunking for: {}", queueMetadata.documentName());
 
         try {
-            List<PageChunk> finalChunks = new ArrayList<>();
+            List<ChunkedEntry> finalChunks = new ArrayList<>();
             int pageIndex = 1;
 
             DocumentSplitter splitter = recursive(config.chunkSize(), config.chunkOverlap());
 
             for (DocumentPage page : result.getPages()) {
-                List<PageChunk> pageChunks = processPage(page, pageIndex, queueMetadata, splitter, config);
+                List<ChunkedEntry> pageChunks = processPage(page, pageIndex, queueMetadata, splitter, config);
                 finalChunks.addAll(pageChunks);
                 pageIndex++;
             }
@@ -56,12 +59,12 @@ public class DocumentChunkingService {
         }
     }
 
-    private List<PageChunk> processPage(DocumentPage page,
+    private List<ChunkedEntry> processPage(DocumentPage page,
                                         int pageIndex,
                                         QueueIngestionMetadata queueMetadata,
                                         DocumentSplitter splitter,
                                         ChunkingConfig config) {
-        List<PageChunk> pageChunks = new ArrayList<>();
+        List<ChunkedEntry> pageChunks = new ArrayList<>();
 
         List<String> lines = extractTextFromPage(page);
         String fullText = String.join(" ", lines);
@@ -80,7 +83,7 @@ public class DocumentChunkingService {
                 String chunkContent = segment.text().trim();
 
                 if (isValidChunk(chunkContent)) {
-                    PageChunk chunk = createPageChunk(pageIndex, chunkContent, queueMetadata, config, i);
+                    ChunkedEntry chunk = createChunkedEntry(pageIndex, chunkContent, queueMetadata, config, i);
                     pageChunks.add(chunk);
 
                     LOGGER.info("Created chunk {} for page {} with {} characters",
@@ -108,30 +111,30 @@ public class DocumentChunkingService {
 
 
     private boolean isValidChunk(String chunkContent) {
-        return chunkContent.length() > 10;
+        return chunkContent.length() > IndexConstants.MIN_CHUNK_LENGTH;
     }
 
-    private PageChunk createPageChunk(int pageIndex,
+    private ChunkedEntry createChunkedEntry(int pageIndex,
                                       String chunkContent,
                                       QueueIngestionMetadata queueMetadata,
                                       ChunkingConfig config,
                                       int chunkIndex) {
 
-        PageChunk chunk = new PageChunk(pageIndex, chunkContent);
+        // Convert metadata to KeyValuePair list
+        List<KeyValuePair> customMetadataList = new ArrayList<>();
+        queueMetadata.metadata().forEach((key, value) -> 
+            customMetadataList.add(new KeyValuePair(key, value)));
 
-        chunk.setDocumentId(queueMetadata.documentId());
-        chunk.setFileName(queueMetadata.documentName());
-        chunk.setOriginalFileUrl(queueMetadata.blobUrl());
-        chunk.setChunkIndex(chunkIndex);
-        chunk.setPageNumber(pageIndex);
-
-        // additional chunking info
-        chunk.setChunkingStrategy(config.chunkingStrategy());
-        chunk.setChunkSize(chunkContent.length());
-        chunk.setChunkOverlap(config.chunkOverlap());
-
-        queueMetadata.metadata().forEach(chunk::addCustomMetadata);
-
+        ChunkedEntry chunk = ChunkedEntry.builder()
+                .id(UUID.randomUUID().toString())
+                .documentId(queueMetadata.documentId())
+                .chunk(chunkContent)
+                .documentFileName(queueMetadata.documentName())
+                .pageNumber(pageIndex)
+                .chunkIndex(chunkIndex)
+                .documentFileUrl(queueMetadata.blobUrl())
+                .customMetadata(customMetadataList)
+                .build();
 
         LOGGER.debug("Created chunk [{}] for page {} of document {}",
                 chunkIndex + 1, pageIndex, queueMetadata.documentName());

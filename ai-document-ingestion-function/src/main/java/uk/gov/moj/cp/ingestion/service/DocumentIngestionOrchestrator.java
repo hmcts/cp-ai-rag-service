@@ -6,11 +6,11 @@ import static uk.gov.moj.cp.ai.util.DocumentStatus.INGESTION_FAILED;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.INGESTION_SUCCESS;
 
 import uk.gov.moj.cp.ai.EmbeddingServiceException;
+import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ai.service.EmbeddingService;
 import uk.gov.moj.cp.ai.service.TableStorageService;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
-import uk.gov.moj.cp.ingestion.model.PageChunk;
 
 import java.util.Collections;
 import java.util.List;
@@ -100,20 +100,21 @@ public class DocumentIngestionOrchestrator {
 
         String documentName = queueIngestionMetadata.documentName();
         String documentId = queueIngestionMetadata.documentId();
+        String documentUrl = queueIngestionMetadata.blobUrl();
 
         LOGGER.info("Starting document ingestion process for document: {} (ID: {})", documentName, documentId);
         try {
             // Step 1: Analyze document using Azure Document Intelligence
-            AnalyzeResult analyzeResult = documentAnalysisService.analyzeDocument(queueIngestionMetadata);
+            AnalyzeResult analyzeResult = documentAnalysisService.analyzeDocument(documentName,documentUrl);
 
             // Step 2: Chunk document using LangChain4j
-            List<PageChunk> pageChunks = documentChunkingService.chunkDocument(analyzeResult, queueIngestionMetadata);
+            List<ChunkedEntry> chunkedEntries = documentChunkingService.chunkDocument(analyzeResult, queueIngestionMetadata);
 
             // Step 3: Generate embeddings for chunks
-            enrichChunksWithEmbeddings(pageChunks);
+            enrichChunksWithEmbeddings(chunkedEntries);
 
             // Step 4: Store chunks in Azure Search
-            documentStorageService.uploadChunks(Collections.unmodifiableList(pageChunks));
+            documentStorageService.uploadChunks(Collections.unmodifiableList(chunkedEntries));
 
             // Record success
             recordOutcome(documentName, documentId, INGESTION_SUCCESS.name(), INGESTION_SUCCESS.getReason());
@@ -131,30 +132,46 @@ public class DocumentIngestionOrchestrator {
         }
     }
 
-    private void enrichChunksWithEmbeddings(List<PageChunk> pageChunks) {
-        for (PageChunk pageChunk : pageChunks) {
-            if (isEmptyChunk(pageChunk)) {
-                LOGGER.warn("Skipping chunk on page {} - empty or null text", pageChunk.getPageNumber());
+    private void enrichChunksWithEmbeddings(List<ChunkedEntry> chunkedEntries) {
+        for (int i = 0; i < chunkedEntries.size(); i++) {
+            ChunkedEntry chunkedEntry = chunkedEntries.get(i);
+            if (isEmptyChunk(chunkedEntry)) {
+                LOGGER.warn("Skipping chunk on page {} - empty or null text", chunkedEntry.pageNumber());
                 continue;
             }
 
             try {
-                List<Double> vector = embeddingService.embedStringData(pageChunk.getChunk());
-                pageChunk.setContentVector(vector);
+                List<Double> vector = embeddingService.embedStringData(chunkedEntry.chunk());
+                
+                // Create new ChunkedEntry with the vector
+                ChunkedEntry enrichedEntry = ChunkedEntry.builder()
+                        .id(chunkedEntry.id())
+                        .documentId(chunkedEntry.documentId())
+                        .chunk(chunkedEntry.chunk())
+                        .chunkVector(vector)
+                        .documentFileName(chunkedEntry.documentFileName())
+                        .pageNumber(chunkedEntry.pageNumber())
+                        .chunkIndex(chunkedEntry.chunkIndex())
+                        .documentFileUrl(chunkedEntry.documentFileUrl())
+                        .customMetadata(chunkedEntry.customMetadata())
+                        .build();
+                
+                // Replace the entry in the list
+                chunkedEntries.set(i, enrichedEntry);
 
                 LOGGER.debug("Generated embedding for page {} with vector size {}",
-                        pageChunk.getPageNumber(), vector.size());
+                        chunkedEntry.pageNumber(), vector.size());
 
             } catch (EmbeddingServiceException e) {
                 LOGGER.error("Failed to embed chunk on page {}: {}",
-                        pageChunk.getPageNumber(), e.getMessage());
+                        chunkedEntry.pageNumber(), e.getMessage());
                 // Continue processing other chunks instead of failing completely
             }
         }
     }
 
-    private boolean isEmptyChunk(PageChunk chunk) {
-        return chunk.getChunk() == null || chunk.getChunk().trim().isEmpty();
+    private boolean isEmptyChunk(ChunkedEntry chunk) {
+        return chunk.chunk() == null || chunk.chunk().trim().isEmpty();
     }
 
     private void recordOutcome(String documentName,

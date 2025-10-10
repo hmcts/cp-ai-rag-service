@@ -1,15 +1,21 @@
 package uk.gov.moj.cp.ai.service;
 
+import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_FILE_NAME;
+import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_ID;
+import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_STATUS;
+import static uk.gov.moj.cp.ai.index.IndexConstants.REASON;
+import static uk.gov.moj.cp.ai.index.IndexConstants.TIMESTAMP;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
+
+import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
+
+import java.time.Instant;
 
 import com.azure.data.tables.TableClient;
 import com.azure.data.tables.TableClientBuilder;
 import com.azure.data.tables.models.TableEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
-
-import java.time.Instant;
 
 public class TableStorageService {
 
@@ -41,11 +47,11 @@ public class TableStorageService {
 
 
             TableEntity entity = new TableEntity(outcome.getPartitionKey(), outcome.getRowKey());
-            entity.addProperty("documentName", outcome.getDocumentName());
-            entity.addProperty("documentId", outcome.getDocumentId());
-            entity.addProperty("status", outcome.getStatus());
-            entity.addProperty("reason", outcome.getReason());
-            entity.addProperty("timestamp", outcome.getTimestamp());
+            entity.addProperty(DOCUMENT_FILE_NAME, outcome.getDocumentName());
+            entity.addProperty(DOCUMENT_ID, outcome.getDocumentId());
+            entity.addProperty(DOCUMENT_STATUS, outcome.getStatus());
+            entity.addProperty(REASON, outcome.getReason());
+            entity.addProperty(TIMESTAMP, outcome.getTimestamp());
 
 
             tableClient.upsertEntity(entity);
