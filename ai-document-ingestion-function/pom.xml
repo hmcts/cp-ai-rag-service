@@ -43,6 +43,13 @@
             <groupId>com.azure</groupId>
             <artifactId>azure-ai-formrecognizer</artifactId>
         </dependency>
+        <!-- langchain4j-->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-storage-blob</artifactId>
@@ -55,7 +62,11 @@
             <groupId>com.azure</groupId>
             <artifactId>azure-data-tables</artifactId>
         </dependency>
-        
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-search-documents</artifactId>
+        </dependency>
+
     </dependencies>
 
     <build>

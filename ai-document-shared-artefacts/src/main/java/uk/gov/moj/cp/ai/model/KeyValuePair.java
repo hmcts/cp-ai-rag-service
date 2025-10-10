@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.retrieval.model;
+package uk.gov.moj.cp.ai.model;
 
 public record KeyValuePair(String key, String value) {
 }

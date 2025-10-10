@@ -10,7 +10,7 @@ import static org.mockito.Mockito.when;
 import static uk.org.webcompere.modelassert.json.JsonAssertions.json;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
-import uk.gov.moj.cp.retrieval.model.KeyValuePair;
+import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
 import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
@@ -102,7 +102,13 @@ class AnswerRetrievalFunctionTest {
         RequestPayload payload = new RequestPayload("query", "prompt", metadataFilter);
 
         final List<Double> mockEmbeddings = List.of(1.0, 2.0);
-        final List<ChunkedEntry> mockSearchDocuments = List.of(new ChunkedEntry("1", "Sample content", "doc file name", 5, "doc1 id"));
+        final List<ChunkedEntry> mockSearchDocuments = List.of(ChunkedEntry.builder()
+                .id("1")
+                .chunk("Sample content")
+                .documentFileName("doc file name")
+                .pageNumber(5)
+                .documentId("doc1 id")
+                .build());
 
         when(mockEmbedDataService.getEmbedding("query")).thenReturn(mockEmbeddings);
         when(mockSearchService.searchDocumentsMatchingFilterCriteria(eq("query"), eq(mockEmbeddings), eq(metadataFilter))).thenReturn(mockSearchDocuments);

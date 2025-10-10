@@ -5,8 +5,8 @@ import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
+import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.model.QueryResponse;
-import uk.gov.moj.cp.retrieval.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
 import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
@@ -34,6 +34,8 @@ import org.slf4j.LoggerFactory;
 public class AnswerRetrievalFunction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AnswerRetrievalFunction.class);
+    private static final String STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING = "%STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING%";
+    private static final String AI_RAG_SERVICE_STORAGE_ACCOUNT = "AI_RAG_SERVICE_STORAGE_ACCOUNT";
 
     private final EmbedDataService embedDataService;
 
@@ -63,11 +65,13 @@ public class AnswerRetrievalFunction {
     @FunctionName("AnswerRetrieval")
     public HttpResponseMessage run(
             @HttpTrigger(name = "req", methods = {HttpMethod.POST}, authLevel = FUNCTION) HttpRequestMessage<RequestPayload> request,
-            @QueueOutput(name = "message", queueName = "%STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING%", connection = "AI_RAG_SERVICE_STORAGE_ACCOUNT") OutputBinding<String> message,
+            @QueueOutput(name = "message", queueName = STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING,
+                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT) OutputBinding<String> message,
             final ExecutionContext context) {
 
         try {
             // Extract query from request
+
             final String userQuery = request.getBody().userQuery();
             final String userQueryPrompt = request.getBody().queryPrompt();
             final List<KeyValuePair> metadataFilters = request.getBody().metadataFilter();
