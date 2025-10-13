@@ -52,22 +52,18 @@ class DocumentStorageServiceTest {
     }
 
     @Test
-    @DisplayName("Service Constructor with Null Admin Key")
-    void shouldCreateServiceWithNullAdminKey() {
-        // when
-        DocumentStorageService service = new DocumentStorageService("https://test-endpoint", "test-index", null);
-
-        // then
-        assertNotNull(service);
+    @DisplayName("Service Constructor with Null Admin Key Should Throw Exception")
+    void shouldThrowExceptionWithNullAdminKey() {
+        // when & then
+        assertThrows(IllegalArgumentException.class, () -> 
+            new DocumentStorageService("https://test-endpoint", "test-index", null));
     }
 
     @Test
-    @DisplayName("Service Constructor with Empty Admin Key")
-    void shouldCreateServiceWithEmptyAdminKey() {
-        // when
-        DocumentStorageService service = new DocumentStorageService("https://test-endpoint", "test-index", "");
-
-        // then
-        assertNotNull(service);
+    @DisplayName("Service Constructor with Empty Admin Key Should Throw Exception")
+    void shouldThrowExceptionWithEmptyAdminKey() {
+        // when & then
+        assertThrows(IllegalArgumentException.class, () -> 
+            new DocumentStorageService("https://test-endpoint", "test-index", ""));
     }
 }

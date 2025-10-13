@@ -4,6 +4,7 @@ package uk.gov.moj.cp.ingestion.service;
 import static java.util.Objects.requireNonNull;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.INGESTION_FAILED;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.INGESTION_SUCCESS;
+import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.EmbeddingServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
@@ -105,7 +106,7 @@ public class DocumentIngestionOrchestrator {
         LOGGER.info("Starting document ingestion process for document: {} (ID: {})", documentName, documentId);
         try {
             // Step 1: Analyze document using Azure Document Intelligence
-            AnalyzeResult analyzeResult = documentAnalysisService.analyzeDocument(documentName,documentUrl);
+            AnalyzeResult analyzeResult = documentAnalysisService.analyzeDocument(documentName, documentUrl);
 
             // Step 2: Chunk document using LangChain4j
             List<ChunkedEntry> chunkedEntries = documentChunkingService.chunkDocument(analyzeResult, queueIngestionMetadata);
@@ -135,14 +136,14 @@ public class DocumentIngestionOrchestrator {
     private void enrichChunksWithEmbeddings(List<ChunkedEntry> chunkedEntries) {
         for (int i = 0; i < chunkedEntries.size(); i++) {
             ChunkedEntry chunkedEntry = chunkedEntries.get(i);
-            if (isEmptyChunk(chunkedEntry)) {
+            if (isNullOrEmpty((chunkedEntry.chunk()))) {
                 LOGGER.warn("Skipping chunk on page {} - empty or null text", chunkedEntry.pageNumber());
                 continue;
             }
 
             try {
                 List<Double> vector = embeddingService.embedStringData(chunkedEntry.chunk());
-                
+
                 // Create new ChunkedEntry with the vector
                 ChunkedEntry enrichedEntry = ChunkedEntry.builder()
                         .id(chunkedEntry.id())
@@ -155,7 +156,7 @@ public class DocumentIngestionOrchestrator {
                         .documentFileUrl(chunkedEntry.documentFileUrl())
                         .customMetadata(chunkedEntry.customMetadata())
                         .build();
-                
+
                 // Replace the entry in the list
                 chunkedEntries.set(i, enrichedEntry);
 
@@ -168,10 +169,6 @@ public class DocumentIngestionOrchestrator {
                 // Continue processing other chunks instead of failing completely
             }
         }
-    }
-
-    private boolean isEmptyChunk(ChunkedEntry chunk) {
-        return chunk.chunk() == null || chunk.chunk().trim().isEmpty();
     }
 
     private void recordOutcome(String documentName,
@@ -187,7 +184,7 @@ public class DocumentIngestionOrchestrator {
 
     private static String getRequiredEnv(String key) {
         String value = System.getenv(key);
-        if (value == null || value.trim().isEmpty()) {
+        if (isNullOrEmpty(value)) {
             throw new IllegalStateException("Required environment variable not set: " + key);
         }
         return value;

@@ -2,9 +2,6 @@ package uk.gov.moj.cp.ai.service;
 
 import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_FILE_NAME;
 import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_ID;
-import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_STATUS;
-import static uk.gov.moj.cp.ai.index.IndexConstants.REASON;
-import static uk.gov.moj.cp.ai.index.IndexConstants.TIMESTAMP;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
@@ -21,6 +18,11 @@ public class TableStorageService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TableStorageService.class);
     private final TableClient tableClient;
+    public static final String REASON = "reason";
+    public static final String TIMESTAMP = "timestamp";
+    public static final String DOCUMENT_STATUS = "documentStatus";
+
+
 
     public TableStorageService(String connectionString, String tableName) {
 

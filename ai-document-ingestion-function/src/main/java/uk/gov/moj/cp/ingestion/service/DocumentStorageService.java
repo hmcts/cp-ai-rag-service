@@ -9,7 +9,7 @@ import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_FILE_URL;
 import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_ID;
 import static uk.gov.moj.cp.ai.index.IndexConstants.ID;
 import static uk.gov.moj.cp.ai.index.IndexConstants.PAGE_NUMBER;
-import static uk.gov.moj.cp.ai.index.IndexConstants.VECTOR_DIMENSIONS;
+import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ingestion.exception.DocumentUploadException;
@@ -18,7 +18,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.azure.core.credential.AzureKeyCredential;
-import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.search.documents.SearchClient;
 import com.azure.search.documents.SearchClientBuilder;
 import com.azure.search.documents.SearchDocument;
@@ -30,25 +29,22 @@ public class DocumentStorageService {
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentStorageService.class);
     private final SearchClient searchClient;
     private final String indexName;
+    public static final int VECTOR_DIMENSIONS = 3072;
 
 
     public DocumentStorageService(String endpoint, String indexName, String adminKey) {
         this.indexName = indexName;
 
-        if (adminKey != null && !adminKey.isEmpty()) {
-            this.searchClient = new SearchClientBuilder()
-                    .endpoint(endpoint)
-                    .indexName(indexName)
-                    .credential(new AzureKeyCredential(adminKey))
-                    .buildClient();
-        } else {
-            // Use Managed Identity authentication
-            this.searchClient = new SearchClientBuilder()
-                    .endpoint(endpoint)
-                    .indexName(indexName)
-                    .credential(new DefaultAzureCredentialBuilder().build())
-                    .buildClient();
+        if (isNullOrEmpty(endpoint) || isNullOrEmpty(indexName) || isNullOrEmpty(adminKey)) {
+            throw new IllegalArgumentException("Document Storage Endpoint, Vector Index Name and API key cannot be null or empty");
         }
+
+        this.searchClient = new SearchClientBuilder()
+                .endpoint(endpoint)
+                .indexName(indexName)
+                .credential(new AzureKeyCredential(adminKey))
+                .buildClient();
+
     }
 
     public void uploadChunks(List<ChunkedEntry> chunks) {

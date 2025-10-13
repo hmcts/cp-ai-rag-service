@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 public class DocumentChunkingService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentChunkingService.class);
+    private static final int MIN_CHUNK_LENGTH = 10;
 
     public List<ChunkedEntry> chunkDocument(AnalyzeResult result,
                                          QueueIngestionMetadata queueMetadata) throws DocumentProcessingException {
@@ -111,7 +112,7 @@ public class DocumentChunkingService {
 
 
     private boolean isValidChunk(String chunkContent) {
-        return chunkContent.length() > IndexConstants.MIN_CHUNK_LENGTH;
+        return chunkContent.length() > MIN_CHUNK_LENGTH;
     }
 
     private ChunkedEntry createChunkedEntry(int pageIndex,
