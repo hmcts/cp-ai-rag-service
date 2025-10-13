@@ -4,8 +4,8 @@ import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.index.IndexConstants;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
+import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.SearchServiceException;
-import uk.gov.moj.cp.retrieval.model.KeyValuePair;
 
 import java.util.ArrayList;
 import java.util.List;

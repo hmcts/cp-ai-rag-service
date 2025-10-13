@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.service.ChatService;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,10 +36,21 @@ class ResponseGenerationServiceTest {
     void generateResponse_ReturnsTrimmedResponse_WhenChatServiceReturnsValidResponse() {
         String userQuery = "What is the legal implication?";
         String userQueryPrompt = "Provide detailed legal advice.";
-        List<ChunkedEntry> chunkedEntries = List.of(
-                new ChunkedEntry("id1", "Chunk 1", "file name 1", 1, "doc id"),
-                new ChunkedEntry("id2", "Chunk 2", "file name 2", 2, "doc id")
-        );
+        List<ChunkedEntry> chunkedEntries = new ArrayList<>();
+        chunkedEntries.add(ChunkedEntry.builder()
+                .id("id1")
+                .chunk("Chunk 1")
+                .documentFileName("file name 1")
+                .pageNumber(1)
+                .documentId("doc id")
+                .build());
+        chunkedEntries.add(ChunkedEntry.builder()
+                .id("id2")
+                .chunk("Chunk 2")
+                .documentFileName("file name 2")
+                .pageNumber(2)
+                .documentId("doc id")
+                .build());
         String mockResponse = "  Valid AI Response  ";
 
         when(mockChatService.callModel(anyString(), eq(userQuery), eq(String.class)))
@@ -55,7 +67,13 @@ class ResponseGenerationServiceTest {
         String userQuery = "What is the legal implication?";
         String userQueryPrompt = "Provide detailed legal advice.";
         List<ChunkedEntry> chunkedEntries = List.of(
-                new ChunkedEntry("id1", "Chunk 1", "file name 1", 1, "doc id")
+                ChunkedEntry.builder()
+                        .id("id1")
+                        .chunk("Chunk 1")
+                        .documentFileName("file name 1")
+                        .pageNumber(1)
+                        .documentId("doc id")
+                        .build()
         );
 
         when(mockChatService.callModel(anyString(), eq(userQuery), eq(String.class)))
@@ -72,7 +90,13 @@ class ResponseGenerationServiceTest {
         String userQuery = "What is the legal implication?";
         String userQueryPrompt = "Provide detailed legal advice.";
         List<ChunkedEntry> chunkedEntries = List.of(
-                new ChunkedEntry("id1", "Chunk 1", "file name 1", 1, "doc id")
+                ChunkedEntry.builder()
+                        .id("id1")
+                        .chunk("Chunk 1")
+                        .documentFileName("file name 1")
+                        .pageNumber(1)
+                        .documentId("doc id")
+                        .build()
         );
 
         when(mockChatService.callModel(anyString(), eq(userQuery), eq(String.class)))
