@@ -11,6 +11,7 @@ import java.time.Instant;
 import com.azure.data.tables.TableClient;
 import com.azure.data.tables.TableClientBuilder;
 import com.azure.data.tables.models.TableEntity;
+import com.azure.identity.DefaultAzureCredentialBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +34,23 @@ public class TableStorageService {
                 .connectionString(connectionString)
                 .tableName(tableName)
                 .buildClient();
+    }
+
+    public TableStorageService(String storageAccountName, String tableName, boolean useManagedIdentity) {
+
+        if (isNullOrEmpty(storageAccountName) || isNullOrEmpty(tableName)) {
+            throw new IllegalArgumentException("Storage account name and table name cannot be null or empty");
+        }
+        
+        String tableEndpoint = String.format("https://%s.table.core.windows.net", storageAccountName);
+        
+        this.tableClient = new TableClientBuilder()
+                .endpoint(tableEndpoint)
+                .tableName(tableName)
+                .credential(new DefaultAzureCredentialBuilder().build())
+                .buildClient();
+        
+        LOGGER.info("Initialized Table Storage client with managed identity.");
     }
 
     public void upsertDocumentOutcome(String documentName, String documentId, String status, String reason) {

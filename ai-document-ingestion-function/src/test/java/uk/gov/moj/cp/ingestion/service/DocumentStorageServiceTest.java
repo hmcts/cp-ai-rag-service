@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import uk.gov.moj.cp.ingestion.exception.DocumentUploadException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 
 import org.junit.jupiter.api.BeforeEach;
