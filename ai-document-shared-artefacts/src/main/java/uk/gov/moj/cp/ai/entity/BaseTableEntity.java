@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.ai.model;
+package uk.gov.moj.cp.ai.entity;
 
 import static uk.gov.moj.cp.ai.util.RowKeyUtil.generateRowKey;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;

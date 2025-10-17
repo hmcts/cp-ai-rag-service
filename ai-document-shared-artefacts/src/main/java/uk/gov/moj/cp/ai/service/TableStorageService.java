@@ -1,15 +1,22 @@
 package uk.gov.moj.cp.ai.service;
 
-import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_FILE_NAME;
-import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_ID;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_FILE_NAME;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_ID;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_STATUS;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_REASON;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_TIMESTAMP;
+import static uk.gov.moj.cp.ai.util.RowKeyUtil.generateRowKey;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
-import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
+import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 
-import java.time.Instant;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 import com.azure.data.tables.TableClient;
 import com.azure.data.tables.TableClientBuilder;
+import com.azure.data.tables.models.ListEntitiesOptions;
 import com.azure.data.tables.models.TableEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,11 +25,11 @@ public class TableStorageService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TableStorageService.class);
     private final TableClient tableClient;
-    public static final String REASON = "reason";
-    public static final String TIMESTAMP = "timestamp";
-    public static final String DOCUMENT_STATUS = "documentStatus";
 
 
+    public TableStorageService(final TableClient tableClient) {
+        this.tableClient = tableClient;
+    }
 
     public TableStorageService(String connectionString, String tableName) {
 
@@ -45,16 +52,13 @@ public class TableStorageService {
             outcome.setDocumentId(documentId);
             outcome.setStatus(status);
             outcome.setReason(reason);
-            outcome.setTimestamp(Instant.now().toString());
 
 
             TableEntity entity = new TableEntity(outcome.getPartitionKey(), outcome.getRowKey());
-            entity.addProperty(DOCUMENT_FILE_NAME, outcome.getDocumentName());
-            entity.addProperty(DOCUMENT_ID, outcome.getDocumentId());
-            entity.addProperty(DOCUMENT_STATUS, outcome.getStatus());
-            entity.addProperty(REASON, outcome.getReason());
-            entity.addProperty(TIMESTAMP, outcome.getTimestamp());
-
+            entity.addProperty(TC_DOCUMENT_FILE_NAME, outcome.getDocumentName());
+            entity.addProperty(TC_DOCUMENT_ID, outcome.getDocumentId());
+            entity.addProperty(TC_DOCUMENT_STATUS, outcome.getStatus());
+            entity.addProperty(TC_REASON, outcome.getReason());
 
             tableClient.upsertEntity(entity);
 
@@ -66,6 +70,33 @@ public class TableStorageService {
                     documentName, documentId, e);
             throw new RuntimeException("Failed to upsert document outcome", e);
         }
+    }
+
+    public DocumentIngestionOutcome getFirstDocumentMatching(String documentName) {
+        String targetRowKey = generateRowKey(documentName);
+
+        String filter = String.format("RowKey eq '%s'", targetRowKey);
+
+        // 3. Execute the query
+        final ListEntitiesOptions options = new ListEntitiesOptions().setFilter(filter).setTop(1);
+        Stream<TableEntity> entities = tableClient.listEntities(options, null, null).stream();
+
+        Optional<TableEntity> foundEntity = entities.findFirst();
+
+        return foundEntity.map(fe -> new DocumentIngestionOutcome(
+                getPropertyAsString(fe.getProperty(TC_DOCUMENT_ID)),
+                getPropertyAsString(fe.getProperty(TC_DOCUMENT_FILE_NAME)),
+                getPropertyAsString(fe.getProperty(TC_DOCUMENT_STATUS)),
+                getPropertyAsString(fe.getProperty(TC_REASON)),
+                getPropertyAsString(fe.getProperty(TC_TIMESTAMP)))
+        ).orElse(null);
+    }
+
+    private static String getPropertyAsString(final Object value) {
+        if (Objects.nonNull(value)) {
+            return value.toString();
+        }
+        return null;
     }
 
 }
