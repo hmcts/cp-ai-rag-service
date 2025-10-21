@@ -2,7 +2,7 @@ package uk.gov.moj.cp.metadata.check;
 
 import static org.mockito.Mockito.verify;
 
-import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
+import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.metadata.check.service.DocumentMetadataService;
 import uk.gov.moj.cp.metadata.check.service.IngestionOrchestratorService;
 

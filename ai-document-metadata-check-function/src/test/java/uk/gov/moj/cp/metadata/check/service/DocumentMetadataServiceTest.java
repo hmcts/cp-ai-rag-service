@@ -8,12 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.models.BlobProperties;

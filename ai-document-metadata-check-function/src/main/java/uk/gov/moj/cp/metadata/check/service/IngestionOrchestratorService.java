@@ -4,7 +4,7 @@ import static uk.gov.moj.cp.ai.util.DocumentStatus.INVALID_METADATA;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.METADATA_VALIDATED;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.QUEUE_FAILED;
 
-import uk.gov.moj.cp.ai.model.DocumentIngestionOutcome;
+import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
 

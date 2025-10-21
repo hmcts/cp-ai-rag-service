@@ -1,9 +1,7 @@
-package uk.gov.moj.cp.ai.model;
+package uk.gov.moj.cp.ai.entity;
 
+import static uk.gov.moj.cp.ai.util.RowKeyUtil.generateRowKey;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
-
-import java.nio.charset.StandardCharsets;
-import java.util.UUID;
 
 public abstract class BaseTableEntity {
 
@@ -39,11 +37,6 @@ public abstract class BaseTableEntity {
      * Generates a deterministic RowKey from a name
      */
     public void generateRowKeyFrom(String name) {
-        if (isNullOrEmpty(name)) {
-            this.rowKey = UUID.randomUUID().toString();
-            return;
-        }
-        byte[] bytes = name.trim().getBytes(StandardCharsets.UTF_8);
-        this.rowKey = UUID.nameUUIDFromBytes(bytes).toString();
+        this.rowKey = generateRowKey(name);
     }
 }

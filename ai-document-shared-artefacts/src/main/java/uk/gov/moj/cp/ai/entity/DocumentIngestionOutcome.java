@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.ai.model;
+package uk.gov.moj.cp.ai.entity;
 
 public class DocumentIngestionOutcome extends BaseTableEntity {
 
