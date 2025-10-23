@@ -17,6 +17,20 @@ public class ChunkEmbeddingService {
     
     private final EmbeddingService embeddingService;
 
+    public ChunkEmbeddingService() {
+        // Initialize EmbeddingService with managed identity
+        String embeddingServiceEndpoint = System.getenv("AZURE_EMBEDDING_SERVICE_ENDPOINT");
+        String embeddingServiceDeploymentName = System.getenv("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME");
+        
+        if (isNullOrEmpty(embeddingServiceEndpoint) || isNullOrEmpty(embeddingServiceDeploymentName)) {
+            throw new IllegalStateException("Required environment variables not set: AZURE_EMBEDDING_SERVICE_ENDPOINT, AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME");
+        }
+        
+        this.embeddingService = new EmbeddingService(embeddingServiceEndpoint,
+                embeddingServiceDeploymentName);
+        LOGGER.info("Initialized ChunkEmbeddingService with managed identity");
+    }
+
     public ChunkEmbeddingService(EmbeddingService embeddingService) {
         this.embeddingService = embeddingService;
     }

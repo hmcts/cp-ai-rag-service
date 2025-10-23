@@ -8,7 +8,6 @@ import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
-import uk.gov.moj.cp.ai.service.EmbeddingService;
 import uk.gov.moj.cp.ai.service.TableStorageService;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 
@@ -33,15 +32,9 @@ public class DocumentIngestionOrchestrator {
     private final DocumentStorageService documentStorageService;
 
     public DocumentIngestionOrchestrator() {
-
-        // Embedding Service Configuration
-        String embeddingServiceEndpoint = getRequiredEnv("AZURE_EMBEDDING_SERVICE_ENDPOINT");
-        String embeddingServiceApiKey = getRequiredEnv("AZURE_EMBEDDING_SERVICE_API_KEY");
-        String embeddingServiceDeploymentName = getRequiredEnv("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME");
-
+        
         // Document Intelligence Configuration
         String azureDocumentIntelligenceEndpoint = getRequiredEnv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT");
-        String azureDocumentIntelligenceKey = getRequiredEnv("AZURE_DOCUMENT_INTELLIGENCE_KEY");
 
         // Storage Configuration
         String aiRagServiceStorageAccount = getRequiredEnv("AI_RAG_SERVICE_STORAGE_ACCOUNT");
@@ -50,35 +43,26 @@ public class DocumentIngestionOrchestrator {
         // Search Service Configuration
         String azureSearchServiceDocumentEndpoint = getRequiredEnv("AZURE_SEARCH_SERVICE_DOCUMENT_ENDPOINT");
         String azureSearchIndexDocumentName = getRequiredEnv("AZURE_SEARCH_INDEX_DOCUMENT_NAME");
-        String azureSearchDocumentAdminKey = getRequiredEnv("AZURE_SEARCH_DOCUMENT_ADMIN_KEY");
 
-        // document analysis service
+        // document analysis service - using managed identity
         this.documentAnalysisService = new DocumentAnalysisService(
-                azureDocumentIntelligenceEndpoint,
-                azureDocumentIntelligenceKey
+                azureDocumentIntelligenceEndpoint
         );
 
-        // table storage service
+        // table storage service - using managed identity
         this.tableStorageService = new TableStorageService(
                 aiRagServiceStorageAccount,
                 storageAccountTableDocumentIngestionOutcome
         );
 
         this.documentChunkingService = new DocumentChunkingService();
-
-        EmbeddingService embeddingService = new EmbeddingService(
-                embeddingServiceEndpoint,
-                embeddingServiceApiKey,
-                embeddingServiceDeploymentName
-        );
         
-        this.chunkEmbeddingService = new ChunkEmbeddingService(embeddingService);
+        this.chunkEmbeddingService = new ChunkEmbeddingService();
 
+        // document storage service - using managed identity
         this.documentStorageService = new DocumentStorageService(
                 azureSearchServiceDocumentEndpoint,
-                azureSearchIndexDocumentName,
-                azureSearchDocumentAdminKey
-
+                azureSearchIndexDocumentName
         );
     }
 

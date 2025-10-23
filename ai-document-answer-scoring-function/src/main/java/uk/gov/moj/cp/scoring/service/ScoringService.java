@@ -42,9 +42,9 @@ public class ScoringService {
 
     public ScoringService() {
         String judgeModelEndpoint = System.getenv("AZURE_JUDGE_OPENAI_ENDPOINT");
-        String judgeModelKey = System.getenv("AZURE_JUDGE_OPENAI_API_KEY");
         String judgeChatDeploymentName = System.getenv("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME");
-        chatService = new ChatService(judgeModelEndpoint, judgeModelKey, judgeChatDeploymentName);
+        // Using managed identity - pass null for API key to enable managed identity
+        chatService = new ChatService(judgeModelEndpoint, null, judgeChatDeploymentName);
     }
 
     ScoringService(ChatService chatService) {
