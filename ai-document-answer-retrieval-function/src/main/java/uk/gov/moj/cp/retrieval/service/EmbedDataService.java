@@ -17,9 +17,9 @@ public class EmbedDataService {
     public EmbedDataService() {
 
         String endpoint = System.getenv("AZURE_EMBEDDING_SERVICE_ENDPOINT");
-        String apiKey = System.getenv("AZURE_EMBEDDING_SERVICE_API_KEY");
         String deploymentName = System.getenv("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME");
-        embeddingService = new EmbeddingService(endpoint, apiKey, deploymentName);
+        // Using managed identity constructor
+        embeddingService = new EmbeddingService(endpoint, deploymentName);
     }
 
     EmbedDataService(EmbeddingService embeddingService) {

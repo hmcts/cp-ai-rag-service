@@ -22,10 +22,10 @@ public class DocumentMetadataService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public DocumentMetadataService() {
-        String storageConnectionString = System.getenv("AI_RAG_SERVICE_STORAGE_ACCOUNT");
+        String storageAccountName = System.getenv("AI_RAG_SERVICE_STORAGE_ACCOUNT");
         String documentContainerName = System.getenv("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME");
-
-        this.blobClientFactory = new BlobClientFactory(storageConnectionString, documentContainerName);
+        
+        this.blobClientFactory = new BlobClientFactory(storageAccountName, documentContainerName);
     }
 
     public DocumentMetadataService(final BlobClientFactory blobClientFactory) {

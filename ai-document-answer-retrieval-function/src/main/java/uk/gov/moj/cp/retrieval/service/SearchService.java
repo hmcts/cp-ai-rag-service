@@ -18,10 +18,10 @@ public class SearchService {
     // --- Constructor: Initialize Azure AI Search Client ---
     public SearchService() {
         final String endpoint = System.getenv("AZURE_SEARCH_SERVICE_ENDPOINT");
-        final String apiKey = System.getenv("AZURE_SEARCH_QUERY_KEY");
         final String searchIndexName = System.getenv("AZURE_SEARCH_INDEX_NAME");
 
-        azureAISearchService = new AzureAISearchService(endpoint, apiKey, searchIndexName);
+        // Using managed identity constructor
+        azureAISearchService = new AzureAISearchService(endpoint, searchIndexName);
     }
 
     SearchService(AzureAISearchService azureAISearchService) {

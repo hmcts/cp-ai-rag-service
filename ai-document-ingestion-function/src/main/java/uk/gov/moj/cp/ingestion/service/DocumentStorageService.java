@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.azure.core.credential.AzureKeyCredential;
+import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.search.documents.SearchClient;
 import com.azure.search.documents.SearchClientBuilder;
 import com.azure.search.documents.SearchDocument;
@@ -45,6 +46,22 @@ public class DocumentStorageService {
                 .credential(new AzureKeyCredential(adminKey))
                 .buildClient();
 
+    }
+
+    public DocumentStorageService(String endpoint, String indexName) {
+        this.indexName = indexName;
+
+        if (isNullOrEmpty(endpoint) || isNullOrEmpty(indexName)) {
+            throw new IllegalArgumentException("Document Storage Endpoint and Vector Index Name cannot be null or empty");
+        }
+
+        this.searchClient = new SearchClientBuilder()
+                .endpoint(endpoint)
+                .indexName(indexName)
+                .credential(new DefaultAzureCredentialBuilder().build())
+                .buildClient();
+        
+        LOGGER.info("Initialized Azure AI Search client with managed identity.");
     }
 
     public void uploadChunks(List<ChunkedEntry> chunks) {

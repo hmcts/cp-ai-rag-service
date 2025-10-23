@@ -11,6 +11,7 @@ import com.azure.ai.formrecognizer.documentanalysis.models.OperationResult;
 import com.azure.core.credential.AzureKeyCredential;
 import com.azure.core.util.logging.ClientLogger;
 import com.azure.core.util.polling.SyncPoller;
+import com.azure.identity.DefaultAzureCredentialBuilder;
 
 public class DocumentAnalysisService {
 
@@ -28,6 +29,19 @@ public class DocumentAnalysisService {
                 .endpoint(endpoint)
                 .credential(new AzureKeyCredential(apiKey))
                 .buildClient();
+    }
+
+    public DocumentAnalysisService(String endpoint) {
+        if (isNullOrEmpty(endpoint)) {
+            throw new IllegalArgumentException("Document Intelligence Endpoint cannot be null or empty");
+        }
+
+        this.documentAnalysisClient = new DocumentAnalysisClientBuilder()
+                .endpoint(endpoint)
+                .credential(new DefaultAzureCredentialBuilder().build())
+                .buildClient();
+        
+        logger.info("Initialized Document Intelligence client with managed identity.");
     }
 
     public AnalyzeResult analyzeDocument(final String documentName,

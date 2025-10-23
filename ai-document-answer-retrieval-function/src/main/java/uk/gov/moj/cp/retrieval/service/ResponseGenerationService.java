@@ -44,10 +44,10 @@ public class ResponseGenerationService {
 
     public ResponseGenerationService() {
         String endpoint = System.getenv("AZURE_OPENAI_ENDPOINT");
-        String apiKey = System.getenv("AZURE_OPENAI_API_KEY");
         String deploymentName = System.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME");
 
-        chatService = new ChatService(endpoint, apiKey, deploymentName);
+        // Using managed identity - pass null for API key to enable managed identity
+        chatService = new ChatService(endpoint, null, deploymentName);
     }
 
     public ResponseGenerationService(ChatService chatService) {

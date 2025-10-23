@@ -2,7 +2,6 @@ package uk.gov.moj.cp.ingestion.service;
 
 import static dev.langchain4j.data.document.splitter.DocumentSplitters.recursive;
 
-import uk.gov.moj.cp.ai.index.IndexConstants;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;

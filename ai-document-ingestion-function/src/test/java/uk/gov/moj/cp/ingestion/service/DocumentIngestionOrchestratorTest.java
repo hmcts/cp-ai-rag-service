@@ -5,7 +5,6 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
-import uk.gov.moj.cp.ai.service.EmbeddingService;
 import uk.gov.moj.cp.ai.service.TableStorageService;
 
 import java.util.Collections;
@@ -27,7 +26,7 @@ class DocumentIngestionOrchestratorTest {
     @Mock
     private DocumentChunkingService documentChunkingService;
     @Mock
-    private EmbeddingService embeddingService;
+    private ChunkEmbeddingService chunkEmbeddingService;
     @Mock
     private DocumentStorageService documentStorageService;
 
@@ -36,7 +35,7 @@ class DocumentIngestionOrchestratorTest {
     @BeforeEach
     void setUp() {
         orchestrator = new DocumentIngestionOrchestrator(tableStorageService, documentAnalysisService,
-                documentChunkingService, embeddingService, documentStorageService);
+                documentChunkingService, chunkEmbeddingService, documentStorageService);
     }
 
     @Test
