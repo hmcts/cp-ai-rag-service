@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.retrieval;
 
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
+import static java.util.stream.Collectors.toList;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
@@ -92,9 +93,14 @@ public class AnswerRetrievalFunction {
 
             LOGGER.info("Answer retrieval processing completed successfully for query: {}", userQuery);
 
-            final QueryResponse queryResponse = new QueryResponse(userQuery, generatedResponse, userQueryPrompt, chunkedEntries);
+            //TODO - this is a workdaround to limit the chunked entires
+            // Azure Storage Queue has a hard limit of 64KB per message. When QueryResponse contains large llmResponse strings and multiple ChunkedEntry objects with chunk content, the serialized JSON exceeds this limit.
+            List<ChunkedEntry> reduceChunksForQueue = reduceChunksForQueue(chunkedEntries);
+
+            final QueryResponse queryResponse = new QueryResponse(userQuery, generatedResponse, userQueryPrompt, reduceChunksForQueue);
 
             final String responseAsString = convertObjectToJson(queryResponse);
+
 
             message.setValue(responseAsString);
 
@@ -107,7 +113,9 @@ public class AnswerRetrievalFunction {
         }
     }
 
-    private HttpResponseMessage generateResponse(final HttpRequestMessage<?> request, final HttpStatus status, final String message) {
+    private HttpResponseMessage generateResponse(final HttpRequestMessage<?> request,
+                                                 final HttpStatus status,
+                                                 final String message) {
         return request.createResponseBuilder(status)
                 .header("Content-Type", "application/json")
                 .body(message)
@@ -121,5 +129,15 @@ public class AnswerRetrievalFunction {
             LOGGER.error("Error converting object to JSON", e);
             return "{}";
         }
+    }
+    // throway code
+    private List<ChunkedEntry> reduceChunksForQueue(List<ChunkedEntry> chunks) {
+        if (chunks == null || chunks.isEmpty()) {
+            return chunks;
+        }
+        final int MAX_CHUNKS = 1;
+        return chunks.stream()
+                .limit(MAX_CHUNKS)
+                .collect(toList());
     }
 }
