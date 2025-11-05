@@ -45,7 +45,7 @@ public class BlobTriggerFunction {
             OutputBinding<String> queueMessage) {
 
         LOGGER.info("Blob trigger function processed a request for document: {}", documentName);
-        orchestratorService.processDocument(documentName, queueMessage, null);
+        orchestratorService.processDocument(documentName, queueMessage);
     }
 }
 

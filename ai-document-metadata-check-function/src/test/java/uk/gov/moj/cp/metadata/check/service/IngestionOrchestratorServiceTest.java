@@ -54,7 +54,7 @@ class IngestionOrchestratorServiceTest {
         when(documentMetadataService.processDocumentMetadata(documentName)).thenReturn(metadata);
 
         // when
-        ingestionOrchestratorService.processDocument(documentName, queueMessage, messageOutcome);
+        ingestionOrchestratorService.processDocument(documentName, queueMessage);
 
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
@@ -72,7 +72,7 @@ class IngestionOrchestratorServiceTest {
                 .thenThrow(new MetadataValidationException("Blob not found: " + documentName));
 
         // when
-        ingestionOrchestratorService.processDocument(documentName, queueMessage, messageOutcome);
+        ingestionOrchestratorService.processDocument(documentName, queueMessage);
 
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
@@ -90,7 +90,7 @@ class IngestionOrchestratorServiceTest {
                 .thenThrow(new MetadataValidationException("Invalid metadata: Missing document ID: " + documentName));
 
         // when
-        ingestionOrchestratorService.processDocument(documentName, queueMessage, messageOutcome);
+        ingestionOrchestratorService.processDocument(documentName, queueMessage);
 
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
@@ -108,7 +108,7 @@ class IngestionOrchestratorServiceTest {
                 .thenThrow(new RuntimeException("Connection failed"));
 
         // when
-        ingestionOrchestratorService.processDocument(documentName, queueMessage, messageOutcome);
+        ingestionOrchestratorService.processDocument(documentName, queueMessage);
 
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);

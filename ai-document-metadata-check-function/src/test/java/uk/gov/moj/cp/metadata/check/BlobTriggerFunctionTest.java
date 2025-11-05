@@ -43,7 +43,7 @@ class BlobTriggerFunctionTest {
         blobTriggerFunction.run(documentName, queueMessage);
 
         // Then
-        verify(ingestionOrchestratorService).processDocument(documentName, queueMessage, null);
+        verify(ingestionOrchestratorService).processDocument(documentName, queueMessage);
     }
 
     @Test
@@ -55,6 +55,6 @@ class BlobTriggerFunctionTest {
         blobTriggerFunction.run(documentName, queueMessage);
 
         // then
-        verify(ingestionOrchestratorService).processDocument(documentName, queueMessage, null);
+        verify(ingestionOrchestratorService).processDocument(documentName, queueMessage);
     }
 }

@@ -50,8 +50,7 @@ public class IngestionOrchestratorService {
      * Main orchestration logic for blob ingestion.
      */
     public void processDocument(String documentName,
-                                OutputBinding<String> queueMessage,
-                                OutputBinding<?> tableOutcome) {
+                                OutputBinding<String> queueMessage) {
 
         Map<String, String> metadata;
         String documentId = null;
@@ -68,17 +67,17 @@ public class IngestionOrchestratorService {
             queueMessage.setValue(serializedMessage);
             LOGGER.info("event=document_enqueued documentName={} documentId={}", documentName, documentId);
 
-            recordOutcome(tableOutcome, documentName, documentId,
+            recordOutcome(documentName, documentId,
                     METADATA_VALIDATED.name(), METADATA_VALIDATED.getReason());
 
         } catch (MetadataValidationException ex) {
-            recordOutcome(tableOutcome, documentName, documentId,
+            recordOutcome(documentName, documentId,
                     INVALID_METADATA.name(), ex.getMessage());
             LOGGER.warn("event=metadata_validation_failed documentName={} documentId={} reason={}",
                     documentName, documentId, ex.getMessage());
 
         } catch (Exception ex) {
-            recordOutcome(tableOutcome, documentName, documentId,
+            recordOutcome(documentName, documentId,
                     QUEUE_FAILED.name(), ex.getMessage());
             LOGGER.error("event=queue_processing_failed documentName={} documentId={} error={}",
                     documentName, documentId, ex.getMessage(), ex);
@@ -108,8 +107,7 @@ public class IngestionOrchestratorService {
     /**
      * Records a document ingestion outcome (success or failure) in Table Storage.
      */
-    private void recordOutcome(OutputBinding<?> outcomeBinding,
-                               String documentName,
+    private void recordOutcome(String documentName,
                                String documentId,
                                String status,
                                String reason) {
