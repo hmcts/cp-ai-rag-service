@@ -27,6 +27,7 @@ public class IngestionOrchestratorService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(IngestionOrchestratorService.class);
     private static final String DOCUMENT_ID = "document_id";
+    private static final String UNKNOWN_DOCUMENT = "UNKNOWN_DOCUMENT";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final DocumentMetadataService documentMetadataService;
@@ -75,7 +76,7 @@ public class IngestionOrchestratorService {
                     documentName, documentId, ex.getMessage());
             if (tableStorageService != null) {
                 recordOutcome(documentName,
-                        documentId != null ? documentId : "UNKNOWN_DOCUMENT",
+                        documentId != null ? documentId : UNKNOWN_DOCUMENT,
                         INVALID_METADATA.name(),
                         ex.getMessage());
             } else {
@@ -88,7 +89,7 @@ public class IngestionOrchestratorService {
 
             if (tableStorageService != null) {
                 recordOutcome(documentName,
-                        documentId != null ? documentId : "UNKNOWN_DOCUMENT",
+                        documentId != null ? documentId : UNKNOWN_DOCUMENT,
                         QUEUE_FAILED.name(),
                         ex.getMessage());
             }
@@ -123,7 +124,7 @@ public class IngestionOrchestratorService {
                                String status,
                                String reason) {
         // TODO need to change the partition and rowkey
-        String effectiveDocumentId = isNullOrEmpty(documentId) ? "UNKNOWN_DOCUMENT" : documentId.trim();
+        String effectiveDocumentId = isNullOrEmpty(documentId) ? UNKNOWN_DOCUMENT : documentId.trim();
         tableStorageService.upsertDocumentOutcome(documentName, effectiveDocumentId, status, reason);
 
         LOGGER.info("event=outcome_recorded status={} documentName={} documentId={}",
