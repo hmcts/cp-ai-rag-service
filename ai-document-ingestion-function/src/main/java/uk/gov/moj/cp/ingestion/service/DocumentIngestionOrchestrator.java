@@ -50,7 +50,7 @@ public class DocumentIngestionOrchestrator {
 
         // Search Service Configuration
         String azureSearchServiceDocumentEndpoint = getRequiredEnv("AZURE_SEARCH_SERVICE_DOCUMENT_ENDPOINT");
-        String azureSearchIndexDocumentName = getRequiredEnv("AZURE_SEARCH_INDEX_DOCUMENT_NAME");
+        String azureSearchIndexDocumentName = getRequiredEnv("AZURE_SEARCH_INDEX_NAME");
         String azureSearchDocumentAdminKey = getRequiredEnv("AZURE_SEARCH_DOCUMENT_ADMIN_KEY");
 
         // document analysis service

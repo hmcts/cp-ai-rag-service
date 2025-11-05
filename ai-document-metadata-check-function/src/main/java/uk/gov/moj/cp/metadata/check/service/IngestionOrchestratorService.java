@@ -3,9 +3,10 @@ package uk.gov.moj.cp.metadata.check.service;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.INVALID_METADATA;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.METADATA_VALIDATED;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.QUEUE_FAILED;
+import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
-import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
+import uk.gov.moj.cp.ai.service.TableStorageService;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
 
 import java.time.Instant;
@@ -26,20 +27,31 @@ public class IngestionOrchestratorService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(IngestionOrchestratorService.class);
     private static final String DOCUMENT_ID = "document_id";
+    private static final String UNKNOWN_DOCUMENT = "UNKNOWN_DOCUMENT";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final DocumentMetadataService documentMetadataService;
+    private final TableStorageService tableStorageService;
 
     public IngestionOrchestratorService(DocumentMetadataService documentMetadataService) {
         this.documentMetadataService = documentMetadataService;
+        // Initialize TableStorageService to ensure consistent column names
+        // This bypasses @TableOutput binding which doesn't respect @JsonProperty annotations
+        String storageAccount = System.getenv("AI_RAG_SERVICE_STORAGE_ACCOUNT");
+        String tableName = System.getenv("STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME");
+        this.tableStorageService = new TableStorageService(storageAccount, tableName);
+    }
+
+    public IngestionOrchestratorService(DocumentMetadataService documentMetadataService, TableStorageService tableStorageService) {
+        this.documentMetadataService = documentMetadataService;
+        this.tableStorageService = tableStorageService;
     }
 
     /**
      * Main orchestration logic for blob ingestion.
      */
     public void processDocument(String documentName,
-                                OutputBinding<String> queueMessage,
-                                OutputBinding<DocumentIngestionOutcome> tableOutcome) {
+                                OutputBinding<String> queueMessage) {
 
         Map<String, String> metadata;
         String documentId = null;
@@ -56,20 +68,31 @@ public class IngestionOrchestratorService {
             queueMessage.setValue(serializedMessage);
             LOGGER.info("event=document_enqueued documentName={} documentId={}", documentName, documentId);
 
-            recordOutcome(tableOutcome, documentName, documentId,
+            recordOutcome(documentName, documentId,
                     METADATA_VALIDATED.name(), METADATA_VALIDATED.getReason());
 
         } catch (MetadataValidationException ex) {
-            recordOutcome(tableOutcome, documentName, documentId,
-                    INVALID_METADATA.name(), ex.getMessage());
             LOGGER.warn("event=metadata_validation_failed documentName={} documentId={} reason={}",
                     documentName, documentId, ex.getMessage());
+            if (tableStorageService != null) {
+                recordOutcome(documentName,
+                        documentId != null ? documentId : UNKNOWN_DOCUMENT,
+                        INVALID_METADATA.name(),
+                        ex.getMessage());
+            } else {
+                LOGGER.error("event=tableStorageService_null documentName={} reason={}", documentName, ex.getMessage());
+            }
 
         } catch (Exception ex) {
-            recordOutcome(tableOutcome, documentName, documentId,
-                    QUEUE_FAILED.name(), ex.getMessage());
             LOGGER.error("event=queue_processing_failed documentName={} documentId={} error={}",
                     documentName, documentId, ex.getMessage(), ex);
+
+            if (tableStorageService != null) {
+                recordOutcome(documentName,
+                        documentId != null ? documentId : UNKNOWN_DOCUMENT,
+                        QUEUE_FAILED.name(),
+                        ex.getMessage());
+            }
         }
     }
 
@@ -96,24 +119,15 @@ public class IngestionOrchestratorService {
     /**
      * Records a document ingestion outcome (success or failure) in Table Storage.
      */
-    private void recordOutcome(OutputBinding<DocumentIngestionOutcome> outcomeBinding,
-                               String documentName,
+    private void recordOutcome(String documentName,
                                String documentId,
                                String status,
                                String reason) {
-
-        DocumentIngestionOutcome outcome = new DocumentIngestionOutcome();
-        outcome.setPartitionKey(documentId);
-        outcome.generateRowKeyFrom(documentName);
-        outcome.setDocumentName(documentName);
-        outcome.setDocumentId(documentId);
-        outcome.setStatus(status);
-        outcome.setReason(reason);
-        outcome.setTimestamp(Instant.now().toString());
-
-        outcomeBinding.setValue(outcome);
+        // TODO need to change the partition and rowkey
+        String effectiveDocumentId = isNullOrEmpty(documentId) ? UNKNOWN_DOCUMENT : documentId.trim();
+        tableStorageService.upsertDocumentOutcome(documentName, effectiveDocumentId, status, reason);
 
         LOGGER.info("event=outcome_recorded status={} documentName={} documentId={}",
-                status, documentName, documentId);
+                status, documentName, effectiveDocumentId);
     }
 }

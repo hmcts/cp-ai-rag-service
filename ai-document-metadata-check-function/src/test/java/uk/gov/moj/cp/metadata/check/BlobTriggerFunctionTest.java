@@ -2,7 +2,6 @@ package uk.gov.moj.cp.metadata.check;
 
 import static org.mockito.Mockito.verify;
 
-import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.metadata.check.service.DocumentMetadataService;
 import uk.gov.moj.cp.metadata.check.service.IngestionOrchestratorService;
 
@@ -26,9 +25,6 @@ class BlobTriggerFunctionTest {
     @Mock
     private OutputBinding<String> queueMessage;
 
-    @Mock
-    private OutputBinding<DocumentIngestionOutcome> messageOutcome;
-
     private BlobTriggerFunction blobTriggerFunction;
 
     @BeforeEach
@@ -44,10 +40,10 @@ class BlobTriggerFunctionTest {
         String documentName = "test.pdf";
 
         // When
-        blobTriggerFunction.run(documentName, queueMessage, messageOutcome);
+        blobTriggerFunction.run(documentName, queueMessage);
 
         // Then
-        verify(ingestionOrchestratorService).processDocument(documentName, queueMessage, messageOutcome);
+        verify(ingestionOrchestratorService).processDocument(documentName, queueMessage);
     }
 
     @Test
@@ -56,9 +52,9 @@ class BlobTriggerFunctionTest {
         String documentName = "test-document.pdf";
 
         // when
-        blobTriggerFunction.run(documentName, queueMessage, messageOutcome);
+        blobTriggerFunction.run(documentName, queueMessage);
 
         // then
-        verify(ingestionOrchestratorService).processDocument(documentName, queueMessage, messageOutcome);
+        verify(ingestionOrchestratorService).processDocument(documentName, queueMessage);
     }
 }

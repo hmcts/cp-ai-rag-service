@@ -1,12 +1,11 @@
 package uk.gov.moj.cp.metadata.check.service;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
+import uk.gov.moj.cp.ai.service.TableStorageService;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
 
 import java.util.HashMap;
@@ -27,16 +26,19 @@ class IngestionOrchestratorServiceTest {
     private DocumentMetadataService documentMetadataService;
 
     @Mock
+    private TableStorageService tableStorageService;
+
+    @Mock
     private OutputBinding<String> queueMessage;
 
     @Mock
-    private OutputBinding<DocumentIngestionOutcome> messageOutcome;
+    private OutputBinding<?> messageOutcome;
 
     private IngestionOrchestratorService ingestionOrchestratorService;
 
     @BeforeEach
     void setUp() {
-        ingestionOrchestratorService = new IngestionOrchestratorService(documentMetadataService);
+        ingestionOrchestratorService = new IngestionOrchestratorService(documentMetadataService, tableStorageService);
     }
 
     @Test
@@ -52,12 +54,12 @@ class IngestionOrchestratorServiceTest {
         when(documentMetadataService.processDocumentMetadata(documentName)).thenReturn(metadata);
 
         // when
-        ingestionOrchestratorService.processDocument(documentName, queueMessage, messageOutcome);
+        ingestionOrchestratorService.processDocument(documentName, queueMessage);
 
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
         verify(queueMessage).setValue(anyString());
-        verify(messageOutcome).setValue(any(DocumentIngestionOutcome.class)); // Success outcome should be recorded
+        verify(tableStorageService).upsertDocumentOutcome(documentName, documentId, "METADATA_VALIDATED", "Document metadata validated and sent to queue");
     }
 
     @Test
@@ -65,18 +67,17 @@ class IngestionOrchestratorServiceTest {
     void shouldHandleMetadataValidationException() {
         // given
         String documentName = "nonexistent.pdf";
-        String documentId = null;
 
         when(documentMetadataService.processDocumentMetadata(documentName))
                 .thenThrow(new MetadataValidationException("Blob not found: " + documentName));
 
         // when
-        ingestionOrchestratorService.processDocument(documentName, queueMessage, messageOutcome);
+        ingestionOrchestratorService.processDocument(documentName, queueMessage);
 
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
         verify(queueMessage, never()).setValue(anyString());
-        verify(messageOutcome).setValue(any(DocumentIngestionOutcome.class)); // Failure outcome should be recorded
+        verify(tableStorageService).upsertDocumentOutcome(documentName, "UNKNOWN_DOCUMENT", "INVALID_METADATA", "Blob not found: " + documentName);
     }
 
     @Test
@@ -84,18 +85,17 @@ class IngestionOrchestratorServiceTest {
     void shouldHandleInvalidMetadataException() {
         // given
         String documentName = "invalid.pdf";
-        String documentId = null;
 
         when(documentMetadataService.processDocumentMetadata(documentName))
                 .thenThrow(new MetadataValidationException("Invalid metadata: Missing document ID: " + documentName));
 
         // when
-        ingestionOrchestratorService.processDocument(documentName, queueMessage, messageOutcome);
+        ingestionOrchestratorService.processDocument(documentName, queueMessage);
 
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
         verify(queueMessage, never()).setValue(anyString());
-        verify(messageOutcome).setValue(any(DocumentIngestionOutcome.class)); // Failure outcome should be recorded
+        verify(tableStorageService).upsertDocumentOutcome(documentName, "UNKNOWN_DOCUMENT", "INVALID_METADATA", "Invalid metadata: Missing document ID: " + documentName);
     }
 
     @Test
@@ -103,17 +103,16 @@ class IngestionOrchestratorServiceTest {
     void shouldHandleGeneralException() {
         // given
         String documentName = "test.pdf";
-        String documentId = null;
 
         when(documentMetadataService.processDocumentMetadata(documentName))
                 .thenThrow(new RuntimeException("Connection failed"));
 
         // when
-        ingestionOrchestratorService.processDocument(documentName, queueMessage, messageOutcome);
+        ingestionOrchestratorService.processDocument(documentName, queueMessage);
 
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
         verify(queueMessage, never()).setValue(anyString());
-        verify(messageOutcome).setValue(any(DocumentIngestionOutcome.class)); // Failure outcome should be recorded
+        verify(tableStorageService).upsertDocumentOutcome(documentName, "UNKNOWN_DOCUMENT", "QUEUE_FAILED", "Connection failed");
     }
 }

@@ -23,7 +23,7 @@ public class ChatService {
 
     private final OpenAIClient openAIClient;
 
-    private static final int MAX_TOKENS = 200;
+    private static final int MAX_TOKENS = 4000;
     private static final double TEMPERATURE = 0.0;
     private static final double TOP_P = 0.0;
 
