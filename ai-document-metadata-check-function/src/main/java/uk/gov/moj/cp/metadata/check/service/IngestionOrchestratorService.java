@@ -71,16 +71,27 @@ public class IngestionOrchestratorService {
                     METADATA_VALIDATED.name(), METADATA_VALIDATED.getReason());
 
         } catch (MetadataValidationException ex) {
-            recordOutcome(documentName, documentId,
-                    INVALID_METADATA.name(), ex.getMessage());
             LOGGER.warn("event=metadata_validation_failed documentName={} documentId={} reason={}",
                     documentName, documentId, ex.getMessage());
+            if (tableStorageService != null) {
+                recordOutcome(documentName,
+                        documentId != null ? documentId : "UNKNOWN_DOCUMENT",
+                        INVALID_METADATA.name(),
+                        ex.getMessage());
+            } else {
+                LOGGER.error("event=tableStorageService_null documentName={} reason={}", documentName, ex.getMessage());
+            }
 
         } catch (Exception ex) {
-            recordOutcome(documentName, documentId,
-                    QUEUE_FAILED.name(), ex.getMessage());
             LOGGER.error("event=queue_processing_failed documentName={} documentId={} error={}",
                     documentName, documentId, ex.getMessage(), ex);
+
+            if (tableStorageService != null) {
+                recordOutcome(documentName,
+                        documentId != null ? documentId : "UNKNOWN_DOCUMENT",
+                        QUEUE_FAILED.name(),
+                        ex.getMessage());
+            }
         }
     }
 
