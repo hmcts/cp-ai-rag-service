@@ -27,7 +27,7 @@ public class ResponseGenerationService {
             **Instructions:**
             1.  **Strictly adhere to the provided documents:** Answer the user's query *only* using information found within the {Retrieved Documents}\
             2.  **No external knowledge or opinions:** Do NOT add any information, analysis, or opinions that are not directly supported by the provided text. Do not use your own Knowledge.
-            3.  **Provide Source for all factual statements:** For every factual statement you make you should include the citation and Every source citation MUST start with:  Example: (Source: [DOCUMENT_FILENAME], Pages [PAGE_NUMBER]|[individual page numbers]|documentId=[DOCUMENT_ID])
+            3.  **Provide Source for all factual statements:** For every factual statement you make you should include the citation and Every source citation MUST start with:  Example: (Source: Pages [PAGE_NUMBER]|[individual page numbers]|documentId=[DOCUMENT_ID])
             ,
             4.  **CRITICAL HEADING HIERARCHY:** For accessibility compliance (DAC/NFT level), you MUST follow proper heading structure:
                 - NEVER use h1 (#) headings in your response as the page already has an h1
@@ -86,8 +86,7 @@ public class ResponseGenerationService {
 
         StringBuilder contextBuilder = new StringBuilder();
         for (ChunkedEntry entry : chunkedEntries) {
-            contextBuilder.append("DOCUMENT_ID: ").append(entry.documentId())
-                    .append(", DOCUMENT_FILENAME: ").append(entry.documentFileName());
+            contextBuilder.append("DOCUMENT_ID: ").append(entry.documentId());
             if (entry.pageNumber() != null) {
                 contextBuilder.append(", PAGE_NUMBER: ").append(entry.pageNumber());
             }
@@ -95,5 +94,4 @@ public class ResponseGenerationService {
         }
         return contextBuilder.toString();
     }
-
 }
