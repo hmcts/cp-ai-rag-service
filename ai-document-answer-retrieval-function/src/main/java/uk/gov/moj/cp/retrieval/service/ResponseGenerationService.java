@@ -3,9 +3,11 @@ package uk.gov.moj.cp.retrieval.service;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
+import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.service.ChatService;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,14 +88,30 @@ public class ResponseGenerationService {
 
         StringBuilder contextBuilder = new StringBuilder();
         for (ChunkedEntry entry : chunkedEntries) {
-            contextBuilder.append("DOCUMENT_ID: ").append(entry.documentId())
-                    .append(", DOCUMENT_FILENAME: ").append(entry.documentFileName());
+            contextBuilder.append("DOCUMENT_ID: ").append(entry.documentId());
             if (entry.pageNumber() != null) {
                 contextBuilder.append(", PAGE_NUMBER: ").append(entry.pageNumber());
             }
             contextBuilder.append("\nDOCUMENT_CONTENT: ").append(entry.chunk()).append("\n\n");
         }
         return contextBuilder.toString();
+    }
+
+    /**
+     * Extracts the value for key "material_id" from customMetadata.
+     * @param entry The ChunkedEntry to extract material_id from
+     * @return Optional containing the material_id value if found, empty otherwise
+     */
+    private Optional<String> extractMaterialId(ChunkedEntry entry) {
+        if (entry.customMetadata() == null || entry.customMetadata().isEmpty()) {
+            return Optional.empty();
+        }
+
+        return entry.customMetadata().stream()
+                .filter(pair -> "material_id".equals(pair.key()))
+                .map(KeyValuePair::value)
+                .filter(value -> !isNullOrEmpty(value))
+                .findFirst();
     }
 
 }
