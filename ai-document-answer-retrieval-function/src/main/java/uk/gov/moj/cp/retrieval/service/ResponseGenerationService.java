@@ -3,11 +3,9 @@ package uk.gov.moj.cp.retrieval.service;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
-import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.service.ChatService;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +27,7 @@ public class ResponseGenerationService {
             **Instructions:**
             1.  **Strictly adhere to the provided documents:** Answer the user's query *only* using information found within the {Retrieved Documents}\
             2.  **No external knowledge or opinions:** Do NOT add any information, analysis, or opinions that are not directly supported by the provided text. Do not use your own Knowledge.
-            3.  **Provide Source for all factual statements:** For every factual statement you make you should include the citation and Every source citation MUST start with:  Example: (Source: [DOCUMENT_FILENAME], Pages [PAGE_NUMBER]|[individual page numbers]|documentId=[DOCUMENT_ID])
+            3.  **Provide Source for all factual statements:** For every factual statement you make you should include the citation and Every source citation MUST start with:  Example: (Source: Pages [PAGE_NUMBER]|[individual page numbers]|documentId=[DOCUMENT_ID])
             ,
             4.  **CRITICAL HEADING HIERARCHY:** For accessibility compliance (DAC/NFT level), you MUST follow proper heading structure:
                 - NEVER use h1 (#) headings in your response as the page already has an h1
@@ -96,22 +94,4 @@ public class ResponseGenerationService {
         }
         return contextBuilder.toString();
     }
-
-    /**
-     * Extracts the value for key "material_id" from customMetadata.
-     * @param entry The ChunkedEntry to extract material_id from
-     * @return Optional containing the material_id value if found, empty otherwise
-     */
-    private Optional<String> extractMaterialId(ChunkedEntry entry) {
-        if (entry.customMetadata() == null || entry.customMetadata().isEmpty()) {
-            return Optional.empty();
-        }
-
-        return entry.customMetadata().stream()
-                .filter(pair -> "material_id".equals(pair.key()))
-                .map(KeyValuePair::value)
-                .filter(value -> !isNullOrEmpty(value))
-                .findFirst();
-    }
-
 }
