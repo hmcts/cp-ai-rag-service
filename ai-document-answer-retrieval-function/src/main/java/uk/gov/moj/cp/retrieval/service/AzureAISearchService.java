@@ -91,7 +91,9 @@ public class AzureAISearchService {
                         IndexConstants.DOCUMENT_FILE_NAME,
                         IndexConstants.DOCUMENT_ID,
                         IndexConstants.PAGE_NUMBER,
-                        IndexConstants.DOCUMENT_FILE_URL
+                        IndexConstants.DOCUMENT_FILE_URL,
+                        IndexConstants.CUSTOM_METADATA
+
                 )
                 .setTop(K_NEAREST_NEIGHBORS_COUNT); // Number of top results to return after filtering and ranking
 
