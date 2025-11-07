@@ -5,7 +5,7 @@
     <parent>
         <groupId>uk.gov.moj.cp.azure.ragservice</groupId>
         <artifactId>cp-ai-rag-service</artifactId>
-        <version>17.0.22</version>
+        <version>17.0.23-SNAPSHOT</version>
     </parent>
 
     <artifactId>ai-document-ingestion-function</artifactId>
