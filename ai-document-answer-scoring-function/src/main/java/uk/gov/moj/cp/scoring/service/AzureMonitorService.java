@@ -41,13 +41,9 @@ public class AzureMonitorService {
         this.meter = GlobalOpenTelemetry.get().getMeter(SCOPE_NAME);
     }
 
-    public static AzureMonitorService getInstance() {
+    public static synchronized AzureMonitorService getInstance() {
         if (INSTANCE == null) {
-            synchronized (AzureMonitorService.class) {
-                if (INSTANCE == null) {
-                    INSTANCE = new AzureMonitorService();
-                }
-            }
+            INSTANCE = new AzureMonitorService();
         }
         return INSTANCE;
     }
