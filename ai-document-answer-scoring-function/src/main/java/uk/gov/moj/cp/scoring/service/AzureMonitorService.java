@@ -42,8 +42,12 @@ public class AzureMonitorService {
     }
 
     public static AzureMonitorService getInstance() {
-        if (null == INSTANCE) {
-            INSTANCE = new AzureMonitorService();
+        if (INSTANCE == null) {
+            synchronized (AzureMonitorService.class) {
+                if (INSTANCE == null) {
+                    INSTANCE = new AzureMonitorService();
+                }
+            }
         }
         return INSTANCE;
     }

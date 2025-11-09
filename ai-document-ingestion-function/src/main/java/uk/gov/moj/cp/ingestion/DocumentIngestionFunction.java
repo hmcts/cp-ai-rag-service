@@ -1,5 +1,7 @@
 package uk.gov.moj.cp.ingestion;
 
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
@@ -19,8 +21,6 @@ import org.slf4j.LoggerFactory;
 public class DocumentIngestionFunction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentIngestionFunction.class);
-    private static final String STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION = "%STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION%";
-    private static final String AI_RAG_SERVICE_STORAGE_ACCOUNT = "AI_RAG_SERVICE_STORAGE_ACCOUNT";
     private final DocumentIngestionOrchestrator documentIngestionOrchestrator;
 
     public DocumentIngestionFunction() {
@@ -35,8 +35,8 @@ public class DocumentIngestionFunction {
     public void run(
             @QueueTrigger(
                     name = "queueMessage",
-                    queueName = STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION,
-                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT
+                    queueName = "%" + STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION + "%",
+                    connection = AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT
             ) String queueMessage) throws DocumentProcessingException {
 
         LOGGER.info("Document ingestion function triggered ");

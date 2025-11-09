@@ -11,7 +11,6 @@ import com.azure.ai.openai.models.ChatCompletions;
 import com.azure.ai.openai.models.ChatCompletionsOptions;
 import com.azure.ai.openai.models.ChatMessage;
 import com.azure.ai.openai.models.ChatRole;
-import com.azure.core.credential.AzureKeyCredential;
 import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -29,33 +28,18 @@ public class ChatService {
 
     private final String deploymentName;
 
-    public ChatService(String endpoint, String apiKey, String deploymentName) {
+    public ChatService(String endpoint, String deploymentName) {
 
         validateNullOrEmpty(endpoint, "Endpoint environment variable must be set.");
         validateNullOrEmpty(deploymentName, "Deployment name environment variable must be set.");
 
         this.deploymentName = deploymentName;
 
-        // Choose authentication method: API Key or Managed Identity
-        if (apiKey != null && !apiKey.isEmpty()) {
-            // Option 1: API Key Authentication (simpler for dev, less secure for prod)
-            this.openAIClient = new OpenAIClientBuilder()
-                    .endpoint(endpoint)
-                    .credential(new AzureKeyCredential(apiKey))
-                    .buildClient();
-
-
-            LOGGER.info("Initialized Azure OpenAI client with API Key.");
-        } else {
-            // Option 2: Azure Managed Identity (Recommended for production)
-            // Ensure your Azure App Service/Function App has a Managed Identity enabled
-            // and granted 'Cognitive Services OpenAI User' role on your Azure OpenAI resource.
-            this.openAIClient = new OpenAIClientBuilder()
-                    .endpoint(endpoint)
-                    .credential(new DefaultAzureCredentialBuilder().build())
-                    .buildClient();
-            LOGGER.info("Initialized Azure OpenAI client with Managed Identity.");
-        }
+        this.openAIClient = new OpenAIClientBuilder()
+                .endpoint(endpoint)
+                .credential(new DefaultAzureCredentialBuilder().build())
+                .buildClient();
+        LOGGER.info("Initialized Azure OpenAI client with Managed Identity.");
     }
 
     public <T> Optional<T> callModel(final String systemInstruction, final String userInstruction, Class<T> responseClass) {

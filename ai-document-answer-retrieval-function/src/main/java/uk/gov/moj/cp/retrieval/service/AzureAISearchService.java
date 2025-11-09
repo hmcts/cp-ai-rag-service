@@ -10,7 +10,6 @@ import uk.gov.moj.cp.retrieval.SearchServiceException;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.azure.core.credential.AzureKeyCredential;
 import com.azure.core.util.Context;
 import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.search.documents.SearchClient;
@@ -26,24 +25,9 @@ import org.slf4j.LoggerFactory;
 
 public class AzureAISearchService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(AzureAISearchService.class);
     private static final int K_NEAREST_NEIGHBORS_COUNT = 50;
     private final SearchClient searchClient;
-    private static final Logger LOGGER = LoggerFactory.getLogger(AzureAISearchService.class);
-
-    public AzureAISearchService(String endpoint, String apiKey, String searchIndexName) {
-
-        if (isNullOrEmpty(endpoint) || isNullOrEmpty(searchIndexName)) {
-            throw new IllegalArgumentException("Azure AI Search endpoint and index name must be set as environment variables.");
-        }
-
-        this.searchClient = new SearchClientBuilder()
-                .endpoint(endpoint)
-                .indexName(searchIndexName)
-                .credential(new AzureKeyCredential(apiKey))
-                .buildClient();
-        LOGGER.info("Initialized Azure AI Search client with API Key.");
-
-    }
 
     public AzureAISearchService(String endpoint, String searchIndexName) {
 

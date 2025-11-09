@@ -18,6 +18,7 @@ import com.azure.data.tables.TableClient;
 import com.azure.data.tables.TableClientBuilder;
 import com.azure.data.tables.models.ListEntitiesOptions;
 import com.azure.data.tables.models.TableEntity;
+import com.azure.identity.DefaultAzureCredentialBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,20 +27,23 @@ public class TableStorageService {
     private static final Logger LOGGER = LoggerFactory.getLogger(TableStorageService.class);
     private final TableClient tableClient;
 
-
     public TableStorageService(final TableClient tableClient) {
         this.tableClient = tableClient;
     }
 
-    public TableStorageService(String connectionString, String tableName) {
+    public TableStorageService(String endpoint, String tableName) {
 
-        if (isNullOrEmpty(connectionString) || isNullOrEmpty(tableName)) {
-            throw new IllegalArgumentException("Table connection string and name cannot be null or empty");
+        if (isNullOrEmpty(endpoint) || isNullOrEmpty(tableName)) {
+            throw new IllegalArgumentException("Table storage account endpoint and table name cannot be null or empty");
         }
+
         this.tableClient = new TableClientBuilder()
-                .connectionString(connectionString)
+                .endpoint(endpoint)
                 .tableName(tableName)
+                .credential(new DefaultAzureCredentialBuilder().build())
                 .buildClient();
+
+        LOGGER.info("Initialized Table Storage client with managed identity.");
     }
 
     public void upsertDocumentOutcome(String documentName, String documentId, String status, String reason) {

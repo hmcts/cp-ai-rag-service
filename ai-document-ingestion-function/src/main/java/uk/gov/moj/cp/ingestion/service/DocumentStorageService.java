@@ -17,7 +17,7 @@ import uk.gov.moj.cp.ingestion.exception.DocumentUploadException;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.azure.core.credential.AzureKeyCredential;
+import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.search.documents.SearchClient;
 import com.azure.search.documents.SearchClientBuilder;
 import com.azure.search.documents.SearchDocument;
@@ -31,20 +31,20 @@ public class DocumentStorageService {
     private final String indexName;
     public static final int VECTOR_DIMENSIONS = 3072;
 
-
-    public DocumentStorageService(String endpoint, String indexName, String adminKey) {
-        this.indexName = indexName;
-
-        if (isNullOrEmpty(endpoint) || isNullOrEmpty(indexName) || isNullOrEmpty(adminKey)) {
-            throw new IllegalArgumentException("Document Storage Endpoint, Vector Index Name and API key cannot be null or empty");
+    public DocumentStorageService(String endpoint, String indexName) {
+        if (isNullOrEmpty(endpoint) || isNullOrEmpty(indexName)) {
+            throw new IllegalArgumentException("Document Storage Endpoint and Vector Index Name cannot be null or empty");
         }
+
+        this.indexName = indexName;
 
         this.searchClient = new SearchClientBuilder()
                 .endpoint(endpoint)
                 .indexName(indexName)
-                .credential(new AzureKeyCredential(adminKey))
+                .credential(new DefaultAzureCredentialBuilder().build())
                 .buildClient();
-
+        
+        LOGGER.info("Initialized Azure AI Search client with managed identity.");
     }
 
     public void uploadChunks(List<ChunkedEntry> chunks) {

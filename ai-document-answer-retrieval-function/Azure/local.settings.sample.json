@@ -5,22 +5,18 @@
     "FUNCTIONS_WORKER_RUNTIME": "java",
     "FUNCTIONS_EXTENSION_VERSION": "~4",
 
-    "AI_RAG_SERVICE_STORAGE_ACCOUNT": "<your-storage-connection-string>",
+    "AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT": "",
+    "AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT": "",
 
     "AZURE_EMBEDDING_SERVICE_ENDPOINT": "<your-embedding-service-endpoint>",
-    "AZURE_EMBEDDING_SERVICE_API_KEY": "<your-embedding-service-api-key>",
     "AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME": "<embedding-service-deployment-name>",
 
     "AZURE_SEARCH_SERVICE_ENDPOINT": "<azure-ai-search-service-endpoint>",
-    "AZURE_SEARCH_QUERY_KEY": "<azure-ai-search-query-key>",
-    "AZURE_SEARCH_INDEX_NAME": "<azure-ai-search-index-name>",
+    "AZURE_SEARCH_SERVICE_INDEX_NAME": "<azure-ai-search-index-name>",
 
     "AZURE_OPENAI_ENDPOINT": "<azure-openai-endpoint>",
-    "AZURE_OPENAI_API_KEY": "<azure-openai-api-key>",
     "AZURE_OPENAI_CHAT_DEPLOYMENT_NAME": "<azure-openai-chat-deployment-name>",
 
-    "STORAGE_ACCOUNT_NAME": "<your-storage-account-name>",
-    "STORAGE_ACCOUNT_CONNECTION_STRING": "<your-storage-connection-string>",
     "STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING": "answer-scoring-queue"
   }
 }
