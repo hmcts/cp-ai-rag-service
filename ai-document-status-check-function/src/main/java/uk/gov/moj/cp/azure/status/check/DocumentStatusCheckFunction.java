@@ -2,6 +2,8 @@ package uk.gov.moj.cp.azure.status.check;
 
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
 import static java.util.Objects.nonNull;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
@@ -32,9 +34,9 @@ public class DocumentStatusCheckFunction {
     private final TableStorageService tableStorageService;
 
     public DocumentStatusCheckFunction() {
-        String storageAccount = System.getenv("AI_RAG_SERVICE_STORAGE_ACCOUNT"); // this is currently using connection string
-        String tableName = System.getenv("STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME");
-        this.tableStorageService = new TableStorageService(storageAccount, tableName);
+        String endpoint = System.getenv(AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT);
+        String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
+        this.tableStorageService = new TableStorageService(endpoint, tableName);
     }
 
     public DocumentStatusCheckFunction(TableStorageService tableStorageService) {
@@ -71,7 +73,7 @@ public class DocumentStatusCheckFunction {
 
         return request.createResponseBuilder(HttpStatus.NOT_FOUND)
                 .header("Content-Type", "application/json")
-                .body(new DocumentUnknownResponse(documentName, "Unknown file with name")) // Returns the list of all records in the partition
+                .body(new DocumentUnknownResponse(documentName, "Unknown file with name"))
                 .build();
     }
 

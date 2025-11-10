@@ -1,5 +1,7 @@
 package uk.gov.moj.cp.metadata.check.service;
 
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.INVALID_METADATA;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.METADATA_VALIDATED;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.QUEUE_FAILED;
@@ -101,10 +103,10 @@ public class IngestionOrchestratorService {
      */
     private QueueIngestionMetadata createQueueMessage(String blobName, Map<String, String> metadata) {
         String documentId = metadata.get(DOCUMENT_ID);
-        String storageAccountName = System.getenv("STORAGE_ACCOUNT_NAME");
-        String containerName = System.getenv("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME");
-        String blobUrl = String.format("https://%s.blob.core.windows.net/%s/%s",
-                storageAccountName, containerName, blobName);
+        String blobStorageEndpoint = System.getenv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT);
+        String containerName = System.getenv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME);
+        String blobUrl = String.format("%s/%s/%s",
+                blobStorageEndpoint, containerName, blobName);
         String currentTimestamp = Instant.now().toString();
 
         return new QueueIngestionMetadata(

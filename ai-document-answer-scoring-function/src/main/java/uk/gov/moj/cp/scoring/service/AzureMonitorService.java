@@ -41,11 +41,17 @@ public class AzureMonitorService {
         this.meter = GlobalOpenTelemetry.get().getMeter(SCOPE_NAME);
     }
 
+    // 2. Static Inner Holder Class
+    private static class SingletonHolder {
+        // This is where the lazy, thread-safe initialization happens.
+        // The JVM guarantees that the class is initialized safely and only once.
+        private static final AzureMonitorService INSTANCE = new AzureMonitorService();
+    }
+
+    // 3. Public static method to get the instance.
     public static AzureMonitorService getInstance() {
-        if (null == INSTANCE) {
-            INSTANCE = new AzureMonitorService();
-        }
-        return INSTANCE;
+        // No synchronization needed here.
+        return SingletonHolder.INSTANCE;
     }
 
     public void publishHistogramScore(String metricName, String metricDescription, double score, String keyDimension, String valueDimension) {

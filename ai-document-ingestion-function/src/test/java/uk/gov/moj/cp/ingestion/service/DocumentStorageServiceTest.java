@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import uk.gov.moj.cp.ingestion.exception.DocumentUploadException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -20,7 +19,7 @@ class DocumentStorageServiceTest {
 
     @BeforeEach
     void setUp() {
-        documentStorageService = new DocumentStorageService("https://test-search.endpoint", "test-index", "test-key");
+        documentStorageService = new DocumentStorageService("https://test-search.endpoint", "test-index");
     }
 
     @Test
@@ -45,25 +44,28 @@ class DocumentStorageServiceTest {
     @DisplayName("Service Constructor Works")
     void shouldCreateServiceWithValidParameters() {
         // when
-        DocumentStorageService service = new DocumentStorageService("https://test-endpoint", "test-index", "test-key");
+        DocumentStorageService service = new DocumentStorageService("https://test-endpoint", "test-index");
 
         // then
         assertNotNull(service);
     }
 
     @Test
-    @DisplayName("Service Constructor with Null Admin Key Should Throw Exception")
+    @DisplayName("Service Constructor with Null Or Empty Endpoint should Throw Exception")
     void shouldThrowExceptionWithNullAdminKey() {
-        // when & then
-        assertThrows(IllegalArgumentException.class, () -> 
-            new DocumentStorageService("https://test-endpoint", "test-index", null));
+        assertThrows(IllegalArgumentException.class, () ->
+            new DocumentStorageService("", "test-index"));
+
+        assertThrows(IllegalArgumentException.class, () ->
+                new DocumentStorageService(null, "test-index"));
     }
 
     @Test
-    @DisplayName("Service Constructor with Empty Admin Key Should Throw Exception")
+    @DisplayName("Service Constructor with Null Or Empty Index Name Should Throw Exception")
     void shouldThrowExceptionWithEmptyAdminKey() {
-        // when & then
-        assertThrows(IllegalArgumentException.class, () -> 
-            new DocumentStorageService("https://test-endpoint", "test-index", ""));
+        assertThrows(IllegalArgumentException.class, () ->
+            new DocumentStorageService("https://test-endpoint", ""));
+        assertThrows(IllegalArgumentException.class, () ->
+                new DocumentStorageService("https://test-endpoint", null));
     }
 }

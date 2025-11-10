@@ -1,6 +1,9 @@
 package uk.gov.moj.cp.retrieval.service;
 
-import uk.gov.moj.cp.ai.EmbeddingServiceException;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_EMBEDDING_SERVICE_ENDPOINT;
+
+import uk.gov.moj.cp.ai.exception.EmbeddingServiceException;
 import uk.gov.moj.cp.ai.service.EmbeddingService;
 
 import java.util.List;
@@ -16,10 +19,9 @@ public class EmbedDataService {
 
     public EmbedDataService() {
 
-        String endpoint = System.getenv("AZURE_EMBEDDING_SERVICE_ENDPOINT");
-        String apiKey = System.getenv("AZURE_EMBEDDING_SERVICE_API_KEY");
-        String deploymentName = System.getenv("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME");
-        embeddingService = new EmbeddingService(endpoint, apiKey, deploymentName);
+        String endpoint = System.getenv(AZURE_EMBEDDING_SERVICE_ENDPOINT);
+        String deploymentName = System.getenv(AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME);
+        embeddingService = new EmbeddingService(endpoint, deploymentName);
     }
 
     EmbedDataService(EmbeddingService embeddingService) {

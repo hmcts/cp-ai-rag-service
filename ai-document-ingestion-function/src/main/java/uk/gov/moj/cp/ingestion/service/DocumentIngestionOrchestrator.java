@@ -2,14 +2,16 @@ package uk.gov.moj.cp.ingestion.service;
 
 
 import static java.util.Objects.requireNonNull;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_ENDPOINT;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_INDEX_NAME;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.INGESTION_FAILED;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.INGESTION_SUCCESS;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
-import uk.gov.moj.cp.ai.EmbeddingServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
-import uk.gov.moj.cp.ai.service.EmbeddingService;
 import uk.gov.moj.cp.ai.service.TableStorageService;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 
@@ -30,67 +32,42 @@ public class DocumentIngestionOrchestrator {
     private final TableStorageService tableStorageService;
     private final DocumentAnalysisService documentAnalysisService;
     private final DocumentChunkingService documentChunkingService;
-    private final EmbeddingService embeddingService;
+    private final ChunkEmbeddingService chunkEmbeddingService;
     private final DocumentStorageService documentStorageService;
 
     public DocumentIngestionOrchestrator() {
 
-        // Embedding Service Configuration
-        String embeddingServiceEndpoint = getRequiredEnv("AZURE_EMBEDDING_SERVICE_ENDPOINT");
-        String embeddingServiceApiKey = getRequiredEnv("AZURE_EMBEDDING_SERVICE_API_KEY");
-        String embeddingServiceDeploymentName = getRequiredEnv("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME");
-
         // Document Intelligence Configuration
-        String azureDocumentIntelligenceEndpoint = getRequiredEnv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT");
-        String azureDocumentIntelligenceKey = getRequiredEnv("AZURE_DOCUMENT_INTELLIGENCE_KEY");
+        String documentIntelligenceEndpoint = getRequiredEnv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT");
 
         // Storage Configuration
-        String aiRagServiceStorageAccount = getRequiredEnv("AI_RAG_SERVICE_STORAGE_ACCOUNT");
-        String storageAccountTableDocumentIngestionOutcome = getRequiredEnv("STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME");
+        String tableStorageEndpoint = getRequiredEnv(AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT);
+        String tableDocumentIngestionOutcome = getRequiredEnv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
 
         // Search Service Configuration
-        String azureSearchServiceDocumentEndpoint = getRequiredEnv("AZURE_SEARCH_SERVICE_DOCUMENT_ENDPOINT");
-        String azureSearchIndexDocumentName = getRequiredEnv("AZURE_SEARCH_INDEX_NAME");
-        String azureSearchDocumentAdminKey = getRequiredEnv("AZURE_SEARCH_DOCUMENT_ADMIN_KEY");
+        String azureSearchServiceEndpoint = getRequiredEnv(AZURE_SEARCH_SERVICE_ENDPOINT);
+        String azureSearchIndexName = getRequiredEnv(AZURE_SEARCH_SERVICE_INDEX_NAME);
 
-        // document analysis service
-        this.documentAnalysisService = new DocumentAnalysisService(
-                azureDocumentIntelligenceEndpoint,
-                azureDocumentIntelligenceKey
-        );
+        this.documentAnalysisService = new DocumentAnalysisService(documentIntelligenceEndpoint);
 
-        // table storage service
-        this.tableStorageService = new TableStorageService(
-                aiRagServiceStorageAccount,
-                storageAccountTableDocumentIngestionOutcome
-        );
+        this.tableStorageService = new TableStorageService(tableStorageEndpoint, tableDocumentIngestionOutcome);
 
         this.documentChunkingService = new DocumentChunkingService();
 
-        this.embeddingService = new EmbeddingService(
-                embeddingServiceEndpoint,
-                embeddingServiceApiKey,
-                embeddingServiceDeploymentName
+        this.chunkEmbeddingService = new ChunkEmbeddingService();
 
-        );
-
-        this.documentStorageService = new DocumentStorageService(
-                azureSearchServiceDocumentEndpoint,
-                azureSearchIndexDocumentName,
-                azureSearchDocumentAdminKey
-
-        );
+        this.documentStorageService = new DocumentStorageService(azureSearchServiceEndpoint, azureSearchIndexName);
     }
 
     public DocumentIngestionOrchestrator(final TableStorageService tableStorageService,
                                          final DocumentAnalysisService documentAnalysisService,
                                          final DocumentChunkingService documentChunkingService,
-                                         final EmbeddingService embeddingService,
+                                         final ChunkEmbeddingService chunkEmbeddingService,
                                          final DocumentStorageService documentStorageService) {
         this.tableStorageService = requireNonNull(tableStorageService, "TableStorageService must not be null");
         this.documentAnalysisService = requireNonNull(documentAnalysisService, "DocumentAnalysisService must not be null");
         this.documentChunkingService = requireNonNull(documentChunkingService, "DocumentChunkingService must not be null");
-        this.embeddingService = requireNonNull(embeddingService, "EmbeddingService must not be null");
+        this.chunkEmbeddingService = requireNonNull(chunkEmbeddingService, "ChunkEmbeddingService must not be null");
         this.documentStorageService = requireNonNull(documentStorageService, "DocumentStorageService must not be null");
     }
 
@@ -112,7 +89,7 @@ public class DocumentIngestionOrchestrator {
             List<ChunkedEntry> chunkedEntries = documentChunkingService.chunkDocument(analyzeResult, queueIngestionMetadata);
 
             // Step 3: Generate embeddings for chunks
-            enrichChunksWithEmbeddings(chunkedEntries);
+            chunkEmbeddingService.enrichChunksWithEmbeddings(chunkedEntries);
 
             // Step 4: Store chunks in Azure Search
             documentStorageService.uploadChunks(Collections.unmodifiableList(chunkedEntries));
@@ -133,43 +110,6 @@ public class DocumentIngestionOrchestrator {
         }
     }
 
-    private void enrichChunksWithEmbeddings(List<ChunkedEntry> chunkedEntries) {
-        for (int i = 0; i < chunkedEntries.size(); i++) {
-            ChunkedEntry chunkedEntry = chunkedEntries.get(i);
-            if (isNullOrEmpty((chunkedEntry.chunk()))) {
-                LOGGER.warn("Skipping chunk on page {} - empty or null text", chunkedEntry.pageNumber());
-                continue;
-            }
-
-            try {
-                List<Double> vector = embeddingService.embedStringData(chunkedEntry.chunk());
-
-                // Create new ChunkedEntry with the vector
-                ChunkedEntry enrichedEntry = ChunkedEntry.builder()
-                        .id(chunkedEntry.id())
-                        .documentId(chunkedEntry.documentId())
-                        .chunk(chunkedEntry.chunk())
-                        .chunkVector(vector)
-                        .documentFileName(chunkedEntry.documentFileName())
-                        .pageNumber(chunkedEntry.pageNumber())
-                        .chunkIndex(chunkedEntry.chunkIndex())
-                        .documentFileUrl(chunkedEntry.documentFileUrl())
-                        .customMetadata(chunkedEntry.customMetadata())
-                        .build();
-
-                // Replace the entry in the list
-                chunkedEntries.set(i, enrichedEntry);
-
-                LOGGER.debug("Generated embedding for page {} with vector size {}",
-                        chunkedEntry.pageNumber(), vector.size());
-
-            } catch (EmbeddingServiceException e) {
-                LOGGER.error("Failed to embed chunk on page {}: {}",
-                        chunkedEntry.pageNumber(), e.getMessage());
-                // Continue processing other chunks instead of failing completely
-            }
-        }
-    }
 
     private void recordOutcome(String documentName,
                                String documentId,

@@ -186,7 +186,7 @@ Each environment should have its own configuration:
 ### Required Azure Resources
 
 Before deployment, ensure you have the following Azure resources for each environment:
-- Azure Storage Account (for blob storage and queues)
+- Azure Storage Account (for blob storage, tables and queues)
 - Azure Search Service
 - Azure OpenAI Service
 - Application Insights
@@ -206,30 +206,7 @@ Each function requires specific configuration values:
 
 #### Function-Specific Variables
 
-**Metadata Check Function:**
-- `AZURE_STORAGE_CONNECTION_STRING`: Storage account connection string
-- `PROCESSING_QUEUE_NAME`: Queue name for document processing
-
-**Ingestion Function:**
-- `AZURE_STORAGE_CONNECTION_STRING`: Storage account connection string
-- `PROCESSING_QUEUE_NAME`: Queue name for document processing
-- `AZURE_SEARCH_ENDPOINT`: Azure Search service endpoint
-- `AZURE_SEARCH_API_KEY`: Azure Search API key
-- `AZURE_OPENAI_ENDPOINT`: Azure OpenAI service endpoint
-- `AZURE_OPENAI_API_KEY`: Azure OpenAI API key
-- `AZURE_OPENAI_DEPLOYMENT_NAME`: Azure OpenAI deployment name
-
-**Answer Retrieval Function:**
-- `AZURE_SEARCH_ENDPOINT`: Azure Search service endpoint
-- `AZURE_SEARCH_API_KEY`: Azure Search API key
-- `AZURE_OPENAI_ENDPOINT`: Azure OpenAI service endpoint
-- `AZURE_OPENAI_API_KEY`: Azure OpenAI API key
-- `AZURE_OPENAI_DEPLOYMENT_NAME`: Azure OpenAI deployment name
-- `SCORING_QUEUE_NAME`: Queue name for answer scoring
-
-**Answer Scoring Function:**
-- `SCORING_QUEUE_NAME`: Queue name for answer scoring
-- `AZURE_MONITOR_CONNECTION_STRING`: Azure Monitor connection string
+Refer to each function's `local.settings.sample.json` for detailed configuration requirements.
 
 ## Development Guidelines
 

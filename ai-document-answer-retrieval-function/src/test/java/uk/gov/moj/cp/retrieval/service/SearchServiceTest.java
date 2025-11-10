@@ -7,7 +7,7 @@ import static org.mockito.Mockito.when;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
-import uk.gov.moj.cp.retrieval.SearchServiceException;
+import uk.gov.moj.cp.retrieval.exception.SearchServiceException;
 
 import java.util.List;
 
