@@ -103,10 +103,10 @@ public class IngestionOrchestratorService {
      */
     private QueueIngestionMetadata createQueueMessage(String blobName, Map<String, String> metadata) {
         String documentId = metadata.get(DOCUMENT_ID);
-        String queueStorageEndpoint = System.getenv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT);
+        String blobStorageEndpoint = System.getenv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT);
         String containerName = System.getenv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME);
         String blobUrl = String.format("%s/%s/%s",
-                queueStorageEndpoint, containerName, blobName);
+                blobStorageEndpoint, containerName, blobName);
         String currentTimestamp = Instant.now().toString();
 
         return new QueueIngestionMetadata(

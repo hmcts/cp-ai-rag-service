@@ -5,6 +5,7 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_BLOB_STORAGE
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
+import uk.gov.moj.cp.ai.service.BlobClientFactory;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
 
 import java.util.HashMap;

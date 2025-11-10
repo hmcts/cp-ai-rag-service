@@ -20,7 +20,6 @@ public class DocumentAnalysisService {
     private static final String MODEL_ID = "prebuilt-layout";
     private final DocumentAnalysisClient documentAnalysisClient;
 
-
     public DocumentAnalysisService(String endpoint) {
         if (isNullOrEmpty(endpoint)) {
             throw new IllegalArgumentException("Document Intelligence Endpoint cannot be null or empty");

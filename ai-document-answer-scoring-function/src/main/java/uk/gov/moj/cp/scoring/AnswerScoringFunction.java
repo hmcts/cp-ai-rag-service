@@ -5,7 +5,10 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWE
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 
 import uk.gov.moj.cp.ai.model.QueryResponse;
+import uk.gov.moj.cp.ai.model.ScoringQueuePayload;
+import uk.gov.moj.cp.scoring.exception.BlobParsingException;
 import uk.gov.moj.cp.scoring.model.ModelScore;
+import uk.gov.moj.cp.scoring.service.BlobService;
 import uk.gov.moj.cp.scoring.service.PublishScoreService;
 import uk.gov.moj.cp.scoring.service.ScoringService;
 
@@ -26,15 +29,18 @@ public class AnswerScoringFunction {
 
     private final ScoringService scoringService;
     private final PublishScoreService publishScoreService;
+    private final BlobService blobService;
 
     public AnswerScoringFunction() {
         scoringService = new ScoringService();
         publishScoreService = new PublishScoreService();
+        blobService = new BlobService();
     }
 
-    AnswerScoringFunction(ScoringService scoringService, PublishScoreService publishScoreService) {
+    AnswerScoringFunction(final ScoringService scoringService, final PublishScoreService publishScoreService, final BlobService blobService) {
         this.scoringService = scoringService;
         this.publishScoreService = publishScoreService;
+        this.blobService = blobService;
     }
 
     /**
@@ -53,23 +59,24 @@ public class AnswerScoringFunction {
             final ExecutionContext context) {
 
         try {
-            final QueryResponse queryResponse = getObjectMapper().readValue(message, QueryResponse.class);
+            final ScoringQueuePayload queuePayload = getObjectMapper().readValue(message, ScoringQueuePayload.class);
 
-            LOGGER.info("Starting process to score answer for query: {}", queryResponse.userQuery());
+            final QueryResponse judgeLlmInput = blobService.readBlob(queuePayload.filename());
 
-            final ModelScore modelScore = scoringService.evaluateGroundedness(queryResponse.llmResponse(), queryResponse.userQuery(), queryResponse.chunkedEntries());
+            LOGGER.info("Starting process to score answer for query: {}", judgeLlmInput.userQuery());
+
+            final ModelScore modelScore = scoringService.evaluateGroundedness(judgeLlmInput.llmResponse(), judgeLlmInput.userQuery(), judgeLlmInput.chunkedEntries());
 
             LOGGER.info("Score now available for the answer : {}", modelScore.groundednessScore());
 
-            publishScoreService.publishGroundednessScore(modelScore.groundednessScore(), queryResponse.userQuery());
+            publishScoreService.publishGroundednessScore(modelScore.groundednessScore(), judgeLlmInput.userQuery());
 
             LOGGER.info("Answer scoring processing completed successfully for message with score : {}", modelScore.groundednessScore());
 
         } catch (Exception e) {
-            LOGGER.error("Error processing answer scoring for message: " + message, e);
             try {
                 throw e;
-            } catch (JsonProcessingException ex) {
+            } catch (JsonProcessingException | BlobParsingException ex) {
                 throw new RuntimeException(ex);
             }
         }

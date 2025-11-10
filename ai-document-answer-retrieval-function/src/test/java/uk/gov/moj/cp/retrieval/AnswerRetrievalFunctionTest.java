@@ -12,6 +12,7 @@ import static uk.org.webcompere.modelassert.json.JsonAssertions.json;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
+import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
 import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
 import uk.gov.moj.cp.retrieval.service.SearchService;
@@ -49,6 +50,9 @@ class AnswerRetrievalFunctionTest {
     private ResponseGenerationService mockResponseGenerationService;
 
     @Mock
+    private BlobPersistenceService mockBlobPersistenceService;
+
+    @Mock
     private HttpResponseMessage.Builder mockResponseBuilder;
 
     private AnswerRetrievalFunction function;
@@ -56,7 +60,7 @@ class AnswerRetrievalFunctionTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        function = new AnswerRetrievalFunction(mockEmbedDataService, mockSearchService, mockResponseGenerationService);
+        function = new AnswerRetrievalFunction(mockEmbedDataService, mockSearchService, mockResponseGenerationService, mockBlobPersistenceService);
     }
 
     @Test

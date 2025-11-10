@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.retrieval;
 
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
+import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING;
@@ -10,7 +11,9 @@ import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.model.QueryResponse;
+import uk.gov.moj.cp.ai.model.ScoringQueuePayload;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
+import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
 import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
 import uk.gov.moj.cp.retrieval.service.SearchService;
@@ -44,16 +47,20 @@ public class AnswerRetrievalFunction {
 
     private final ResponseGenerationService responseGenerationService;
 
+    private final BlobPersistenceService blobPersistenceService;
+
     public AnswerRetrievalFunction() {
         embedDataService = new EmbedDataService();
         searchService = new SearchService();
         responseGenerationService = new ResponseGenerationService();
+        blobPersistenceService = new BlobPersistenceService();
     }
 
-    public AnswerRetrievalFunction(final EmbedDataService embedDataService, final SearchService searchService, final ResponseGenerationService responseGenerationService) {
+    public AnswerRetrievalFunction(final EmbedDataService embedDataService, final SearchService searchService, final ResponseGenerationService responseGenerationService, final BlobPersistenceService blobPersistenceService) {
         this.embedDataService = embedDataService;
         this.searchService = searchService;
         this.responseGenerationService = responseGenerationService;
+        this.blobPersistenceService = blobPersistenceService;
     }
 
     /**
@@ -89,20 +96,19 @@ public class AnswerRetrievalFunction {
 
             final List<ChunkedEntry> chunkedEntries = searchService.searchDocumentsMatchingFilterCriteria(userQuery, queryEmbeddings, metadataFilters);
 
-            final String generatedResponse = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt).replace("(Source:","::(Source:");;
+            final String generatedResponse = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt).replace("(Source:", "::(Source:");
 
             LOGGER.info("Answer retrieval processing completed successfully for query: {}", userQuery);
 
-            //TODO - this is a workdaround to limit the chunked entires
-            // Azure Storage Queue has a hard limit of 64KB per message. When QueryResponse contains large llmResponse strings and multiple ChunkedEntry objects with chunk content, the serialized JSON exceeds this limit.
-            List<ChunkedEntry> reduceChunksForQueue = reduceChunksForQueue(chunkedEntries);
-
-            final QueryResponse queryResponse = new QueryResponse(userQuery, generatedResponse, userQueryPrompt, reduceChunksForQueue);
+            final QueryResponse queryResponse = new QueryResponse(userQuery, generatedResponse, userQueryPrompt, chunkedEntries);
 
             final String responseAsString = convertObjectToJson(queryResponse);
 
+            final String filename = "llm-answer-with-chunks-" + randomUUID() + ".json";
+            blobPersistenceService.saveBlob(filename, responseAsString);
 
-            message.setValue(responseAsString);
+            ScoringQueuePayload scoringQueuePayload = new ScoringQueuePayload(filename);
+            message.setValue(convertObjectToJson(scoringQueuePayload));
 
             return generateResponse(request, HttpStatus.OK, responseAsString);
 
@@ -129,15 +135,5 @@ public class AnswerRetrievalFunction {
             LOGGER.error("Error converting object to JSON", e);
             return "{}";
         }
-    }
-    // throway code
-    private List<ChunkedEntry> reduceChunksForQueue(List<ChunkedEntry> chunks) {
-        if (chunks == null || chunks.isEmpty()) {
-            return chunks;
-        }
-        final int MAX_CHUNKS = 1;
-        return chunks.stream()
-                .limit(MAX_CHUNKS)
-                .collect(toList());
     }
 }

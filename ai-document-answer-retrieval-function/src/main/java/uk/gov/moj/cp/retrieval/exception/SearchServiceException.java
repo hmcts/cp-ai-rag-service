@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.retrieval;
+package uk.gov.moj.cp.retrieval.exception;
 
 public class SearchServiceException extends Exception {
 

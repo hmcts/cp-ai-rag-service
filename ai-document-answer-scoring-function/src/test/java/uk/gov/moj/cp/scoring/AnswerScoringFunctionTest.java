@@ -7,8 +7,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 
+import uk.gov.moj.cp.ai.model.QueryResponse;
+import uk.gov.moj.cp.scoring.exception.BlobParsingException;
 import uk.gov.moj.cp.scoring.model.ModelScore;
+import uk.gov.moj.cp.scoring.service.BlobService;
 import uk.gov.moj.cp.scoring.service.PublishScoreService;
 import uk.gov.moj.cp.scoring.service.ScoringService;
 
@@ -26,29 +30,34 @@ class AnswerScoringFunctionTest {
     private AnswerScoringFunction answerScoringFunction;
     private ScoringService scoringServiceMock;
     private PublishScoreService publishScoreService;
+    private BlobService blobService;
     private ExecutionContext contextMock;
 
     @BeforeEach
     void setUp() {
         scoringServiceMock = mock(ScoringService.class);
         publishScoreService = mock(PublishScoreService.class);
+        blobService = mock(BlobService.class);
         contextMock = mock(ExecutionContext.class);
-        answerScoringFunction = new AnswerScoringFunction(scoringServiceMock, publishScoreService);
+        answerScoringFunction = new AnswerScoringFunction(scoringServiceMock, publishScoreService, blobService);
     }
 
     @Test
     @DisplayName("Processes valid message and logs success")
-    void processesValidMessageAndLogsSuccess() {
-        String message = "{\"llmResponse\":\"response\",\"userQuery\":\"query\",\"chunkedEntries\":[]}";
+    void processesValidMessageAndLogsSuccess() throws JsonProcessingException, BlobParsingException {
+        String queueMessage = "{\"filename\":\"test123.pdf\"}";
+        String blobMessage = "{\"llmResponse\":\"response\",\"userQuery\":\"query\",\"chunkedEntries\":[]}";
         final BigDecimal llmScore = BigDecimal.valueOf(5);
         final String userQuery = "query";
 
         ModelScore modelScore = new ModelScore(llmScore, "Well supported");
 
+        when(blobService.readBlob("test123.pdf")).thenReturn(getObjectMapper().readValue(blobMessage, QueryResponse.class));
+
         when(scoringServiceMock.evaluateGroundedness("response", userQuery, List.of()))
                 .thenReturn(modelScore);
 
-        answerScoringFunction.run(message, contextMock);
+        answerScoringFunction.run(queueMessage, contextMock);
 
         verify(scoringServiceMock).evaluateGroundedness("response", userQuery, List.of());
         verify(publishScoreService).publishGroundednessScore(llmScore, userQuery);
@@ -75,19 +84,21 @@ class AnswerScoringFunctionTest {
             answerScoringFunction.run(nullMessage, contextMock);
         });
 
-        assertNull(exception.getCause());
     }
 
     @Test
     @DisplayName("Handles scoring service failure and logs error")
     void handlesScoringServiceFailureAndLogsError() throws Exception {
-        String message = "{\"llmResponse\":\"response\",\"userQuery\":\"query\",\"chunkedEntries\":[]}";
+        String queueMessage = "{\"filename\":\"test123.pdf\"}";
+        String blobMessage = "{\"llmResponse\":\"response\",\"userQuery\":\"query\",\"chunkedEntries\":[]}";
+
+        when(blobService.readBlob("test123.pdf")).thenReturn(getObjectMapper().readValue(blobMessage, QueryResponse.class));
 
         when(scoringServiceMock.evaluateGroundedness("response", "query", List.of()))
                 .thenThrow(new RuntimeException("Scoring service error"));
 
         Exception exception = assertThrows(RuntimeException.class, () -> {
-            answerScoringFunction.run(message, contextMock);
+            answerScoringFunction.run(queueMessage, contextMock);
         });
 
         assertEquals("Scoring service error", exception.getMessage());

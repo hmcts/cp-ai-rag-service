@@ -1,6 +1,8 @@
-package uk.gov.moj.cp.metadata.check.service;
+package uk.gov.moj.cp.ai.service;
 
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
+
+import java.nio.charset.StandardCharsets;
 
 import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.storage.blob.BlobClient;
@@ -26,5 +28,12 @@ public class BlobClientFactory {
 
     public BlobClient getBlobClient(final String documentName) {
         return containerClient.getBlobClient(documentName);
+    }
+
+    public void addBlob(final String documentName, final String payload) {
+        containerClient.createIfNotExists();
+        final byte[] payloadBytes = payload.getBytes(StandardCharsets.UTF_8);
+        BlobClient blobClient = containerClient.getBlobClient(documentName);
+        blobClient.upload(new java.io.ByteArrayInputStream(payloadBytes), payloadBytes.length, true);
     }
 }

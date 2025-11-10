@@ -8,6 +8,8 @@
     "AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT": "",
     "AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT": "",
 
+    "STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS": "",
+
     "AZURE_EMBEDDING_SERVICE_ENDPOINT": "<your-embedding-service-endpoint>",
     "AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME": "<embedding-service-deployment-name>",
 
