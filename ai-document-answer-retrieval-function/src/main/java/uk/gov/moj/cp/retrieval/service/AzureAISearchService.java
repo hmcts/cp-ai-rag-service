@@ -1,5 +1,7 @@
 package uk.gov.moj.cp.retrieval.service;
 
+import static java.lang.Integer.parseInt;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.index.IndexConstants;
@@ -26,14 +28,22 @@ import org.slf4j.LoggerFactory;
 public class AzureAISearchService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AzureAISearchService.class);
-    private static final int K_NEAREST_NEIGHBORS_COUNT = 50;
     private final SearchClient searchClient;
+
+    private final int nearestNeighborsCount;
+    private final int topResultsCount;
 
     public AzureAISearchService(String endpoint, String searchIndexName) {
 
         if (isNullOrEmpty(endpoint) || isNullOrEmpty(searchIndexName)) {
             throw new IllegalArgumentException("Azure AI Search endpoint and index name must be set as environment variables.");
         }
+
+        nearestNeighborsCount = parseInt(getRequiredEnv("SEARCH_NEAREST_NEIGHBOURS_COUNT", "50"));
+        topResultsCount = parseInt(getRequiredEnv("SEARCH_TOP_RESULTS_COUNT", "50"));
+
+        LOGGER.info("Search parameters set as - Nearest Neighbors: {}, Top Results: {}", nearestNeighborsCount, topResultsCount);
+
 
         this.searchClient = new SearchClientBuilder()
                 .endpoint(endpoint)
@@ -59,7 +69,7 @@ public class AzureAISearchService {
         VectorizedQuery vectorizedQuery = new VectorizedQuery(
                 vectorizedUserQuery.stream().map(Double::floatValue).collect(ArrayList::new, ArrayList::add, ArrayList::addAll)
         )
-                .setKNearestNeighborsCount(K_NEAREST_NEIGHBORS_COUNT) // Number of nearest neighbors to retrieve
+                .setKNearestNeighborsCount(nearestNeighborsCount) // Number of nearest neighbors to retrieve
                 .setFields(IndexConstants.CHUNK_VECTOR);
 
         VectorSearchOptions vectorSearchOptions = new VectorSearchOptions().setQueries(List.of(vectorizedQuery));
@@ -79,7 +89,7 @@ public class AzureAISearchService {
                         IndexConstants.CUSTOM_METADATA
 
                 )
-                .setTop(K_NEAREST_NEIGHBORS_COUNT); // Number of top results to return after filtering and ranking
+                .setTop(topResultsCount); // Number of top results to return after filtering and ranking
 
 
         // 4. Execute the search
