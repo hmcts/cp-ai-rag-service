@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.ai.service;
 
+import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
 import java.util.List;
@@ -7,6 +8,7 @@ import java.util.Optional;
 
 import com.azure.ai.openai.OpenAIClient;
 import com.azure.ai.openai.OpenAIClientBuilder;
+import com.azure.ai.openai.models.ChatChoice;
 import com.azure.ai.openai.models.ChatCompletions;
 import com.azure.ai.openai.models.ChatCompletionsOptions;
 import com.azure.ai.openai.models.ChatMessage;
@@ -54,7 +56,15 @@ public class ChatService {
         try {
 
             final ChatCompletions chatCompletions = openAIClient.getChatCompletions(deploymentName, chatCompletionsOptions);
-            String jsonResponse = chatCompletions.getChoices().get(0).getMessage().getContent();
+            final ChatChoice chatChoice = chatCompletions.getChoices().get(0);
+            String jsonResponse = chatChoice.getMessage().getContent();
+
+            if (isNullOrEmpty(jsonResponse)) {
+                String finishReason = chatChoice.getFinishReason().toString();
+                LOGGER.error("Received empty response from LLM. Finish reason: {}", finishReason);
+                return Optional.empty();
+            }
+
             final T responseModel;
             if (responseClass == String.class) {
                 responseModel = responseClass.cast(jsonResponse);
@@ -63,7 +73,7 @@ public class ChatService {
             }
             return Optional.of(responseModel);
         } catch (Exception e) {
-            LOGGER.error("Error calling Judge LLM for evaluation", e);
+            LOGGER.error("Error calling LLM for evaluation", e);
         }
         return Optional.empty();
     }

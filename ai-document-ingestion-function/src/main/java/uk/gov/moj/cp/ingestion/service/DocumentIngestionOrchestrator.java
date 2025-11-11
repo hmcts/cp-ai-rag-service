@@ -8,7 +8,7 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_INDEX_
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.INGESTION_FAILED;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.INGESTION_SUCCESS;
-import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
@@ -120,14 +120,6 @@ public class DocumentIngestionOrchestrator {
 
         LOGGER.info("event=outcome_recorded status={} documentName={} documentId={}",
                 status, documentName, documentId);
-    }
-
-    private static String getRequiredEnv(String key) {
-        String value = System.getenv(key);
-        if (isNullOrEmpty(value)) {
-            throw new IllegalStateException("Required environment variable not set: " + key);
-        }
-        return value;
     }
 
 }
