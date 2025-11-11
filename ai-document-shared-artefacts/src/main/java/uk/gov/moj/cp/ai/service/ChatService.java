@@ -11,8 +11,11 @@ import com.azure.ai.openai.OpenAIClientBuilder;
 import com.azure.ai.openai.models.ChatChoice;
 import com.azure.ai.openai.models.ChatCompletions;
 import com.azure.ai.openai.models.ChatCompletionsOptions;
-import com.azure.ai.openai.models.ChatMessage;
-import com.azure.ai.openai.models.ChatRole;
+import com.azure.ai.openai.models.ChatRequestMessage;
+import com.azure.ai.openai.models.ChatRequestSystemMessage;
+import com.azure.ai.openai.models.ChatRequestUserMessage;
+import com.azure.ai.openai.models.ContentFilterResultsForChoice;
+import com.azure.ai.openai.models.ContentFilterResultsForPrompt;
 import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -45,13 +48,12 @@ public class ChatService {
     }
 
     public <T> Optional<T> callModel(final String systemInstruction, final String userInstruction, Class<T> responseClass) {
-        final List<ChatMessage> chatMessages = getChatMessages(systemInstruction, userInstruction);
+        final List<ChatRequestMessage> chatMessages = getChatMessages(systemInstruction, userInstruction);
 
         ChatCompletionsOptions chatCompletionsOptions = new ChatCompletionsOptions(chatMessages)
                 .setMaxTokens(MAX_TOKENS) // Keep the response concise
                 .setTemperature(TEMPERATURE) // Low temperature for deterministic scoring
-                .setTopP(TOP_P)
-                .setStream(false);
+                .setTopP(TOP_P);
 
         try {
 
@@ -62,6 +64,17 @@ public class ChatService {
             if (isNullOrEmpty(jsonResponse)) {
                 String finishReason = chatChoice.getFinishReason().toString();
                 LOGGER.error("Received empty response from LLM. Finish reason: {}", finishReason);
+
+                for (ContentFilterResultsForPrompt promptResult : chatCompletions.getPromptFilterResults()) {
+                    if (promptResult.getContentFilterResults() != null && LOGGER.isWarnEnabled()) {
+                        LOGGER.warn("--- PROMPT FILTERING DETECTED (Input) ---\n{}", promptResult.getContentFilterResults().toJsonString());
+                    }
+                }
+
+                ContentFilterResultsForChoice completionResult = chatChoice.getContentFilterResults();
+                if (completionResult != null && LOGGER.isWarnEnabled()) {
+                    LOGGER.warn("--- COMPLETION FILTERING DETECTED (Output) ---\n{}", completionResult.toJsonString());
+                }
                 return Optional.empty();
             }
 
@@ -78,10 +91,10 @@ public class ChatService {
         return Optional.empty();
     }
 
-    private List<ChatMessage> getChatMessages(final String systemInstruction, final String userInstruction) {
+    private List<ChatRequestMessage> getChatMessages(final String systemInstruction, final String userInstruction) {
         return List.of(
-                new ChatMessage(ChatRole.SYSTEM).setContent(systemInstruction),
-                new ChatMessage(ChatRole.USER).setContent(userInstruction)
+                new ChatRequestSystemMessage(systemInstruction),
+                new ChatRequestUserMessage(userInstruction)
         );
     }
 

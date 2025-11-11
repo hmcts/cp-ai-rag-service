@@ -19,7 +19,7 @@ public record ChunkedEntry(
         @JsonProperty(ID) String id,
         @JsonProperty(DOCUMENT_ID) String documentId,
         @JsonProperty(CHUNK) String chunk,
-        @JsonProperty(CHUNK_VECTOR) List<Double> chunkVector,
+        @JsonProperty(CHUNK_VECTOR) List<Float> chunkVector,
         @JsonProperty(DOCUMENT_FILE_NAME) String documentFileName,
         @JsonProperty(PAGE_NUMBER) Integer pageNumber,
         @JsonProperty(CHUNK_INDEX) Integer chunkIndex,
@@ -32,7 +32,7 @@ public record ChunkedEntry(
         private String id;
         private String documentId;
         private String chunk;
-        private List<Double> chunkVector;
+        private List<Float> chunkVector;
         private String documentFileName;
         private Integer pageNumber;
         private Integer chunkIndex;
@@ -54,7 +54,7 @@ public record ChunkedEntry(
             return this;
         }
 
-        public Builder chunkVector(List<Double> chunkVector) {
+        public Builder chunkVector(List<Float> chunkVector) {
             this.chunkVector = chunkVector;
             return this;
         }

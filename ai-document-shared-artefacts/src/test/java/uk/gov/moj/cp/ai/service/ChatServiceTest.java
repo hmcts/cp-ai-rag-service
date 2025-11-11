@@ -17,8 +17,7 @@ import com.azure.ai.openai.OpenAIClient;
 import com.azure.ai.openai.models.ChatChoice;
 import com.azure.ai.openai.models.ChatCompletions;
 import com.azure.ai.openai.models.ChatCompletionsOptions;
-import com.azure.ai.openai.models.ChatMessage;
-import com.azure.ai.openai.models.ChatRole;
+import com.azure.ai.openai.models.ChatResponseMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -99,11 +98,12 @@ class ChatServiceTest {
     }
 
     private ChatCompletions mockChatCompletions(String jsonResponse) {
-        final ChatMessage chatMessage = new ChatMessage(ChatRole.ASSISTANT).setContent(jsonResponse);
+        final ChatResponseMessage mockChatResponseMessage = mock(ChatResponseMessage.class);
         final ChatCompletions chatCompletions = mock(ChatCompletions.class);
         final ChatChoice mockChatChoice = mock(ChatChoice.class);
         when(chatCompletions.getChoices()).thenReturn(List.of(mockChatChoice));
-        when(mockChatChoice.getMessage()).thenReturn(chatMessage);
+        when(mockChatChoice.getMessage()).thenReturn(mockChatResponseMessage);
+        when(mockChatResponseMessage.getContent()).thenReturn(jsonResponse);
         return chatCompletions;
     }
 

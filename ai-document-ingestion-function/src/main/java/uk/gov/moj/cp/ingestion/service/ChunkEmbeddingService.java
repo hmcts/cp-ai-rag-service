@@ -46,7 +46,7 @@ public class ChunkEmbeddingService {
             }
 
             try {
-                List<Double> vector = embeddingService.embedStringData(chunkedEntry.chunk());
+                List<Float> vector = embeddingService.embedStringData(chunkedEntry.chunk());
 
                 // Create new ChunkedEntry with the vector
                 ChunkedEntry enrichedEntry = ChunkedEntry.builder()
