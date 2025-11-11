@@ -27,6 +27,7 @@ public class EmbeddingService {
         validateNullOrEmpty(deploymentName, "Deployment name environment variable for embedding service must be set.");
         this.embeddingDeploymentName = deploymentName;
 
+        LOGGER.info("Connecting to embedding service endpoint '{}' and deployment '{}'", endpoint, deploymentName);
         this.openAIClient = new OpenAIClientBuilder()
                 .endpoint(endpoint)
                 .credential(new DefaultAzureCredentialBuilder().build())

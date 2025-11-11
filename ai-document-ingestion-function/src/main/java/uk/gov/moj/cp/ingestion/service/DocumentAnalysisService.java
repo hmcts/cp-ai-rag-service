@@ -25,6 +25,8 @@ public class DocumentAnalysisService {
             throw new IllegalArgumentException("Document Intelligence Endpoint cannot be null or empty");
         }
 
+        LOGGER.info("Connecting to Document Intelligence endpoint '{}'", endpoint);
+
         this.documentAnalysisClient = new DocumentAnalysisClientBuilder()
                 .endpoint(endpoint)
                 .credential(new DefaultAzureCredentialBuilder().build())

@@ -37,6 +37,8 @@ public class TableStorageService {
             throw new IllegalArgumentException("Table storage account endpoint and table name cannot be null or empty");
         }
 
+        LOGGER.info("Connecting to endpoint {} and table {}", endpoint, tableName);
+
         this.tableClient = new TableClientBuilder()
                 .endpoint(endpoint)
                 .tableName(tableName)

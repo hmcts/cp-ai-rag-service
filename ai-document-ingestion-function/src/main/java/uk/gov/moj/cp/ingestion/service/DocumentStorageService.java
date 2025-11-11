@@ -36,6 +36,8 @@ public class DocumentStorageService {
             throw new IllegalArgumentException("Document Storage Endpoint and Vector Index Name cannot be null or empty");
         }
 
+        LOGGER.info("Connecting to Azure AI Search endpoint '{}' and index '{}'", endpoint, indexName);
+
         this.indexName = indexName;
 
         this.searchClient = new SearchClientBuilder()

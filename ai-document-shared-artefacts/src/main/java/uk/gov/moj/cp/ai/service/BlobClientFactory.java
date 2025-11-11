@@ -9,8 +9,12 @@ import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BlobClientFactory {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(BlobClientFactory.class);
 
     private final BlobContainerClient containerClient;
 
@@ -19,11 +23,15 @@ public class BlobClientFactory {
             throw new IllegalArgumentException("Storage account endpoint and container name cannot be null or empty");
         }
 
+        LOGGER.info("Connecting to Blob Storage endpoint '{}' and container '{}'", endpoint, containerName);
+
         BlobServiceClient blobServiceClient = new BlobServiceClientBuilder()
                 .endpoint(endpoint)
                 .credential(new DefaultAzureCredentialBuilder().build())
                 .buildClient();
         this.containerClient = blobServiceClient.getBlobContainerClient(containerName);
+
+        LOGGER.info("Initialized azure blob storage connectivity with Managed Identity.");
     }
 
     public BlobClient getBlobClient(final String documentName) {
