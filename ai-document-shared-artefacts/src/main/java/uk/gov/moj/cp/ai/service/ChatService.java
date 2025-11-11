@@ -38,13 +38,15 @@ public class ChatService {
         validateNullOrEmpty(endpoint, "Endpoint environment variable must be set.");
         validateNullOrEmpty(deploymentName, "Deployment name environment variable must be set.");
 
+        LOGGER.info("Connecting to chat service endpoint '{}' and deployment '{}'", endpoint, deploymentName);
+
         this.deploymentName = deploymentName;
 
         this.openAIClient = new OpenAIClientBuilder()
                 .endpoint(endpoint)
                 .credential(new DefaultAzureCredentialBuilder().build())
                 .buildClient();
-        LOGGER.info("Initialized Azure OpenAI client with Managed Identity.");
+        LOGGER.info("Initialized Azure OpenAI client for chat with Managed Identity.");
     }
 
     public <T> Optional<T> callModel(final String systemInstruction, final String userInstruction, Class<T> responseClass) {

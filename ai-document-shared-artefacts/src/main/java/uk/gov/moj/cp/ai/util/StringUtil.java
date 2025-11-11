@@ -14,4 +14,14 @@ public class StringUtil {
     public static boolean isNullOrEmpty(final String value) {
         return value == null || value.trim().isEmpty();
     }
+
+    public static String removeTrailingSlash(final String value) {
+        if (isNullOrEmpty(value)) {
+            return value;
+        }
+        if (value.endsWith("/")) {
+            return value.substring(0, value.length() - 1);
+        }
+        return value;
+    }
 }

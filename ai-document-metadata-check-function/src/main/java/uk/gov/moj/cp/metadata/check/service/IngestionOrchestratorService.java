@@ -1,12 +1,16 @@
 package uk.gov.moj.cp.metadata.check.service;
 
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.INVALID_METADATA;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.METADATA_VALIDATED;
 import static uk.gov.moj.cp.ai.util.DocumentStatus.QUEUE_FAILED;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
+import static uk.gov.moj.cp.ai.util.StringUtil.removeTrailingSlash;
 
+import uk.gov.moj.cp.ai.SharedSystemVariables;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ai.service.TableStorageService;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
@@ -37,10 +41,8 @@ public class IngestionOrchestratorService {
 
     public IngestionOrchestratorService(DocumentMetadataService documentMetadataService) {
         this.documentMetadataService = documentMetadataService;
-        // Initialize TableStorageService to ensure consistent column names
-        // This bypasses @TableOutput binding which doesn't respect @JsonProperty annotations
-        String storageAccount = System.getenv("AI_RAG_SERVICE_STORAGE_ACCOUNT");
-        String tableName = System.getenv("STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME");
+        String storageAccount = System.getenv(AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT);
+        String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
         this.tableStorageService = new TableStorageService(storageAccount, tableName);
     }
 
@@ -103,7 +105,7 @@ public class IngestionOrchestratorService {
      */
     private QueueIngestionMetadata createQueueMessage(String blobName, Map<String, String> metadata) {
         String documentId = metadata.get(DOCUMENT_ID);
-        String blobStorageEndpoint = System.getenv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT);
+        String blobStorageEndpoint = removeTrailingSlash(System.getenv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT));
         String containerName = System.getenv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME);
         String blobUrl = String.format("%s/%s/%s",
                 blobStorageEndpoint, containerName, blobName);

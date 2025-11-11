@@ -30,7 +30,6 @@ public class ChunkEmbeddingService {
 
         this.embeddingService = new EmbeddingService(embeddingServiceEndpoint,
                 embeddingServiceDeploymentName);
-        LOGGER.info("Initialized ChunkEmbeddingService with managed identity");
     }
 
     public ChunkEmbeddingService(EmbeddingService embeddingService) {
