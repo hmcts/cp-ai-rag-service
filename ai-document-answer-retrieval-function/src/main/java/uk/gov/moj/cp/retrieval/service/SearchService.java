@@ -32,7 +32,7 @@ public class SearchService {
 
     public List<ChunkedEntry> searchDocumentsMatchingFilterCriteria(
             String userQuery,
-            List<Double> vectorizedUserQuery,
+            List<Float> vectorizedUserQuery,
             List<KeyValuePair> metadataFilters) {
 
         if (isNullOrEmpty(userQuery) || null == vectorizedUserQuery || vectorizedUserQuery.isEmpty() || null == metadataFilters || metadataFilters.isEmpty()) {

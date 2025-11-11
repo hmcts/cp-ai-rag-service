@@ -28,9 +28,9 @@ public class EmbedDataService {
         this.embeddingService = embeddingService;
     }
 
-    public List<Double> getEmbedding(String dataToEmbed) {
+    public List<Float> getEmbedding(String dataToEmbed) {
         try {
-            List<Double> embeddings = embeddingService.embedStringData(dataToEmbed);
+            List<Float> embeddings = embeddingService.embedStringData(dataToEmbed);
             return (embeddings == null || embeddings.isEmpty()) ? List.of() : embeddings;
         } catch (EmbeddingServiceException e) {
             LOGGER.error("Error embedding data", e);

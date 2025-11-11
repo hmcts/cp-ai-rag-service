@@ -32,7 +32,7 @@ class SearchServiceTest {
     @Test
     void searchDocumentsMatchingFilterCriteria_ReturnsResults_WhenValidInputsProvided() throws SearchServiceException {
         String userQuery = "Find legal documents";
-        List<Double> vectorizedUserQuery = List.of(0.1, 0.2, 0.3);
+        List<Float> vectorizedUserQuery = List.of(0.1f, 0.2f, 0.3f);
         List<KeyValuePair> metadataFilters = List.of(new KeyValuePair("key", "value"));
         List<ChunkedEntry> expectedResults = List.of(ChunkedEntry.builder()
                 .id("id1")
@@ -53,7 +53,7 @@ class SearchServiceTest {
     @Test
     void searchDocumentsMatchingFilterCriteria_ReturnsEmptyList_WhenNoResultsFound() throws SearchServiceException {
         String userQuery = "Find legal documents";
-        List<Double> vectorizedUserQuery = List.of(0.1, 0.2, 0.3);
+        List<Float> vectorizedUserQuery = List.of(0.1f, 0.2f, 0.3f);
         List<KeyValuePair> metadataFilters = List.of(new KeyValuePair("key", "value"));
 
         when(mockAzureAISearchService.search(userQuery, vectorizedUserQuery, metadataFilters))
@@ -68,7 +68,7 @@ class SearchServiceTest {
     @Test
     void searchDocumentsMatchingFilterCriteria_ThrowsException_WhenSearchServiceFails() throws SearchServiceException {
         String userQuery = "Find legal documents";
-        List<Double> vectorizedUserQuery = List.of(0.1, 0.2, 0.3);
+        List<Float> vectorizedUserQuery = List.of(0.1f, 0.2f, 0.3f);
         List<KeyValuePair> metadataFilters = List.of(new KeyValuePair("key", "value"));
 
         when(mockAzureAISearchService.search(userQuery, vectorizedUserQuery, metadataFilters))
@@ -83,7 +83,7 @@ class SearchServiceTest {
     void searchDocumentsMatchingFilterCriteria_ThrowsException_WhenInputsAreNull() throws SearchServiceException {
 
         String userQuery = "Find legal documents";
-        List<Double> vectorizedUserQuery = List.of(0.1, 0.2, 0.3);
+        List<Float> vectorizedUserQuery = List.of(0.1f, 0.2f, 0.3f);
         List<KeyValuePair> metadataFilters = List.of(new KeyValuePair("key", "value"));
         when(mockAzureAISearchService.search(null, vectorizedUserQuery, metadataFilters))
                 .thenReturn(List.of());

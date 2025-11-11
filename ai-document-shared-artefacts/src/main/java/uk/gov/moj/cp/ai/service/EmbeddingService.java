@@ -35,7 +35,7 @@ public class EmbeddingService {
     }
 
     // --- Method to Embed a single user query string ---
-    public List<Double> embedStringData(String content) throws EmbeddingServiceException {
+    public List<Float> embedStringData(String content) throws EmbeddingServiceException {
         validateNullOrEmpty(content, "Content to embed cannot be null or empty");
 
         LOGGER.info("Embedding user query: '{}'", content);
@@ -50,7 +50,7 @@ public class EmbeddingService {
             if (embeddingsResult.getData() != null && !embeddingsResult.getData().isEmpty()) {
                 // The API returns a list of embeddings data, one for each input string.
                 // We're expecting only one here for a single query.
-                List<Double> embedding = embeddingsResult.getData().get(0).getEmbedding();
+                List<Float> embedding = embeddingsResult.getData().get(0).getEmbedding();
                 LOGGER.info("Successfully embedded query. Obtained dimensions of size : {}", embedding.size());
                 return embedding;
             } else {

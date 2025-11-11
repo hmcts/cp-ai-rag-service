@@ -92,7 +92,7 @@ public class AnswerRetrievalFunction {
             LOGGER.info("Initiating answer generation process for query - {}", userQuery);
 
             // - Process the user query
-            final List<Double> queryEmbeddings = embedDataService.getEmbedding(userQuery);
+            final List<Float> queryEmbeddings = embedDataService.getEmbedding(userQuery);
 
             final List<ChunkedEntry> chunkedEntries = searchService.searchDocumentsMatchingFilterCriteria(userQuery, queryEmbeddings, metadataFilters);
 

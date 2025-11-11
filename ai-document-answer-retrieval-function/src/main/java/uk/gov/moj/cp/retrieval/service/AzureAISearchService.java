@@ -56,7 +56,7 @@ public class AzureAISearchService {
 
     public List<ChunkedEntry> search(
             String userQuery,
-            List<Double> vectorizedUserQuery,
+            List<Float> vectorizedUserQuery,
             List<KeyValuePair> metadataFilters) throws SearchServiceException {
 
         LOGGER.info("Retrieving documents for query with filters: {}", metadataFilters);
@@ -67,7 +67,7 @@ public class AzureAISearchService {
 
         // 2. Define VectorQuery for semantic search
         VectorizedQuery vectorizedQuery = new VectorizedQuery(
-                vectorizedUserQuery.stream().map(Double::floatValue).collect(ArrayList::new, ArrayList::add, ArrayList::addAll)
+                vectorizedUserQuery.stream().collect(ArrayList::new, ArrayList::add, ArrayList::addAll)
         )
                 .setKNearestNeighborsCount(nearestNeighborsCount) // Number of nearest neighbors to retrieve
                 .setFields(IndexConstants.CHUNK_VECTOR);

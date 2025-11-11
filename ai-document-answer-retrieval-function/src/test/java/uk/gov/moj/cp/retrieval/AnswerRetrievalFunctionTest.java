@@ -105,7 +105,7 @@ class AnswerRetrievalFunctionTest {
         final List<KeyValuePair> metadataFilter = List.of(new KeyValuePair("key", "value"));
         RequestPayload payload = new RequestPayload("query", "prompt", metadataFilter);
 
-        final List<Double> mockEmbeddings = List.of(1.0, 2.0);
+        final List<Float> mockEmbeddings = List.of(1.0f, 2.0f);
         final List<ChunkedEntry> mockSearchDocuments = List.of(ChunkedEntry.builder()
                 .id("1")
                 .chunk("Sample content")
@@ -135,6 +135,16 @@ class AnswerRetrievalFunctionTest {
                         .at("/chunkedEntries").isArray()
                         .toArgumentMatcher()
         ));
+        verify(mockBlobPersistenceService).saveBlob(anyString(), argThat(
+                json().at("/userQuery").isText("query")
+                        .at("/llmResponse").isText("generated response")
+                        .at("/queryPrompt").isText("prompt")
+                        .at("/chunkedEntries").isArray()
+                        .toArgumentMatcher()));
+
+        verify(mockOutputBinding).setValue(argThat(
+                json().at("/filename").matches("^llm-answer-with-chunks-([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\.json$")
+                        .toArgumentMatcher()));
     }
 
     @Test

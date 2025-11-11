@@ -24,7 +24,7 @@
         <azure.functions.maven.plugin.version>1.24.0</azure.functions.maven.plugin.version>
         <azure.functions.java.library.version>3.1.0</azure.functions.java.library.version>
         <plugins.maven.jgitflow.version>1.0-m5.1</plugins.maven.jgitflow.version>
-        <azure.openai.version>1.0.0-beta.1</azure.openai.version>
+        <azure.openai.version>1.0.0-beta.16</azure.openai.version>
         <junit-jupiter-engine.version>5.11.0-M2</junit-jupiter-engine.version>
         <mockito-junit-jupiter.version>5.20.0</mockito-junit-jupiter.version>
         <assertj-core.version>3.24.2</assertj-core.version>
