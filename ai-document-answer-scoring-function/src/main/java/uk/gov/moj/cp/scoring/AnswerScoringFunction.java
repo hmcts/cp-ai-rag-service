@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.scoring;
 
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_NAME;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 
@@ -54,7 +55,7 @@ public class AnswerScoringFunction {
             @QueueTrigger(
                     name = "message",
                     queueName = "%" + STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING + "%",
-                    connection = AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT
+                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_NAME
             ) String message,
             final ExecutionContext context) {
 

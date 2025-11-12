@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.ingestion;
 
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_NAME;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
@@ -36,7 +37,7 @@ public class DocumentIngestionFunction {
             @QueueTrigger(
                     name = "queueMessage",
                     queueName = "%" + STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION + "%",
-                    connection = AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT
+                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_NAME
             ) String queueMessage) throws DocumentProcessingException {
 
         LOGGER.info("Document ingestion function triggered ");
