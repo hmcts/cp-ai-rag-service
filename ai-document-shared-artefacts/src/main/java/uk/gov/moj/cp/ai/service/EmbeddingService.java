@@ -6,6 +6,7 @@ import uk.gov.moj.cp.ai.client.OpenAIClientFactory;
 import uk.gov.moj.cp.ai.exception.EmbeddingServiceException;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.azure.ai.openai.OpenAIClient;
 import com.azure.ai.openai.models.Embeddings;
@@ -62,4 +63,36 @@ public class EmbeddingService {
             throw new EmbeddingServiceException("Failed to embed content", e);
         }
     }
+
+    public List<List<Float>> embedStringDataBatch(List<String> contents) throws EmbeddingServiceException {
+        if (contents == null || contents.isEmpty()) {
+            throw new IllegalArgumentException("Content list cannot be null or empty");
+        }
+
+        LOGGER.info("Embedding {} content strings in batch", contents.size());
+
+        EmbeddingsOptions embeddingsOptions = new EmbeddingsOptions(contents);
+        embeddingsOptions.setUser("cp-ai-document-rag-embedding-service");
+
+        try {
+            Embeddings embeddingsResult = openAIClient.getEmbeddings(embeddingDeploymentName, embeddingsOptions);
+
+            if (embeddingsResult.getData() != null && !embeddingsResult.getData().isEmpty()) {
+                List<List<Float>> embeddings = embeddingsResult.getData().stream()
+                        .map(data -> data.getEmbedding().stream()
+                                .map(d -> d.floatValue())
+                                .collect(Collectors.toList()))
+                        .collect(Collectors.toList());
+                LOGGER.info("Successfully embedded {} queries. Obtained embeddings with dimensions of size : {}",
+                        embeddings.size(), embeddings.isEmpty() ? 0 : embeddings.get(0).size());
+                return embeddings;
+            } else {
+                LOGGER.warn("No embedding data returned for batch content");
+                return List.of();
+            }
+        } catch (Exception e) {
+            throw new EmbeddingServiceException("Failed to embed batch content", e);
+        }
+    }
+
 }
