@@ -2,6 +2,7 @@ package uk.gov.moj.cp.metadata.check;
 
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_NAME;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
@@ -40,12 +41,12 @@ public class BlobTriggerFunction {
             @BlobTrigger(
                     name = "blob",
                     path = "documents/{name}",
-                    connection = AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT
+                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_NAME
             )
             @BindingName("name") String documentName,
             @QueueOutput(name = "queueMessage",
                     queueName = "%" + STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION + "%",
-                    connection = AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT)
+                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_NAME)
             OutputBinding<String> queueMessage) {
 
         LOGGER.info("Blob trigger function processed a request for document: {}", documentName);

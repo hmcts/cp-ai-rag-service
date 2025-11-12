@@ -39,7 +39,7 @@ public class EmbeddingService {
     public List<Float> embedStringData(String content) throws EmbeddingServiceException {
         validateNullOrEmpty(content, "Content to embed cannot be null or empty");
 
-        LOGGER.info("Embedding user query: '{}'", content);
+        LOGGER.info("Embedding content string");
 
         // The EmbeddingsOptions takes a List of strings. For a single query, it's a list with one element.
         EmbeddingsOptions embeddingsOptions = new EmbeddingsOptions(List.of(content));
@@ -55,7 +55,7 @@ public class EmbeddingService {
                 LOGGER.info("Successfully embedded query. Obtained dimensions of size : {}", embedding.size());
                 return embedding;
             } else {
-                LOGGER.warn("No embedding data returned for query: {}", content);
+                LOGGER.warn("No embedding data returned for content string");
                 return List.of();
             }
         } catch (Exception e) {

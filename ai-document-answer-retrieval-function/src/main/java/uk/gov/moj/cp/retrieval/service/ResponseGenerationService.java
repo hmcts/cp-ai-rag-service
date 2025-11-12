@@ -68,7 +68,7 @@ public class ResponseGenerationService {
                     .filter(response -> !isNullOrEmpty(response))
                     .map(response -> {
                         final String trimmedResponse = response.trim();
-                        LOGGER.info("LLM Raw Response: \n{}", trimmedResponse);
+                        LOGGER.info("LLM Raw Response length = {}", trimmedResponse.length());
                         return trimmedResponse;
                     })
                     .orElseGet(() -> {
@@ -91,7 +91,7 @@ public class ResponseGenerationService {
             // Extract material name from customMetadata, and change map it to DocumentFileName
             String documentFileName = extractMaterialName(entry)
                     .orElse(entry.documentFileName());
-            
+
             contextBuilder.append("DOCUMENT_ID: ").append(entry.documentId())
                     .append(", DOCUMENT_FILENAME: ").append(documentFileName);
             if (entry.pageNumber() != null) {
