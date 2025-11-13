@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.ai.service;
 
+import static uk.gov.moj.cp.ai.util.CredentialUtil.getDefaultAzureCredentialBuilder;
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
 import uk.gov.moj.cp.ai.exception.EmbeddingServiceException;
@@ -10,7 +11,6 @@ import com.azure.ai.openai.OpenAIClient;
 import com.azure.ai.openai.OpenAIClientBuilder;
 import com.azure.ai.openai.models.Embeddings;
 import com.azure.ai.openai.models.EmbeddingsOptions;
-import com.azure.identity.DefaultAzureCredentialBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +30,7 @@ public class EmbeddingService {
         LOGGER.info("Connecting to embedding service endpoint '{}' and deployment '{}'", endpoint, deploymentName);
         this.openAIClient = new OpenAIClientBuilder()
                 .endpoint(endpoint)
-                .credential(new DefaultAzureCredentialBuilder().build())
+                .credential(getDefaultAzureCredentialBuilder())
                 .buildClient();
         LOGGER.info("Initialized Azure OpenAI client with Managed Identity for embeddings.");
     }

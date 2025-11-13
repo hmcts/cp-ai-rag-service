@@ -9,6 +9,7 @@ import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_FILE_URL;
 import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_ID;
 import static uk.gov.moj.cp.ai.index.IndexConstants.ID;
 import static uk.gov.moj.cp.ai.index.IndexConstants.PAGE_NUMBER;
+import static uk.gov.moj.cp.ai.util.CredentialUtil.getDefaultAzureCredentialBuilder;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
@@ -17,7 +18,6 @@ import uk.gov.moj.cp.ingestion.exception.DocumentUploadException;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.search.documents.SearchClient;
 import com.azure.search.documents.SearchClientBuilder;
 import com.azure.search.documents.SearchDocument;
@@ -43,9 +43,9 @@ public class DocumentStorageService {
         this.searchClient = new SearchClientBuilder()
                 .endpoint(endpoint)
                 .indexName(indexName)
-                .credential(new DefaultAzureCredentialBuilder().build())
+                .credential(getDefaultAzureCredentialBuilder())
                 .buildClient();
-        
+
         LOGGER.info("Initialized Azure AI Search client with managed identity.");
     }
 

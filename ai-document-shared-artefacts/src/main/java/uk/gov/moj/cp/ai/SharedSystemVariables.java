@@ -2,6 +2,8 @@ package uk.gov.moj.cp.ai;
 
 public class SharedSystemVariables {
 
+    public static final String AZURE_CLIENT_ID = "AZURE_CLIENT_ID";
+
     public static final String AI_RAG_SERVICE_STORAGE_ACCOUNT_NAME = "AI_RAG_SERVICE_STORAGE_ACCOUNT_NAME";
     public static final String AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT = "AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT";
     public static final String AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT = "AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT";

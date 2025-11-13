@@ -5,6 +5,7 @@ import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_ID;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_STATUS;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_REASON;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_TIMESTAMP;
+import static uk.gov.moj.cp.ai.util.CredentialUtil.getDefaultAzureCredentialBuilder;
 import static uk.gov.moj.cp.ai.util.RowKeyUtil.generateRowKey;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
@@ -18,7 +19,6 @@ import com.azure.data.tables.TableClient;
 import com.azure.data.tables.TableClientBuilder;
 import com.azure.data.tables.models.ListEntitiesOptions;
 import com.azure.data.tables.models.TableEntity;
-import com.azure.identity.DefaultAzureCredentialBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,7 +42,7 @@ public class TableStorageService {
         this.tableClient = new TableClientBuilder()
                 .endpoint(endpoint)
                 .tableName(tableName)
-                .credential(new DefaultAzureCredentialBuilder().build())
+                .credential(getDefaultAzureCredentialBuilder())
                 .buildClient();
 
         LOGGER.info("Initialized Table Storage client with managed identity.");

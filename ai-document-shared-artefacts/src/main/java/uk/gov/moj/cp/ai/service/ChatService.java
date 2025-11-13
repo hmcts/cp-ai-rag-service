@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.ai.service;
 
+import static uk.gov.moj.cp.ai.util.CredentialUtil.getDefaultAzureCredentialBuilder;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
@@ -20,7 +21,6 @@ import com.azure.ai.openai.models.ChatRequestUserMessage;
 import com.azure.ai.openai.models.CompletionsFinishReason;
 import com.azure.ai.openai.models.ContentFilterResultsForChoice;
 import com.azure.ai.openai.models.ContentFilterResultsForPrompt;
-import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -49,7 +49,7 @@ public class ChatService {
 
         this.openAIClient = new OpenAIClientBuilder()
                 .endpoint(endpoint)
-                .credential(new DefaultAzureCredentialBuilder().build())
+                .credential(getDefaultAzureCredentialBuilder())
                 .buildClient();
         LOGGER.info("Initialized Azure OpenAI client for chat with Managed Identity.");
     }
