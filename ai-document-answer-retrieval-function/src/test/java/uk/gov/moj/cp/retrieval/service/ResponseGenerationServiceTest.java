@@ -7,6 +7,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import uk.gov.moj.cp.ai.exception.ChatServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.service.ChatService;
 
@@ -33,7 +34,7 @@ class ResponseGenerationServiceTest {
     }
 
     @Test
-    void generateResponse_ReturnsTrimmedResponse_WhenChatServiceReturnsValidResponse() {
+    void generateResponse_ReturnsTrimmedResponse_WhenChatServiceReturnsValidResponse() throws ChatServiceException {
         String userQuery = "What is the legal implication?";
         String userQueryPrompt = "Provide detailed legal advice.";
         List<ChunkedEntry> chunkedEntries = new ArrayList<>();
@@ -63,7 +64,7 @@ class ResponseGenerationServiceTest {
     }
 
     @Test
-    void generateResponse_ReturnsNoResponseMessage_WhenChatServiceReturnsEmpty() {
+    void generateResponse_ReturnsNoResponseMessage_WhenChatServiceReturnsEmpty() throws ChatServiceException {
         String userQuery = "What is the legal implication?";
         String userQueryPrompt = "Provide detailed legal advice.";
         List<ChunkedEntry> chunkedEntries = List.of(
@@ -86,7 +87,7 @@ class ResponseGenerationServiceTest {
     }
 
     @Test
-    void generateResponse_ReturnsErrorMessage_WhenChatServiceThrowsException() {
+    void generateResponse_ReturnsErrorMessage_WhenChatServiceThrowsException() throws ChatServiceException {
         String userQuery = "What is the legal implication?";
         String userQueryPrompt = "Provide detailed legal advice.";
         List<ChunkedEntry> chunkedEntries = List.of(
@@ -109,7 +110,7 @@ class ResponseGenerationServiceTest {
     }
 
     @Test
-    void generateResponse_ReturnsDefaultContextMessage_WhenChunkedEntriesAreNullOrEmpty() {
+    void generateResponse_ReturnsDefaultContextMessage_WhenChunkedEntriesAreNullOrEmpty() throws ChatServiceException {
         String userQuery = "What is the legal implication?";
         String userQueryPrompt = "Provide detailed legal advice.";
 

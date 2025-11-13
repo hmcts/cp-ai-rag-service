@@ -25,11 +25,11 @@ public class ResponseGenerationService {
             **Retrieved Documents:**
             %s\
             
-            **CRITICAL CITATION FORMAT:** Every source citation MUST start with:  Example: (Source: Possess Blade IDPC.pdf, Pages 10-12,14,20|10,11,12,14,20|idpcId=2876)
+            **CRITICAL CITATION FORMAT:** Every source citation MUST start with:  Example: `::(Source: Possess Blade IDPC.pdf, Pages 10-12,14,20|10,11,12,14,20|documentId=2876)`
             **Instructions:**
             1.  **Strictly adhere to the provided documents:** Answer the user's query *only* using information found within the {Retrieved Documents}\
             2.  **No external knowledge or opinions:** Do NOT add any information, analysis, or opinions that are not directly supported by the provided text. Do not use your own Knowledge.
-            3.  **Provide Source for all factual statements:** For every factual statement you make you should include the citation and Every source citation MUST start with:  Example: (Source: [DOCUMENT_FILENAME] Pages [PAGE_NUMBER]|[individual page numbers]|documentId=[DOCUMENT_ID])
+            3.  **Provide Source for all factual statements:** For every factual statement you make you should include the citation and Every source citation MUST start with:  Example: `::(Source: [DOCUMENT_FILENAME] Pages [PAGE_NUMBER]|[individual page numbers]|documentId=[DOCUMENT_ID])`
             ,
             4.  **CRITICAL HEADING HIERARCHY:** For accessibility compliance (DAC/NFT level), you MUST follow proper heading structure:
                 - NEVER use h1 (#) headings in your response as the page already has an h1

@@ -8,6 +8,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import uk.gov.moj.cp.ai.exception.ChatServiceException;
+
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +20,7 @@ import com.azure.ai.openai.models.ChatChoice;
 import com.azure.ai.openai.models.ChatCompletions;
 import com.azure.ai.openai.models.ChatCompletionsOptions;
 import com.azure.ai.openai.models.ChatResponseMessage;
+import com.azure.ai.openai.models.CompletionsFinishReason;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -50,14 +53,13 @@ class ChatServiceTest {
     }
 
     @Test
-    @DisplayName("Returns empty optional when OpenAI client throws exception")
-    void returnsEmptyOptionalWhenOpenAIClientThrowsException() {
+    @DisplayName("Returns client specific exception when OpenAI client throws exception")
+    void returnsEmptyOptionalWhenOpenAIClientThrowsException() throws ChatServiceException {
         when(openAIClientMock.getChatCompletions(eq(DEPLOYMENT_NAME), any(ChatCompletionsOptions.class)))
                 .thenThrow(new RuntimeException("Client error"));
 
-        Optional<Object> result = chatService.callModel("systemInstruction", "userInstruction", Object.class);
+        assertThrows(RuntimeException.class, () -> chatService.callModel("systemInstruction", "userInstruction", Object.class));
 
-        assertTrue(result.isEmpty());
     }
 
     @Test
@@ -85,16 +87,14 @@ class ChatServiceTest {
     }
 
     @Test
-    @DisplayName("Returns empty optional when response JSON is invalid")
+    @DisplayName("Returns service specific exception response JSON is invalid")
     void returnsEmptyOptionalWhenResponseJsonIsInvalid() throws Exception {
         String invalidJsonResponse = "invalid_json";
         ChatCompletions chatCompletions = mockChatCompletions(invalidJsonResponse);
         when(openAIClientMock.getChatCompletions(eq(DEPLOYMENT_NAME), any(ChatCompletionsOptions.class)))
                 .thenReturn(chatCompletions);
 
-        Optional<Object> result = chatService.callModel("systemInstruction", "userInstruction", Object.class);
-
-        assertTrue(result.isEmpty());
+        assertThrows(ChatServiceException.class, () -> chatService.callModel("systemInstruction", "userInstruction", Map.class));
     }
 
     private ChatCompletions mockChatCompletions(String jsonResponse) {
@@ -103,6 +103,7 @@ class ChatServiceTest {
         final ChatChoice mockChatChoice = mock(ChatChoice.class);
         when(chatCompletions.getChoices()).thenReturn(List.of(mockChatChoice));
         when(mockChatChoice.getMessage()).thenReturn(mockChatResponseMessage);
+        when(mockChatChoice.getFinishReason()).thenReturn(CompletionsFinishReason.STOPPED);
         when(mockChatResponseMessage.getContent()).thenReturn(jsonResponse);
         return chatCompletions;
     }

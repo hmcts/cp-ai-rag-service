@@ -3,6 +3,9 @@ package uk.gov.moj.cp.ai.service;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
+import uk.gov.moj.cp.ai.exception.ChatServiceException;
+
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,9 +17,11 @@ import com.azure.ai.openai.models.ChatCompletionsOptions;
 import com.azure.ai.openai.models.ChatRequestMessage;
 import com.azure.ai.openai.models.ChatRequestSystemMessage;
 import com.azure.ai.openai.models.ChatRequestUserMessage;
+import com.azure.ai.openai.models.CompletionsFinishReason;
 import com.azure.ai.openai.models.ContentFilterResultsForChoice;
 import com.azure.ai.openai.models.ContentFilterResultsForPrompt;
 import com.azure.identity.DefaultAzureCredentialBuilder;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,7 +54,7 @@ public class ChatService {
         LOGGER.info("Initialized Azure OpenAI client for chat with Managed Identity.");
     }
 
-    public <T> Optional<T> callModel(final String systemInstruction, final String userInstruction, Class<T> responseClass) {
+    public <T> Optional<T> callModel(final String systemInstruction, final String userInstruction, Class<T> responseClass) throws ChatServiceException {
         final List<ChatRequestMessage> chatMessages = getChatMessages(systemInstruction, userInstruction);
 
         ChatCompletionsOptions chatCompletionsOptions = new ChatCompletionsOptions(chatMessages)
@@ -58,26 +63,24 @@ public class ChatService {
                 .setTopP(TOP_P);
 
         try {
-
             final ChatCompletions chatCompletions = openAIClient.getChatCompletions(deploymentName, chatCompletionsOptions);
             final ChatChoice chatChoice = chatCompletions.getChoices().get(0);
-            String jsonResponse = chatChoice.getMessage().getContent();
+            final String jsonResponse = chatChoice.getMessage().getContent();
+            final CompletionsFinishReason finishReason = chatChoice.getFinishReason();
+
+            final String resultExplanation = generateExplanationForEmptyResponse(chatChoice, chatCompletions, finishReason);
 
             if (isNullOrEmpty(jsonResponse)) {
-                String finishReason = chatChoice.getFinishReason().toString();
-                LOGGER.error("Received empty response from LLM. Finish reason: {}", finishReason);
-
-                for (ContentFilterResultsForPrompt promptResult : chatCompletions.getPromptFilterResults()) {
-                    if (promptResult.getContentFilterResults() != null && LOGGER.isWarnEnabled()) {
-                        LOGGER.warn("--- PROMPT FILTERING DETECTED (Input) ---\n{}", promptResult.getContentFilterResults().toJsonString());
-                    }
+                throw new ChatServiceException("LLM produced an empty response.  See explanation below \n" + resultExplanation);
+            } else {
+                LOGGER.info("Received response from LLM. Finish reason: {}", finishReason);
+                if (CompletionsFinishReason.CONTENT_FILTERED.equals(finishReason)) {
+                    LOGGER.warn("LLM produced filtered response.  See details \n{}", resultExplanation);
+                } else if (CompletionsFinishReason.TOKEN_LIMIT_REACHED.equals(finishReason)) {
+                    LOGGER.warn("LLM produced incomplete response as token limit was reached.  See details \n{}", resultExplanation);
+                } else {
+                    LOGGER.info("LLM produced complete response.  See details \n{}", resultExplanation);
                 }
-
-                ContentFilterResultsForChoice completionResult = chatChoice.getContentFilterResults();
-                if (completionResult != null && LOGGER.isWarnEnabled()) {
-                    LOGGER.warn("--- COMPLETION FILTERING DETECTED (Output) ---\n{}", completionResult.toJsonString());
-                }
-                return Optional.empty();
             }
 
             final T responseModel;
@@ -87,10 +90,9 @@ public class ChatService {
                 responseModel = new ObjectMapper().readValue(jsonResponse, responseClass);
             }
             return Optional.of(responseModel);
-        } catch (Exception e) {
-            LOGGER.error("Error calling LLM for evaluation", e);
+        } catch (JsonProcessingException e) {
+            throw new ChatServiceException("Error calling LLM for evaluation", e);
         }
-        return Optional.empty();
     }
 
     private List<ChatRequestMessage> getChatMessages(final String systemInstruction, final String userInstruction) {
@@ -98,6 +100,33 @@ public class ChatService {
                 new ChatRequestSystemMessage(systemInstruction),
                 new ChatRequestUserMessage(userInstruction)
         );
+    }
+
+
+    private static String generateExplanationForEmptyResponse(final ChatChoice chatChoice, final ChatCompletions chatCompletions, final CompletionsFinishReason finishReason) {
+        final StringBuilder resultExplanation = new StringBuilder("Finish reason: ").append(finishReason);
+
+        if (CompletionsFinishReason.CONTENT_FILTERED.equals(finishReason)) {
+            try {
+                for (ContentFilterResultsForPrompt promptResult : chatCompletions.getPromptFilterResults()) {
+                    if (promptResult.getContentFilterResults() != null && LOGGER.isWarnEnabled()) {
+                        final String promptContentFilterString = promptResult.getContentFilterResults().toJsonString();
+                        resultExplanation.append("\n").append("--- PROMPT FILTERING STATUS (Input) ---\n").append(promptContentFilterString);
+                    }
+                }
+
+                ContentFilterResultsForChoice completionResult = chatChoice.getContentFilterResults();
+                if (completionResult != null && LOGGER.isWarnEnabled()) {
+                    final String completionResultFilterString = completionResult.toJsonString();
+                    resultExplanation.append("\n").append("--- RESPONSE FILTERING STATUS (Output) ---\n").append(completionResultFilterString);
+                }
+
+            } catch (final IOException e) {
+                return resultExplanation.toString();
+            }
+        }
+
+        return resultExplanation.toString();
     }
 
 }

@@ -97,7 +97,7 @@ public class AnswerRetrievalFunction {
 
             final List<ChunkedEntry> chunkedEntries = searchService.searchDocumentsMatchingFilterCriteria(userQuery, queryEmbeddings, metadataFilters);
 
-            final String generatedResponse = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt).replace("(Source:", "::(Source:");
+            final String generatedResponse = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
 
             LOGGER.info("Answer retrieval processing completed successfully for query: {}", userQuery);
 
