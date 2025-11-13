@@ -8,6 +8,7 @@ import static org.mockito.Mockito.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import uk.gov.moj.cp.ai.exception.ChatServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.scoring.model.ModelScore;
@@ -33,7 +34,7 @@ class ScoringServiceTest {
 
     @Test
     @DisplayName("Returns parsed score when chat service provides valid response")
-    void returnsParsedScoreWhenChatServiceProvidesValidResponse() {
+    void returnsParsedScoreWhenChatServiceProvidesValidResponse() throws ChatServiceException {
         ModelScore expected = new ModelScore(new BigDecimal("4.5"), "Valid reasoning");
         when(chatServiceMock.callModel(anyString(), eq("Evaluate the answer."), eq(ModelScore.class)))
                 .thenReturn(Optional.of(expected));
@@ -64,7 +65,7 @@ class ScoringServiceTest {
 
     @Test
     @DisplayName("Returns default score when chat service returns empty response")
-    void returnsDefaultScoreWhenChatServiceReturnsEmptyResponse() {
+    void returnsDefaultScoreWhenChatServiceReturnsEmptyResponse() throws ChatServiceException {
         when(chatServiceMock.callModel(anyString(), eq("Evaluate the answer."), eq(ModelScore.class)))
                 .thenReturn(Optional.empty());
 
@@ -76,7 +77,7 @@ class ScoringServiceTest {
 
     @Test
     @DisplayName("Handles null response from chat service and returns default score")
-    void handlesNullResponseFromChatServiceAndReturnsDefaultScore() {
+    void handlesNullResponseFromChatServiceAndReturnsDefaultScore() throws ChatServiceException {
         when(chatServiceMock.callModel(anyString(), eq("Evaluate the answer."), eq(ModelScore.class)))
                 .thenReturn(null);
 
@@ -88,7 +89,7 @@ class ScoringServiceTest {
 
     @Test
     @DisplayName("Logs error and returns default score when chat service throws exception")
-    void logsErrorAndReturnsDefaultScoreWhenChatServiceThrowsException() {
+    void logsErrorAndReturnsDefaultScoreWhenChatServiceThrowsException() throws ChatServiceException {
         when(chatServiceMock.callModel(anyString(), eq("Evaluate the answer."), eq(ModelScore.class)))
                 .thenThrow(new RuntimeException("Chat service error"));
 
@@ -152,7 +153,7 @@ class ScoringServiceTest {
 
     @Test
     @DisplayName("Returns default score when system prompt instruction is empty")
-    void returnsDefaultScoreWhenSystemPromptInstructionIsEmpty() {
+    void returnsDefaultScoreWhenSystemPromptInstructionIsEmpty() throws ChatServiceException {
         when(chatServiceMock.callModel(eq(""), eq("Evaluate the answer."), eq(ModelScore.class)))
                 .thenReturn(Optional.empty());
 
@@ -164,7 +165,7 @@ class ScoringServiceTest {
 
     @Test
     @DisplayName("Returns default score when system prompt instruction is null")
-    void returnsDefaultScoreWhenSystemPromptInstructionIsNull() {
+    void returnsDefaultScoreWhenSystemPromptInstructionIsNull() throws ChatServiceException {
         when(chatServiceMock.callModel(isNull(), eq("Evaluate the answer."), eq(ModelScore.class)))
                 .thenReturn(Optional.empty());
 
