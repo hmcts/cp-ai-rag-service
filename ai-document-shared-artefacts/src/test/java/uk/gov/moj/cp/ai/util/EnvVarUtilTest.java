@@ -3,6 +3,8 @@ package uk.gov.moj.cp.ai.util;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import uk.gov.moj.cp.ai.exception.EnvVarNotFoundException;
+
 import org.junit.jupiter.api.Test;
 
 class EnvVarUtilTest {
@@ -21,7 +23,7 @@ class EnvVarUtilTest {
     void getRequiredEnv_throwsExceptionWhenEnvVarIsNotSetAndNoDefaultValueProvided() {
         String key = "NON_EXISTING_ENV_VAR";
 
-        assertThrows(IllegalStateException.class, () -> EnvVarUtil.getRequiredEnv(key));
+        assertThrows(EnvVarNotFoundException.class, () -> EnvVarUtil.getRequiredEnv(key));
     }
 
     @Test

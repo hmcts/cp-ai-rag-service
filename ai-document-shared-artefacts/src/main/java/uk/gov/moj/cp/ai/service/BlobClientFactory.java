@@ -1,10 +1,10 @@
 package uk.gov.moj.cp.ai.service;
 
+import static uk.gov.moj.cp.ai.util.CredentialUtil.getDefaultAzureCredentialBuilder;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import java.nio.charset.StandardCharsets;
 
-import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
@@ -27,7 +27,7 @@ public class BlobClientFactory {
 
         BlobServiceClient blobServiceClient = new BlobServiceClientBuilder()
                 .endpoint(endpoint)
-                .credential(new DefaultAzureCredentialBuilder().build())
+                .credential(getDefaultAzureCredentialBuilder())
                 .buildClient();
         this.containerClient = blobServiceClient.getBlobContainerClient(containerName);
 

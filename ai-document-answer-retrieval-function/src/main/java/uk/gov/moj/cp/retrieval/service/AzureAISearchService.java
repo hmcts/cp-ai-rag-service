@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.retrieval.service;
 
 import static java.lang.Integer.parseInt;
+import static uk.gov.moj.cp.ai.util.CredentialUtil.getDefaultAzureCredentialBuilder;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
@@ -13,7 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.azure.core.util.Context;
-import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.search.documents.SearchClient;
 import com.azure.search.documents.SearchClientBuilder;
 import com.azure.search.documents.models.QueryType;
@@ -44,11 +44,10 @@ public class AzureAISearchService {
 
         LOGGER.info("Search parameters set as - Nearest Neighbors: {}, Top Results: {}", nearestNeighborsCount, topResultsCount);
 
-
         this.searchClient = new SearchClientBuilder()
                 .endpoint(endpoint)
                 .indexName(searchIndexName)
-                .credential(new DefaultAzureCredentialBuilder().build())
+                .credential(getDefaultAzureCredentialBuilder())
                 .buildClient();
         LOGGER.info("Initialized Azure AI Search client with managed identity.");
 

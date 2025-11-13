@@ -2,6 +2,8 @@ package uk.gov.moj.cp.ai.util;
 
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
+import uk.gov.moj.cp.ai.exception.EnvVarNotFoundException;
+
 public class EnvVarUtil {
 
     private EnvVarUtil() {
@@ -16,7 +18,7 @@ public class EnvVarUtil {
         String value = System.getenv(key);
         if (isNullOrEmpty(value)) {
             if (isNullOrEmpty(defaultValue)) {
-                throw new IllegalStateException("Required environment variable not set: " + key);
+                throw new EnvVarNotFoundException("Required environment variable not set: " + key);
             }
 
             return defaultValue;
