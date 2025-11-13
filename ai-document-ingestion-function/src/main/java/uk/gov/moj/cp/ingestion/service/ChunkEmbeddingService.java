@@ -52,11 +52,9 @@ public class ChunkEmbeddingService {
             
             String chunkText = chunkedEntry.chunk();
             int chunkSize = chunkText.length();
-            // Rough token estimation: ~4 characters per token (common approximation)
-            int estimatedTokens = chunkSize / 4;
-            
-            LOGGER.debug("Chunk {} (page {}, index {}): {} characters, ~{} tokens", 
-                    i, chunkedEntry.pageNumber(), chunkedEntry.chunkIndex(), chunkSize, estimatedTokens);
+
+            LOGGER.debug("Chunk {} (page {}, index {}): {} characters",
+                    i, chunkedEntry.pageNumber(), chunkedEntry.chunkIndex(), chunkSize);
             
             chunksToEmbed.add(chunkText);
             validIndices.add(i);
