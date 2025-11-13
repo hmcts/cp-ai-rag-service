@@ -5,10 +5,10 @@ import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 import uk.gov.moj.cp.ai.exception.EmbeddingServiceException;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 import com.azure.ai.openai.OpenAIClient;
 import com.azure.ai.openai.OpenAIClientBuilder;
+import com.azure.ai.openai.models.EmbeddingItem;
 import com.azure.ai.openai.models.Embeddings;
 import com.azure.ai.openai.models.EmbeddingsOptions;
 import com.azure.identity.DefaultAzureCredentialBuilder;
@@ -38,31 +38,11 @@ public class EmbeddingService {
 
     // --- Method to Embed a single user query string ---
     public List<Float> embedStringData(String content) throws EmbeddingServiceException {
-        validateNullOrEmpty(content, "Content to embed cannot be null or empty");
-
-        LOGGER.info("Embedding content string");
-
-        // The EmbeddingsOptions takes a List of strings. For a single query, it's a list with one element.
-        EmbeddingsOptions embeddingsOptions = new EmbeddingsOptions(List.of(content));
-        embeddingsOptions.setUser("cp-ai-document-rag-embedding-service");
-
-        try {
-            Embeddings embeddingsResult = openAIClient.getEmbeddings(embeddingDeploymentName, embeddingsOptions);
-
-            if (embeddingsResult.getData() != null && !embeddingsResult.getData().isEmpty()) {
-                // The API returns a list of embeddings data, one for each input string.
-                // We're expecting only one here for a single query.
-                List<Float> embedding = embeddingsResult.getData().get(0).getEmbedding();
-                LOGGER.info("Successfully embedded query. Obtained dimensions of size : {}", embedding.size());
-                return embedding;
-            } else {
-                LOGGER.warn("No embedding data returned for content string");
-                return List.of();
-            }
-        } catch (Exception e) {
-            // Implement retry logic here if needed (e.g., for 429 errors)
-            throw new EmbeddingServiceException("Failed to embed content", e);
+        final List<List<Float>> embeddings = embedStringDataBatch(List.of(content));
+        if (null == embeddings || embeddings.isEmpty()) {
+            return List.of();
         }
+        return embeddings.get(0);
     }
 
     public List<List<Float>> embedStringDataBatch(List<String> contents) throws EmbeddingServiceException {
@@ -80,12 +60,9 @@ public class EmbeddingService {
 
             if (embeddingsResult.getData() != null && !embeddingsResult.getData().isEmpty()) {
                 List<List<Float>> embeddings = embeddingsResult.getData().stream()
-                        .map(data -> data.getEmbedding().stream()
-                                .map(d -> d.floatValue())
-                                .collect(Collectors.toList()))
-                        .collect(Collectors.toList());
-                LOGGER.info("Successfully embedded {} queries. Obtained embeddings with dimensions of size : {}", 
-                        embeddings.size(), embeddings.isEmpty() ? 0 : embeddings.get(0).size());
+                        .map(EmbeddingItem::getEmbedding)
+                        .toList();
+                LOGGER.info("Successfully embedded {} queries", embeddings.size());
                 return embeddings;
             } else {
                 LOGGER.warn("No embedding data returned for batch content");
