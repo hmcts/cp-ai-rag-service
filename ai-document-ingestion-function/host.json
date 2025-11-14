@@ -1,5 +1,13 @@
 {
   "version": "2.0",
+  "extensions": {
+    "queues": {
+      "maxPollingInterval": "00:00:10",
+      "batchSize": 1,
+      "newBatchThreshold": 1,
+      "maxDequeueCount": 3
+    }
+  },
   "logging": {
     "applicationInsights": {
       "samplingSettings": {
