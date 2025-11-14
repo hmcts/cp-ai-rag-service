@@ -34,7 +34,7 @@ class ResponseGenerationServiceTest {
     }
 
     @Test
-    void generateResponse_ReturnsTrimmedResponse_WhenChatServiceReturnsValidResponse() throws ChatServiceException {
+    void generateResponse_ReturnsTrimmedAndCitationFormattedResponse_WhenChatServiceReturnsValidResponse() throws ChatServiceException {
         String userQuery = "What is the legal implication?";
         String userQueryPrompt = "Provide detailed legal advice.";
         List<ChunkedEntry> chunkedEntries = new ArrayList<>();
@@ -52,14 +52,14 @@ class ResponseGenerationServiceTest {
                 .pageNumber(2)
                 .documentId("doc id")
                 .build());
-        String mockResponse = "  Valid AI Response  ";
+        String mockResponse = "  Valid AI Response (Source: [Possess Blade IDPC.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876) ";
 
         when(mockChatService.callModel(anyString(), eq(userQuery), eq(String.class)))
                 .thenReturn(Optional.of(mockResponse));
 
         String result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
 
-        assertEquals("Valid AI Response", result);
+        assertEquals("Valid AI Response ::(Source: [Possess Blade IDPC.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876)", result);
         verify(mockChatService).callModel(anyString(), eq(userQuery), eq(String.class));
     }
 
