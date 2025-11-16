@@ -43,7 +43,7 @@ public class ScoringService {
     public ScoringService() {
         String judgeModelEndpoint = System.getenv("AZURE_JUDGE_OPENAI_ENDPOINT");
         String judgeChatDeploymentName = System.getenv("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME");
-        chatService = new ChatService(judgeModelEndpoint, judgeChatDeploymentName);
+        chatService = ChatService.getInstance(judgeModelEndpoint, judgeChatDeploymentName);
     }
 
     ScoringService(ChatService chatService) {

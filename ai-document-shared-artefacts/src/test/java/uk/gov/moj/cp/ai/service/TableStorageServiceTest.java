@@ -27,20 +27,20 @@ class TableStorageServiceTest {
     @DisplayName("Throws exception when connection string or table name is null or empty")
     void throwsExceptionWhenConnectionStringOrTableNameIsNullOrEmpty() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> new TableStorageService(null, "tableName"));
-        assertEquals("Table storage account endpoint and table name cannot be null or empty", exception.getMessage());
+                () -> TableStorageService.getInstance(null, "tableName"));
+        assertEquals("Table storage endpoint and table name cannot be null or empty.", exception.getMessage());
 
         exception = assertThrows(IllegalArgumentException.class,
-                () -> new TableStorageService("", "tableName"));
-        assertEquals("Table storage account endpoint and table name cannot be null or empty", exception.getMessage());
+                () -> TableStorageService.getInstance("", "tableName"));
+        assertEquals("Table storage endpoint and table name cannot be null or empty.", exception.getMessage());
 
         exception = assertThrows(IllegalArgumentException.class,
-                () -> new TableStorageService("endpoint", null));
-        assertEquals("Table storage account endpoint and table name cannot be null or empty", exception.getMessage());
+                () -> TableStorageService.getInstance("endpoint", null));
+        assertEquals("Table storage endpoint and table name cannot be null or empty.", exception.getMessage());
 
         exception = assertThrows(IllegalArgumentException.class,
-                () -> new TableStorageService("endpoint", ""));
-        assertEquals("Table storage account endpoint and table name cannot be null or empty", exception.getMessage());
+                () -> TableStorageService.getInstance("endpoint", ""));
+        assertEquals("Table storage endpoint and table name cannot be null or empty.", exception.getMessage());
     }
 
     @Test

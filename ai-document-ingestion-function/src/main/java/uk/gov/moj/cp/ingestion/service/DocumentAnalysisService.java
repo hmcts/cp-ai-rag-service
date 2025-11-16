@@ -2,14 +2,13 @@ package uk.gov.moj.cp.ingestion.service;
 
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
+import uk.gov.moj.cp.ingestion.client.DocumentAnalysisClientFactory;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 
 import com.azure.ai.formrecognizer.documentanalysis.DocumentAnalysisClient;
-import com.azure.ai.formrecognizer.documentanalysis.DocumentAnalysisClientBuilder;
 import com.azure.ai.formrecognizer.documentanalysis.models.AnalyzeResult;
 import com.azure.ai.formrecognizer.documentanalysis.models.OperationResult;
 import com.azure.core.util.polling.SyncPoller;
-import com.azure.identity.DefaultAzureCredentialBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,10 +26,7 @@ public class DocumentAnalysisService {
 
         LOGGER.info("Connecting to Document Intelligence endpoint '{}'", endpoint);
 
-        this.documentAnalysisClient = new DocumentAnalysisClientBuilder()
-                .endpoint(endpoint)
-                .credential(new DefaultAzureCredentialBuilder().build())
-                .buildClient();
+        this.documentAnalysisClient = DocumentAnalysisClientFactory.getInstance(endpoint);
 
         LOGGER.info("Initialized Document Intelligence client with managed identity.");
     }

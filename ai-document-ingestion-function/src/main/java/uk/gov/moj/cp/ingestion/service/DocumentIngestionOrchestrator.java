@@ -6,8 +6,8 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_TABLE_STORAG
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_INDEX_NAME;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
-import static uk.gov.moj.cp.ai.util.DocumentStatus.INGESTION_FAILED;
-import static uk.gov.moj.cp.ai.util.DocumentStatus.INGESTION_SUCCESS;
+import static uk.gov.moj.cp.ai.model.DocumentStatus.INGESTION_FAILED;
+import static uk.gov.moj.cp.ai.model.DocumentStatus.INGESTION_SUCCESS;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
@@ -50,7 +50,7 @@ public class DocumentIngestionOrchestrator {
 
         this.documentAnalysisService = new DocumentAnalysisService(documentIntelligenceEndpoint);
 
-        this.tableStorageService = new TableStorageService(tableStorageEndpoint, tableDocumentIngestionOutcome);
+        this.tableStorageService = TableStorageService.getInstance(tableStorageEndpoint, tableDocumentIngestionOutcome);
 
         this.documentChunkingService = new DocumentChunkingService();
 

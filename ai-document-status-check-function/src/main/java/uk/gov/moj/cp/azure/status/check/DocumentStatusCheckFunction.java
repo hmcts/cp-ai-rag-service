@@ -24,8 +24,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Azure Function for answer retrieval and generation.
- * Processes client queries and  generates answer summaries.
+ * Azure Function for answer retrieval and generation. Processes client queries and  generates
+ * answer summaries.
  */
 public class DocumentStatusCheckFunction {
 
@@ -36,7 +36,7 @@ public class DocumentStatusCheckFunction {
     public DocumentStatusCheckFunction() {
         String endpoint = System.getenv(AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT);
         String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
-        this.tableStorageService = new TableStorageService(endpoint, tableName);
+        this.tableStorageService = TableStorageService.getInstance(endpoint, tableName);
     }
 
     public DocumentStatusCheckFunction(TableStorageService tableStorageService) {

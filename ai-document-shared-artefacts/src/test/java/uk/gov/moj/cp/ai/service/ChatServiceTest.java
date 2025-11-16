@@ -13,7 +13,6 @@ import uk.gov.moj.cp.ai.exception.ChatServiceException;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import com.azure.ai.openai.OpenAIClient;
 import com.azure.ai.openai.models.ChatChoice;
@@ -33,7 +32,7 @@ class ChatServiceTest {
 
     @BeforeEach
     void setUp() throws NoSuchFieldException, IllegalAccessException {
-        chatService = new ChatService("endpoint", DEPLOYMENT_NAME);
+        chatService = ChatService.getInstance("endpoint", DEPLOYMENT_NAME);
         // After creating chatService and openAIClientMock
         setOpenAIClientMockOnService();
     }
@@ -66,11 +65,11 @@ class ChatServiceTest {
     @DisplayName("Throws exception when endpoint is null or empty")
     void throwsExceptionWhenEndpointIsNullOrEmpty() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> new ChatService(null, DEPLOYMENT_NAME));
+                () -> ChatService.getInstance(null, DEPLOYMENT_NAME));
         assertEquals("Endpoint environment variable must be set.", exception.getMessage());
 
         exception = assertThrows(IllegalArgumentException.class,
-                () -> new ChatService("", DEPLOYMENT_NAME));
+                () -> ChatService.getInstance("", DEPLOYMENT_NAME));
         assertEquals("Endpoint environment variable must be set.", exception.getMessage());
     }
 
@@ -78,11 +77,11 @@ class ChatServiceTest {
     @DisplayName("Throws exception when deployment name is null or empty")
     void throwsExceptionWhenDeploymentNameIsNullOrEmpty() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> new ChatService("endpoint", null));
+                () -> ChatService.getInstance("endpoint", null));
         assertEquals("Deployment name environment variable must be set.", exception.getMessage());
 
         exception = assertThrows(IllegalArgumentException.class,
-                () -> new ChatService("endpoint", ""));
+                () -> ChatService.getInstance("endpoint", ""));
         assertEquals("Deployment name environment variable must be set.", exception.getMessage());
     }
 

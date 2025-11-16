@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.ai.util;
+package uk.gov.moj.cp.ai.model;
 
 public enum DocumentStatus {
     INGESTION_SUCCESS("Document ingestion completed successfully"),

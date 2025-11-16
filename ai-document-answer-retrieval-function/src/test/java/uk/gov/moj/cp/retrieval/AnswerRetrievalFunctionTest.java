@@ -11,11 +11,12 @@ import static uk.org.webcompere.modelassert.json.JsonAssertions.json;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
+import uk.gov.moj.cp.retrieval.exception.SearchServiceException;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
+import uk.gov.moj.cp.retrieval.service.AzureAISearchService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
 import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
-import uk.gov.moj.cp.retrieval.service.SearchService;
 
 import java.util.List;
 
@@ -44,7 +45,7 @@ class AnswerRetrievalFunctionTest {
     private EmbedDataService mockEmbedDataService;
 
     @Mock
-    private SearchService mockSearchService;
+    private AzureAISearchService mockSearchService;
 
     @Mock
     private ResponseGenerationService mockResponseGenerationService;
@@ -101,7 +102,7 @@ class AnswerRetrievalFunctionTest {
     }
 
     @Test
-    void run_ReturnsOk_WhenValidRequestIsProvided() {
+    void run_ReturnsOk_WhenValidRequestIsProvided() throws SearchServiceException {
         final List<KeyValuePair> metadataFilter = List.of(new KeyValuePair("key", "value"));
         RequestPayload payload = new RequestPayload("query", "prompt", metadataFilter);
 
@@ -115,7 +116,7 @@ class AnswerRetrievalFunctionTest {
                 .build());
 
         when(mockEmbedDataService.getEmbedding("query")).thenReturn(mockEmbeddings);
-        when(mockSearchService.searchDocumentsMatchingFilterCriteria(eq("query"), eq(mockEmbeddings), eq(metadataFilter))).thenReturn(mockSearchDocuments);
+        when(mockSearchService.search(eq("query"), eq(mockEmbeddings), eq(metadataFilter))).thenReturn(mockSearchDocuments);
         when(mockResponseGenerationService.generateResponse("query", mockSearchDocuments, "prompt")).thenReturn("generated response");
 
         when(mockRequest.getBody()).thenReturn(payload);
