@@ -2,8 +2,6 @@ package uk.gov.moj.cp.retrieval;
 
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
 import static java.util.UUID.randomUUID;
-import static java.util.stream.Collectors.toList;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_NAME;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
@@ -14,10 +12,10 @@ import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.model.QueryResponse;
 import uk.gov.moj.cp.ai.model.ScoringQueuePayload;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
+import uk.gov.moj.cp.retrieval.service.AzureAISearchService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
 import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
-import uk.gov.moj.cp.retrieval.service.SearchService;
 
 import java.util.List;
 import java.util.Map;
@@ -35,8 +33,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Azure Function for answer retrieval and generation.
- * Processes client queries and  generates answer summaries.
+ * Azure Function for answer retrieval and generation. Processes client queries and  generates
+ * answer summaries.
  */
 public class AnswerRetrievalFunction {
 
@@ -44,7 +42,7 @@ public class AnswerRetrievalFunction {
 
     private final EmbedDataService embedDataService;
 
-    private final SearchService searchService;
+    private final AzureAISearchService searchService;
 
     private final ResponseGenerationService responseGenerationService;
 
@@ -52,12 +50,12 @@ public class AnswerRetrievalFunction {
 
     public AnswerRetrievalFunction() {
         embedDataService = new EmbedDataService();
-        searchService = new SearchService();
+        searchService = new AzureAISearchService();
         responseGenerationService = new ResponseGenerationService();
         blobPersistenceService = new BlobPersistenceService();
     }
 
-    public AnswerRetrievalFunction(final EmbedDataService embedDataService, final SearchService searchService, final ResponseGenerationService responseGenerationService, final BlobPersistenceService blobPersistenceService) {
+    public AnswerRetrievalFunction(final EmbedDataService embedDataService, final AzureAISearchService searchService, final ResponseGenerationService responseGenerationService, final BlobPersistenceService blobPersistenceService) {
         this.embedDataService = embedDataService;
         this.searchService = searchService;
         this.responseGenerationService = responseGenerationService;
@@ -79,8 +77,6 @@ public class AnswerRetrievalFunction {
             final ExecutionContext context) {
 
         try {
-            // Extract query from request
-
             final String userQuery = request.getBody().userQuery();
             final String userQueryPrompt = request.getBody().queryPrompt();
             final List<KeyValuePair> metadataFilters = request.getBody().metadataFilter();
@@ -92,10 +88,9 @@ public class AnswerRetrievalFunction {
             }
             LOGGER.info("Initiating answer generation process for query - {}", userQuery);
 
-            // - Process the user query
             final List<Float> queryEmbeddings = embedDataService.getEmbedding(userQuery);
 
-            final List<ChunkedEntry> chunkedEntries = searchService.searchDocumentsMatchingFilterCriteria(userQuery, queryEmbeddings, metadataFilters);
+            final List<ChunkedEntry> chunkedEntries = searchService.search(userQuery, queryEmbeddings, metadataFilters);
 
             final String generatedResponse = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
 

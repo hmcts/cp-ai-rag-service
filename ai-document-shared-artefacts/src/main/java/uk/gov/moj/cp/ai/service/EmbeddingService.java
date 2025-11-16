@@ -2,37 +2,37 @@ package uk.gov.moj.cp.ai.service;
 
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
+import uk.gov.moj.cp.ai.client.OpenAIClientFactory;
 import uk.gov.moj.cp.ai.exception.EmbeddingServiceException;
 
 import java.util.List;
 
 import com.azure.ai.openai.OpenAIClient;
-import com.azure.ai.openai.OpenAIClientBuilder;
 import com.azure.ai.openai.models.Embeddings;
 import com.azure.ai.openai.models.EmbeddingsOptions;
-import com.azure.identity.DefaultAzureCredentialBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class EmbeddingService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddingService.class);
+
     private final OpenAIClient openAIClient;
     private final String embeddingDeploymentName;
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddingService.class);
-
-    public EmbeddingService(String endpoint, String deploymentName) {
+    public EmbeddingService(final String endpoint, final String deploymentName) {
 
         validateNullOrEmpty(endpoint, "Endpoint environment variable for embedding service must be set.");
         validateNullOrEmpty(deploymentName, "Deployment name environment variable for embedding service must be set.");
-        this.embeddingDeploymentName = deploymentName;
-
         LOGGER.info("Connecting to embedding service endpoint '{}' and deployment '{}'", endpoint, deploymentName);
-        this.openAIClient = new OpenAIClientBuilder()
-                .endpoint(endpoint)
-                .credential(new DefaultAzureCredentialBuilder().build())
-                .buildClient();
-        LOGGER.info("Initialized Azure OpenAI client with Managed Identity for embeddings.");
+
+        this.openAIClient = OpenAIClientFactory.getInstance(endpoint);
+        this.embeddingDeploymentName = deploymentName;
+    }
+
+    protected EmbeddingService(final OpenAIClient openAIClient, final String deploymentName) {
+        this.openAIClient = openAIClient;
+        this.embeddingDeploymentName = deploymentName;
     }
 
     // --- Method to Embed a single user query string ---
@@ -59,9 +59,7 @@ public class EmbeddingService {
                 return List.of();
             }
         } catch (Exception e) {
-            // Implement retry logic here if needed (e.g., for 429 errors)
             throw new EmbeddingServiceException("Failed to embed content", e);
         }
     }
-
 }

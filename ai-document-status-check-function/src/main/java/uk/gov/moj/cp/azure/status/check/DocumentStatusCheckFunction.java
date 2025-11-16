@@ -24,8 +24,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Azure Function for answer retrieval and generation.
- * Processes client queries and  generates answer summaries.
+ * Azure Function for answer retrieval and generation. Processes client queries and  generates
+ * answer summaries.
  */
 public class DocumentStatusCheckFunction {
 

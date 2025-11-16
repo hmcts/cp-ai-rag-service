@@ -33,6 +33,11 @@
 
         <dependency>
             <groupId>com.azure</groupId>
+            <artifactId>azure-search-documents</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.azure</groupId>
             <artifactId>azure-storage-blob</artifactId>
         </dependency>
 

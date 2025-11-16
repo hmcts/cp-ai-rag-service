@@ -8,7 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import uk.gov.moj.cp.ai.model.QueryResponse;
-import uk.gov.moj.cp.ai.service.BlobClientFactory;
+import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.scoring.exception.BlobParsingException;
 
 import com.azure.core.util.BinaryData;
@@ -19,15 +19,15 @@ import org.junit.jupiter.api.Test;
 
 class BlobServiceTest {
 
-    private BlobClientFactory blobClientFactoryMock;
+    private BlobClientService blobClientServiceMock;
     private BlobClient blobClientMock;
     private BlobService blobService;
 
     @BeforeEach
     void setUp() {
-        blobClientFactoryMock = mock(BlobClientFactory.class);
+        blobClientServiceMock = mock(BlobClientService.class);
         blobClientMock = mock(BlobClient.class);
-        blobService = new BlobService(blobClientFactoryMock);
+        blobService = new BlobService(blobClientServiceMock);
     }
 
     @Test
@@ -43,12 +43,12 @@ class BlobServiceTest {
                 }
                 """;
 
-        when(blobClientFactoryMock.getBlobClient(filename)).thenReturn(blobClientMock);
+        when(blobClientServiceMock.getBlobClient(filename)).thenReturn(blobClientMock);
         when(blobClientMock.downloadContent()).thenReturn(BinaryData.fromString(blobContent));
 
         QueryResponse actualResponse = blobService.readBlob(filename);
 
-        verify(blobClientFactoryMock).getBlobClient(filename);
+        verify(blobClientServiceMock).getBlobClient(filename);
         verify(blobClientMock).downloadContent();
         assertNotNull(actualResponse);
         assertEquals("response", actualResponse.llmResponse());
@@ -63,7 +63,7 @@ class BlobServiceTest {
         String filename = "invalidFile.json";
         String blobContent = "invalid-json";
 
-        when(blobClientFactoryMock.getBlobClient(filename)).thenReturn(blobClientMock);
+        when(blobClientServiceMock.getBlobClient(filename)).thenReturn(blobClientMock);
         when(blobClientMock.downloadContent()).thenReturn(BinaryData.fromString(blobContent));
 
         assertThrows(BlobParsingException.class, () -> blobService.readBlob(filename));

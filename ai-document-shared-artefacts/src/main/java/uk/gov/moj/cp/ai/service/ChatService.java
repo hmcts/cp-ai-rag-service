@@ -3,6 +3,7 @@ package uk.gov.moj.cp.ai.service;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
+import uk.gov.moj.cp.ai.client.OpenAIClientFactory;
 import uk.gov.moj.cp.ai.exception.ChatServiceException;
 
 import java.io.IOException;
@@ -10,7 +11,6 @@ import java.util.List;
 import java.util.Optional;
 
 import com.azure.ai.openai.OpenAIClient;
-import com.azure.ai.openai.OpenAIClientBuilder;
 import com.azure.ai.openai.models.ChatChoice;
 import com.azure.ai.openai.models.ChatCompletions;
 import com.azure.ai.openai.models.ChatCompletionsOptions;
@@ -20,7 +20,6 @@ import com.azure.ai.openai.models.ChatRequestUserMessage;
 import com.azure.ai.openai.models.CompletionsFinishReason;
 import com.azure.ai.openai.models.ContentFilterResultsForChoice;
 import com.azure.ai.openai.models.ContentFilterResultsForPrompt;
-import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -38,20 +37,20 @@ public class ChatService {
 
     private final String deploymentName;
 
-    public ChatService(String endpoint, String deploymentName) {
+    public ChatService(final String endpoint, final String deploymentName) {
 
         validateNullOrEmpty(endpoint, "Endpoint environment variable must be set.");
         validateNullOrEmpty(deploymentName, "Deployment name environment variable must be set.");
 
-        LOGGER.info("Connecting to chat service endpoint '{}' and deployment '{}'", endpoint, deploymentName);
-
+        this.openAIClient = OpenAIClientFactory.getInstance(endpoint);
         this.deploymentName = deploymentName;
 
-        this.openAIClient = new OpenAIClientBuilder()
-                .endpoint(endpoint)
-                .credential(new DefaultAzureCredentialBuilder().build())
-                .buildClient();
-        LOGGER.info("Initialized Azure OpenAI client for chat with Managed Identity.");
+    }
+
+    protected ChatService(final OpenAIClient openAIClient, final String deploymentName) {
+        this.deploymentName = deploymentName;
+        this.openAIClient = openAIClient;
+        LOGGER.info("Returning initialized Azure OpenAI client for chat with Managed Identity.");
     }
 
     public <T> Optional<T> callModel(final String systemInstruction, final String userInstruction, Class<T> responseClass) throws ChatServiceException {
@@ -102,8 +101,7 @@ public class ChatService {
         );
     }
 
-
-    private static String generateExplanationForEmptyResponse(final ChatChoice chatChoice, final ChatCompletions chatCompletions, final CompletionsFinishReason finishReason) {
+    private String generateExplanationForEmptyResponse(final ChatChoice chatChoice, final ChatCompletions chatCompletions, final CompletionsFinishReason finishReason) {
         final StringBuilder resultExplanation = new StringBuilder("Finish reason: ").append(finishReason);
 
         if (CompletionsFinishReason.CONTENT_FILTERED.equals(finishReason)) {

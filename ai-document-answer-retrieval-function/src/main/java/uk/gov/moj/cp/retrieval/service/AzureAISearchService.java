@@ -1,21 +1,22 @@
 package uk.gov.moj.cp.retrieval.service;
 
 import static java.lang.Integer.parseInt;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_ENDPOINT;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_INDEX_NAME;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.index.IndexConstants;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
+import uk.gov.moj.cp.ai.client.AISearchClientFactory;
 import uk.gov.moj.cp.retrieval.exception.SearchServiceException;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import com.azure.core.util.Context;
-import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.search.documents.SearchClient;
-import com.azure.search.documents.SearchClientBuilder;
 import com.azure.search.documents.models.QueryType;
 import com.azure.search.documents.models.SearchOptions;
 import com.azure.search.documents.models.SearchResult;
@@ -33,7 +34,11 @@ public class AzureAISearchService {
     private final int nearestNeighborsCount;
     private final int topResultsCount;
 
-    public AzureAISearchService(String endpoint, String searchIndexName) {
+
+    public AzureAISearchService() {
+
+        final String endpoint = getRequiredEnv(AZURE_SEARCH_SERVICE_ENDPOINT);
+        final String searchIndexName = getRequiredEnv(AZURE_SEARCH_SERVICE_INDEX_NAME);
 
         if (isNullOrEmpty(endpoint) || isNullOrEmpty(searchIndexName)) {
             throw new IllegalArgumentException("Azure AI Search endpoint and index name must be set as environment variables.");
@@ -44,12 +49,7 @@ public class AzureAISearchService {
 
         LOGGER.info("Search parameters set as - Nearest Neighbors: {}, Top Results: {}", nearestNeighborsCount, topResultsCount);
 
-
-        this.searchClient = new SearchClientBuilder()
-                .endpoint(endpoint)
-                .indexName(searchIndexName)
-                .credential(new DefaultAzureCredentialBuilder().build())
-                .buildClient();
+        this.searchClient = AISearchClientFactory.getInstance(endpoint, searchIndexName);
         LOGGER.info("Initialized Azure AI Search client with managed identity.");
 
     }
@@ -58,6 +58,11 @@ public class AzureAISearchService {
             String userQuery,
             List<Float> vectorizedUserQuery,
             List<KeyValuePair> metadataFilters) throws SearchServiceException {
+
+        if (isNullOrEmpty(userQuery) || null == vectorizedUserQuery || vectorizedUserQuery.isEmpty() || null == metadataFilters || metadataFilters.isEmpty()) {
+            LOGGER.error("Search Query or Metadata Filters are null or empty");
+            throw new IllegalArgumentException("Search Query or Metadata Filters are null or empty");
+        }
 
         LOGGER.info("Retrieving documents for query with filters: {}", metadataFilters);
 

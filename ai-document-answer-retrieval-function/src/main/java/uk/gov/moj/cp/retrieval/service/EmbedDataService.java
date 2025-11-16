@@ -17,10 +17,10 @@ public class EmbedDataService {
 
     private final EmbeddingService embeddingService;
 
-    public EmbedDataService() {
 
-        String endpoint = System.getenv(AZURE_EMBEDDING_SERVICE_ENDPOINT);
-        String deploymentName = System.getenv(AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME);
+    public EmbedDataService() {
+        final String endpoint = System.getenv(AZURE_EMBEDDING_SERVICE_ENDPOINT);
+        final String deploymentName = System.getenv(AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME);
         embeddingService = new EmbeddingService(endpoint, deploymentName);
     }
 

@@ -13,7 +13,6 @@ import uk.gov.moj.cp.ai.exception.ChatServiceException;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import com.azure.ai.openai.OpenAIClient;
 import com.azure.ai.openai.models.ChatChoice;
@@ -66,7 +65,7 @@ class ChatServiceTest {
     @DisplayName("Throws exception when endpoint is null or empty")
     void throwsExceptionWhenEndpointIsNullOrEmpty() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> new ChatService(null, DEPLOYMENT_NAME));
+                () -> new ChatService((String) null, DEPLOYMENT_NAME));
         assertEquals("Endpoint environment variable must be set.", exception.getMessage());
 
         exception = assertThrows(IllegalArgumentException.class,

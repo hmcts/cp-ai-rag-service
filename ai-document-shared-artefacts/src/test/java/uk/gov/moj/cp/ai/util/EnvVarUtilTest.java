@@ -21,7 +21,7 @@ class EnvVarUtilTest {
     void getRequiredEnv_throwsExceptionWhenEnvVarIsNotSetAndNoDefaultValueProvided() {
         String key = "NON_EXISTING_ENV_VAR";
 
-        assertThrows(IllegalStateException.class, () -> EnvVarUtil.getRequiredEnv(key));
+        assertThrows(IllegalArgumentException.class, () -> EnvVarUtil.getRequiredEnv(key));
     }
 
     @Test

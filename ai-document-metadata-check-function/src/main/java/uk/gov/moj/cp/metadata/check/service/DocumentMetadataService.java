@@ -5,7 +5,7 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_BLOB_STORAGE
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
-import uk.gov.moj.cp.ai.service.BlobClientFactory;
+import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
 
 import java.util.HashMap;
@@ -21,22 +21,22 @@ public class DocumentMetadataService {
 
     private static final String DOCUMENT_ID = "document_id";
     private static final String METADATA = "metadata";
-    private final BlobClientFactory blobClientFactory;
+    private final BlobClientService blobClientService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public DocumentMetadataService() {
         String endpoint = System.getenv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT);
         String documentContainerName = System.getenv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME);
-        
-        this.blobClientFactory = new BlobClientFactory(endpoint, documentContainerName);
+
+        this.blobClientService = new BlobClientService(endpoint, documentContainerName);
     }
 
-    public DocumentMetadataService(final BlobClientFactory blobClientFactory) {
-        this.blobClientFactory = blobClientFactory;
+    public DocumentMetadataService(final BlobClientService blobClientService) {
+        this.blobClientService = blobClientService;
     }
 
     public Map<String, String> processDocumentMetadata(String documentName) {
-        BlobClient blobClient = blobClientFactory.getBlobClient(documentName);
+        BlobClient blobClient = blobClientService.getBlobClient(documentName);
 
         if (!blobClient.exists()) {
             throw new MetadataValidationException("Blob not found: " + documentName);

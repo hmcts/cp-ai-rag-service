@@ -4,13 +4,12 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_BLOB_STORAGE
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
-import static uk.gov.moj.cp.ai.util.DocumentStatus.INVALID_METADATA;
-import static uk.gov.moj.cp.ai.util.DocumentStatus.METADATA_VALIDATED;
-import static uk.gov.moj.cp.ai.util.DocumentStatus.QUEUE_FAILED;
+import static uk.gov.moj.cp.ai.model.DocumentStatus.INVALID_METADATA;
+import static uk.gov.moj.cp.ai.model.DocumentStatus.METADATA_VALIDATED;
+import static uk.gov.moj.cp.ai.model.DocumentStatus.QUEUE_FAILED;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.util.StringUtil.removeTrailingSlash;
 
-import uk.gov.moj.cp.ai.SharedSystemVariables;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ai.service.TableStorageService;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
@@ -24,10 +23,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Orchestrates the document ingestion process:
- * 1. Validates metadata from the blob.
- * 2. Sends message to Azure Queue if valid.
- * 3. Records success/failure in Azure Table Storage.
+ * Orchestrates the document ingestion process: 1. Validates metadata from the blob. 2. Sends
+ * message to Azure Queue if valid. 3. Records success/failure in Azure Table Storage.
  */
 public class IngestionOrchestratorService {
 

@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import uk.gov.moj.cp.ai.service.BlobClientFactory;
+import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
 
 import java.util.HashMap;
@@ -27,7 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class DocumentMetadataServiceTest {
 
     @Mock
-    private BlobClientFactory blobClientFactory;
+    private BlobClientService blobClientService;
 
     @Mock
     private BlobClient blobClient;
@@ -39,7 +39,7 @@ class DocumentMetadataServiceTest {
 
     @BeforeEach
     void setUp() {
-        documentMetadataService = new DocumentMetadataService(blobClientFactory);
+        documentMetadataService = new DocumentMetadataService(blobClientService);
     }
 
     @Test
@@ -51,7 +51,7 @@ class DocumentMetadataServiceTest {
         expectedMetadata.put("document_id", "123e4567-e89b-12d3-a456-426614174000");
         expectedMetadata.put("metadata", "{\"case_id\":\"b99704aa-b1b1-4d5f-bb39-47dc3f18ffa9\",\"document_type\":\"MCC\"}");
 
-        when(blobClientFactory.getBlobClient(documentName)).thenReturn(blobClient);
+        when(blobClientService.getBlobClient(documentName)).thenReturn(blobClient);
         when(blobClient.exists()).thenReturn(true);
         when(blobClient.getProperties()).thenReturn(blobProperties);
         when(blobProperties.getMetadata()).thenReturn(expectedMetadata);
@@ -66,7 +66,7 @@ class DocumentMetadataServiceTest {
         assertEquals("MCC", result.get("document_type"));
         // The nested metadata should be flattened and the original "metadata" key should be removed
         assertNull(result.get("metadata"));
-        verify(blobClientFactory).getBlobClient(documentName);
+        verify(blobClientService).getBlobClient(documentName);
         verify(blobClient).exists();
         verify(blobClient).getProperties();
     }
@@ -77,14 +77,14 @@ class DocumentMetadataServiceTest {
         // given
         String documentName = "nonexistent.pdf";
 
-        when(blobClientFactory.getBlobClient(documentName)).thenReturn(blobClient);
+        when(blobClientService.getBlobClient(documentName)).thenReturn(blobClient);
         when(blobClient.exists()).thenReturn(false);
 
         // when & then
         MetadataValidationException exception = assertThrows(MetadataValidationException.class, () -> documentMetadataService.processDocumentMetadata(documentName));
 
         assertEquals("Blob not found: " + documentName, exception.getMessage());
-        verify(blobClientFactory).getBlobClient(documentName);
+        verify(blobClientService).getBlobClient(documentName);
         verify(blobClient).exists();
     }
 
@@ -97,7 +97,7 @@ class DocumentMetadataServiceTest {
         metadata.put("metadata", "{\"case_id\":\"b99704aa-b1b1-4d5f-bb39-47dc3f18ffa9\",\"document_type\":\"MCC\"}");
         // Missing document_id
 
-        when(blobClientFactory.getBlobClient(documentName)).thenReturn(blobClient);
+        when(blobClientService.getBlobClient(documentName)).thenReturn(blobClient);
         when(blobClient.exists()).thenReturn(true);
         when(blobClient.getProperties()).thenReturn(blobProperties);
         when(blobProperties.getMetadata()).thenReturn(metadata);
@@ -118,7 +118,7 @@ class DocumentMetadataServiceTest {
         metadata.put("document_id", "   "); // Blank document_id
         metadata.put("metadata", "{\"case_id\":\"b99704aa-b1b1-4d5f-bb39-47dc3f18ffa9\",\"document_type\":\"MCC\"}");
 
-        when(blobClientFactory.getBlobClient(documentName)).thenReturn(blobClient);
+        when(blobClientService.getBlobClient(documentName)).thenReturn(blobClient);
         when(blobClient.exists()).thenReturn(true);
         when(blobClient.getProperties()).thenReturn(blobProperties);
         when(blobProperties.getMetadata()).thenReturn(metadata);
@@ -138,7 +138,7 @@ class DocumentMetadataServiceTest {
         metadata.put("document_id", "invalid-uuid");
         metadata.put("content_type", "application/pdf");
 
-        when(blobClientFactory.getBlobClient(documentName)).thenReturn(blobClient);
+        when(blobClientService.getBlobClient(documentName)).thenReturn(blobClient);
         when(blobClient.exists()).thenReturn(true);
         when(blobClient.getProperties()).thenReturn(blobProperties);
         when(blobProperties.getMetadata()).thenReturn(metadata);
@@ -159,7 +159,7 @@ class DocumentMetadataServiceTest {
         metadata.put("document_id", "123e4567-e89b-12d3-a456-426614174000");
         metadata.put("metadata", "invalid-json");
 
-        when(blobClientFactory.getBlobClient(documentName)).thenReturn(blobClient);
+        when(blobClientService.getBlobClient(documentName)).thenReturn(blobClient);
         when(blobClient.exists()).thenReturn(true);
         when(blobClient.getProperties()).thenReturn(blobProperties);
         when(blobProperties.getMetadata()).thenReturn(metadata);
@@ -180,7 +180,7 @@ class DocumentMetadataServiceTest {
         metadata.put("document_id", "123e4567-e89b-12d3-a456-426614174000");
         metadata.put("metadata", "{\"case_id\":\"\",\"document_type\":\"MCC\"}");
 
-        when(blobClientFactory.getBlobClient(documentName)).thenReturn(blobClient);
+        when(blobClientService.getBlobClient(documentName)).thenReturn(blobClient);
         when(blobClient.exists()).thenReturn(true);
         when(blobClient.getProperties()).thenReturn(blobProperties);
         when(blobProperties.getMetadata()).thenReturn(metadata);
@@ -198,7 +198,7 @@ class DocumentMetadataServiceTest {
         // given
         String documentName = "test.pdf";
 
-        when(blobClientFactory.getBlobClient(documentName)).thenThrow(new RuntimeException("Connection failed"));
+        when(blobClientService.getBlobClient(documentName)).thenThrow(new RuntimeException("Connection failed"));
 
         // when & then
         RuntimeException exception = assertThrows(RuntimeException.class, () -> documentMetadataService.processDocumentMetadata(documentName));
