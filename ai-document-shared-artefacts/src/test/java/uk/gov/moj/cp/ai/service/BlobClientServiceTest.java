@@ -22,11 +22,11 @@ class BlobClientServiceTest {
     @DisplayName("Throws exception when endpoint is null or empty")
     void getInstanceThrowsExceptionWhenEndpointIsNullOrEmpty() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> BlobClientService.getInstance(null, "containerName"));
+                () -> new BlobClientService(null, "containerName"));
         assertEquals("Endpoint environment variable for Blob Service must be set.", exception.getMessage());
 
         exception = assertThrows(IllegalArgumentException.class,
-                () -> BlobClientService.getInstance("", "containerName"));
+                () -> new BlobClientService("", "containerName"));
         assertEquals("Endpoint environment variable for Blob Service must be set.", exception.getMessage());
     }
 
@@ -34,11 +34,11 @@ class BlobClientServiceTest {
     @DisplayName("Throws exception when container name is null or empty")
     void getInstanceThrowsExceptionWhenContainerNameIsNullOrEmpty() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> BlobClientService.getInstance("endpoint", null));
+                () -> new BlobClientService("endpoint", null));
         assertEquals("Container name cannot be null or empty.", exception.getMessage());
 
         exception = assertThrows(IllegalArgumentException.class,
-                () -> BlobClientService.getInstance("endpoint", ""));
+                () -> new BlobClientService("endpoint", ""));
         assertEquals("Container name cannot be null or empty.", exception.getMessage());
     }
 

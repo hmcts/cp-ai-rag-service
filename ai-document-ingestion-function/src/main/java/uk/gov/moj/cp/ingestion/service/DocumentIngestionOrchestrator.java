@@ -50,7 +50,7 @@ public class DocumentIngestionOrchestrator {
 
         this.documentAnalysisService = new DocumentAnalysisService(documentIntelligenceEndpoint);
 
-        this.tableStorageService = TableStorageService.getInstance(tableStorageEndpoint, tableDocumentIngestionOutcome);
+        this.tableStorageService = new TableStorageService(tableStorageEndpoint, tableDocumentIngestionOutcome);
 
         this.documentChunkingService = new DocumentChunkingService();
 

@@ -40,7 +40,7 @@ public class IngestionOrchestratorService {
         this.documentMetadataService = documentMetadataService;
         String storageAccount = System.getenv(AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT);
         String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
-        this.tableStorageService = TableStorageService.getInstance(storageAccount, tableName);
+        this.tableStorageService = new TableStorageService(storageAccount, tableName);
     }
 
     public IngestionOrchestratorService(DocumentMetadataService documentMetadataService, TableStorageService tableStorageService) {

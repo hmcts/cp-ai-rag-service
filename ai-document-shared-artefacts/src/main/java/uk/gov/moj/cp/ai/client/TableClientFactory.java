@@ -31,7 +31,7 @@ public class TableClientFactory {
         return TABLE_CLIENT_CACHE.computeIfAbsent(
                 cacheKey,
                 key -> {
-                    LOGGER.info("Creating new TableClient for: {}", key);
+                    LOGGER.info("Creating new Table client for: {}", key);
 
                     // CRITICAL: The client is built here using the single, shared credential.
                     return new TableClientBuilder()

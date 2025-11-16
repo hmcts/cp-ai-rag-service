@@ -20,24 +20,19 @@ public class EmbeddingService {
     private final OpenAIClient openAIClient;
     private final String embeddingDeploymentName;
 
-    public static EmbeddingService getInstance(final String endpoint, final String deploymentName) {
+    public EmbeddingService(final String endpoint, final String deploymentName) {
 
         validateNullOrEmpty(endpoint, "Endpoint environment variable for embedding service must be set.");
         validateNullOrEmpty(deploymentName, "Deployment name environment variable for embedding service must be set.");
+        LOGGER.info("Connecting to embedding service endpoint '{}' and deployment '{}'", endpoint, deploymentName);
 
-        final OpenAIClient openAIClient = OpenAIClientFactory.getInstance(endpoint);
-
-        return new EmbeddingService(openAIClient, deploymentName);
+        this.openAIClient = OpenAIClientFactory.getInstance(endpoint);
+        this.embeddingDeploymentName = deploymentName;
     }
 
     protected EmbeddingService(final OpenAIClient openAIClient, final String deploymentName) {
-
         this.openAIClient = openAIClient;
         this.embeddingDeploymentName = deploymentName;
-
-        LOGGER.info("Connecting to embedding service endpoint deployment '{}'", deploymentName);
-
-        LOGGER.info("Initialized Azure OpenAI client with Managed Identity for embeddings.");
     }
 
     // --- Method to Embed a single user query string ---

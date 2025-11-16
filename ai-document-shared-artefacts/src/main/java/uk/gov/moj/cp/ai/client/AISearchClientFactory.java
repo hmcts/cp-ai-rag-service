@@ -31,7 +31,7 @@ public class AISearchClientFactory {
         return AI_SEARCH_CLIENT_CACHE.computeIfAbsent(
                 cacheKey,
                 key -> {
-                    LOGGER.info("Creating new Open AI client for: {}", key);
+                    LOGGER.info("Creating new AI Search client for: {}", key);
 
                     return new SearchClientBuilder()
                             .endpoint(endpoint)

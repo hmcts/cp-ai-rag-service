@@ -24,7 +24,7 @@ public class BlobService {
         final String endpoint = System.getenv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT);
         final String documentContainerName = System.getenv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS);
 
-        this.blobClientService = BlobClientService.getInstance(endpoint, documentContainerName);
+        this.blobClientService = new BlobClientService(endpoint, documentContainerName);
     }
 
     public BlobService(final BlobClientService blobClientService) {

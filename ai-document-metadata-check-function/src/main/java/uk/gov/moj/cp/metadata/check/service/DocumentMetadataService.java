@@ -28,7 +28,7 @@ public class DocumentMetadataService {
         String endpoint = System.getenv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT);
         String documentContainerName = System.getenv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME);
 
-        this.blobClientService = BlobClientService.getInstance(endpoint, documentContainerName);
+        this.blobClientService = new BlobClientService(endpoint, documentContainerName);
     }
 
     public DocumentMetadataService(final BlobClientService blobClientService) {

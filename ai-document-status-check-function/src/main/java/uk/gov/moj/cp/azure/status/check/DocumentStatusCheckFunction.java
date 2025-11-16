@@ -36,7 +36,7 @@ public class DocumentStatusCheckFunction {
     public DocumentStatusCheckFunction() {
         String endpoint = System.getenv(AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT);
         String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
-        this.tableStorageService = TableStorageService.getInstance(endpoint, tableName);
+        this.tableStorageService = new TableStorageService(endpoint, tableName);
     }
 
     public DocumentStatusCheckFunction(TableStorageService tableStorageService) {

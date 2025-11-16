@@ -37,14 +37,13 @@ public class ChatService {
 
     private final String deploymentName;
 
-    public static ChatService getInstance(final String endpoint, final String deploymentName) {
+    public ChatService(final String endpoint, final String deploymentName) {
 
         validateNullOrEmpty(endpoint, "Endpoint environment variable must be set.");
         validateNullOrEmpty(deploymentName, "Deployment name environment variable must be set.");
 
-        final OpenAIClient openAIClient = OpenAIClientFactory.getInstance(endpoint);
-
-        return new ChatService(openAIClient, deploymentName);
+        this.openAIClient = OpenAIClientFactory.getInstance(endpoint);
+        this.deploymentName = deploymentName;
 
     }
 

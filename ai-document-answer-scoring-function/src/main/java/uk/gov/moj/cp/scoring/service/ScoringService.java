@@ -43,7 +43,7 @@ public class ScoringService {
     public ScoringService() {
         String judgeModelEndpoint = System.getenv("AZURE_JUDGE_OPENAI_ENDPOINT");
         String judgeChatDeploymentName = System.getenv("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME");
-        chatService = ChatService.getInstance(judgeModelEndpoint, judgeChatDeploymentName);
+        chatService = new ChatService(judgeModelEndpoint, judgeChatDeploymentName);
     }
 
     ScoringService(ChatService chatService) {
@@ -51,11 +51,11 @@ public class ScoringService {
     }
 
     /**
-     * Evaluates the groundedness of an LLM response using a Judge LLM.
-     * The Judge LLM is prompted to score the response based on the provided context.
+     * Evaluates the groundedness of an LLM response using a Judge LLM. The Judge LLM is prompted to
+     * score the response based on the provided context.
      *
-     * @param llmResponse The response from the generator LLM.
-     * @param userQuery The original user query.
+     * @param llmResponse        The response from the generator LLM.
+     * @param userQuery          The original user query.
      * @param retrievedDocuments The documents retrieved from search.
      * @return The groundedness score from the judge, or a default value on error.
      */

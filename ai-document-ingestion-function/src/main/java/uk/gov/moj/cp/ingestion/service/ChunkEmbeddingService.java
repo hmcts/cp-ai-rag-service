@@ -24,7 +24,7 @@ public class ChunkEmbeddingService {
         final String embeddingServiceEndpoint = System.getenv(AZURE_EMBEDDING_SERVICE_ENDPOINT);
         final String embeddingServiceDeploymentName = System.getenv(AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME);
 
-        this.embeddingService = EmbeddingService.getInstance(embeddingServiceEndpoint, embeddingServiceDeploymentName);
+        this.embeddingService = new EmbeddingService(embeddingServiceEndpoint, embeddingServiceDeploymentName);
     }
 
     public ChunkEmbeddingService(EmbeddingService embeddingService) {

@@ -5,7 +5,6 @@ import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.service.ChatService;
-import uk.gov.moj.cp.ai.service.EmbeddingService;
 
 import java.util.List;
 import java.util.Optional;
@@ -50,7 +49,7 @@ public class ResponseGenerationService {
         String deploymentName = System.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME");
 
         // Using managed identity - pass null for API key to enable managed identity
-        chatService = ChatService.getInstance(endpoint, deploymentName);
+        chatService = new ChatService(endpoint, deploymentName);
     }
 
     public ResponseGenerationService(ChatService chatService) {

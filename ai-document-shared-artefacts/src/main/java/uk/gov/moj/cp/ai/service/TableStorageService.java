@@ -26,13 +26,12 @@ public class TableStorageService {
     private static final Logger LOGGER = LoggerFactory.getLogger(TableStorageService.class);
     private final TableClient tableClient;
 
-    public static TableStorageService getInstance(String endpoint, String tableName) {
+    public TableStorageService(String endpoint, String tableName) {
         if (isNullOrEmpty(endpoint) || isNullOrEmpty(tableName)) {
             throw new IllegalArgumentException("Table storage endpoint and table name cannot be null or empty.");
         }
 
-        final TableClient tableClient = TableClientFactory.getInstance(endpoint, tableName);
-        return new TableStorageService(tableClient);
+        this.tableClient = TableClientFactory.getInstance(endpoint, tableName);
     }
 
     protected TableStorageService(final TableClient tableClient) {
