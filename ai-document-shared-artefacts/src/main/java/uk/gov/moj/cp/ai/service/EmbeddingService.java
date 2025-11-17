@@ -38,6 +38,7 @@ public class EmbeddingService {
 
     // --- Method to Embed a single user query string ---
     public List<Float> embedStringData(String content) throws EmbeddingServiceException {
+        validateNullOrEmpty(content, "Content to embed cannot be null or empty");
         final List<List<Float>> embeddings = embedStringDataBatch(List.of(content));
         if (null == embeddings || embeddings.isEmpty()) {
             return List.of();
@@ -65,11 +66,11 @@ public class EmbeddingService {
                 LOGGER.info("Successfully embedded {} queries", embeddings.size());
                 return embeddings;
             } else {
-                LOGGER.warn("No embedding data returned for batch content");
+                LOGGER.warn("No embedding data returned for content");
                 return List.of();
             }
         } catch (Exception e) {
-            throw new EmbeddingServiceException("Failed to embed batch content", e);
+            throw new EmbeddingServiceException("Failed to embed content", e);
         }
     }
 
