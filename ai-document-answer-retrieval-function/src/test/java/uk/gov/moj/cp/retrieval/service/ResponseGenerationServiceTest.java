@@ -43,23 +43,27 @@ class ResponseGenerationServiceTest {
                 .chunk("Chunk 1")
                 .documentFileName("file name 1")
                 .pageNumber(1)
-                .documentId("doc id")
+                .documentId("2876")
                 .build());
         chunkedEntries.add(ChunkedEntry.builder()
                 .id("id2")
                 .chunk("Chunk 2")
                 .documentFileName("file name 2")
                 .pageNumber(2)
-                .documentId("doc id")
+                .documentId("2876")
                 .build());
-        String mockResponse = "  Valid AI Response (Source: [Possess Blade IDPC.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876) ";
+        String mockResponse = "Valid AI Response (Source: [Possess Blade IDPC.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876) " +
+                "and more response with faulty citation (Source: [Possess Blade IDPC.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876]).";
+
+        String formattedValidResponse = "Valid AI Response ::(Source: [Possess Blade IDPC.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876) " +
+                "and more response with faulty citation ::(Source: [Possess Blade IDPC.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876).";
 
         when(mockChatService.callModel(anyString(), eq(userQuery), eq(String.class)))
                 .thenReturn(Optional.of(mockResponse));
 
         String result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
 
-        assertEquals("Valid AI Response ::(Source: [Possess Blade IDPC.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876)", result);
+        assertEquals(formattedValidResponse, result);
         verify(mockChatService).callModel(anyString(), eq(userQuery), eq(String.class));
     }
 
