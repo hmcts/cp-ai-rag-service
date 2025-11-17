@@ -8,6 +8,8 @@ import uk.gov.moj.cp.ai.service.ChatService;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,7 +70,7 @@ public class ResponseGenerationService {
                     .filter(response -> !isNullOrEmpty(response))
                     .map(response -> {
                         String trimmedResponse = response.trim();
-                        trimmedResponse = reformatSourceCitations(trimmedResponse);
+                        trimmedResponse = reformatSourceCitations(trimmedResponse, chunkedEntries);
                         LOGGER.info("LLM Raw Response length = {}", trimmedResponse.length());
                         return trimmedResponse;
                     })
@@ -115,7 +117,13 @@ public class ResponseGenerationService {
                 .findFirst();
     }
 
-    private String reformatSourceCitations(final String trimmedResponse) {
-        return trimmedResponse.replace("(Source:", "::(Source:");
+    private String reformatSourceCitations(final String trimmedResponse, final List<ChunkedEntry> chunkedEntries) {
+
+        String modifiedResponse = trimmedResponse;
+        final Set<String> uniqueDocumentIds = (null != chunkedEntries) ? chunkedEntries.stream().map(ChunkedEntry::documentId).collect(Collectors.toSet()) : Set.of();
+        for (String id : uniqueDocumentIds) {
+            modifiedResponse = modifiedResponse.replace(id + "])", id + ")");
+        }
+        return modifiedResponse.replace("(Source:", "::(Source:");
     }
 }
