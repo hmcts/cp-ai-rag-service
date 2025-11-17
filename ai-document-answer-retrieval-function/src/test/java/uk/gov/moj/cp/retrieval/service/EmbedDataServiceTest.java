@@ -28,7 +28,7 @@ class EmbedDataServiceTest {
 
     @Test
     void getEmbedding_ReturnsEmbeddings_WhenDataIsValid() throws EmbeddingServiceException {
-        when(mockEmbeddingService.embedStringData("valid data")).thenReturn(List.of(0.1f, 0.2f, 0.3f));
+        when(mockEmbeddingService.embedData("valid data")).thenReturn(List.of(0.1f, 0.2f, 0.3f));
 
         List<Float> embeddings = embedDataService.getEmbedding("valid data");
 
@@ -37,7 +37,7 @@ class EmbedDataServiceTest {
 
     @Test
     void getEmbedding_ReturnsEmptyEmbeddings_WhenEmbeddingsAreNull() throws EmbeddingServiceException {
-        when(mockEmbeddingService.embedStringData("data")).thenReturn(null);
+        when(mockEmbeddingService.embedData("data")).thenReturn(null);
 
         final List<Float> embeddings = embedDataService.getEmbedding("data");
 
@@ -46,7 +46,7 @@ class EmbedDataServiceTest {
 
     @Test
     void getEmbedding_ReturnsEmptyEmbeddings_WhenEmbeddingsAreEmpty() throws EmbeddingServiceException {
-        when(mockEmbeddingService.embedStringData("data")).thenReturn(List.of());
+        when(mockEmbeddingService.embedData("data")).thenReturn(List.of());
 
         final List<Float> embeddings = embedDataService.getEmbedding("data");
 
@@ -55,7 +55,7 @@ class EmbedDataServiceTest {
 
     @Test
     void getEmbedding_ReturnsEmptyEmbeddings_WhenEmbeddingServiceThrowsException() throws EmbeddingServiceException {
-        when(mockEmbeddingService.embedStringData("data")).thenThrow(EmbeddingServiceException.class);
+        when(mockEmbeddingService.embedData("data")).thenThrow(EmbeddingServiceException.class);
 
         final List<Float> embeddings = embedDataService.getEmbedding("data");
 

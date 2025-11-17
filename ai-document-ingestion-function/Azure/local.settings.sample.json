@@ -18,7 +18,9 @@
     "AZURE_EMBEDDING_SERVICE_ENDPOINT": "<your-embedding-service-endpoint>",
     "AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME": "<your-embedding-service-deployment-name>",
 
-    "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT": "<your-document-intelligence-endpoint>"
+    "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT": "<your-document-intelligence-endpoint>",
+
+    "EMBEDDINGS_BATCH_SIZE": "2048"
 
   }
 }
