@@ -30,7 +30,7 @@ public class EmbedDataService {
 
     public List<Float> getEmbedding(String dataToEmbed) {
         try {
-            List<Float> embeddings = embeddingService.embedStringData(dataToEmbed);
+            List<Float> embeddings = embeddingService.embedData(dataToEmbed);
             return (embeddings == null || embeddings.isEmpty()) ? List.of() : embeddings;
         } catch (EmbeddingServiceException e) {
             LOGGER.error("Error embedding data", e);

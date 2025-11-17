@@ -43,13 +43,13 @@ class ChunkEmbeddingServiceTest {
         List<ChunkedEntry> chunkedEntries = createChunkedEntries(5);
         List<List<Float>> mockEmbeddings = createMockEmbeddings(5);
 
-        when(mockEmbeddingService.embedStringDataBatch(anyList())).thenReturn(mockEmbeddings);
+        when(mockEmbeddingService.embedCollectionData(anyList())).thenReturn(mockEmbeddings);
 
         // when
         chunkEmbeddingService.enrichChunksWithEmbeddings(chunkedEntries);
 
         // then
-        verify(mockEmbeddingService, times(1)).embedStringDataBatch(anyList());
+        verify(mockEmbeddingService, times(1)).embedCollectionData(anyList());
         
         // Verify all chunks have embeddings
         for (int i = 0; i < 5; i++) {
@@ -70,13 +70,13 @@ class ChunkEmbeddingServiceTest {
 
         List<List<Float>> mockEmbeddings = createMockEmbeddings(2); // Only 2 valid chunks
 
-        when(mockEmbeddingService.embedStringDataBatch(anyList())).thenReturn(mockEmbeddings);
+        when(mockEmbeddingService.embedCollectionData(anyList())).thenReturn(mockEmbeddings);
 
         // when
         chunkEmbeddingService.enrichChunksWithEmbeddings(chunkedEntries);
 
         // then
-        verify(mockEmbeddingService, times(1)).embedStringDataBatch(anyList());
+        verify(mockEmbeddingService, times(1)).embedCollectionData(anyList());
         
         // Verify only valid chunks have embeddings
         assertNotNull(chunkedEntries.get(0).chunkVector());
@@ -96,7 +96,7 @@ class ChunkEmbeddingServiceTest {
         // Mock embeddings for second batch (952 chunks)
         List<List<Float>> secondBatchEmbeddings = createMockEmbeddings(952);
 
-        when(mockEmbeddingService.embedStringDataBatch(anyList()))
+        when(mockEmbeddingService.embedCollectionData(anyList()))
                 .thenReturn(firstBatchEmbeddings)
                 .thenReturn(secondBatchEmbeddings);
 
@@ -104,7 +104,7 @@ class ChunkEmbeddingServiceTest {
         chunkEmbeddingService.enrichChunksWithEmbeddings(chunkedEntries);
 
         // then - Should be called twice (for 2 batches)
-        verify(mockEmbeddingService, times(2)).embedStringDataBatch(anyList());
+        verify(mockEmbeddingService, times(2)).embedCollectionData(anyList());
         
         // Verify first batch has embeddings
         assertNotNull(chunkedEntries.get(0).chunkVector());
@@ -125,7 +125,7 @@ class ChunkEmbeddingServiceTest {
         chunkEmbeddingService.enrichChunksWithEmbeddings(emptyChunks);
 
         // then
-        verify(mockEmbeddingService, never()).embedStringDataBatch(anyList());
+        verify(mockEmbeddingService, never()).embedCollectionData(anyList());
     }
 
     @Test
@@ -135,7 +135,7 @@ class ChunkEmbeddingServiceTest {
         chunkEmbeddingService.enrichChunksWithEmbeddings(null);
 
         // then
-        verify(mockEmbeddingService, never()).embedStringDataBatch(anyList());
+        verify(mockEmbeddingService, never()).embedCollectionData(anyList());
     }
 
     @Test
@@ -151,7 +151,7 @@ class ChunkEmbeddingServiceTest {
         chunkEmbeddingService.enrichChunksWithEmbeddings(chunkedEntries);
 
         // then
-        verify(mockEmbeddingService, never()).embedStringDataBatch(anyList());
+        verify(mockEmbeddingService, never()).embedCollectionData(anyList());
     }
 
     @Test
@@ -160,14 +160,14 @@ class ChunkEmbeddingServiceTest {
         // given
         List<ChunkedEntry> chunkedEntries = createChunkedEntries(3);
 
-        when(mockEmbeddingService.embedStringDataBatch(anyList()))
+        when(mockEmbeddingService.embedCollectionData(anyList()))
                 .thenThrow(new EmbeddingServiceException("API error", new Exception()));
 
         // when
         chunkEmbeddingService.enrichChunksWithEmbeddings(chunkedEntries);
 
         // then - Should not throw exception, but chunks won't have embeddings
-        verify(mockEmbeddingService, times(1)).embedStringDataBatch(anyList());
+        verify(mockEmbeddingService, times(1)).embedCollectionData(anyList());
         
         // Verify chunks don't have embeddings due to error
         assertNull(chunkedEntries.get(0).chunkVector());

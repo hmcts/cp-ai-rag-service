@@ -1,7 +1,9 @@
 package uk.gov.moj.cp.ingestion.service;
 
+import static java.lang.Integer.parseInt;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_EMBEDDING_SERVICE_ENDPOINT;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.exception.EmbeddingServiceException;
@@ -18,20 +20,23 @@ public class ChunkEmbeddingService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ChunkEmbeddingService.class);
 
-    private static final int BATCH_SIZE = 2048;
+    private static final int DEFAULT_EMBEDDINGS_BATCH_SIZE = 2048;
 
     private final EmbeddingService embeddingService;
+    private final int embeddingsBatchSize;
 
     public ChunkEmbeddingService() {
         // Initialize EmbeddingService with managed identity
         final String embeddingServiceEndpoint = System.getenv(AZURE_EMBEDDING_SERVICE_ENDPOINT);
         final String embeddingServiceDeploymentName = System.getenv(AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME);
+        embeddingsBatchSize = parseInt(getRequiredEnv("EMBEDDINGS_BATCH_SIZE", String.valueOf(DEFAULT_EMBEDDINGS_BATCH_SIZE)));
 
         this.embeddingService = new EmbeddingService(embeddingServiceEndpoint, embeddingServiceDeploymentName);
     }
 
     public ChunkEmbeddingService(EmbeddingService embeddingService) {
         this.embeddingService = embeddingService;
+        embeddingsBatchSize = parseInt(getRequiredEnv("EMBEDDINGS_BATCH_SIZE", String.valueOf(DEFAULT_EMBEDDINGS_BATCH_SIZE)));
     }
 
 
@@ -49,13 +54,13 @@ public class ChunkEmbeddingService {
                 LOGGER.warn("Skipping chunk on page {} - empty or null text", chunkedEntry.pageNumber());
                 continue;
             }
-            
+
             String chunkText = chunkedEntry.chunk();
             int chunkSize = chunkText.length();
 
             LOGGER.debug("Chunk {} (page {}, index {}): {} characters",
                     i, chunkedEntry.pageNumber(), chunkedEntry.chunkIndex(), chunkSize);
-            
+
             chunksToEmbed.add(chunkText);
             validIndices.add(i);
         }
@@ -65,13 +70,13 @@ public class ChunkEmbeddingService {
             return;
         }
 
-        LOGGER.info("Collected {} valid chunks out of {} total entries for embedding", 
+        LOGGER.info("Collected {} valid chunks out of {} total entries for embedding",
                 chunksToEmbed.size(), chunkedEntries.size());
 
         int totalProcessed = 0;
 
-        for (int batchStart = 0; batchStart < chunksToEmbed.size(); batchStart += BATCH_SIZE) {
-            int batchEnd = Math.min(batchStart + BATCH_SIZE, chunksToEmbed.size());
+        for (int batchStart = 0; batchStart < chunksToEmbed.size(); batchStart += embeddingsBatchSize) {
+            int batchEnd = Math.min(batchStart + embeddingsBatchSize, chunksToEmbed.size());
             List<String> batch = chunksToEmbed.subList(batchStart, batchEnd);
             List<Integer> batchIndices = validIndices.subList(batchStart, batchEnd);
 
@@ -80,12 +85,12 @@ public class ChunkEmbeddingService {
                 int batchTotalChars = batch.stream().mapToInt(String::length).sum();
                 int batchAvgChars = batchTotalChars / batch.size();
                 int batchEstimatedTokens = batchTotalChars / 4;
-                
+
                 LOGGER.info("Processing embedding batch {}-{} of {} ({} chunks, {} total chars, ~{} avg chars/chunk, ~{} total tokens)",
-                        batchStart + 1, batchEnd, chunksToEmbed.size(), batch.size(), 
+                        batchStart + 1, batchEnd, chunksToEmbed.size(), batch.size(),
                         batchTotalChars, batchAvgChars, batchEstimatedTokens);
 
-                List<List<Float>> embeddings = embeddingService.embedStringDataBatch(batch);
+                List<List<Float>> embeddings = embeddingService.embedCollectionData(batch);
 
                 if (embeddings.size() != batch.size()) {
                     LOGGER.error("Mismatch between number of embeddings ({}) and batch size ({})",
@@ -97,7 +102,7 @@ public class ChunkEmbeddingService {
                     int originalIndex = batchIndices.get(i);
                     ChunkedEntry chunkedEntry = chunkedEntries.get(originalIndex);
                     List<Float> vector = embeddings.get(i);
-                    
+
                     int chunkSize = chunkedEntry.chunk().length();
                     int estimatedTokens = chunkSize / 4;
 
@@ -115,12 +120,12 @@ public class ChunkEmbeddingService {
 
                     chunkedEntries.set(originalIndex, enrichedEntry);
                     totalProcessed++;
-                    
+
                     LOGGER.debug("Enriched chunk {} (page {}, index {}): {} chars, ~{} tokens, vector size {}",
-                            originalIndex, chunkedEntry.pageNumber(), chunkedEntry.chunkIndex(), 
+                            originalIndex, chunkedEntry.pageNumber(), chunkedEntry.chunkIndex(),
                             chunkSize, estimatedTokens, vector.size());
                 }
-                
+
                 LOGGER.info("Successfully processed batch {}-{}: {} chunks enriched",
                         batchStart + 1, batchEnd, batch.size());
 

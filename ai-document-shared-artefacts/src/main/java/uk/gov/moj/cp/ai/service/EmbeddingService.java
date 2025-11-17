@@ -36,17 +36,16 @@ public class EmbeddingService {
         this.embeddingDeploymentName = deploymentName;
     }
 
-    // --- Method to Embed a single user query string ---
-    public List<Float> embedStringData(String content) throws EmbeddingServiceException {
+    public List<Float> embedData(String content) throws EmbeddingServiceException {
         validateNullOrEmpty(content, "Content to embed cannot be null or empty");
-        final List<List<Float>> embeddings = embedStringDataBatch(List.of(content));
+        final List<List<Float>> embeddings = embedCollectionData(List.of(content));
         if (null == embeddings || embeddings.isEmpty()) {
             return List.of();
         }
         return embeddings.get(0);
     }
 
-    public List<List<Float>> embedStringDataBatch(List<String> contents) throws EmbeddingServiceException {
+    public List<List<Float>> embedCollectionData(List<String> contents) throws EmbeddingServiceException {
         if (contents == null || contents.isEmpty()) {
             throw new IllegalArgumentException("Content list cannot be null or empty");
         }

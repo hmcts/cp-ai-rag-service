@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import uk.gov.moj.cp.ai.exception.EmbeddingServiceException;
@@ -25,21 +27,21 @@ class EmbeddingServiceTest {
 
     @Test
     @DisplayName("Throws exception when content to embed is null or empty")
-    void embedStringDataThrowsExceptionForNullOrEmptyContent() {
+    void embedDataThrowsExceptionForNullOrEmptyContent() {
         EmbeddingService service = new EmbeddingService(mock(OpenAIClient.class), "deploymentName");
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> service.embedStringData(null));
+                () -> service.embedData(null));
         assertEquals("Content to embed cannot be null or empty", exception.getMessage());
 
         exception = assertThrows(IllegalArgumentException.class,
-                () -> service.embedStringData(""));
+                () -> service.embedData(""));
         assertEquals("Content to embed cannot be null or empty", exception.getMessage());
     }
 
     @Test
     @DisplayName("Returns empty list when no embedding data is returned")
-    void embedStringDataReturnsEmptyListWhenNoEmbeddingData() throws EmbeddingServiceException, IOException {
+    void embedDataReturnsEmptyListWhenNoEmbeddingData() throws EmbeddingServiceException, IOException {
         JsonReader jsonReader = DefaultJsonReader.fromString("{\"data\":[],\"usage\":null}", new JsonOptions());
         Embeddings embeddings = Embeddings.fromJson(jsonReader);
 
@@ -48,7 +50,9 @@ class EmbeddingServiceTest {
                 .thenReturn(embeddings);
 
         EmbeddingService service = new EmbeddingService(mockClient, "deploymentName");
-        List<Float> result = service.embedStringData("content");
+        List<Float> result = service.embedData("content");
+
+        verify(mockClient).getEmbeddings(any(String.class), any(EmbeddingsOptions.class));
 
         assertNotNull(result);
         assertEquals(0, result.size());
@@ -56,7 +60,7 @@ class EmbeddingServiceTest {
 
     @Test
     @DisplayName("Returns embedding data for valid content")
-    void embedStringDataReturnsEmbeddingForValidContent() throws EmbeddingServiceException, IOException {
+    void embedDataReturnsEmbeddingForValidContent() throws EmbeddingServiceException, IOException {
         OpenAIClient mockClient = mock(OpenAIClient.class);
         String embeddingJson = """
                 {
@@ -73,15 +77,45 @@ class EmbeddingServiceTest {
         when(mockClient.getEmbeddings(any(String.class), any(EmbeddingsOptions.class))).thenReturn(embeddings);
 
         EmbeddingService service = new EmbeddingService(mockClient, "deploymentName");
-        List<Float> result = service.embedStringData("content");
+        List<Float> result = service.embedData("content");
+
+        verify(mockClient).getEmbeddings(any(String.class), any(EmbeddingsOptions.class));
 
         assertNotNull(result);
         assertEquals(mockEmbedding, result);
     }
 
     @Test
+    @DisplayName("Returns embedding data for valid list of contents")
+    void embedDataReturnsEmbeddingForValidListOfContent() throws EmbeddingServiceException, IOException {
+        OpenAIClient mockClient = mock(OpenAIClient.class);
+        String embeddingJson = """
+                {
+                  "data": [
+                    { "embedding": [0.1, 0.2, 0.3] }
+                  ],
+                  "usage": null
+                }
+                """;
+        JsonReader jsonReader = DefaultJsonReader.fromString(embeddingJson, new JsonOptions());
+        Embeddings embeddings = Embeddings.fromJson(jsonReader);
+
+        List<Float> mockEmbedding = List.of(0.1f, 0.2f, 0.3f);
+        when(mockClient.getEmbeddings(any(String.class), any(EmbeddingsOptions.class))).thenReturn(embeddings);
+
+        EmbeddingService service = new EmbeddingService(mockClient, "deploymentName");
+        List<List<Float>> results = service.embedCollectionData(List.of("content"));
+
+        verify(mockClient).getEmbeddings(any(String.class), any(EmbeddingsOptions.class));
+
+        assertNotNull(results);
+        assertEquals(1, results.size());
+        assertEquals(mockEmbedding, results.get(0));
+    }
+
+    @Test
     @DisplayName("Throws EmbeddingServiceException when embedding fails")
-    void embedStringDataThrowsExceptionWhenEmbeddingFails() {
+    void embedDataThrowsExceptionWhenEmbeddingFails() {
         OpenAIClient mockClient = mock(OpenAIClient.class);
         when(mockClient.getEmbeddings(any(String.class), any(EmbeddingsOptions.class)))
                 .thenThrow(new RuntimeException("Embedding failed"));
@@ -89,7 +123,8 @@ class EmbeddingServiceTest {
         EmbeddingService service = new EmbeddingService(mockClient, "deploymentName");
 
         EmbeddingServiceException exception = assertThrows(EmbeddingServiceException.class,
-                () -> service.embedStringData("content"));
+                () -> service.embedData("content"));
         assertEquals("Failed to embed content", exception.getMessage());
+        verify(mockClient).getEmbeddings(any(String.class), any(EmbeddingsOptions.class));
     }
 }
