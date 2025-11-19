@@ -21,4 +21,13 @@ public class EnvVarUtil {
         }
         return value;
     }
+
+    public static int getRequiredEnvAsInteger(final String key, final String defaultValue) {
+        try {
+            String value = getRequiredEnv(key, defaultValue);
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Required environment variable or supplied default value does not parse as integer value: " + key);
+        }
+    }
 }

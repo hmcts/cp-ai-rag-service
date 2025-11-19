@@ -1,5 +1,7 @@
 package uk.gov.moj.cp.ai.client;
 
+import static uk.gov.moj.cp.ai.client.config.ClientConfiguration.createNettyClient;
+import static uk.gov.moj.cp.ai.client.config.ClientConfiguration.getRetryOptions;
 import static uk.gov.moj.cp.ai.util.CredentialUtil.getCredentialInstance;
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
@@ -38,6 +40,8 @@ public class TableClientFactory {
                             .endpoint(endpoint)
                             .tableName(tableName)
                             .credential(SHARED_CREDENTIAL)
+                            .retryOptions(getRetryOptions())
+                            .httpClient(createNettyClient())
                             .buildClient();
                 }
         );
