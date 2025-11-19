@@ -1,5 +1,7 @@
 package uk.gov.moj.cp.ingestion.client;
 
+import static uk.gov.moj.cp.ai.client.config.ClientConfiguration.createNettyClient;
+import static uk.gov.moj.cp.ai.client.config.ClientConfiguration.getRetryOptions;
 import static uk.gov.moj.cp.ai.util.CredentialUtil.getCredentialInstance;
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
@@ -33,6 +35,8 @@ public class DocumentAnalysisClientFactory {
                     return new DocumentAnalysisClientBuilder()
                             .endpoint(endpoint)
                             .credential(SHARED_CREDENTIAL)
+                            .retryOptions(getRetryOptions())
+                            .httpClient(createNettyClient())
                             .buildClient();
                 }
         );
