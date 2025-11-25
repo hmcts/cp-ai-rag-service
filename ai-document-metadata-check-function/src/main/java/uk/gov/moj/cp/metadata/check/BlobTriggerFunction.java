@@ -1,6 +1,6 @@
 package uk.gov.moj.cp.metadata.check;
 
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_NAME;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION;
 
 import uk.gov.moj.cp.metadata.check.service.DocumentMetadataService;
@@ -37,12 +37,12 @@ public class BlobTriggerFunction {
             @BlobTrigger(
                     name = "blob",
                     path = "documents/{name}",
-                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_NAME
+                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING
             )
             @BindingName("name") String documentName,
             @QueueOutput(name = "queueMessage",
                     queueName = "%" + STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION + "%",
-                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_NAME)
+                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING)
             OutputBinding<String> queueMessage) {
 
         LOGGER.info("Blob trigger function processed a request for document: {}", documentName);

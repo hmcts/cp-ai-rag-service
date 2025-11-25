@@ -1,7 +1,6 @@
 package uk.gov.moj.cp.metadata.check.service;
 
 import static java.util.UUID.fromString;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
@@ -28,10 +27,9 @@ public class DocumentMetadataService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public DocumentMetadataService() {
-        String endpoint = System.getenv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT);
         String documentContainerName = System.getenv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME);
 
-        this.blobClientService = new BlobClientService(endpoint, documentContainerName);
+        this.blobClientService = new BlobClientService(documentContainerName);
     }
 
     public DocumentMetadataService(final BlobClientService blobClientService) {
