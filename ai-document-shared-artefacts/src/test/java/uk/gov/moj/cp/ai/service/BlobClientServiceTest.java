@@ -19,26 +19,14 @@ import org.junit.jupiter.api.Test;
 class BlobClientServiceTest {
 
     @Test
-    @DisplayName("Throws exception when endpoint is null or empty")
-    void getInstanceThrowsExceptionWhenEndpointIsNullOrEmpty() {
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> new BlobClientService(null, "containerName"));
-        assertEquals("Endpoint environment variable for Blob Service must be set.", exception.getMessage());
-
-        exception = assertThrows(IllegalArgumentException.class,
-                () -> new BlobClientService("", "containerName"));
-        assertEquals("Endpoint environment variable for Blob Service must be set.", exception.getMessage());
-    }
-
-    @Test
     @DisplayName("Throws exception when container name is null or empty")
     void getInstanceThrowsExceptionWhenContainerNameIsNullOrEmpty() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> new BlobClientService("endpoint", null));
+                () -> new BlobClientService((String)null));
         assertEquals("Container name cannot be null or empty.", exception.getMessage());
 
         exception = assertThrows(IllegalArgumentException.class,
-                () -> new BlobClientService("endpoint", ""));
+                () -> new BlobClientService(""));
         assertEquals("Container name cannot be null or empty.", exception.getMessage());
     }
 

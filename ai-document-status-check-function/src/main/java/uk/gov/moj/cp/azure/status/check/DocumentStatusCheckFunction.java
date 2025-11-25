@@ -2,7 +2,6 @@ package uk.gov.moj.cp.azure.status.check;
 
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
 import static java.util.Objects.nonNull;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
@@ -38,9 +37,8 @@ public class DocumentStatusCheckFunction {
     private final TableStorageService tableStorageService;
 
     public DocumentStatusCheckFunction() {
-        String endpoint = System.getenv(AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT);
         String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
-        this.tableStorageService = new TableStorageService(endpoint, tableName);
+        this.tableStorageService = new TableStorageService(tableName);
     }
 
     public DocumentStatusCheckFunction(TableStorageService tableStorageService) {

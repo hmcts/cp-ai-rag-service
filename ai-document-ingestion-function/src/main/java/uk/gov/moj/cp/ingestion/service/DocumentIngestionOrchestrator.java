@@ -40,7 +40,6 @@ public class DocumentIngestionOrchestrator {
         String documentIntelligenceEndpoint = getRequiredEnv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT");
 
         // Storage Configuration
-        String tableStorageEndpoint = getRequiredEnv(AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT);
         String tableDocumentIngestionOutcome = getRequiredEnv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
 
         // Search Service Configuration
@@ -49,7 +48,7 @@ public class DocumentIngestionOrchestrator {
 
         this.documentAnalysisService = new DocumentAnalysisService(documentIntelligenceEndpoint);
 
-        this.tableStorageService = new TableStorageService(tableStorageEndpoint, tableDocumentIngestionOutcome);
+        this.tableStorageService = new TableStorageService(tableDocumentIngestionOutcome);
 
         this.documentChunkingService = new DocumentChunkingService();
 
