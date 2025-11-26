@@ -90,7 +90,7 @@ class TableStorageServiceTest {
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> service.upsertIntoTable("docName", "docId", "status", "reason"));
 
-        assertEquals("Failed to upsert document outcome", exception.getMessage());
+        assertEquals("Failed to UPSERT record for document 'docName' with ID: 'docId", exception.getMessage());
     }
 
     @Test
