@@ -29,6 +29,8 @@ public class TableStorageService {
     private static final Logger LOGGER = LoggerFactory.getLogger(TableStorageService.class);
     private final TableClient tableClient;
 
+    private static final String ERROR_MESSAGE = "Failed to %s record for document '%s' with ID: '%s";
+
     public TableStorageService(String endpoint, String tableName) {
         if (isNullOrEmpty(endpoint) || isNullOrEmpty(tableName)) {
             throw new IllegalArgumentException("Table storage endpoint and table name cannot be null or empty.");
@@ -48,17 +50,17 @@ public class TableStorageService {
 
             tableClient.createEntity(entity);
 
-            LOGGER.info("Record INSERTED into table with status={} for document '{}' with ID '{}'", status, documentName, documentId);
+            LOGGER.info("Record INSERTED into table with status '{}' for document '{}' with ID '{}'", status, documentName, documentId);
 
         } catch (final TableServiceException tse) {
             if (tse.getValue().getErrorCode() == TableErrorCode.ENTITY_ALREADY_EXISTS) {
-                final String duplicateRecordErrorMessage = "Document outcome record already exists for document '" + documentName + "'with ID '" + documentId + "'";
+                final String duplicateRecordErrorMessage = "Document outcome record already exists for document '" + documentName + "' with ID '" + documentId + "'";
                 throw new DuplicateRecordException(duplicateRecordErrorMessage, tse);
             }
 
-            throw new RuntimeException("Failed to INSERT record for document '" + documentName + "' with ID: '" + documentId, tse);
+            throw new RuntimeException(String.format(ERROR_MESSAGE, "INSERT", documentName, documentId), tse);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to INSERT record for document '" + documentName + "' with ID: '" + documentId, e);
+            throw new RuntimeException(String.format(ERROR_MESSAGE, "INSERT", documentName, documentId), e);
         }
     }
 
@@ -72,7 +74,7 @@ public class TableStorageService {
             LOGGER.info("Record UPSERTED into table with status={} for document '{}' with ID '{}'", status, documentName, documentId);
 
         } catch (Exception e) {
-            throw new RuntimeException("Failed to UPSERT record for document '" + documentName + "' with ID: '" + documentId, e);
+            throw new RuntimeException(String.format(ERROR_MESSAGE, "UPSERT", documentName, documentId), e);
         }
     }
 
