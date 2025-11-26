@@ -50,7 +50,7 @@ public class DocumentAnalysisService {
             return result;
 
         } catch (Exception e) {
-            String errorMsg = "Failed to analyze document: " + e.getMessage();
+            String errorMsg = "Failed to analyze document with name : " + documentName + " . Error: " + e.getMessage();
             LOGGER.error(errorMsg, e);
             throw new DocumentProcessingException(errorMsg, e);
         }

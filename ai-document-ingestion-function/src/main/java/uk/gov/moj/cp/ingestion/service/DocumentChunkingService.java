@@ -53,7 +53,7 @@ public class DocumentChunkingService {
             return finalChunks;
 
         } catch (Exception e) {
-            String errorMsg = "Failed to chunk document: " + e.getMessage();
+            String errorMsg = "Failed to chunk document with name : " + queueMetadata.documentName() + " . Error: " + e.getMessage();
             LOGGER.error(errorMsg, e);
             throw new DocumentProcessingException(errorMsg, e);
         }

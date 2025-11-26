@@ -11,8 +11,9 @@ import static uk.gov.moj.cp.ai.index.IndexConstants.ID;
 import static uk.gov.moj.cp.ai.index.IndexConstants.PAGE_NUMBER;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
-import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.client.AISearchClientFactory;
+import uk.gov.moj.cp.ai.model.ChunkedEntry;
+import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 import uk.gov.moj.cp.ingestion.exception.DocumentUploadException;
 
 import java.util.ArrayList;
@@ -44,7 +45,7 @@ public class DocumentStorageService {
         LOGGER.info("Initialized Azure AI Search client with managed identity.");
     }
 
-    public void uploadChunks(List<ChunkedEntry> chunks) {
+    public void uploadChunks(List<ChunkedEntry> chunks) throws DocumentProcessingException {
         LOGGER.info("Uploading {} chunks to Azure Search Index: {}", chunks.size(), indexName);
 
         try {
@@ -81,8 +82,9 @@ public class DocumentStorageService {
             }
 
         } catch (Exception e) {
-            LOGGER.error("Failed to upload chunk batch to Azure Search index {}", indexName, e);
-            throw new DocumentUploadException("Batch upload failed for index " + indexName, e);
+            final String errorMessage = "Failed to upload list of chunks to Azure Search index " + indexName;
+            LOGGER.error(errorMessage, e);
+            throw new DocumentProcessingException(errorMessage, e);
         }
     }
 }

@@ -12,6 +12,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.azure.storage.blob.BlobClient;
+import com.azure.storage.blob.models.BlobProperties;
+import com.azure.storage.blob.models.CopyStatusType;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
@@ -35,44 +38,55 @@ public class DocumentMetadataService {
         this.blobClientService = blobClientService;
     }
 
-    public Map<String, String> processDocumentMetadata(String documentName) {
+    public Map<String, String> processDocumentMetadata(String documentName) throws MetadataValidationException {
         BlobClient blobClient = blobClientService.getBlobClient(documentName);
+
+        final BlobProperties blobProperties = blobClient.getProperties();
+        if (null == blobProperties || CopyStatusType.SUCCESS != blobProperties.getCopyStatus()) {
+            throw new IllegalStateException("Blob '" + documentName + "' is still being copied.  Copy status is " + (null != blobProperties ? blobProperties.getCopyStatus() : "N/A"));
+        }
 
         if (!blobClient.exists()) {
             throw new MetadataValidationException("Blob not found: " + documentName);
         }
 
-        Map<String, String> metadataMap = new HashMap<>(blobClient.getProperties().getMetadata());
+        final Map<String, String> metadataMap = new HashMap<>(blobProperties.getMetadata());
         return validateAndNormalizeMetadata(metadataMap, documentName);
     }
 
-    private Map<String, String> validateAndNormalizeMetadata(Map<String, String> metadataMap, String documentName) {
-        try {
-            String documentId = metadataMap.get(DOCUMENT_ID);
-            if (isNullOrEmpty(documentId)) {
-                throw new MetadataValidationException("Invalid metadata: Missing document ID: " + documentName);
-            }
-
-            fromString(documentId);
-
-            if (metadataMap.containsKey(METADATA)) {
-                String metadataJson = metadataMap.get(METADATA);
-
-                Map<String, String> nestedMetadata = objectMapper.readValue(metadataJson, Map.class);
-                for (Map.Entry<String, String> entry : nestedMetadata.entrySet()) {
-                    String key = entry.getKey();
-                    String value = entry.getValue();
-                    if (isNullOrEmpty(key) || isNullOrEmpty(value)) {
-                        String reason = "Invalid nested metadata key/value: '" + key + "' in blob " + documentName;
-                        throw new MetadataValidationException("Invalid metadata: " + reason);
-                    }
-                    metadataMap.put(key, value);
-                }
-                metadataMap.remove(METADATA);
-            }
-            return metadataMap;
-        } catch (Exception e) {
-            throw new MetadataValidationException("Invalid metadata for " + documentName + ": " + e.getMessage(), e);
+    private Map<String, String> validateAndNormalizeMetadata(final Map<String, String> blobMetadata, final String documentName) throws MetadataValidationException {
+        String documentId = blobMetadata.get(DOCUMENT_ID);
+        if (isNullOrEmpty(documentId)) {
+            throw new MetadataValidationException("Invalid metadata: Document ID missing for document '" + documentName + "'");
         }
+
+        try {
+            fromString(documentId);
+        } catch (IllegalArgumentException ex) {
+            throw new MetadataValidationException("Invalid metadata: Document ID '" + documentId + "' is not a valid UUID for document '" + documentName + "'");
+        }
+
+        if (blobMetadata.containsKey(METADATA)) {
+            String metadataJson = blobMetadata.get(METADATA);
+
+            Map<String, String> nestedMetadata = null;
+            try {
+                nestedMetadata = objectMapper.readValue(metadataJson, Map.class);
+            } catch (final JsonProcessingException e) {
+                throw new MetadataValidationException("Invalid metadata: Metadata attribute incorrectly supplied for document '" + documentName + "'");
+            }
+
+            for (Map.Entry<String, String> entry : nestedMetadata.entrySet()) {
+                String key = entry.getKey();
+                String value = entry.getValue();
+                if (isNullOrEmpty(key) || isNullOrEmpty(value)) {
+                    String reason = "Invalid nested metadata key/value: '" + key + "' in blob " + documentName;
+                    throw new MetadataValidationException("Invalid metadata: " + reason);
+                }
+                blobMetadata.put(key, value);
+            }
+            blobMetadata.remove(METADATA);
+        }
+        return blobMetadata;
     }
 }

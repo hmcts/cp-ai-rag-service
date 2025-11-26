@@ -1,5 +1,15 @@
 {
   "version": "2.0",
+  "extensions": {
+    "blobs": {
+      "maxDegreeOfParallelism": 50
+    }
+  },
+  "retry": {
+    "strategy": "fixedDelay",
+    "maxRetryCount": 5,
+    "delayInterval": "00:00:30"
+  },
   "logging": {
     "applicationInsights": {
       "samplingSettings": {

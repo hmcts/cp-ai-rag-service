@@ -9,6 +9,7 @@ import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import uk.gov.moj.cp.ai.exception.EmbeddingServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.service.EmbeddingService;
+import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,7 +41,7 @@ public class ChunkEmbeddingService {
     }
 
 
-    public void enrichChunksWithEmbeddings(List<ChunkedEntry> chunkedEntries) {
+    public void enrichChunksWithEmbeddings(List<ChunkedEntry> chunkedEntries) throws DocumentProcessingException {
         if (chunkedEntries == null || chunkedEntries.isEmpty()) {
             return;
         }
@@ -130,8 +131,8 @@ public class ChunkEmbeddingService {
                         batchStart + 1, batchEnd, batch.size());
 
             } catch (EmbeddingServiceException e) {
-                LOGGER.error("Failed to embed batch {}-{}: {}",
-                        batchStart + 1, batchEnd, e.getMessage(), e);
+                final String errorMessage = "Failed to embed batch " + (batchStart + 1) + "-" + batchEnd + ". Error: " + e.getMessage();
+                throw new DocumentProcessingException(errorMessage, e);
             }
         }
 
