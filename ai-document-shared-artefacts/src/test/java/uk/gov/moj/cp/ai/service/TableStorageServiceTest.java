@@ -12,12 +12,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
+import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 
 import java.util.stream.Stream;
 
 import com.azure.core.http.rest.PagedIterable;
 import com.azure.data.tables.TableClient;
 import com.azure.data.tables.models.TableEntity;
+import com.azure.data.tables.models.TableServiceError;
+import com.azure.data.tables.models.TableServiceException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -44,6 +47,17 @@ class TableStorageServiceTest {
     }
 
     @Test
+    @DisplayName("Successfully inserts document outcome")
+    void successfullyInsertsDocumentOutcome() throws DuplicateRecordException {
+        TableClient tableClientMock = mock(TableClient.class);
+        TableStorageService service = new TableStorageService(tableClientMock);
+
+        service.insertIntoTable("docName", "docId", "status", "reason");
+
+        verify(tableClientMock).createEntity(any(TableEntity.class));
+    }
+
+    @Test
     @DisplayName("Successfully upserts document outcome")
     void successfullyUpsertsDocumentOutcome() {
         TableClient tableClientMock = mock(TableClient.class);
@@ -51,7 +65,19 @@ class TableStorageServiceTest {
 
         service.upsertIntoTable("docName", "docId", "status", "reason");
 
-        verify(tableClientMock, times(1)).upsertEntity(any(TableEntity.class));
+        verify(tableClientMock).upsertEntity(any(TableEntity.class));
+    }
+
+    @Test
+    @DisplayName("Throws exception when insert fails due to duplicate record")
+    void throwsExceptionWhenInsertFailsDueToDuplicateRecord() {
+        TableClient tableClientMock = mock(TableClient.class);
+        TableStorageService service = new TableStorageService(tableClientMock);
+        doThrow(new TableServiceException("Upsert failed", null, new TableServiceError("EntityAlreadyExists", "some error message"))).when(tableClientMock).createEntity(any(TableEntity.class));
+
+        assertThrows(DuplicateRecordException.class,
+                () -> service.insertIntoTable("docName", "docId", "status", "reason"));
+
     }
 
     @Test

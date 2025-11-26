@@ -20,7 +20,6 @@ import org.slf4j.LoggerFactory;
  */
 public class DocumentIngestionFunction {
 
-    protected static final String MAX_DEQUEUE_COUNT = "AzureFunctionsJobHost__extensions__queues__maxDequeueCount";
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentIngestionFunction.class);
     private final DocumentIngestionOrchestrator documentIngestionOrchestrator;
 

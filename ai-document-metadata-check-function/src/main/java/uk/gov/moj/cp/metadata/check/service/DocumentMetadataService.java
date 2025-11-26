@@ -43,7 +43,7 @@ public class DocumentMetadataService {
 
         final BlobProperties blobProperties = blobClient.getProperties();
         if (null == blobProperties || CopyStatusType.SUCCESS != blobProperties.getCopyStatus()) {
-            throw new IllegalStateException("Blob '{}' is still being copied.  Copy status is " + blobProperties.getCopyStatus());
+            throw new IllegalStateException("Blob '" + documentName + "' is still being copied.  Copy status is " + (null != blobProperties ? blobProperties.getCopyStatus() : "N/A"));
         }
 
         if (!blobClient.exists()) {
