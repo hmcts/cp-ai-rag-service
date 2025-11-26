@@ -1,6 +1,5 @@
 package uk.gov.moj.cp.ingestion;
 
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_NAME;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
@@ -21,6 +20,7 @@ import org.slf4j.LoggerFactory;
  */
 public class DocumentIngestionFunction {
 
+    protected static final String MAX_DEQUEUE_COUNT = "AzureFunctionsJobHost__extensions__queues__maxDequeueCount";
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentIngestionFunction.class);
     private final DocumentIngestionOrchestrator documentIngestionOrchestrator;
 

@@ -49,7 +49,7 @@ class TableStorageServiceTest {
         TableClient tableClientMock = mock(TableClient.class);
         TableStorageService service = new TableStorageService(tableClientMock);
 
-        service.upsertDocumentOutcome("docName", "docId", "status", "reason");
+        service.upsertIntoTable("docName", "docId", "status", "reason");
 
         verify(tableClientMock, times(1)).upsertEntity(any(TableEntity.class));
     }
@@ -62,7 +62,7 @@ class TableStorageServiceTest {
         doThrow(new RuntimeException("Upsert failed")).when(tableClientMock).upsertEntity(any(TableEntity.class));
 
         RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> service.upsertDocumentOutcome("docName", "docId", "status", "reason"));
+                () -> service.upsertIntoTable("docName", "docId", "status", "reason"));
 
         assertEquals("Failed to upsert document outcome", exception.getMessage());
     }

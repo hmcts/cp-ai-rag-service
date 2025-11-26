@@ -10,6 +10,7 @@ import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.client.TableClientFactory;
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
+import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -18,6 +19,8 @@ import java.util.stream.Stream;
 import com.azure.data.tables.TableClient;
 import com.azure.data.tables.models.ListEntitiesOptions;
 import com.azure.data.tables.models.TableEntity;
+import com.azure.data.tables.models.TableErrorCode;
+import com.azure.data.tables.models.TableServiceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,42 +41,50 @@ public class TableStorageService {
         this.tableClient = tableClient;
     }
 
-    public void upsertDocumentOutcome(String documentName, String documentId, String status, String reason) {
+    public void insertIntoTable(String documentName, String documentId, String status, String reason) throws DuplicateRecordException {
         try {
 
-            DocumentIngestionOutcome outcome = new DocumentIngestionOutcome();
-            outcome.generateDefaultPartitionKey(documentId);
-            outcome.generateRowKeyFrom(documentName);
-            outcome.setDocumentName(documentName);
-            outcome.setDocumentId(documentId);
-            outcome.setStatus(status);
-            outcome.setReason(reason);
+            final TableEntity entity = getTableEntity(documentName, documentId, status, reason);
 
+            tableClient.createEntity(entity);
 
-            TableEntity entity = new TableEntity(outcome.getPartitionKey(), outcome.getRowKey());
-            entity.addProperty(TC_DOCUMENT_FILE_NAME, outcome.getDocumentName());
-            entity.addProperty(TC_DOCUMENT_ID, outcome.getDocumentId());
-            entity.addProperty(TC_DOCUMENT_STATUS, outcome.getStatus());
-            entity.addProperty(TC_REASON, outcome.getReason());
+            LOGGER.info("Record INSERTED into table with status={} for document '{}' with ID '{}'", status, documentName, documentId);
+
+        } catch (final TableServiceException tse) {
+            if (tse.getValue().getErrorCode() == TableErrorCode.ENTITY_ALREADY_EXISTS) {
+                final String duplicateRecordErrorMessage = "Document outcome record already exists for document '" + documentName + "'with ID '" + documentId + "'";
+                LOGGER.error(duplicateRecordErrorMessage, tse);
+                throw new DuplicateRecordException(duplicateRecordErrorMessage, tse);
+            }
+
+            LOGGER.error("Failed to INSERT record for document: {} (ID: {}) ", documentName, documentId, tse);
+            throw new RuntimeException("Failed to upsert document outcome", tse);
+        } catch (Exception e) {
+            LOGGER.error("Failed to INSERT record for document: {} (ID: {}) ", documentName, documentId, e);
+            throw new RuntimeException("Failed to upsert document outcome", e);
+        }
+    }
+
+    public void upsertIntoTable(String documentName, String documentId, String status, String reason) {
+        try {
+
+            final TableEntity entity = getTableEntity(documentName, documentId, status, reason);
 
             tableClient.upsertEntity(entity);
 
-            LOGGER.info("event=outcome_upserted status={} documentName={} documentId={}",
-                    status, documentName, documentId);
+            LOGGER.info("Record UPSERTED into table with status={} for document '{}' with ID '{}'", status, documentName, documentId);
 
         } catch (Exception e) {
-            LOGGER.error("Failed to upsert document outcome for document: {} (ID: {}) ",
-                    documentName, documentId, e);
+            LOGGER.error("Failed to UPSERT document outcome for document: {} (ID: {}) ", documentName, documentId, e);
             throw new RuntimeException("Failed to upsert document outcome", e);
         }
     }
 
     public DocumentIngestionOutcome getFirstDocumentMatching(String documentName) {
-        String targetRowKey = generateRowKey(documentName);
+        String rowAndPartitionKey = generateRowKey(documentName);
 
-        String filter = String.format("RowKey eq '%s'", targetRowKey);
+        String filter = String.format("RowKey eq '%s'", rowAndPartitionKey);
 
-        // 3. Execute the query
         final ListEntitiesOptions options = new ListEntitiesOptions().setFilter(filter).setTop(1);
         Stream<TableEntity> entities = tableClient.listEntities(options, null, null).stream();
 
@@ -93,6 +104,17 @@ public class TableStorageService {
             return value.toString();
         }
         return null;
+    }
+
+    private static TableEntity getTableEntity(final String documentName, final String documentId, final String status, final String reason) {
+        final String rowAndPartitionKey = generateRowKey(documentName);
+
+        TableEntity entity = new TableEntity(rowAndPartitionKey, rowAndPartitionKey);
+        entity.addProperty(TC_DOCUMENT_FILE_NAME, documentName);
+        entity.addProperty(TC_DOCUMENT_ID, documentId);
+        entity.addProperty(TC_DOCUMENT_STATUS, status);
+        entity.addProperty(TC_REASON, reason);
+        return entity;
     }
 
 }

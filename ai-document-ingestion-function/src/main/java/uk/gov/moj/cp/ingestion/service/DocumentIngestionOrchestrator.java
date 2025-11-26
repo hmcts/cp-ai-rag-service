@@ -6,7 +6,6 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_TABLE_STORAG
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_INDEX_NAME;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
-import static uk.gov.moj.cp.ai.model.DocumentStatus.INGESTION_FAILED;
 import static uk.gov.moj.cp.ai.model.DocumentStatus.INGESTION_SUCCESS;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 
@@ -81,33 +80,23 @@ public class DocumentIngestionOrchestrator {
         String documentUrl = queueIngestionMetadata.blobUrl();
 
         LOGGER.info("Starting document ingestion process for document: {} (ID: {})", documentName, documentId);
-        try {
-            // Step 1: Analyze document using Azure Document Intelligence
-            AnalyzeResult analyzeResult = documentAnalysisService.analyzeDocument(documentName, documentUrl);
+        // Step 1: Analyze document using Azure Document Intelligence
+        AnalyzeResult analyzeResult = documentAnalysisService.analyzeDocument(documentName, documentUrl);
 
-            // Step 2: Chunk document using LangChain4j
-            List<ChunkedEntry> chunkedEntries = documentChunkingService.chunkDocument(analyzeResult, queueIngestionMetadata);
+        // Step 2: Chunk document using LangChain4j
+        List<ChunkedEntry> chunkedEntries = documentChunkingService.chunkDocument(analyzeResult, queueIngestionMetadata);
 
-            // Step 3: Generate embeddings for chunks
-            chunkEmbeddingService.enrichChunksWithEmbeddings(chunkedEntries);
+        // Step 3: Generate embeddings for chunks
+        chunkEmbeddingService.enrichChunksWithEmbeddings(chunkedEntries);
 
-            // Step 4: Store chunks in Azure Search
-            documentStorageService.uploadChunks(Collections.unmodifiableList(chunkedEntries));
+        // Step 4: Store chunks in Azure Search
+        documentStorageService.uploadChunks(Collections.unmodifiableList(chunkedEntries));
 
-            // Record success
-            recordOutcome(documentName, documentId, INGESTION_SUCCESS.name(), INGESTION_SUCCESS.getReason());
+        // Record success
+        recordOutcome(documentName, documentId, INGESTION_SUCCESS.name(), INGESTION_SUCCESS.getReason());
 
-            LOGGER.info("Document ingestion completed successfully for document: {} (ID: {})", documentName, documentId);
+        LOGGER.info("Document ingestion completed successfully for document: {} (ID: {})", documentName, documentId);
 
-        } catch (Exception e) {
-
-            requireNonNull(queueIngestionMetadata, "Queue ingestion metadata must not be null");
-            recordOutcome(queueIngestionMetadata.documentName(), queueIngestionMetadata.documentId(),
-                    INGESTION_FAILED.name(), INGESTION_FAILED.getReason());
-
-            LOGGER.error("Document ingestion failed for document: {} (ID: {})",
-                    queueIngestionMetadata.documentName(), queueIngestionMetadata.documentId(), e);
-        }
     }
 
 
@@ -116,7 +105,7 @@ public class DocumentIngestionOrchestrator {
                                String status,
                                String reason) {
 
-        tableStorageService.upsertDocumentOutcome(documentName, documentId, status, reason);
+        tableStorageService.upsertIntoTable(documentName, documentId, status, reason);
 
         LOGGER.info("event=outcome_recorded status={} documentName={} documentId={}",
                 status, documentName, documentId);

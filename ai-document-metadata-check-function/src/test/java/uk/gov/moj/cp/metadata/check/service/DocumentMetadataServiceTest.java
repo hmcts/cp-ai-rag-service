@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -16,6 +18,7 @@ import java.util.Map;
 
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.models.BlobProperties;
+import com.azure.storage.blob.models.CopyStatusType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -44,7 +47,7 @@ class DocumentMetadataServiceTest {
 
     @Test
     @DisplayName("Process Blob Metadata Successfully with Valid Data")
-    void shouldProcessDocumentMetadataSuccessfully() {
+    void shouldProcessDocumentMetadataSuccessfully() throws MetadataValidationException {
         // given
         String documentName = "test.pdf";
         Map<String, String> expectedMetadata = new HashMap<>();
@@ -54,6 +57,7 @@ class DocumentMetadataServiceTest {
         when(blobClientService.getBlobClient(documentName)).thenReturn(blobClient);
         when(blobClient.exists()).thenReturn(true);
         when(blobClient.getProperties()).thenReturn(blobProperties);
+        when(blobProperties.getCopyStatus()).thenReturn(CopyStatusType.SUCCESS);
         when(blobProperties.getMetadata()).thenReturn(expectedMetadata);
 
         // when
@@ -69,6 +73,24 @@ class DocumentMetadataServiceTest {
         verify(blobClientService).getBlobClient(documentName);
         verify(blobClient).exists();
         verify(blobClient).getProperties();
+        verify(blobProperties).getCopyStatus();
+    }
+
+    @Test
+    @DisplayName("Throw Exception When Blob copy status is not SUCCESS")
+    void shouldThrowExceptionWhenBlobCopyStatusIsNotSuccess() {
+        // given
+        String documentName = "test.pdf";
+
+        when(blobClientService.getBlobClient(documentName)).thenReturn(blobClient);
+        when(blobClient.getProperties()).thenReturn(blobProperties);
+        when(blobProperties.getCopyStatus()).thenReturn(CopyStatusType.FAILED);
+
+        assertThrows(IllegalStateException.class, () -> documentMetadataService.processDocumentMetadata(documentName));
+
+        verify(blobClientService).getBlobClient(documentName);
+        verify(blobClient).getProperties();
+        verify(blobProperties, atLeast(1)).getCopyStatus();
     }
 
     @Test
@@ -78,6 +100,8 @@ class DocumentMetadataServiceTest {
         String documentName = "nonexistent.pdf";
 
         when(blobClientService.getBlobClient(documentName)).thenReturn(blobClient);
+        when(blobClient.getProperties()).thenReturn(blobProperties);
+        when(blobProperties.getCopyStatus()).thenReturn(CopyStatusType.SUCCESS);
         when(blobClient.exists()).thenReturn(false);
 
         // when & then
@@ -86,6 +110,7 @@ class DocumentMetadataServiceTest {
         assertEquals("Blob not found: " + documentName, exception.getMessage());
         verify(blobClientService).getBlobClient(documentName);
         verify(blobClient).exists();
+        verify(blobClient).getProperties();
     }
 
     @Test
@@ -100,13 +125,14 @@ class DocumentMetadataServiceTest {
         when(blobClientService.getBlobClient(documentName)).thenReturn(blobClient);
         when(blobClient.exists()).thenReturn(true);
         when(blobClient.getProperties()).thenReturn(blobProperties);
+        when(blobProperties.getCopyStatus()).thenReturn(CopyStatusType.SUCCESS);
         when(blobProperties.getMetadata()).thenReturn(metadata);
 
         // when & then
         MetadataValidationException exception = assertThrows(MetadataValidationException.class,
                 () -> documentMetadataService.processDocumentMetadata(documentName));
 
-        assertTrue(exception.getMessage().contains("Missing document ID: " + documentName));
+        assertTrue(exception.getMessage().contains("Invalid metadata: Document ID missing for document '" + documentName));
     }
 
     @Test
@@ -121,12 +147,13 @@ class DocumentMetadataServiceTest {
         when(blobClientService.getBlobClient(documentName)).thenReturn(blobClient);
         when(blobClient.exists()).thenReturn(true);
         when(blobClient.getProperties()).thenReturn(blobProperties);
+        when(blobProperties.getCopyStatus()).thenReturn(CopyStatusType.SUCCESS);
         when(blobProperties.getMetadata()).thenReturn(metadata);
 
         // when & then
         MetadataValidationException exception = assertThrows(MetadataValidationException.class, () -> documentMetadataService.processDocumentMetadata(documentName));
 
-        assertTrue(exception.getMessage().contains("Missing document ID: " + documentName));
+        assertTrue(exception.getMessage().contains("Invalid metadata: Document ID missing for document '" + documentName));
     }
 
     @Test
@@ -141,13 +168,14 @@ class DocumentMetadataServiceTest {
         when(blobClientService.getBlobClient(documentName)).thenReturn(blobClient);
         when(blobClient.exists()).thenReturn(true);
         when(blobClient.getProperties()).thenReturn(blobProperties);
+        when(blobProperties.getCopyStatus()).thenReturn(CopyStatusType.SUCCESS);
         when(blobProperties.getMetadata()).thenReturn(metadata);
 
         // when & then
         MetadataValidationException exception = assertThrows(MetadataValidationException.class,
                 () -> documentMetadataService.processDocumentMetadata(documentName));
 
-        assertTrue(exception.getMessage().contains("Invalid UUID string: invalid-uuid"));
+        assertTrue(exception.getMessage().contains("Invalid metadata: Document ID 'invalid-uuid' is not a valid UUID for document '" + documentName + "'"));
     }
 
     @Test
@@ -162,13 +190,14 @@ class DocumentMetadataServiceTest {
         when(blobClientService.getBlobClient(documentName)).thenReturn(blobClient);
         when(blobClient.exists()).thenReturn(true);
         when(blobClient.getProperties()).thenReturn(blobProperties);
+        when(blobProperties.getCopyStatus()).thenReturn(CopyStatusType.SUCCESS);
         when(blobProperties.getMetadata()).thenReturn(metadata);
 
         // when & then
         MetadataValidationException exception = assertThrows(MetadataValidationException.class,
                 () -> documentMetadataService.processDocumentMetadata(documentName));
 
-        assertTrue(exception.getMessage().contains("Unrecognized token 'invalid'"));
+        assertTrue(exception.getMessage().contains("Metadata attribute incorrectly supplied for document '" + documentName + "'"));
     }
 
     @Test
@@ -183,6 +212,7 @@ class DocumentMetadataServiceTest {
         when(blobClientService.getBlobClient(documentName)).thenReturn(blobClient);
         when(blobClient.exists()).thenReturn(true);
         when(blobClient.getProperties()).thenReturn(blobProperties);
+        when(blobProperties.getCopyStatus()).thenReturn(CopyStatusType.SUCCESS);
         when(blobProperties.getMetadata()).thenReturn(metadata);
 
         // when & then

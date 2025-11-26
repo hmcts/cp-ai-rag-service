@@ -3,6 +3,7 @@ package uk.gov.moj.cp.ingestion.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -12,6 +13,7 @@ import static org.mockito.Mockito.when;
 import uk.gov.moj.cp.ai.exception.EmbeddingServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.service.EmbeddingService;
+import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +40,7 @@ class ChunkEmbeddingServiceTest {
 
     @Test
     @DisplayName("Should process multiple chunks in a single batch")
-    void shouldProcessMultipleChunksInSingleBatch() throws EmbeddingServiceException {
+    void shouldProcessMultipleChunksInSingleBatch() throws EmbeddingServiceException, DocumentProcessingException {
         // given
         List<ChunkedEntry> chunkedEntries = createChunkedEntries(5);
         List<List<Float>> mockEmbeddings = createMockEmbeddings(5);
@@ -60,7 +62,7 @@ class ChunkEmbeddingServiceTest {
 
     @Test
     @DisplayName("Should skip empty or null chunks")
-    void shouldSkipEmptyOrNullChunks() throws EmbeddingServiceException {
+    void shouldSkipEmptyOrNullChunks() throws EmbeddingServiceException, DocumentProcessingException {
         // given
         List<ChunkedEntry> chunkedEntries = new ArrayList<>();
         chunkedEntries.add(createChunkedEntry(0, "Valid chunk 1"));
@@ -87,7 +89,7 @@ class ChunkEmbeddingServiceTest {
 
     @Test
     @DisplayName("Should process chunks in multiple batches when exceeding batch size")
-    void shouldProcessChunksInMultipleBatches() throws EmbeddingServiceException {
+    void shouldProcessChunksInMultipleBatches() throws EmbeddingServiceException, DocumentProcessingException {
         // given - Create 3000 chunks (more than BATCH_SIZE of 2048)
         List<ChunkedEntry> chunkedEntries = createChunkedEntries(3000);
         
@@ -117,7 +119,7 @@ class ChunkEmbeddingServiceTest {
 
     @Test
     @DisplayName("Should handle empty chunk list gracefully")
-    void shouldHandleEmptyChunkList() throws EmbeddingServiceException {
+    void shouldHandleEmptyChunkList() throws EmbeddingServiceException, DocumentProcessingException {
         // given
         List<ChunkedEntry> emptyChunks = new ArrayList<>();
 
@@ -130,7 +132,7 @@ class ChunkEmbeddingServiceTest {
 
     @Test
     @DisplayName("Should handle null chunk list gracefully")
-    void shouldHandleNullChunkList() throws EmbeddingServiceException {
+    void shouldHandleNullChunkList() throws EmbeddingServiceException, DocumentProcessingException {
         // when
         chunkEmbeddingService.enrichChunksWithEmbeddings(null);
 
@@ -140,7 +142,7 @@ class ChunkEmbeddingServiceTest {
 
     @Test
     @DisplayName("Should handle all chunks being empty")
-    void shouldHandleAllChunksBeingEmpty() throws EmbeddingServiceException {
+    void shouldHandleAllChunksBeingEmpty() throws EmbeddingServiceException, DocumentProcessingException {
         // given
         List<ChunkedEntry> chunkedEntries = new ArrayList<>();
         chunkedEntries.add(createChunkedEntry(0, ""));
@@ -156,7 +158,7 @@ class ChunkEmbeddingServiceTest {
 
     @Test
     @DisplayName("Should handle embedding service exception gracefully")
-    void shouldHandleEmbeddingServiceException() throws EmbeddingServiceException {
+    void shouldThrowEmbeddingServiceException() throws EmbeddingServiceException, DocumentProcessingException {
         // given
         List<ChunkedEntry> chunkedEntries = createChunkedEntries(3);
 
@@ -164,15 +166,11 @@ class ChunkEmbeddingServiceTest {
                 .thenThrow(new EmbeddingServiceException("API error", new Exception()));
 
         // when
-        chunkEmbeddingService.enrichChunksWithEmbeddings(chunkedEntries);
+        assertThrows(DocumentProcessingException.class,
+                () -> chunkEmbeddingService.enrichChunksWithEmbeddings(chunkedEntries));
 
-        // then - Should not throw exception, but chunks won't have embeddings
-        verify(mockEmbeddingService, times(1)).embedCollectionData(anyList());
+        verify(mockEmbeddingService).embedCollectionData(anyList());
         
-        // Verify chunks don't have embeddings due to error
-        assertNull(chunkedEntries.get(0).chunkVector());
-        assertNull(chunkedEntries.get(1).chunkVector());
-        assertNull(chunkedEntries.get(2).chunkVector());
     }
 
     private List<ChunkedEntry> createChunkedEntries(int count) {
