@@ -53,15 +53,12 @@ public class TableStorageService {
         } catch (final TableServiceException tse) {
             if (tse.getValue().getErrorCode() == TableErrorCode.ENTITY_ALREADY_EXISTS) {
                 final String duplicateRecordErrorMessage = "Document outcome record already exists for document '" + documentName + "'with ID '" + documentId + "'";
-                LOGGER.error(duplicateRecordErrorMessage, tse);
                 throw new DuplicateRecordException(duplicateRecordErrorMessage, tse);
             }
 
-            LOGGER.error("Failed to INSERT record for document: {} (ID: {}) ", documentName, documentId, tse);
-            throw new RuntimeException("Failed to upsert document outcome", tse);
+            throw new RuntimeException("Failed to INSERT record for document '" + documentName + "' with ID: '" + documentId, tse);
         } catch (Exception e) {
-            LOGGER.error("Failed to INSERT record for document: {} (ID: {}) ", documentName, documentId, e);
-            throw new RuntimeException("Failed to upsert document outcome", e);
+            throw new RuntimeException("Failed to INSERT record for document '" + documentName + "' with ID: '" + documentId, e);
         }
     }
 
@@ -75,8 +72,7 @@ public class TableStorageService {
             LOGGER.info("Record UPSERTED into table with status={} for document '{}' with ID '{}'", status, documentName, documentId);
 
         } catch (Exception e) {
-            LOGGER.error("Failed to UPSERT document outcome for document: {} (ID: {}) ", documentName, documentId, e);
-            throw new RuntimeException("Failed to upsert document outcome", e);
+            throw new RuntimeException("Failed to UPSERT record for document '" + documentName + "' with ID: '" + documentId, e);
         }
     }
 

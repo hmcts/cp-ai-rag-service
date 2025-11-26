@@ -132,7 +132,6 @@ public class ChunkEmbeddingService {
 
             } catch (EmbeddingServiceException e) {
                 final String errorMessage = "Failed to embed batch " + (batchStart + 1) + "-" + batchEnd + ". Error: " + e.getMessage();
-                LOGGER.error(errorMessage, e);
                 throw new DocumentProcessingException(errorMessage, e);
             }
         }
