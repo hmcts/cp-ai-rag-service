@@ -45,4 +45,47 @@ class StringUtilTest {
         String result = StringUtil.removeTrailingSlash(value);
         assertEquals("", result);
     }
+
+    @Test
+    void escapeLuceneSpecialChars_returnsEmptyStringWhenInputIsNull() {
+        String result = StringUtil.escapeLuceneSpecialChars(null);
+        assertEquals("", result);
+    }
+
+    @Test
+    void escapeLuceneSpecialChars_returnsEmptyStringWhenInputIsEmpty() {
+        String result = StringUtil.escapeLuceneSpecialChars("");
+        assertEquals("", result);
+    }
+
+    @Test
+    void escapeLuceneSpecialChars_escapesAllReservedCharacters() {
+        String input = "\"`<>#%(){}|\\^~[];/? :@=+-*&";
+        String expected = "\\\"\\`\\<\\>\\#\\%\\(\\)\\{\\}\\|\\\\\\^\\~\\[\\]\\;\\/\\? \\:\\@\\=\\+\\-\\*\\&";
+        String result = StringUtil.escapeLuceneSpecialChars(input);
+        assertEquals(expected, result);
+    }
+
+    @Test
+    void escapeLuceneSpecialChars_escapesBackslashOnlyOnce() {
+        String input = "\\";
+        String expected = "\\\\";
+        String result = StringUtil.escapeLuceneSpecialChars(input);
+        assertEquals(expected, result);
+    }
+
+    @Test
+    void escapeLuceneSpecialChars_leavesUnreservedCharactersUnchanged() {
+        String input = "abc123";
+        String result = StringUtil.escapeLuceneSpecialChars(input);
+        assertEquals("abc123", result);
+    }
+
+    @Test
+    void escapeLuceneSpecialChars_escapesMixedContent() {
+        String input = "abc/def:ghi";
+        String expected = "abc\\/def\\:ghi";
+        String result = StringUtil.escapeLuceneSpecialChars(input);
+        assertEquals(expected, result);
+    }
 }
