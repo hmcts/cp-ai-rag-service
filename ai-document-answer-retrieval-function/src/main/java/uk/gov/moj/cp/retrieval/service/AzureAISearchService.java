@@ -4,12 +4,13 @@ import static java.lang.Integer.parseInt;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_INDEX_NAME;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
+import static uk.gov.moj.cp.ai.util.StringUtil.escapeLuceneSpecialChars;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
+import uk.gov.moj.cp.ai.client.AISearchClientFactory;
 import uk.gov.moj.cp.ai.index.IndexConstants;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
-import uk.gov.moj.cp.ai.client.AISearchClientFactory;
 import uk.gov.moj.cp.retrieval.exception.SearchServiceException;
 
 import java.util.ArrayList;
@@ -60,7 +61,6 @@ public class AzureAISearchService {
             List<KeyValuePair> metadataFilters) throws SearchServiceException {
 
         if (isNullOrEmpty(userQuery) || null == vectorizedUserQuery || vectorizedUserQuery.isEmpty() || null == metadataFilters || metadataFilters.isEmpty()) {
-            LOGGER.error("Search Query or Metadata Filters are null or empty");
             throw new IllegalArgumentException("Search Query or Metadata Filters are null or empty");
         }
 
@@ -99,7 +99,8 @@ public class AzureAISearchService {
 
         // 4. Execute the search
         try {
-            SearchPagedIterable searchResults = searchClient.search(userQuery, searchOptions, Context.NONE); // userQuery for keyword search and semantic ranking
+            final String escapedUserQuery = escapeLuceneSpecialChars(userQuery);
+            SearchPagedIterable searchResults = searchClient.search(escapedUserQuery, searchOptions, Context.NONE); // userQuery for keyword search and semantic ranking
 
             List<ChunkedEntry> chunkedEntries = new ArrayList<>();
             for (SearchResult result : searchResults) {
@@ -133,4 +134,5 @@ public class AzureAISearchService {
         }
         return !filterBuilder.isEmpty() ? filterBuilder.toString() : null;
     }
+
 }
