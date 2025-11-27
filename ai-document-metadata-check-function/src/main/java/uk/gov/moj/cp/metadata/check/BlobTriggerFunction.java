@@ -36,7 +36,7 @@ public class BlobTriggerFunction {
     public void run(
             @BlobTrigger(
                     name = "blob",
-                    path = "documents/{name}",
+                    path = "%STORAGE_ACCOUNT_BLOB_CONTAINER_NAME%/{name}",
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING
             )
             @BindingName("name") String documentName,

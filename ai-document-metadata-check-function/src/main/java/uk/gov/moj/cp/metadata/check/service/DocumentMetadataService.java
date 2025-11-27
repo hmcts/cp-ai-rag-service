@@ -40,16 +40,32 @@ public class DocumentMetadataService {
         BlobClient blobClient = blobClientService.getBlobClient(documentName);
 
         final BlobProperties blobProperties = blobClient.getProperties();
-        if (null == blobProperties || CopyStatusType.SUCCESS != blobProperties.getCopyStatus()) {
-            throw new IllegalStateException("Blob '" + documentName + "' is still being copied.  Copy status is " + (null != blobProperties ? blobProperties.getCopyStatus() : "N/A"));
-        }
+        final boolean blobAvailability = isBlobAvailable(documentName, blobProperties);
 
-        if (!blobClient.exists()) {
+
+        if (!blobAvailability || !blobClient.exists()) {
             throw new MetadataValidationException("Blob not found: " + documentName);
         }
 
         final Map<String, String> metadataMap = new HashMap<>(blobProperties.getMetadata());
         return validateAndNormalizeMetadata(metadataMap, documentName);
+    }
+
+    private boolean isBlobAvailable(final String documentName, final BlobProperties blobProperties) {
+
+        if (null == blobProperties) {
+            // Blob properties should never be null here, but just in case...
+            throw new IllegalStateException("Blob properties for '" + documentName + "' could not be retrieved.");
+        }
+
+        if (CopyStatusType.PENDING == blobProperties.getCopyStatus()) {
+            // Blob is still being copied and happens when using async copy operations
+            throw new IllegalStateException("Blob '" + documentName + "' is still being copied.  Copy status is " + blobProperties.getCopyStatus());
+        }
+
+        //Blob was placed synchronously / atomic operation or  async copy operations has completed with status SUCCESS
+        return null == blobProperties.getCopyStatus() || CopyStatusType.SUCCESS == blobProperties.getCopyStatus();
+
     }
 
     private Map<String, String> validateAndNormalizeMetadata(final Map<String, String> blobMetadata, final String documentName) throws MetadataValidationException {

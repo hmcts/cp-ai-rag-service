@@ -1,11 +1,16 @@
 package uk.gov.moj.cp.orchestrator;
 
 import static io.restassured.RestAssured.given;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
+import static uk.gov.moj.cp.orchestrator.FunctionAppName.ANSWER_RETRIEVAL_FUNCTION;
+import static uk.gov.moj.cp.orchestrator.FunctionAppName.ANSWER_SCORING_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_INGESTION_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_METADATA_CHECK_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_STATUS_CHECK_FUNCTION;
+import static uk.gov.moj.cp.orchestrator.util.BlobUtil.deleteContainer;
+import static uk.gov.moj.cp.orchestrator.util.BlobUtil.ensureContainerExists;
+import static uk.gov.moj.cp.orchestrator.util.TableUtil.ensureTableExists;
 
-import uk.gov.moj.cp.orchestrator.util.AzuriteContainer;
 import uk.gov.moj.cp.orchestrator.util.FunctionHostManager;
 
 import java.io.IOException;
@@ -14,7 +19,9 @@ import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 import io.restassured.specification.RequestSpecification;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.slf4j.Logger;
@@ -34,9 +41,16 @@ public abstract class FunctionTestBase {
     private static final String DOCUMENT_METADATA_CHECK_FUNCTION_DIRECTORY = "../ai-document-metadata-check-function/target/azure-functions/fa-ste-ai-document-metadata-check";
     private static final String DOCUMENT_INGESTION_FUNCTION_DIRECTORY = "../ai-document-ingestion-function/target/azure-functions/fa-ste-ai-document-ingestion";
 
-    private static Map<FunctionAppName, Pair<FunctionHostManager, RequestSpecification>> FUNCTION_CONFIG_MAP;
+    private static final String TEST_RANDOM_KEY = RandomStringUtils.randomAlphanumeric(10).toLowerCase();
+    protected static final String DOCUMENT_LANDING_FOLDER = "test-documents-folder-" + TEST_RANDOM_KEY;
+    protected static final String LLM_EVAL_PAYLOADS_FOLDER = "test-llm-eval-payloads-folder-" + TEST_RANDOM_KEY;
+    protected static final String DOCUMENT_STATUS_OUTCOME_TABLE = "testoutcometable" + TEST_RANDOM_KEY;
+    protected static final String DOCUMENT_INGESTION_QUEUE = "test-ingestion-queue" + TEST_RANDOM_KEY;
+    protected static final String SCORING_QUEUE = "test-scoring-queue" + TEST_RANDOM_KEY;
+    protected static final String STORAGE_ACCOUNT_NAME = "sasteairag";
+    protected static final String BLOB_STORAGE_ACCOUNT_ENDPOINT = String.format("https://%s.blob.core.windows.net/", STORAGE_ACCOUNT_NAME);
 
-    protected static AzuriteContainer AZURITE_CONTAINER;
+    private static Map<FunctionAppName, Pair<FunctionHostManager, RequestSpecification>> FUNCTION_CONFIG_MAP;
 
     private static int getAvailablePort() throws IOException {
         try (ServerSocket socket = new ServerSocket(0)) {
@@ -53,34 +67,55 @@ public abstract class FunctionTestBase {
         final int documentMetadataCheckFunctionPort = getAvailablePort();
         final int documentStatusCheckFunctionPort = getAvailablePort();
 
-        AZURITE_CONTAINER = new AzuriteContainer("mcr.microsoft.com/azure-storage/azurite:3.33.0");
-        AZURITE_CONTAINER.start();
-        AZURITE_CONTAINER.ensureContainerExists("azure-webjobs-secrets");
-        AZURITE_CONTAINER.ensureContainerExists("azure-webjobs-hosts");
-        AZURITE_CONTAINER.ensureContainerExists("documents");
-        AZURITE_CONTAINER.ensureTableExists("documentingestiontable");
+        ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_LANDING_FOLDER);
+        ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, LLM_EVAL_PAYLOADS_FOLDER);
+        ensureTableExists("https://sasteairag.table.core.windows.net", DOCUMENT_STATUS_OUTCOME_TABLE);
 
         FUNCTION_CONFIG_MAP = Map.of(
                 DOCUMENT_METADATA_CHECK_FUNCTION, getFunctionConfig(documentMetadataCheckFunctionPort, DOCUMENT_METADATA_CHECK_FUNCTION_DIRECTORY),
                 DOCUMENT_STATUS_CHECK_FUNCTION, getFunctionConfig(documentStatusCheckFunctionPort, DOCUMENT_STATUS_CHECK_FUNCTION_DIRECTORY),
-                DOCUMENT_INGESTION_FUNCTION, getFunctionConfig(documentIngestionFunctionPort, DOCUMENT_INGESTION_FUNCTION_DIRECTORY)
-//                ANSWER_RETRIEVAL_FUNCTION, getFunctionConfig(answerRetrievalFunctionPort, ANSWER_RETRIEVAL_FUNCTION_DIRECTORY),
-//                ANSWER_SCORING_FUNCTION, getFunctionConfig(answerScoringFunctionPort, ANSWER_SCORING_FUNCTION_DIRECTORY),
+                DOCUMENT_INGESTION_FUNCTION, getFunctionConfig(documentIngestionFunctionPort, DOCUMENT_INGESTION_FUNCTION_DIRECTORY),
+                ANSWER_RETRIEVAL_FUNCTION, getFunctionConfig(answerRetrievalFunctionPort, ANSWER_RETRIEVAL_FUNCTION_DIRECTORY),
+                ANSWER_SCORING_FUNCTION, getFunctionConfig(answerScoringFunctionPort, ANSWER_SCORING_FUNCTION_DIRECTORY)
         );
 
         FUNCTION_CONFIG_MAP.values().forEach(fcm -> {
             try {
-                fcm.getLeft().start(Map.of(
-                        "AzureWebJobsStorage", AZURITE_CONTAINER.getConnectionString(),
-                        "AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING", AZURITE_CONTAINER.getConnectionString(),
-                        "AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE", "CONNECTION_STRING")
-                );
+                fcm.getLeft().start(setupEnvVarMap());
             } catch (IOException | InterruptedException | TimeoutException e) {
                 throw new RuntimeException(e);
             }
         });
 
 
+    }
+
+    private static @NotNull Map<String, String> setupEnvVarMap() {
+        return Map.ofEntries(
+                Map.entry("AzureWebJobsStorage", getRequiredEnv("AzureWebJobsStorage")),
+                Map.entry("AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING__accountName", getRequiredEnv("AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING__accountName")),
+                Map.entry("STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME", DOCUMENT_STATUS_OUTCOME_TABLE),
+                Map.entry("STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION", DOCUMENT_INGESTION_QUEUE),
+                Map.entry("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME", DOCUMENT_LANDING_FOLDER),
+                Map.entry("STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING", SCORING_QUEUE),
+                Map.entry("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS", LLM_EVAL_PAYLOADS_FOLDER),
+
+                Map.entry("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", getRequiredEnv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")),
+
+                Map.entry("AZURE_SEARCH_SERVICE_ENDPOINT", getRequiredEnv("AZURE_SEARCH_SERVICE_ENDPOINT")),
+                Map.entry("AZURE_SEARCH_SERVICE_INDEX_NAME", getRequiredEnv("AZURE_SEARCH_SERVICE_INDEX_NAME")),
+
+                Map.entry("AZURE_EMBEDDING_SERVICE_ENDPOINT", getRequiredEnv("AZURE_EMBEDDING_SERVICE_ENDPOINT")),
+                Map.entry("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME", getRequiredEnv("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME")),
+
+                Map.entry("AZURE_OPENAI_ENDPOINT", getRequiredEnv("AZURE_OPENAI_ENDPOINT")),
+                Map.entry("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", getRequiredEnv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME")),
+
+                Map.entry("AZURE_JUDGE_OPENAI_ENDPOINT", getRequiredEnv("AZURE_JUDGE_OPENAI_ENDPOINT")),
+                Map.entry("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME", getRequiredEnv("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME")),
+
+                Map.entry("RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING", getRequiredEnv("RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING"))
+        );
     }
 
 
@@ -94,7 +129,9 @@ public abstract class FunctionTestBase {
             pair.getLeft().stop();
         });
 
-        AZURITE_CONTAINER.stop();
+        deleteContainer(BLOB_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_LANDING_FOLDER);
+        deleteContainer(BLOB_STORAGE_ACCOUNT_ENDPOINT, LLM_EVAL_PAYLOADS_FOLDER);
+
     }
 
     private static Pair<FunctionHostManager, RequestSpecification> getFunctionConfig(final Integer port, final String appDirectory) {
