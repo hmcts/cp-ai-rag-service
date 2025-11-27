@@ -46,7 +46,7 @@ class DocumentMetadataServiceTest {
     }
 
     @Test
-    @DisplayName("Process Blob Metadata Successfully with Valid Data")
+    @DisplayName("Process Blob Metadata Successfully with Valid Data when blob successfully copied asynchronously")
     void shouldProcessDocumentMetadataSuccessfully() throws MetadataValidationException {
         // given
         String documentName = "test.pdf";
@@ -73,18 +73,49 @@ class DocumentMetadataServiceTest {
         verify(blobClientService).getBlobClient(documentName);
         verify(blobClient).exists();
         verify(blobClient).getProperties();
-        verify(blobProperties).getCopyStatus();
+        verify(blobProperties, atLeast(1)).getCopyStatus();
     }
 
     @Test
-    @DisplayName("Throw Exception When Blob copy status is not SUCCESS")
+    @DisplayName("Process Blob Metadata Successfully with Valid Data when blob successfully copied using atomic operation")
+    void shouldProcessDocumentMetadataSuccessfullyWithVBlobCopiedSynchronously() throws MetadataValidationException {
+        // given
+        String documentName = "test.pdf";
+        Map<String, String> expectedMetadata = new HashMap<>();
+        expectedMetadata.put("document_id", "123e4567-e89b-12d3-a456-426614174000");
+        expectedMetadata.put("metadata", "{\"case_id\":\"b99704aa-b1b1-4d5f-bb39-47dc3f18ffa9\",\"document_type\":\"MCC\"}");
+
+        when(blobClientService.getBlobClient(documentName)).thenReturn(blobClient);
+        when(blobClient.exists()).thenReturn(true);
+        when(blobClient.getProperties()).thenReturn(blobProperties);
+        when(blobProperties.getCopyStatus()).thenReturn(null);
+        when(blobProperties.getMetadata()).thenReturn(expectedMetadata);
+
+        // when
+        Map<String, String> result = documentMetadataService.processDocumentMetadata(documentName);
+
+        // then
+        assertNotNull(result);
+        assertEquals("123e4567-e89b-12d3-a456-426614174000", result.get("document_id"));
+        assertEquals("b99704aa-b1b1-4d5f-bb39-47dc3f18ffa9", result.get("case_id"));
+        assertEquals("MCC", result.get("document_type"));
+        // The nested metadata should be flattened and the original "metadata" key should be removed
+        assertNull(result.get("metadata"));
+        verify(blobClientService).getBlobClient(documentName);
+        verify(blobClient).exists();
+        verify(blobClient).getProperties();
+        verify(blobProperties, atLeast(1)).getCopyStatus();
+    }
+
+    @Test
+    @DisplayName("Throw Exception When Blob copy status is PENDING")
     void shouldThrowExceptionWhenBlobCopyStatusIsNotSuccess() {
         // given
         String documentName = "test.pdf";
 
         when(blobClientService.getBlobClient(documentName)).thenReturn(blobClient);
         when(blobClient.getProperties()).thenReturn(blobProperties);
-        when(blobProperties.getCopyStatus()).thenReturn(CopyStatusType.FAILED);
+        when(blobProperties.getCopyStatus()).thenReturn(CopyStatusType.PENDING);
 
         assertThrows(IllegalStateException.class, () -> documentMetadataService.processDocumentMetadata(documentName));
 

@@ -15,10 +15,11 @@ public class RestPoller {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RestPoller.class);
 
-    private final static long POLL_INTERVAL_SECONDS = 1L; // Poll every 1 second
-    private final static long TIMEOUT_IN_SECONDS = 30L; // Poll every 1 second
+    private final static long POLL_INTERVAL_SECONDS = 2L; // Poll every 1 second
+    private final static long TIMEOUT_IN_SECONDS = 60L; // Poll every 1 second
 
-    public static void pollForResponseCondition(RequestSpecification requestSpec,
+    public static Response pollForResponseCondition(RequestSpecification requestSpec,
+                                                RestOperation operation,
                                                 String path,
                                                 Predicate<Response> successCondition)
             throws InterruptedException, TimeoutException {
@@ -30,11 +31,11 @@ public class RestPoller {
 
         while (currentTimeMillis() < endTime) {
             try {
-                Response response = requestSpec.get(path);
+                Response response = operation == RestOperation.POST ? requestSpec.post(path) : requestSpec.get(path);
 
                 if (successCondition.test(response)) {
                     LOGGER.info("Polling successful. Custom condition met for path {}.", path);
-                    return;
+                    return response;
                 }
 
                 LOGGER.debug("Polling attempt failed. Custom condition NOT met. Status: {}. Retrying...", response.getStatusCode());

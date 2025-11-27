@@ -6,10 +6,13 @@
     <parent>
         <groupId>uk.gov.moj.cp.azure.ragservice</groupId>
         <artifactId>cp-ai-rag-service</artifactId>
-        <version>17.0.35-SNAPSHOT</version>
+        <version>17.0.36-SNAPSHOT</version>
     </parent>
 
     <artifactId>ai-service-orchestration-test</artifactId>
+    <packaging>jar</packaging>
+    <name>Test Module For Orchestration</name>
+    <description>Module to test the orchestration of function apps and end to end functionality</description>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
@@ -45,6 +48,12 @@
             <artifactId>testcontainers</artifactId>
             <version>2.0.2</version>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>uk.gov.moj.cp.azure.ragservice</groupId>
+            <artifactId>ai-document-shared-artefacts</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
         <dependency>
