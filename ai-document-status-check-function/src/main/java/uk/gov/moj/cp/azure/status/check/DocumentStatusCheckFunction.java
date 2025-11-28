@@ -31,6 +31,9 @@ import org.slf4j.LoggerFactory;
 public class DocumentStatusCheckFunction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentStatusCheckFunction.class);
+    private static final String RESPONSE_CONTENT_TYPE_HEADER = "Content-Type";
+    private static final String RESPONSE_CONTENT_TYPE_VALUE = "application/json";
+    private static final String QUERY_PARAM_DOCUMENT_NAME = "document-name";
 
     private final TableStorageService tableStorageService;
 
@@ -58,11 +61,11 @@ public class DocumentStatusCheckFunction {
             HttpRequestMessage<Optional<String>> request,
             final ExecutionContext context) {
 
-        String documentName = request.getQueryParameters().get("document-name");
+        String documentName = request.getQueryParameters().get(QUERY_PARAM_DOCUMENT_NAME);
         if (isNullOrEmpty(documentName)) {
             LOGGER.error("Missing required parameter: document-name");
             return request.createResponseBuilder(HttpStatus.BAD_REQUEST)
-                    .header("Content-Type", "application/json")
+                    .header(RESPONSE_CONTENT_TYPE_HEADER, RESPONSE_CONTENT_TYPE_VALUE)
                     .body(new DocumentUnknownResponse("N/A", "Missing required query parameter: document-name"))
                     .build();
         }
@@ -74,18 +77,18 @@ public class DocumentStatusCheckFunction {
             if (nonNull(firstDocumentMatching)) {
                 return request.createResponseBuilder(HttpStatus.OK)
                         .body(generateResponse(firstDocumentMatching))
-                        .header("Content-Type", "application/json")
+                        .header(RESPONSE_CONTENT_TYPE_HEADER, RESPONSE_CONTENT_TYPE_VALUE)
                         .build();
             }
 
             return request.createResponseBuilder(HttpStatus.NOT_FOUND)
-                    .header("Content-Type", "application/json")
+                    .header(RESPONSE_CONTENT_TYPE_HEADER, RESPONSE_CONTENT_TYPE_VALUE)
                     .body(new DocumentUnknownResponse(documentName, "Unknown file with name"))
                     .build();
 
         } catch (EntityRetrievalException e) {
             return request.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .header("Content-Type", "application/json")
+                    .header(RESPONSE_CONTENT_TYPE_HEADER, RESPONSE_CONTENT_TYPE_VALUE)
                     .body(new DocumentUnknownResponse(documentName, "Error retrieving status for document name"))
                     .build();
         }
