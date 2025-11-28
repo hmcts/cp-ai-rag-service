@@ -12,8 +12,10 @@ import static uk.gov.moj.cp.ai.util.StringUtil.removeTrailingSlash;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
+import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ai.service.TableStorageService;
+import uk.gov.moj.cp.metadata.check.exception.DataRetrievalException;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
 
 import java.time.Instant;
@@ -34,6 +36,8 @@ public class IngestionOrchestratorService {
     private static final String DOCUMENT_ID = "document_id";
     private static final String UNKNOWN_DOCUMENT = "UNKNOWN_DOCUMENT";
 
+    private static final String DUPLICATE_RECORD_LOG_MESSAGE = "Duplicate record found when attempting to record outcome for document '{}'.  Skipping remainder of ingestion.";
+
     private final DocumentMetadataService documentMetadataService;
     private final TableStorageService tableStorageService;
 
@@ -52,43 +56,48 @@ public class IngestionOrchestratorService {
     public void processDocument(final String documentName, final OutputBinding<String> queueMessage) {
 
         try {
-            final DocumentIngestionOutcome firstDocumentMatching = tableStorageService.getFirstDocumentMatching(documentName);
-            if (null != firstDocumentMatching) {
-                LOGGER.info("Document '{}' is already processed and has status '{}'.  Skipping further processing", documentName, firstDocumentMatching.getStatus());
-                return;
-            }
+
+            if (isDocumentAlreadyProcessed(documentName)) return;
 
             final Map<String, String> metadata = documentMetadataService.processDocumentMetadata(documentName);
+
             final String documentId = metadata.get(DOCUMENT_ID);
 
             LOGGER.info("Metadata for document '{}' with ID '{}' validated successfully", documentName, documentId);
 
             final QueueIngestionMetadata queueIngestionMetadata = createQueueMessage(documentName, metadata);
 
-            try {
-                recordOutcome(documentName, documentId,
-                        METADATA_VALIDATED.name(), METADATA_VALIDATED.getReason());
-            } catch (DuplicateRecordException e) {
-                LOGGER.warn("Duplicate record found when attempting to record outcome for document '{}' with ID '{}'.  Skipping remainder of ingestion.", documentName, documentId);
-                return;
-            }
+            recordOutcome(documentName, documentId, METADATA_VALIDATED.name(), METADATA_VALIDATED.getReason());
 
             queueMessage.setValue(getObjectMapper().writeValueAsString(queueIngestionMetadata));
             LOGGER.info("Message placed on queue for ingestion for document '{}' with ID '{}'", documentName, documentId);
 
-
-        } catch (MetadataValidationException ex) {
+        } catch (final MetadataValidationException ex) {
             LOGGER.error("Metadata validation failed for document '{}' for reason '{}'", documentName, ex.getMessage());
             try {
                 recordOutcome(documentName, UNKNOWN_DOCUMENT, INVALID_METADATA.name(), ex.getMessage());
             } catch (DuplicateRecordException e) {
-                LOGGER.warn("Duplicate record found when attempting to record outcome for document '{}' with ID '{}'.  Skipping remainder of ingestion.", documentName, UNKNOWN_DOCUMENT);
-                return;
+                LOGGER.info(DUPLICATE_RECORD_LOG_MESSAGE, documentName);
             }
-
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Unable to serialize message and publish to queue for document '" + documentName + "'", e);
+        } catch (DuplicateRecordException e) {
+            LOGGER.info(DUPLICATE_RECORD_LOG_MESSAGE, documentName);
         }
+    }
+
+
+    private boolean isDocumentAlreadyProcessed(final String documentName) {
+        try {
+            final DocumentIngestionOutcome firstDocumentMatching = tableStorageService.getFirstDocumentMatching(documentName);
+            if (null != firstDocumentMatching) {
+                LOGGER.info("Document '{}' is already processed and has status '{}'.  Skipping further processing", documentName, firstDocumentMatching.getStatus());
+                return true;
+            }
+        } catch (EntityRetrievalException e) {
+            throw new DataRetrievalException("Unable to check status of document in table storage", e);
+        }
+        return false;
     }
 
     /**

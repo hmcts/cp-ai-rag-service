@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.ai.service;
 
+import static com.azure.data.tables.models.TableErrorCode.AUTHORIZATION_RESOURCE_TYPE_MISMATCH;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -7,16 +8,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static uk.gov.moj.cp.ai.util.RowKeyUtil.generateKeyForRowAndPartition;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
+import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 
-import java.util.stream.Stream;
-
-import com.azure.core.http.rest.PagedIterable;
 import com.azure.data.tables.TableClient;
 import com.azure.data.tables.models.TableEntity;
 import com.azure.data.tables.models.TableServiceError;
@@ -49,8 +48,8 @@ class TableStorageServiceTest {
     @Test
     @DisplayName("Successfully inserts document outcome")
     void successfullyInsertsDocumentOutcome() throws DuplicateRecordException {
-        TableClient tableClientMock = mock(TableClient.class);
-        TableStorageService service = new TableStorageService(tableClientMock);
+        final TableClient tableClientMock = mock(TableClient.class);
+        final TableStorageService service = new TableStorageService(tableClientMock);
 
         service.insertIntoTable("docName", "docId", "status", "reason");
 
@@ -60,8 +59,8 @@ class TableStorageServiceTest {
     @Test
     @DisplayName("Successfully upserts document outcome")
     void successfullyUpsertsDocumentOutcome() {
-        TableClient tableClientMock = mock(TableClient.class);
-        TableStorageService service = new TableStorageService(tableClientMock);
+        final TableClient tableClientMock = mock(TableClient.class);
+        final TableStorageService service = new TableStorageService(tableClientMock);
 
         service.upsertIntoTable("docName", "docId", "status", "reason");
 
@@ -71,8 +70,8 @@ class TableStorageServiceTest {
     @Test
     @DisplayName("Throws exception when insert fails due to duplicate record")
     void throwsExceptionWhenInsertFailsDueToDuplicateRecord() {
-        TableClient tableClientMock = mock(TableClient.class);
-        TableStorageService service = new TableStorageService(tableClientMock);
+        final TableClient tableClientMock = mock(TableClient.class);
+        final TableStorageService service = new TableStorageService(tableClientMock);
         doThrow(new TableServiceException("Upsert failed", null, new TableServiceError("EntityAlreadyExists", "some error message"))).when(tableClientMock).createEntity(any(TableEntity.class));
 
         assertThrows(DuplicateRecordException.class,
@@ -83,8 +82,8 @@ class TableStorageServiceTest {
     @Test
     @DisplayName("Logs and throws runtime exception when upsert fails")
     void logsAndThrowsRuntimeExceptionWhenUpsertFails() {
-        TableClient tableClientMock = mock(TableClient.class);
-        TableStorageService service = new TableStorageService(tableClientMock);
+        final TableClient tableClientMock = mock(TableClient.class);
+        final TableStorageService service = new TableStorageService(tableClientMock);
         doThrow(new RuntimeException("Upsert failed")).when(tableClientMock).upsertEntity(any(TableEntity.class));
 
         RuntimeException exception = assertThrows(RuntimeException.class,
@@ -95,60 +94,88 @@ class TableStorageServiceTest {
 
     @Test
     @DisplayName("Returns document outcome when matching entity is found")
-    void returnsDocumentOutcomeWhenMatchingEntityIsFound() {
-        TableClient tableClientMock = mock(TableClient.class);
-        TableStorageService service = new TableStorageService(tableClientMock);
+    void returnsDocumentOutcomeWhenMatchingEntityIsFound() throws EntityRetrievalException {
+        final TableClient tableClientMock = mock(TableClient.class);
+        final TableStorageService service = new TableStorageService(tableClientMock);
 
-        TableEntity entity = new TableEntity("partitionKey", "rowKey")
+        final String docName = "docName";
+        final TableEntity entity = new TableEntity("partitionKey", "rowKey")
                 .addProperty("DocumentId", "docId")
-                .addProperty("DocumentFileName", "docName")
+                .addProperty("DocumentFileName", docName)
                 .addProperty("DocumentStatus", "status")
                 .addProperty("Reason", "reason");
-        PagedIterable<TableEntity> mockPagedIterable = mock(PagedIterable.class);
-        when(tableClientMock.listEntities(any(), any(), any())).thenReturn(mockPagedIterable);
-        when(mockPagedIterable.stream()).thenReturn(Stream.of(entity));
+        when(tableClientMock.getEntity(generateKeyForRowAndPartition(docName), generateKeyForRowAndPartition(docName))).thenReturn(entity);
 
-        DocumentIngestionOutcome outcome = service.getFirstDocumentMatching("docName");
+        DocumentIngestionOutcome outcome = service.getFirstDocumentMatching(docName);
 
         assertNotNull(outcome);
         assertEquals("docId", outcome.getDocumentId());
-        assertEquals("docName", outcome.getDocumentName());
+        assertEquals(docName, outcome.getDocumentName());
         assertEquals("status", outcome.getStatus());
         assertEquals("reason", outcome.getReason());
     }
 
     @Test
     @DisplayName("Returns null when no matching entity is found")
-    void returnsNullWhenNoMatchingEntityIsFound() {
-        TableClient tableClientMock = mock(TableClient.class);
-        TableStorageService service = new TableStorageService(tableClientMock);
+    void returnsNullWhenNoMatchingEntityIsFound() throws EntityRetrievalException {
+        final String docName = "docName";
+        final TableClient tableClientMock = mock(TableClient.class);
+        final TableStorageService service = new TableStorageService(tableClientMock);
 
-        PagedIterable<TableEntity> mockPagedIterable = mock(PagedIterable.class);
-        when(tableClientMock.listEntities(any(), any(), any())).thenReturn(mockPagedIterable);
-        when(mockPagedIterable.stream()).thenReturn(Stream.empty());
+        when(tableClientMock.getEntity(generateKeyForRowAndPartition(docName), generateKeyForRowAndPartition(docName)))
+                .thenThrow(new TableServiceException("Entity not found", null, new TableServiceError("EntityNotFound", "some error message")));
 
-        DocumentIngestionOutcome outcome = service.getFirstDocumentMatching("docName");
+        final DocumentIngestionOutcome outcome = service.getFirstDocumentMatching(docName);
 
         assertNull(outcome);
     }
 
     @Test
+    @DisplayName("Throws exception when another error code supplied with table service exception")
+    void throwsExceptionWhenTableServiceExceptionThrownWithDifferentCode() {
+        final String docName = "docName";
+        final TableClient tableClientMock = mock(TableClient.class);
+        final TableStorageService service = new TableStorageService(tableClientMock);
+
+        when(tableClientMock.getEntity(generateKeyForRowAndPartition(docName), generateKeyForRowAndPartition(docName)))
+                .thenThrow(new TableServiceException("Entity not found", null, new TableServiceError(AUTHORIZATION_RESOURCE_TYPE_MISMATCH.getValue(), "some error message")));
+
+        assertThrows(EntityRetrievalException.class, () -> service.getFirstDocumentMatching(docName));
+
+    }
+
+    @Test
+    @DisplayName("Throws exception when another error code supplied with table service exception")
+    void throwsExceptionWhenAnyOtherExceptionThrown() {
+        final String docName = "docName";
+        final TableClient tableClientMock = mock(TableClient.class);
+        final TableStorageService service = new TableStorageService(tableClientMock);
+
+        when(tableClientMock.getEntity(generateKeyForRowAndPartition(docName), generateKeyForRowAndPartition(docName)))
+                .thenThrow(new RuntimeException());
+
+        assertThrows(EntityRetrievalException.class, () -> service.getFirstDocumentMatching(docName));
+
+    }
+
+    @Test
     @DisplayName("Handles null properties gracefully when mapping entity to DocumentIngestionOutcome")
-    void handlesNullPropertiesGracefullyWhenMappingEntityToDocumentIngestionOutcome() {
-        TableClient tableClientMock = mock(TableClient.class);
-        TableStorageService service = new TableStorageService(tableClientMock);
+    void handlesNullPropertiesGracefullyWhenMappingEntityToDocumentIngestionOutcome() throws EntityRetrievalException {
+        final String docName = "docName";
+        final TableClient tableClientMock = mock(TableClient.class);
+        final TableStorageService service = new TableStorageService(tableClientMock);
 
-        TableEntity entity = new TableEntity("partitionKey", "rowKey");
-        PagedIterable<TableEntity> mockPagedIterable = mock(PagedIterable.class);
-        when(tableClientMock.listEntities(any(), any(), any())).thenReturn(mockPagedIterable);
-        when(mockPagedIterable.stream()).thenReturn(Stream.of(entity));
+        final TableEntity entity = new TableEntity("partitionKey", "rowKey");
+        when(tableClientMock.getEntity(generateKeyForRowAndPartition(docName), generateKeyForRowAndPartition(docName))).thenReturn(entity);
 
-        DocumentIngestionOutcome outcome = service.getFirstDocumentMatching("docName");
+        DocumentIngestionOutcome outcome = service.getFirstDocumentMatching(docName);
 
         assertNotNull(outcome);
         assertNull(outcome.getDocumentId());
         assertNull(outcome.getDocumentName());
         assertNull(outcome.getStatus());
         assertNull(outcome.getReason());
+
+        verify(tableClientMock).getEntity(generateKeyForRowAndPartition(docName), generateKeyForRowAndPartition(docName));
     }
 }

@@ -5,19 +5,17 @@ import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_ID;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_STATUS;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_REASON;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_TIMESTAMP;
-import static uk.gov.moj.cp.ai.util.RowKeyUtil.generateRowKey;
+import static uk.gov.moj.cp.ai.util.RowKeyUtil.generateKeyForRowAndPartition;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.client.TableClientFactory;
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
+import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 
 import java.util.Objects;
-import java.util.Optional;
-import java.util.stream.Stream;
 
 import com.azure.data.tables.TableClient;
-import com.azure.data.tables.models.ListEntitiesOptions;
 import com.azure.data.tables.models.TableEntity;
 import com.azure.data.tables.models.TableErrorCode;
 import com.azure.data.tables.models.TableServiceException;
@@ -78,23 +76,25 @@ public class TableStorageService {
         }
     }
 
-    public DocumentIngestionOutcome getFirstDocumentMatching(String documentName) {
-        String rowAndPartitionKey = generateRowKey(documentName);
+    public DocumentIngestionOutcome getFirstDocumentMatching(String documentName) throws EntityRetrievalException {
+        String rowAndPartitionKey = generateKeyForRowAndPartition(documentName);
 
-        String filter = String.format("RowKey eq '%s'", rowAndPartitionKey);
-
-        final ListEntitiesOptions options = new ListEntitiesOptions().setFilter(filter).setTop(1);
-        Stream<TableEntity> entities = tableClient.listEntities(options, null, null).stream();
-
-        Optional<TableEntity> foundEntity = entities.findFirst();
-
-        return foundEntity.map(fe -> new DocumentIngestionOutcome(
-                getPropertyAsString(fe.getProperty(TC_DOCUMENT_ID)),
-                getPropertyAsString(fe.getProperty(TC_DOCUMENT_FILE_NAME)),
-                getPropertyAsString(fe.getProperty(TC_DOCUMENT_STATUS)),
-                getPropertyAsString(fe.getProperty(TC_REASON)),
-                getPropertyAsString(fe.getProperty(TC_TIMESTAMP)))
-        ).orElse(null);
+        try {
+            final TableEntity entity = tableClient.getEntity(rowAndPartitionKey, rowAndPartitionKey);
+            return new DocumentIngestionOutcome(
+                    getPropertyAsString(entity.getProperty(TC_DOCUMENT_ID)),
+                    getPropertyAsString(entity.getProperty(TC_DOCUMENT_FILE_NAME)),
+                    getPropertyAsString(entity.getProperty(TC_DOCUMENT_STATUS)),
+                    getPropertyAsString(entity.getProperty(TC_REASON)),
+                    getPropertyAsString(entity.getProperty(TC_TIMESTAMP)));
+        } catch (final TableServiceException tse) {
+            if (tse.getValue().getErrorCode() == TableErrorCode.ENTITY_NOT_FOUND || tse.getValue().getErrorCode() == TableErrorCode.RESOURCE_NOT_FOUND) {
+                return null;
+            }
+            throw new EntityRetrievalException("Failed to retrieve record for document '" + documentName + "'", tse);
+        } catch (Exception e) {
+            throw new EntityRetrievalException("Failed to retrieve record for document '" + documentName + "'", e);
+        }
     }
 
     private String getPropertyAsString(final Object value) {
@@ -104,8 +104,8 @@ public class TableStorageService {
         return null;
     }
 
-    private static TableEntity getTableEntity(final String documentName, final String documentId, final String status, final String reason) {
-        final String rowAndPartitionKey = generateRowKey(documentName);
+    private TableEntity getTableEntity(final String documentName, final String documentId, final String status, final String reason) {
+        final String rowAndPartitionKey = generateKeyForRowAndPartition(documentName);
 
         TableEntity entity = new TableEntity(rowAndPartitionKey, rowAndPartitionKey);
         entity.addProperty(TC_DOCUMENT_FILE_NAME, documentName);

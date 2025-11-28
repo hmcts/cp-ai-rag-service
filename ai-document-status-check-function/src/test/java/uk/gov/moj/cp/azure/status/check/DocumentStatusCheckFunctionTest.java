@@ -1,18 +1,17 @@
 package uk.gov.moj.cp.azure.status.check;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static uk.org.webcompere.modelassert.json.JsonAssertions.json;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
+import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.service.TableStorageService;
 import uk.gov.moj.cp.azure.status.check.model.DocumentStatusRetrievedResponse;
+import uk.gov.moj.cp.azure.status.check.model.DocumentUnknownResponse;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -23,7 +22,6 @@ import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -53,8 +51,7 @@ class DocumentStatusCheckFunctionTest {
     }
 
     @Test
-    @DisplayName("returnsOkResponseWhenDocumentIsFound")
-    void returnsOkResponseWhenDocumentIsFound() {
+    void returnsOkResponseWhenDocumentIsFound() throws EntityRetrievalException {
         String documentName = "test-document";
         DocumentIngestionOutcome outcome = new DocumentIngestionOutcome("123", documentName, "COMPLETED", "No issues", "2023-10-01T10:00:00Z");
         when(tableStorageService.getFirstDocumentMatching(documentName)).thenReturn(outcome);
@@ -72,7 +69,7 @@ class DocumentStatusCheckFunctionTest {
 
         function.run(mockRequest, mockContext);
 
-        ArgumentCaptor<DocumentStatusRetrievedResponse> bodyCaptor = ArgumentCaptor.forClass(DocumentStatusRetrievedResponse.class);
+        final ArgumentCaptor<DocumentStatusRetrievedResponse> bodyCaptor = ArgumentCaptor.forClass(DocumentStatusRetrievedResponse.class);
 
         verify(mockResponseBuilder).header("Content-Type", "application/json");
         verify(mockResponseBuilder).build();
@@ -88,8 +85,7 @@ class DocumentStatusCheckFunctionTest {
     }
 
     @Test
-    @DisplayName("returnsNotFoundResponseWhenDocumentIsNotFound")
-    void returnsNotFoundResponseWhenDocumentIsNotFound() {
+    void returnsNotFoundResponseWhenDocumentIsNotFound() throws EntityRetrievalException {
         String documentName = "non-existent-document";
         when(tableStorageService.getFirstDocumentMatching(documentName)).thenReturn(null);
 
@@ -110,15 +106,45 @@ class DocumentStatusCheckFunctionTest {
     }
 
     @Test
-    @DisplayName("throwsExceptionWhenDocumentNameIsMissing")
-    void throwsExceptionWhenDocumentNameIsMissing() {
+    void returnsServerErrorResponseWhenErroringWhilstRetrievingEntity() throws EntityRetrievalException {
+        String documentName = "random-document";
+        when(tableStorageService.getFirstDocumentMatching(documentName)).thenThrow(EntityRetrievalException.class);
+
         Map<String, String> queryParams = new HashMap<>();
+        queryParams.put("document-name", documentName);
         when(mockRequest.getQueryParameters()).thenReturn(queryParams);
+        when(mockRequest.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR)).thenReturn(mockResponseBuilder);
+        when(mockResponseBuilder.body(any())).thenReturn(mockResponseBuilder);
+        when(mockResponseBuilder.header(anyString(), anyString())).thenReturn(mockResponseBuilder);
+        when(mockResponseBuilder.build()).thenReturn(mock(HttpResponseMessage.class));
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            function.run(mockRequest, mockContext);
-        });
+        HttpResponseMessage response = function.run(mockRequest, mockContext);
 
-        assertEquals("Query parameter `document-name` is required and cannot be null or empty.", exception.getMessage());
+        verify(mockResponseBuilder).header("Content-Type", "application/json");
+        verify(mockResponseBuilder).build();
+
+        final ArgumentCaptor<DocumentUnknownResponse> bodyCaptor = ArgumentCaptor.forClass(DocumentUnknownResponse.class);
+        verify(mockResponseBuilder).body(bodyCaptor.capture());
+        DocumentUnknownResponse capturedBody = bodyCaptor.getValue();
+        assertEquals(documentName, capturedBody.documentName());
+    }
+
+    @Test
+    void throwsExceptionWhenDocumentNameIsMissing() {
+        final Map<String, String> queryParams = new HashMap<>();
+        when(mockRequest.getQueryParameters()).thenReturn(queryParams);
+        when(mockRequest.createResponseBuilder(HttpStatus.BAD_REQUEST)).thenReturn(mockResponseBuilder);
+        when(mockResponseBuilder.header("Content-Type", "application/json")).thenReturn(mockResponseBuilder);
+        when(mockResponseBuilder.body(any())).thenReturn(mockResponseBuilder);
+
+        final HttpResponseMessage response = function.run(mockRequest, mockContext);
+
+        verify(mockResponseBuilder).header("Content-Type", "application/json");
+        verify(mockResponseBuilder).build();
+
+        final ArgumentCaptor<DocumentUnknownResponse> bodyCaptor = ArgumentCaptor.forClass(DocumentUnknownResponse.class);
+        verify(mockResponseBuilder).body(bodyCaptor.capture());
+        DocumentUnknownResponse capturedBody = bodyCaptor.getValue();
+        assertEquals("N/A", capturedBody.documentName());
     }
 }

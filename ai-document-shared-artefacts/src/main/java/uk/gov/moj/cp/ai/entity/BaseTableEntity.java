@@ -1,8 +1,5 @@
 package uk.gov.moj.cp.ai.entity;
 
-import static uk.gov.moj.cp.ai.util.RowKeyUtil.generateRowKey;
-import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
-
 public abstract class BaseTableEntity {
 
     private String partitionKey;
@@ -24,19 +21,4 @@ public abstract class BaseTableEntity {
         this.rowKey = rowKey;
     }
 
-    /**
-     * Automatically generates a partition key for current date (YYYYMMDD format).
-     */
-    public void generateDefaultPartitionKey(String documentId) {
-        this.partitionKey = isNullOrEmpty(documentId)
-                ? "UNKNOWN_DOCUMENT"
-                : documentId.trim();
-    }
-
-    /**
-     * Generates a deterministic RowKey from a name
-     */
-    public void generateRowKeyFrom(String name) {
-        this.rowKey = generateRowKey(name);
-    }
 }
