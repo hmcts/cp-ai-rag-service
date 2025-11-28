@@ -4,9 +4,10 @@ import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTI
 import static java.util.Objects.nonNull;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
-import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
+import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
+import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.service.TableStorageService;
 import uk.gov.moj.cp.azure.status.check.model.DocumentStatusRetrievedResponse;
 import uk.gov.moj.cp.azure.status.check.model.DocumentUnknownResponse;
@@ -30,6 +31,9 @@ import org.slf4j.LoggerFactory;
 public class DocumentStatusCheckFunction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentStatusCheckFunction.class);
+    private static final String RESPONSE_CONTENT_TYPE_HEADER = "Content-Type";
+    private static final String RESPONSE_CONTENT_TYPE_VALUE = "application/json";
+    private static final String QUERY_PARAM_DOCUMENT_NAME = "document-name";
 
     private final TableStorageService tableStorageService;
 
@@ -57,24 +61,39 @@ public class DocumentStatusCheckFunction {
             HttpRequestMessage<Optional<String>> request,
             final ExecutionContext context) {
 
-        String documentName = request.getQueryParameters().get("document-name");
-        validateNullOrEmpty(documentName, "Query parameter `document-name` is required and cannot be null or empty.");
-
-        LOGGER.info("Retrieving status for document name: {}", documentName);
-
-        final DocumentIngestionOutcome firstDocumentMatching = tableStorageService.getFirstDocumentMatching(documentName);
-
-        if (nonNull(firstDocumentMatching)) {
-            return request.createResponseBuilder(HttpStatus.OK)
-                    .body(generateResponse(firstDocumentMatching))
-                    .header("Content-Type", "application/json")
+        String documentName = request.getQueryParameters().get(QUERY_PARAM_DOCUMENT_NAME);
+        if (isNullOrEmpty(documentName)) {
+            LOGGER.error("Missing required parameter: document-name");
+            return request.createResponseBuilder(HttpStatus.BAD_REQUEST)
+                    .header(RESPONSE_CONTENT_TYPE_HEADER, RESPONSE_CONTENT_TYPE_VALUE)
+                    .body(new DocumentUnknownResponse("N/A", "Missing required query parameter: document-name"))
                     .build();
         }
 
-        return request.createResponseBuilder(HttpStatus.NOT_FOUND)
-                .header("Content-Type", "application/json")
-                .body(new DocumentUnknownResponse(documentName, "Unknown file with name"))
-                .build();
+        LOGGER.info("Retrieving status for document name: {}", documentName);
+
+        try {
+            final DocumentIngestionOutcome firstDocumentMatching = tableStorageService.getFirstDocumentMatching(documentName);
+            if (nonNull(firstDocumentMatching)) {
+                return request.createResponseBuilder(HttpStatus.OK)
+                        .body(generateResponse(firstDocumentMatching))
+                        .header(RESPONSE_CONTENT_TYPE_HEADER, RESPONSE_CONTENT_TYPE_VALUE)
+                        .build();
+            }
+
+            return request.createResponseBuilder(HttpStatus.NOT_FOUND)
+                    .header(RESPONSE_CONTENT_TYPE_HEADER, RESPONSE_CONTENT_TYPE_VALUE)
+                    .body(new DocumentUnknownResponse(documentName, "Unknown file with name"))
+                    .build();
+
+        } catch (EntityRetrievalException e) {
+            return request.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .header(RESPONSE_CONTENT_TYPE_HEADER, RESPONSE_CONTENT_TYPE_VALUE)
+                    .body(new DocumentUnknownResponse(documentName, "Error retrieving status for document name"))
+                    .build();
+        }
+
+
     }
 
     private DocumentStatusRetrievedResponse generateResponse(final DocumentIngestionOutcome firstDocumentMatching) {

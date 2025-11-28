@@ -9,6 +9,7 @@ import static uk.gov.moj.cp.ai.model.DocumentStatus.METADATA_VALIDATED;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
+import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.service.TableStorageService;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
 
@@ -130,7 +131,7 @@ class IngestionOrchestratorServiceTest {
 
     @Test
     @DisplayName("Handle Invalid Metadata Exception")
-    void shouldHandleInvalidMetadataException() throws MetadataValidationException, DuplicateRecordException {
+    void shouldHandleInvalidMetadataException() throws MetadataValidationException, DuplicateRecordException, EntityRetrievalException {
         // given
         String documentName = "invalid.pdf";
 
@@ -149,7 +150,7 @@ class IngestionOrchestratorServiceTest {
 
     @Test
     @DisplayName("Handle processing of blob seen idempotently")
-    void shouldHandleDuplicateBlobInvocationIdempotently() throws MetadataValidationException, DuplicateRecordException {
+    void shouldHandleDuplicateBlobInvocationIdempotently() throws MetadataValidationException, DuplicateRecordException, EntityRetrievalException {
         // given
         String documentName = "test.pdf";
 
