@@ -53,10 +53,14 @@ class ResponseGenerationServiceTest {
                 .documentId("2876")
                 .build());
         String mockResponse = "Valid AI Response (Source: [Possess Blade IDPC.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876) " +
-                "and more response with faulty citation (Source: [Possess Blade IDPC.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876]).";
+                "and more response with faulty citation (Sources: [Possess Blade IDPC1.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876]) " +
+                "and even more response with faulty citation (source: [Possess Blade IDPC2.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876]) " +
+                "and even more response with faulty citation (sources: [Possess Blade IDPC3.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876])";
 
         String formattedValidResponse = "Valid AI Response ::(Source: [Possess Blade IDPC.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876) " +
-                "and more response with faulty citation ::(Source: [Possess Blade IDPC.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876).";
+                "and more response with faulty citation ::(Source: [Possess Blade IDPC1.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876) " +
+                "and even more response with faulty citation ::(Source: [Possess Blade IDPC2.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876) " +
+                "and even more response with faulty citation ::(Source: [Possess Blade IDPC3.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876)";
 
         when(mockChatService.callModel(anyString(), eq(userQuery), eq(String.class)))
                 .thenReturn(Optional.of(mockResponse));
