@@ -29,12 +29,12 @@ public class TableStorageService {
 
     private static final String ERROR_MESSAGE = "Failed to %s record for document '%s' with ID: '%s";
 
-    public TableStorageService(String endpoint, String tableName) {
-        if (isNullOrEmpty(endpoint) || isNullOrEmpty(tableName)) {
-            throw new IllegalArgumentException("Table storage endpoint and table name cannot be null or empty.");
+    public TableStorageService(String tableName) {
+        if (isNullOrEmpty(tableName)) {
+            throw new IllegalArgumentException("Table name cannot be null or empty.");
         }
 
-        this.tableClient = TableClientFactory.getInstance(endpoint, tableName);
+        this.tableClient = TableClientFactory.getInstance(tableName);
     }
 
     protected TableStorageService(final TableClient tableClient) {

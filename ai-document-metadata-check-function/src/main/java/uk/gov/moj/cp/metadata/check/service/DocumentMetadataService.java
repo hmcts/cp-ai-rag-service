@@ -1,7 +1,6 @@
 package uk.gov.moj.cp.metadata.check.service;
 
 import static java.util.UUID.fromString;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
@@ -28,10 +27,9 @@ public class DocumentMetadataService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public DocumentMetadataService() {
-        String endpoint = System.getenv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT);
         String documentContainerName = System.getenv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME);
 
-        this.blobClientService = new BlobClientService(endpoint, documentContainerName);
+        this.blobClientService = new BlobClientService(documentContainerName);
     }
 
     public DocumentMetadataService(final BlobClientService blobClientService) {
@@ -42,16 +40,32 @@ public class DocumentMetadataService {
         BlobClient blobClient = blobClientService.getBlobClient(documentName);
 
         final BlobProperties blobProperties = blobClient.getProperties();
-        if (null == blobProperties || CopyStatusType.SUCCESS != blobProperties.getCopyStatus()) {
-            throw new IllegalStateException("Blob '" + documentName + "' is still being copied.  Copy status is " + (null != blobProperties ? blobProperties.getCopyStatus() : "N/A"));
-        }
+        final boolean blobAvailability = isBlobAvailable(documentName, blobProperties);
 
-        if (!blobClient.exists()) {
+
+        if (!blobAvailability || Boolean.FALSE.equals(blobClient.exists())) {
             throw new MetadataValidationException("Blob not found: " + documentName);
         }
 
         final Map<String, String> metadataMap = new HashMap<>(blobProperties.getMetadata());
         return validateAndNormalizeMetadata(metadataMap, documentName);
+    }
+
+    private boolean isBlobAvailable(final String documentName, final BlobProperties blobProperties) {
+
+        if (null == blobProperties) {
+            // Blob properties should never be null here, but just in case...
+            throw new IllegalStateException("Blob properties for '" + documentName + "' could not be retrieved.");
+        }
+
+        if (CopyStatusType.PENDING == blobProperties.getCopyStatus()) {
+            // Blob is still being copied and happens when using async copy operations
+            throw new IllegalStateException("Blob '" + documentName + "' is still being copied.  Copy status is " + blobProperties.getCopyStatus());
+        }
+
+        //Blob was placed synchronously / atomic operation or  async copy operations has completed with status SUCCESS
+        return null == blobProperties.getCopyStatus() || CopyStatusType.SUCCESS == blobProperties.getCopyStatus();
+
     }
 
     private Map<String, String> validateAndNormalizeMetadata(final Map<String, String> blobMetadata, final String documentName) throws MetadataValidationException {
