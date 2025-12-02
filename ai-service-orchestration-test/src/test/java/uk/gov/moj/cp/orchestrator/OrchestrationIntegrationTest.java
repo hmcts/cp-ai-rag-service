@@ -12,6 +12,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
 import io.restassured.specification.RequestSpecification;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -21,6 +22,7 @@ import org.slf4j.LoggerFactory;
  * Integration Test for an Azure Durable Function Orchestration. Extends FunctionTestBase to manage
  * the local Azure Function host lifecycle.
  */
+@Disabled("Disabled until Azure Functions can be run in CI environment")
 public class OrchestrationIntegrationTest extends FunctionTestBase {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OrchestrationIntegrationTest.class);
