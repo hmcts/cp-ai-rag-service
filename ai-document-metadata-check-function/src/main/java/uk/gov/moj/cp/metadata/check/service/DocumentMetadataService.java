@@ -43,7 +43,7 @@ public class DocumentMetadataService {
         final boolean blobAvailability = isBlobAvailable(documentName, blobProperties);
 
 
-        if (!blobAvailability || !blobClient.exists()) {
+        if (!blobAvailability || Boolean.FALSE.equals(blobClient.exists())) {
             throw new MetadataValidationException("Blob not found: " + documentName);
         }
 

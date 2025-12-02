@@ -1,16 +1,18 @@
 package uk.gov.moj.cp.orchestrator;
 
 import static java.util.UUID.randomUUID;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.ANSWER_RETRIEVAL_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_STATUS_CHECK_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.util.BlobUtil.uploadFile;
-import static uk.gov.moj.cp.orchestrator.util.RestPoller.pollForResponseCondition;
+import static uk.gov.moj.cp.orchestrator.util.RestPoller.pollForResponse;
 
 import uk.gov.moj.cp.orchestrator.util.RestOperation;
 
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
+import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
@@ -42,10 +44,10 @@ public class OrchestrationIntegrationTest extends FunctionTestBase {
                 .contentType("application/json");
 
 
-
-        pollForResponseCondition(documentStatusRequestSpecification, RestOperation.GET, "/DocumentStatusCheck",
+        final Response documentStatusResponse = pollForResponse(documentStatusRequestSpecification, RestOperation.GET, "/DocumentStatusCheck",
                 response -> response.getStatusCode() == 200 &&
                         response.jsonPath().getString("status").equals("INGESTION_SUCCESS"));
+        assertNotNull(documentStatusResponse);
 
 
         // Step 2 - Query against the uploaded document
@@ -65,9 +67,10 @@ public class OrchestrationIntegrationTest extends FunctionTestBase {
         final RequestSpecification llmQueryRequestSpecification = getRequestSpecification(ANSWER_RETRIEVAL_FUNCTION)
                 .body(payload)
                 .contentType("application/json");
-        pollForResponseCondition(llmQueryRequestSpecification, RestOperation.POST, "/AnswerRetrieval",
+        final Response llmAnswerResponse = pollForResponse(llmQueryRequestSpecification, RestOperation.POST, "/AnswerRetrieval",
                 response -> response.getStatusCode() == 200 &&
                         response.jsonPath().getString("llmResponse").contains("Paris"));
+        assertNotNull(llmAnswerResponse);
 
     }
 }

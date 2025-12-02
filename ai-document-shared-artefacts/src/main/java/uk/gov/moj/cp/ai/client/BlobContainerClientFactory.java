@@ -13,7 +13,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.azure.core.credential.TokenCredential;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
-import com.azure.storage.blob.BlobServiceClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
