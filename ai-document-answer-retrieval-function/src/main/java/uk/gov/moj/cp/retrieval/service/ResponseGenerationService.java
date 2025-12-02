@@ -18,6 +18,8 @@ public class ResponseGenerationService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ResponseGenerationService.class);
 
+    private static final List<String> TEXTS_TO_REPLACE = List.of("(Source:", "(Sources:");
+
     private static final String SYSTEM_PROMPT_TEMPLATE = """
             You are an expert Legal Advisor.
             Who goes through the complete case document before responding and responds with every single detail to answer user's query.
@@ -124,6 +126,11 @@ public class ResponseGenerationService {
         for (String id : uniqueDocumentIds) {
             modifiedResponse = modifiedResponse.replace(id + "])", id + ")");
         }
-        return modifiedResponse.replace("(Source:", "::(Source:");
+
+        for (final String t : TEXTS_TO_REPLACE) {
+            // perform a case-insensitive replacement
+            modifiedResponse = modifiedResponse.replaceAll("(?i)" + java.util.regex.Pattern.quote(t), "::(Source:");
+        }
+        return modifiedResponse;
     }
 }
