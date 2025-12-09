@@ -18,8 +18,6 @@ public class ResponseGenerationService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ResponseGenerationService.class);
 
-    private static final List<String> TEXTS_TO_REPLACE = List.of("(Source:", "(Sources:");
-
     private static final String SYSTEM_PROMPT_TEMPLATE = """
             You are an expert Legal Advisor.
             Who goes through the complete case document before responding and responds with every single detail to answer user's query.
@@ -31,22 +29,35 @@ public class ResponseGenerationService {
             
             **Instructions:**
             1.  **Strictly adhere to the provided documents:** Answer the user's query *only* using information found within the {Retrieved Documents}\
-            2.  **No external knowledge or opinions:** Do NOT add any information, analysis, or opinions that are not directly supported by the provided text. Do not use your own Knowledge.
-            3.  **Provide Source for all factual statements:** For every factual statement you make you should include the citation
-            4.  **Citation Format is MANDATORY:** Every source citation MUST be generated using the EXACT, literal prefix and structure: `(Source: [DOCUMENT_FILENAME], Pages [PAGE_NUMBER]|[individual page numbers]|documentId=[DOCUMENT_ID])`.
-                - See example `(Source: [Possess Blade IDPC.pdf], Pages 10-12,14,20|10,11,12,14,20|documentId=2876)`
-            5.  **CRITICAL HEADING HIERARCHY:** For accessibility compliance (DAC/NFT level), you MUST follow proper heading structure:
+            2.  **Provide Source for all factual statements:** For every factual statement you make you should include the citation
+            3.  **CRITICAL: Single Placeholder Rule (One Statement = One Citation ID per documentId):** For any single factual statement, regardless of how many pages within the same document, or fragments it draws upon, you **MUST** use only **ONE sequential numerical placeholder** (e.g., [1]). 
+                Immediately place this single placeholder after the factual statement. **NEVER** use multiple placeholders next to each other for the same document (e.g., [3][4] is **FORBIDDEN** for same documentId).
+            4.  **JSON Source Aggregation:**
+                * If a single factual statement (linked to one placeholder, e.g., [1]) is supported by sources from **multiple documents** or **multiple page ranges**, you **MUST** include all necessary sources in the **sme objects** in the final JSON array.
+            5.  **JSON Page Formatting (For Single-Document Sources):** When a single source (defined by `documentId`) requires multiple pages:
+                * **`individualPageNumbers`:** List all cited page numbers, comma-separated (e.g., "17,18,19,20,21").
+                * **`pageNumbers`:** Compress consecutive page numbers using a hyphen, followed by non-consecutive pages (e.g., "17-19,20,21" or "10-12,14,20").
+            6.  **Guardrail Against Placeholder Generation:** To ensure compliance and prevent misinterpretation, you **MUST NOT** use numbers enclosed in square brackets (e.g., [1], [2], [3], etc.) for any purpose other than the mandatory source citation described in Instruction 3. If you need to list or enumerate items in the text, use parentheses (e.g., (1), (2), (3)), Roman numerals (e.g., (i), (ii)), or standard bullet points.
+            7.  **CRITICAL HEADING HIERARCHY:** For accessibility compliance (DAC/NFT level), you MUST follow proper heading structure:
                 - NEVER use h1 (#) headings in your response as the page already has an h1
                 - Use h2 (##) for main question titles and section headings
                 - Use h3 (###) for subheadings
                 - Use h4 (####) for sub-subheadings, and so on in descending order
                 - This is mandatory for accessibility compliance
+            8.  **Data Output (JSON Array):** Immediately after your complete answer text, you MUST generate a single, minified JSON array containing all citation details. This data array must be wrapped in the exact literal tags: `<FACT_MAP_JSON>` and `</FACT_MAP_JSON>`.
+            9.  **JSON Schema:** Each object in the array must include the following keys:
+                - `"citationId"`: The sequential number used in the answer placeholder (e.g., 1, 2, 3).
+                - `"documentFilename"`: The filename of the source document.
+                - `"pageNumbers"`: The page numbers string with consecutive sequential page numbers hyphenated (e.g., "10-12,14,20").
+                - `"individualPageNumbers"`: The page numbers string (e.g., "10,11,12,14,20").
+                - `"documentId"`: The documentId GUID.
             Provide the answer in a well written professional format.
             At the end of response, do not ask user for a follow up query.
             
             Additional context: %s""";
 
     private final ChatService chatService;
+    private final CitationProcessor citationProcessor;
 
     public ResponseGenerationService() {
         String endpoint = System.getenv("AZURE_OPENAI_ENDPOINT");
@@ -54,14 +65,21 @@ public class ResponseGenerationService {
 
         // Using managed identity - pass null for API key to enable managed identity
         chatService = new ChatService(endpoint, deploymentName);
+        citationProcessor = new CitationProcessor();
     }
 
-    public ResponseGenerationService(ChatService chatService) {
+    public ResponseGenerationService(final ChatService chatService, final CitationProcessor citationProcessor) {
         this.chatService = chatService;
+        this.citationProcessor = citationProcessor;
     }
 
     public String generateResponse(final String userQuery, final List<ChunkedEntry> chunkedEntries, final String userQueryPrompt) {
         LOGGER.info("Generating LLM response for query: {}", userQuery);
+
+        if(null == chunkedEntries || chunkedEntries.isEmpty()) {
+            LOGGER.warn("No matching data from search database retrieved for query: {}", userQuery);
+            return "No response generated by the service.";
+        }
 
         String retrievedContextsString = buildContextString(chunkedEntries);
         String systemPromptContent = String.format(SYSTEM_PROMPT_TEMPLATE, retrievedContextsString,
@@ -71,8 +89,7 @@ public class ResponseGenerationService {
             return chatService.callModel(systemPromptContent, userQuery, String.class)
                     .filter(response -> !isNullOrEmpty(response))
                     .map(response -> {
-                        String trimmedResponse = response.trim();
-                        trimmedResponse = reformatSourceCitations(trimmedResponse, chunkedEntries);
+                        String trimmedResponse = citationProcessor.processAndFormatCitations(response);
                         LOGGER.info("LLM Raw Response length = {}", trimmedResponse.length());
                         return trimmedResponse;
                     })
@@ -117,20 +134,5 @@ public class ResponseGenerationService {
                 .map(KeyValuePair::value)
                 .filter(value -> !isNullOrEmpty(value))
                 .findFirst();
-    }
-
-    private String reformatSourceCitations(final String trimmedResponse, final List<ChunkedEntry> chunkedEntries) {
-
-        String modifiedResponse = trimmedResponse;
-        final Set<String> uniqueDocumentIds = (null != chunkedEntries) ? chunkedEntries.stream().map(ChunkedEntry::documentId).collect(Collectors.toSet()) : Set.of();
-        for (String id : uniqueDocumentIds) {
-            modifiedResponse = modifiedResponse.replace(id + "])", id + ")");
-        }
-
-        for (final String t : TEXTS_TO_REPLACE) {
-            // perform a case-insensitive replacement
-            modifiedResponse = modifiedResponse.replaceAll("(?i)" + java.util.regex.Pattern.quote(t), "::(Source:");
-        }
-        return modifiedResponse;
     }
 }
