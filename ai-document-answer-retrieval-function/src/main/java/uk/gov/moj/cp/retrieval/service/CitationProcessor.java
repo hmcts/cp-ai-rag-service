@@ -4,6 +4,7 @@ import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.retrieval.model.CitationKeys.CITATION_ID;
 import static uk.gov.moj.cp.retrieval.model.CitationKeys.DOCUMENT_FILE_NAME;
 import static uk.gov.moj.cp.retrieval.model.CitationKeys.DOCUMENT_ID;
+import static uk.gov.moj.cp.retrieval.model.CitationKeys.FACT_MAP_ATTRIBUTE_KEY;
 import static uk.gov.moj.cp.retrieval.model.CitationKeys.INDIVIDUAL_PAGE_NUMBERS;
 import static uk.gov.moj.cp.retrieval.model.CitationKeys.PAGE_NUMBERS;
 
@@ -26,7 +27,7 @@ public class CitationProcessor {
     // Regex pattern to safely extract the JSON payload contained between the unique tags.
     // Pattern.DOTALL allows the dot (.) to match newlines within the JSON content.
     private static final Pattern JSON_TAG_PATTERN =
-            Pattern.compile("<FACT_MAP_JSON>(.*?)</FACT_MAP_JSON>", Pattern.DOTALL);
+            Pattern.compile(FACT_MAP_ATTRIBUTE_KEY + "(.*?)</" + FACT_MAP_ATTRIBUTE_KEY + ">", Pattern.DOTALL);
 
     private final ObjectMapper objectMapper = getObjectMapper();
 
@@ -37,7 +38,7 @@ public class CitationProcessor {
      * @param rawLlmOutput The raw text output containing the narrative and the embedded JSON.
      * @return The clean, DAC/NFT compliant, and fully cited response text.
      */
-    public String processAndFormatCitations(String rawLlmOutput) {
+    public String processAndFormatCitations(final String rawLlmOutput) {
         if (StringUtil.isNullOrEmpty(rawLlmOutput)) {
             return "";
         }
@@ -58,7 +59,8 @@ public class CitationProcessor {
 
         try {
             // 2. Parse the JSON payload into a list of structured citation maps
-            List<Map<String, String>> citations = objectMapper.readValue(jsonPayload, new TypeReference<>() {});
+            List<Map<String, String>> citations = objectMapper.readValue(jsonPayload, new TypeReference<>() {
+            });
 
             // 3. Iterate through structured citations and perform substitutions
             for (Map<String, String> citation : citations) {
@@ -83,9 +85,8 @@ public class CitationProcessor {
             // 4. Perform final cleanup of any residual whitespace or trailing markers
             return answerText.trim();
 
-        } catch (Exception e) {
+        } catch (final Exception e) {
             LOGGER.warn("Failed to parse citation JSON or substitute placeholders. Returning raw text.", e);
-            // In case of parsing failure, return the narrative and append a clear error message.
             return answerText;
         }
     }

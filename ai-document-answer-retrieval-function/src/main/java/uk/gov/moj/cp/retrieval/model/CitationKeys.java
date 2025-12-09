@@ -4,6 +4,8 @@ public class CitationKeys {
 
     private CitationKeys() {}
 
+    public static String FACT_MAP_ATTRIBUTE_KEY = "FACT_MAP_JSON";
+
     public static String CITATION_ID = "citationId";
     public static String DOCUMENT_FILE_NAME = "documentFilename";
     public static String PAGE_NUMBERS = "pageNumbers";

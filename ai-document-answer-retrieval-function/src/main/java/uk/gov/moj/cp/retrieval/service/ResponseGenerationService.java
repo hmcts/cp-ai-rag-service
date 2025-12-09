@@ -68,7 +68,7 @@ public class ResponseGenerationService {
         citationProcessor = new CitationProcessor();
     }
 
-    public ResponseGenerationService(ChatService chatService, CitationProcessor citationProcessor) {
+    public ResponseGenerationService(final ChatService chatService, final CitationProcessor citationProcessor) {
         this.chatService = chatService;
         this.citationProcessor = citationProcessor;
     }
