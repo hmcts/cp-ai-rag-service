@@ -27,7 +27,7 @@ public class CitationProcessor {
     // Regex pattern to safely extract the JSON payload contained between the unique tags.
     // Pattern.DOTALL allows the dot (.) to match newlines within the JSON content.
     private static final Pattern JSON_TAG_PATTERN =
-            Pattern.compile(FACT_MAP_ATTRIBUTE_KEY + "(.*?)</" + FACT_MAP_ATTRIBUTE_KEY + ">", Pattern.DOTALL);
+            Pattern.compile("<" + FACT_MAP_ATTRIBUTE_KEY + ">(.*?)</" + FACT_MAP_ATTRIBUTE_KEY + ">", Pattern.DOTALL);
 
     private final ObjectMapper objectMapper = getObjectMapper();
 
