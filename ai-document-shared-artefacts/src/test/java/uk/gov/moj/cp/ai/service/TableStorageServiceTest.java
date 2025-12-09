@@ -26,23 +26,15 @@ import org.junit.jupiter.api.Test;
 class TableStorageServiceTest {
 
     @Test
-    @DisplayName("Throws exception when connection string or table name is null or empty")
+    @DisplayName("Throws exception when table name is null or empty")
     void throwsExceptionWhenConnectionStringOrTableNameIsNullOrEmpty() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> new TableStorageService(null, "tableName"));
-        assertEquals("Table storage endpoint and table name cannot be null or empty.", exception.getMessage());
+                () -> new TableStorageService((String) null));
+        assertEquals("Table name cannot be null or empty.", exception.getMessage());
 
         exception = assertThrows(IllegalArgumentException.class,
-                () -> new TableStorageService("", "tableName"));
-        assertEquals("Table storage endpoint and table name cannot be null or empty.", exception.getMessage());
-
-        exception = assertThrows(IllegalArgumentException.class,
-                () -> new TableStorageService("endpoint", null));
-        assertEquals("Table storage endpoint and table name cannot be null or empty.", exception.getMessage());
-
-        exception = assertThrows(IllegalArgumentException.class,
-                () -> new TableStorageService("endpoint", ""));
-        assertEquals("Table storage endpoint and table name cannot be null or empty.", exception.getMessage());
+                () -> new TableStorageService(""));
+        assertEquals("Table name cannot be null or empty.", exception.getMessage());
     }
 
     @Test

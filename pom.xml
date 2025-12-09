@@ -14,6 +14,7 @@
         <module>ai-document-answer-retrieval-function</module>
         <module>ai-document-answer-scoring-function</module>
         <module>ai-document-status-check-function</module>
+        <module>ai-service-orchestration-test</module>
     </modules>
 
     <properties>

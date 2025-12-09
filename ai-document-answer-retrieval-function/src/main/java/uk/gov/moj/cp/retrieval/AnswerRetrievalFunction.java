@@ -2,7 +2,7 @@ package uk.gov.moj.cp.retrieval;
 
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
 import static java.util.UUID.randomUUID;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_NAME;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
@@ -73,7 +73,7 @@ public class AnswerRetrievalFunction {
     public HttpResponseMessage run(
             @HttpTrigger(name = "req", methods = {HttpMethod.POST}, authLevel = FUNCTION) HttpRequestMessage<RequestPayload> request,
             @QueueOutput(name = "message", queueName = "%" + STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING + "%",
-                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_NAME) OutputBinding<String> message,
+                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING) OutputBinding<String> message,
             final ExecutionContext context) {
 
         try {
