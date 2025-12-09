@@ -4,11 +4,11 @@ public class CitationKeys {
 
     private CitationKeys() {}
 
-    public static String FACT_MAP_ATTRIBUTE_KEY = "FACT_MAP_JSON";
+    public static final String FACT_MAP_ATTRIBUTE_KEY = "FACT_MAP_JSON";
 
-    public static String CITATION_ID = "citationId";
-    public static String DOCUMENT_FILE_NAME = "documentFilename";
-    public static String PAGE_NUMBERS = "pageNumbers";
-    public static String INDIVIDUAL_PAGE_NUMBERS = "individualPageNumbers";
-    public static String DOCUMENT_ID = "documentId";
+    public static final String CITATION_ID = "citationId";
+    public static final String DOCUMENT_FILE_NAME = "documentFilename";
+    public static final String PAGE_NUMBERS = "pageNumbers";
+    public static final String INDIVIDUAL_PAGE_NUMBERS = "individualPageNumbers";
+    public static final String DOCUMENT_ID = "documentId";
 }
