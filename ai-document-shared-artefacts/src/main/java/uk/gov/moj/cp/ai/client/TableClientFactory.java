@@ -1,8 +1,14 @@
 package uk.gov.moj.cp.ai.client;
 
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT;
+import static uk.gov.moj.cp.ai.client.ConnectionMode.CONNECTION_STRING;
+import static uk.gov.moj.cp.ai.client.ConnectionMode.MANAGED_IDENTITY;
 import static uk.gov.moj.cp.ai.client.config.ClientConfiguration.createNettyClient;
 import static uk.gov.moj.cp.ai.client.config.ClientConfiguration.getRetryOptions;
 import static uk.gov.moj.cp.ai.util.CredentialUtil.getCredentialInstance;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,28 +29,46 @@ public class TableClientFactory {
     private TableClientFactory() {
     }
 
-    public static TableClient getInstance(final String endpoint, final String tableName) {
+    public static TableClient getInstance(final String tableName) {
 
-        validateNullOrEmpty(endpoint, "Endpoint variable must be set.");
         validateNullOrEmpty(tableName, "Table name variable must be set.");
 
-        final String cacheKey = endpoint + ":" + tableName;
+        final ConnectionMode connectionMode = ConnectionMode.valueOf(getRequiredEnv(AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE, MANAGED_IDENTITY.name()));
 
-        return TABLE_CLIENT_CACHE.computeIfAbsent(
-                cacheKey,
-                key -> {
-                    LOGGER.info("Creating new Table client for: {}", key);
+        return switch (connectionMode) {
+            case CONNECTION_STRING -> {
+                final String connectionString = getRequiredEnv(AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING);
+                final String cacheKey = connectionString + ":" + tableName;
 
-                    // CRITICAL: The client is built here using the single, shared credential.
+                yield TABLE_CLIENT_CACHE.computeIfAbsent(cacheKey, key -> {
+                    LOGGER.info("Creating new Table client using {} for  {}", CONNECTION_STRING, key);
                     return new TableClientBuilder()
-                            .endpoint(endpoint)
+                            .connectionString(connectionString)
                             .tableName(tableName)
-                            .credential(SHARED_CREDENTIAL)
                             .retryOptions(getRetryOptions())
                             .httpClient(createNettyClient())
                             .buildClient();
-                }
-        );
+                });
+            }
+            case MANAGED_IDENTITY -> {
 
+                final String endpoint = getRequiredEnv(AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT);
+                final String cacheKey = endpoint + ":" + tableName;
+
+                yield TABLE_CLIENT_CACHE.computeIfAbsent(
+                        cacheKey,
+                        key -> {
+                            LOGGER.info("Creating new Table client using {} for  {}", MANAGED_IDENTITY, key);
+                            return new TableClientBuilder()
+                                    .endpoint(endpoint)
+                                    .tableName(tableName)
+                                    .credential(SHARED_CREDENTIAL)
+                                    .retryOptions(getRetryOptions())
+                                    .httpClient(createNettyClient())
+                                    .buildClient();
+                        }
+                );
+            }
+        };
     }
 }

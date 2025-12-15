@@ -1,7 +1,6 @@
 package uk.gov.moj.cp.metadata.check.service;
 
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
 import static uk.gov.moj.cp.ai.model.DocumentStatus.INVALID_METADATA;
@@ -43,9 +42,8 @@ public class IngestionOrchestratorService {
 
     public IngestionOrchestratorService(DocumentMetadataService documentMetadataService) {
         this.documentMetadataService = documentMetadataService;
-        String storageAccount = System.getenv(AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT);
         String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
-        this.tableStorageService = new TableStorageService(storageAccount, tableName);
+        this.tableStorageService = new TableStorageService(tableName);
     }
 
     public IngestionOrchestratorService(DocumentMetadataService documentMetadataService, TableStorageService tableStorageService) {

@@ -2,7 +2,6 @@ package uk.gov.moj.cp.ingestion.service;
 
 
 import static java.util.Objects.requireNonNull;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_INDEX_NAME;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
@@ -40,7 +39,6 @@ public class DocumentIngestionOrchestrator {
         String documentIntelligenceEndpoint = getRequiredEnv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT");
 
         // Storage Configuration
-        String tableStorageEndpoint = getRequiredEnv(AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT);
         String tableDocumentIngestionOutcome = getRequiredEnv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
 
         // Search Service Configuration
@@ -49,7 +47,7 @@ public class DocumentIngestionOrchestrator {
 
         this.documentAnalysisService = new DocumentAnalysisService(documentIntelligenceEndpoint);
 
-        this.tableStorageService = new TableStorageService(tableStorageEndpoint, tableDocumentIngestionOutcome);
+        this.tableStorageService = new TableStorageService(tableDocumentIngestionOutcome);
 
         this.documentChunkingService = new DocumentChunkingService();
 

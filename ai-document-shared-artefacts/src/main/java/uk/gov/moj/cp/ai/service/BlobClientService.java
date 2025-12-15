@@ -17,17 +17,13 @@ public class BlobClientService {
 
     private final BlobContainerClient containerClient;
 
-    public BlobClientService(String endpoint, String containerName) {
-
-        if (isNullOrEmpty(endpoint)) {
-            throw new IllegalArgumentException("Endpoint environment variable for Blob Service must be set.");
-        }
+    public BlobClientService(String containerName) {
 
         if (isNullOrEmpty(containerName)) {
             throw new IllegalArgumentException("Container name cannot be null or empty.");
         }
 
-        this.containerClient = BlobContainerClientFactory.getInstance(endpoint, containerName);
+        this.containerClient = BlobContainerClientFactory.getInstance(containerName);
 
     }
 
