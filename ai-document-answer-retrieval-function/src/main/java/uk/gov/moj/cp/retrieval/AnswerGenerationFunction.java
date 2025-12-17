@@ -2,17 +2,15 @@ package uk.gov.moj.cp.retrieval;
 
 import static java.util.UUID.randomUUID;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
+import uk.gov.moj.cp.ai.model.AnswerGenerationStatus;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.QueryResponse;
 import uk.gov.moj.cp.ai.model.ScoringQueuePayload;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
-import uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus;
 import uk.gov.moj.cp.retrieval.service.AnswerGenerationTableStorageService;
 import uk.gov.moj.cp.retrieval.service.AzureAISearchService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
@@ -49,29 +47,14 @@ public class AnswerGenerationFunction {
         this.responseGenerationService = new ResponseGenerationService();
         this.blobPersistenceService = new BlobPersistenceService();
         this.tableStorageService =
-                new AnswerGenerationTableStorageService(System.getenv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION));
+                new AnswerGenerationTableStorageService("AnswerGeneration");
     }
-
-    public AnswerGenerationFunction(
-            EmbedDataService embedDataService,
-            AzureAISearchService searchService,
-            ResponseGenerationService responseGenerationService,
-            BlobPersistenceService blobPersistenceService,
-            AnswerGenerationTableStorageService tableStorageService
-    ) {
-        this.embedDataService = embedDataService;
-        this.searchService = searchService;
-        this.responseGenerationService = responseGenerationService;
-        this.blobPersistenceService = blobPersistenceService;
-        this.tableStorageService = tableStorageService;
-    }
-
 
     @FunctionName("AnswerGeneration")
     public void run(
             @QueueTrigger(
                     name = "queueMessage",
-                    queueName = "%" + STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION + "%",
+                    queueName = "%ANSWER_GENERATION_QUEUE%",
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING
             ) final String queueMessage,
 
@@ -100,8 +83,8 @@ public class AnswerGenerationFunction {
                     || payload.metadataFilter() == null
                     || payload.metadataFilter().isEmpty()) {
 
-                LOGGER.error("transactionId is missing in queueMessage received: {}", payload);
-                return;
+                throw new IllegalArgumentException(
+                        "transactionId, userQuery, queryPrompt and metadataFilter are required");
             }
 
             final UUID transactionId = payload.transactionId();
@@ -141,7 +124,7 @@ public class AnswerGenerationFunction {
                     durationMs
             );
 
-            // Persist blob + scoring queue
+           // Persist blob + scoring queue
             final String filename =
                     "llm-answer-with-chunks-" + randomUUID() + ".json";
 
@@ -185,6 +168,7 @@ public class AnswerGenerationFunction {
                 );
             }
 
+            throw new RuntimeException("Answer generation failed", e);
         }
     }
 }
