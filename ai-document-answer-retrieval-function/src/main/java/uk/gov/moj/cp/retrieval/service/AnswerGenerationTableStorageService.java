@@ -14,7 +14,7 @@ import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import uk.gov.moj.cp.ai.client.TableClientFactory;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
-import uk.gov.moj.cp.ai.model.AnswerGenerationStatus;
+import uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus;
 
 import com.azure.data.tables.TableClient;
 import com.azure.data.tables.models.TableEntity;
