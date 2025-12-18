@@ -24,7 +24,7 @@
     "AZURE_OPENAI_CHAT_DEPLOYMENT_NAME": "<azure-openai-chat-deployment-name>",
 
     "STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING": "answer-scoring-queue",
-    "ANSWER_GENERATION_QUEUE": "answer-generation-queue",
+    "STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION": "answer-generation-queue",
 
     "AZURE_CLIENT_MAX_RETRIES":"3",
     "AZURE_CLIENT_BASE_DELAY_IN_SECONDS":"1",
