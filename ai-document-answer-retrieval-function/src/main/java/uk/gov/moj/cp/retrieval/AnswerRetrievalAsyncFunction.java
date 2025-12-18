@@ -15,6 +15,7 @@ import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
 import uk.gov.moj.cp.retrieval.service.AnswerGenerationTableStorageService;
+import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
 
 import java.util.List;
 import java.util.Map;
@@ -39,14 +40,18 @@ public class AnswerRetrievalAsyncFunction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AnswerRetrievalAsyncFunction.class);
 
+    private final ResponseGenerationService responseGenerationService;
+
     private final AnswerGenerationTableStorageService answerGenerationTableStorageService;
 
     public AnswerRetrievalAsyncFunction() {
+        responseGenerationService = new ResponseGenerationService();
         final String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION);
         answerGenerationTableStorageService = new AnswerGenerationTableStorageService(tableName);
     }
 
-    public AnswerRetrievalAsyncFunction(final AnswerGenerationTableStorageService answerGenerationTableStorageService) {
+    public AnswerRetrievalAsyncFunction(final ResponseGenerationService responseGenerationService, final AnswerGenerationTableStorageService answerGenerationTableStorageService) {
+        this.responseGenerationService = responseGenerationService;
         this.answerGenerationTableStorageService = answerGenerationTableStorageService;
     }
 
@@ -83,7 +88,7 @@ public class AnswerRetrievalAsyncFunction {
             message.setValue(convertObjectToJson(answerGenerationQueuePayload));
 
             // Persist status as ANSWER_GENERATION_PENDING in new Table  against the TransactionID
-            answerGenerationTableStorageService.saveAnswerGenerationRequest(transactionId.toString(), userQuery, userQueryPrompt, AnswerGenerationStatus.ANSWER_GENERATION_PENDING);
+            answerGenerationTableStorageService.insertIntoTable(transactionId.toString(), userQuery, userQueryPrompt, AnswerGenerationStatus.ANSWER_GENERATION_PENDING);
 
             LOGGER.info("Successfully initiated answer retrieval processing for the query: {} with transactionId: {}", userQuery, transactionId);
 

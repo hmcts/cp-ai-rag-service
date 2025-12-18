@@ -20,7 +20,6 @@ import com.azure.data.tables.TableClient;
 import com.azure.data.tables.models.TableEntity;
 import com.azure.data.tables.models.TableErrorCode;
 import com.azure.data.tables.models.TableServiceException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,6 +50,14 @@ public class AnswerGenerationTableStorageService {
     // ---------------------------------------------------------------------
     // INSERT
     // ---------------------------------------------------------------------
+    public void insertIntoTable(
+            final String transactionId,
+            final String userQuery,
+            final String queryPrompt,
+            final AnswerGenerationStatus status
+    ) throws DuplicateRecordException {
+        insertIntoTable(transactionId, userQuery, queryPrompt, null, null, status, null, null);
+    }
 
     public void insertIntoTable(
             final String transactionId,
@@ -194,9 +201,7 @@ public class AnswerGenerationTableStorageService {
         entity.addProperty(TC_LLM_RESPONSE, llmResponse);
         entity.addProperty(TC_ANSWER_STATUS, status.name());
         entity.addProperty(TC_REASON, reason);
-        entity.addProperty(
-                TC_RESPONSE_GENERATION_DURATION,
-                responseGenerationDuration);
+        entity.addProperty(TC_RESPONSE_GENERATION_DURATION, responseGenerationDuration);
 
         return entity;
     }
