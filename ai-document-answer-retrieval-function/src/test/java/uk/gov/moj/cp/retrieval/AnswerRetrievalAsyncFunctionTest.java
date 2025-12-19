@@ -55,7 +55,6 @@ class AnswerRetrievalAsyncFunctionTest {
 
     @Test
     void run_shouldReturnBadRequest_whenPayloadIsInvalid() {
-
         when(payload.userQuery()).thenReturn(null);
         when(request.getBody()).thenReturn(payload);
         mockHttpResponse(HttpStatus.BAD_REQUEST);
@@ -63,7 +62,6 @@ class AnswerRetrievalAsyncFunctionTest {
         final HttpResponseMessage result = function.run(request, outputBinding, executionContext);
 
         assertEquals(HttpStatus.BAD_REQUEST, result.getStatus());
-
         verifyNoInteractions(outputBinding);
         verifyNoInteractions(answerGenerationTableStorageService);
     }
@@ -72,19 +70,17 @@ class AnswerRetrievalAsyncFunctionTest {
     void run_shouldReturnOk_andWriteToQueueAndTable() throws DuplicateRecordException {
         final String userQuery = "user query";
         final String queryPrompt = "query prompt";
+
         when(payload.userQuery()).thenReturn(userQuery);
         when(payload.queryPrompt()).thenReturn(queryPrompt);
         when(payload.metadataFilter()).thenReturn(List.of(new KeyValuePair("k", "v")));
         when(request.getBody()).thenReturn(payload);
-
         mockHttpResponse(HttpStatus.OK);
 
         final HttpResponseMessage result = function.run(request, outputBinding, executionContext);
 
         assertEquals(HttpStatus.OK, result.getStatus());
-
         verify(outputBinding).setValue(anyString());
-
         verify(answerGenerationTableStorageService).insertIntoTable(anyString(),
                 eq(userQuery), eq(queryPrompt),
                 eq(ANSWER_GENERATION_PENDING));
@@ -93,13 +89,11 @@ class AnswerRetrievalAsyncFunctionTest {
     @Test
     void run_shouldReturnInternalServerError_whenExceptionOccurs() {
         when(request.getBody()).thenThrow(new RuntimeException("boom"));
-
         mockHttpResponse(HttpStatus.INTERNAL_SERVER_ERROR);
 
         final HttpResponseMessage result = function.run(request, outputBinding, executionContext);
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, result.getStatus());
-
         verifyNoInteractions(outputBinding);
         verifyNoInteractions(answerGenerationTableStorageService);
     }
