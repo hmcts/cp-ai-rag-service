@@ -15,7 +15,6 @@ import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
 import uk.gov.moj.cp.retrieval.service.AnswerGenerationTableStorageService;
-import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
 
 import java.util.List;
 import java.util.Map;
@@ -40,18 +39,14 @@ public class AnswerRetrievalAsyncFunction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AnswerRetrievalAsyncFunction.class);
 
-    private final ResponseGenerationService responseGenerationService;
-
     private final AnswerGenerationTableStorageService answerGenerationTableStorageService;
 
     public AnswerRetrievalAsyncFunction() {
-        responseGenerationService = new ResponseGenerationService();
         final String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION);
         answerGenerationTableStorageService = new AnswerGenerationTableStorageService(tableName);
     }
 
-    public AnswerRetrievalAsyncFunction(final ResponseGenerationService responseGenerationService, final AnswerGenerationTableStorageService answerGenerationTableStorageService) {
-        this.responseGenerationService = responseGenerationService;
+    public AnswerRetrievalAsyncFunction(final AnswerGenerationTableStorageService answerGenerationTableStorageService) {
         this.answerGenerationTableStorageService = answerGenerationTableStorageService;
     }
 
