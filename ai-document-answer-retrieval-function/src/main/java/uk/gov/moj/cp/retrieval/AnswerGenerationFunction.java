@@ -4,7 +4,10 @@ import static java.util.UUID.randomUUID;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING;
+<<<<<<< HEAD
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
+=======
+>>>>>>> 71d25bff3e6142ccea3f9433f00e9a55500b4729
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
@@ -49,7 +52,11 @@ public class AnswerGenerationFunction {
         this.responseGenerationService = new ResponseGenerationService();
         this.blobPersistenceService = new BlobPersistenceService();
         this.tableStorageService =
+<<<<<<< HEAD
                 new AnswerGenerationTableStorageService(System.getenv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION));
+=======
+                new AnswerGenerationTableStorageService("AnswerGeneration");
+>>>>>>> 71d25bff3e6142ccea3f9433f00e9a55500b4729
     }
 
     public AnswerGenerationFunction(

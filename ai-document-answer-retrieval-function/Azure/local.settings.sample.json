@@ -26,7 +26,10 @@
 
     "STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING": "answer-scoring-queue",
     "STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION": "answer-generation-queue",
+<<<<<<< HEAD
     "STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION": "answergeneration",
+=======
+>>>>>>> 71d25bff3e6142ccea3f9433f00e9a55500b4729
 
     "AZURE_CLIENT_MAX_RETRIES":"3",
     "AZURE_CLIENT_BASE_DELAY_IN_SECONDS":"1",
