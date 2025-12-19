@@ -81,7 +81,7 @@ class AnswerRetrievalAsyncFunctionTest {
 
         assertEquals(HttpStatus.OK, result.getStatus());
         verify(outputBinding).setValue(anyString());
-        verify(answerGenerationTableStorageService).insertIntoTable(anyString(),
+        verify(answerGenerationTableStorageService).saveAnswerGenerationRequest(anyString(),
                 eq(userQuery), eq(queryPrompt),
                 eq(ANSWER_GENERATION_PENDING));
     }
