@@ -35,18 +35,18 @@ import org.slf4j.LoggerFactory;
 /**
  * Azure Function to initiate answer retrieval. Triggers Answer generation and returns unique transactionId.
  */
-public class AnswerRetrievalAsyncFunction {
+public class InitiateAnswerGenerationFunction {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AnswerRetrievalAsyncFunction.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(InitiateAnswerGenerationFunction.class);
 
     private final AnswerGenerationTableStorageService answerGenerationTableStorageService;
 
-    public AnswerRetrievalAsyncFunction() {
+    public InitiateAnswerGenerationFunction() {
         final String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION);
         answerGenerationTableStorageService = new AnswerGenerationTableStorageService(tableName);
     }
 
-    public AnswerRetrievalAsyncFunction(final AnswerGenerationTableStorageService answerGenerationTableStorageService) {
+    public InitiateAnswerGenerationFunction(final AnswerGenerationTableStorageService answerGenerationTableStorageService) {
         this.answerGenerationTableStorageService = answerGenerationTableStorageService;
     }
 
@@ -57,7 +57,7 @@ public class AnswerRetrievalAsyncFunction {
      * @param context The execution context
      * @return HTTP response with transactionId
      */
-    @FunctionName("AnswerRetrievalAsync")
+    @FunctionName("InitiateAnswerGeneration")
     public HttpResponseMessage run(
             @HttpTrigger(name = "req", methods = {HttpMethod.POST}, authLevel = FUNCTION) HttpRequestMessage<RequestPayload> request,
             @QueueOutput(name = "message", queueName = "%" + STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION + "%",

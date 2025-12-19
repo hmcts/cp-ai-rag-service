@@ -28,7 +28,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class AnswerRetrievalAsyncFunctionTest {
+class InitiateAnswerGenerationFunctionTest {
 
     @Mock
     private AnswerGenerationTableStorageService answerGenerationTableStorageService;
@@ -43,7 +43,7 @@ class AnswerRetrievalAsyncFunctionTest {
     private OutputBinding<String> outputBinding;
 
     @InjectMocks
-    private AnswerRetrievalAsyncFunction function;
+    private InitiateAnswerGenerationFunction function;
 
     @Mock
     private RequestPayload payload;
