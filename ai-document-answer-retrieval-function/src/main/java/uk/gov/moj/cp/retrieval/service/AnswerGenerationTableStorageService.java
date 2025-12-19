@@ -50,7 +50,7 @@ public class AnswerGenerationTableStorageService {
     // ---------------------------------------------------------------------
     // INSERT
     // ---------------------------------------------------------------------
-    public void insertIntoTable(
+    public void saveAnswerGenerationRequest(
             final String transactionId,
             final String userQuery,
             final String queryPrompt,

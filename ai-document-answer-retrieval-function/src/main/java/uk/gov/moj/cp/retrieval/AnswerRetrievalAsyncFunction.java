@@ -83,7 +83,7 @@ public class AnswerRetrievalAsyncFunction {
             message.setValue(convertObjectToJson(answerGenerationQueuePayload));
 
             // Persist status as ANSWER_GENERATION_PENDING in new Table  against the TransactionID
-            answerGenerationTableStorageService.insertIntoTable(transactionId.toString(), userQuery, userQueryPrompt, AnswerGenerationStatus.ANSWER_GENERATION_PENDING);
+            answerGenerationTableStorageService.saveAnswerGenerationRequest(transactionId.toString(), userQuery, userQueryPrompt, AnswerGenerationStatus.ANSWER_GENERATION_PENDING);
 
             LOGGER.info("Successfully initiated answer retrieval processing for the query: {} with transactionId: {}", userQuery, transactionId);
 
