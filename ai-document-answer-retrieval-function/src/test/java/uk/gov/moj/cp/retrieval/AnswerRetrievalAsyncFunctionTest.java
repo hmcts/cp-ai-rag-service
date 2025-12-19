@@ -13,7 +13,6 @@ import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
 import uk.gov.moj.cp.retrieval.service.AnswerGenerationTableStorageService;
-import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
 
 import java.util.List;
 
@@ -30,9 +29,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class AnswerRetrievalAsyncFunctionTest {
-
-    @Mock
-    private ResponseGenerationService mockResponseGenerationService;
 
     @Mock
     private AnswerGenerationTableStorageService answerGenerationTableStorageService;
