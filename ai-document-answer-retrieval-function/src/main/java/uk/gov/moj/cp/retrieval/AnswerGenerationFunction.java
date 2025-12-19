@@ -51,6 +51,21 @@ public class AnswerGenerationFunction {
                 new AnswerGenerationTableStorageService("AnswerGeneration");
     }
 
+    public AnswerGenerationFunction(
+            EmbedDataService embedDataService,
+            AzureAISearchService searchService,
+            ResponseGenerationService responseGenerationService,
+            BlobPersistenceService blobPersistenceService,
+            AnswerGenerationTableStorageService tableStorageService
+    ) {
+        this.embedDataService = embedDataService;
+        this.searchService = searchService;
+        this.responseGenerationService = responseGenerationService;
+        this.blobPersistenceService = blobPersistenceService;
+        this.tableStorageService = tableStorageService;
+    }
+
+
     @FunctionName("AnswerGeneration")
     public void run(
             @QueueTrigger(
