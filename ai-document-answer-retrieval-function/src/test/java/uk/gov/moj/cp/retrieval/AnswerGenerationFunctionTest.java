@@ -19,6 +19,7 @@ import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
 import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -76,7 +77,7 @@ class AnswerGenerationFunctionTest {
         verify(mockEmbedDataService, never()).getEmbedding(anyString());
         verify(mockScoringOutputBinding, never()).setValue(anyString());
         verify(mockTableStorageService, never()).upsertIntoTable(
-                anyString(), any(), any(), any(), any(), any(), any(), any()
+                anyString(), any(), any(), any(), any(), any(), any(), any(), any()
         );
     }
 
@@ -97,7 +98,7 @@ class AnswerGenerationFunctionTest {
         verify(mockEmbedDataService, never()).getEmbedding(anyString());
         verify(mockScoringOutputBinding, never()).setValue(anyString());
         verify(mockTableStorageService, never()).upsertIntoTable(
-                anyString(), any(), any(), any(), any(), any(), any(), any()
+                anyString(), any(), any(), any(), any(), any(), any(), any(), any()
         );
     }
 
@@ -145,6 +146,7 @@ class AnswerGenerationFunctionTest {
                 eq("generated response"),
                 eq(AnswerGenerationStatus.ANSWER_GENERATED),
                 eq(null),
+                any(OffsetDateTime.class),
                 any(Long.class)
         );
 
@@ -195,6 +197,7 @@ class AnswerGenerationFunctionTest {
                 eq(null),
                 eq(AnswerGenerationStatus.ANSWER_GENERATION_FAILED),
                 eq("Embedding failure"),
+                any(OffsetDateTime.class),
                 any(Long.class)
         );
 
