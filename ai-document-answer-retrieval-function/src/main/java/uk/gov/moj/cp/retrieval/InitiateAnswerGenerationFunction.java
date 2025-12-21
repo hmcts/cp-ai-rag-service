@@ -8,6 +8,7 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWE
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
+import static uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
 
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.model.QueryAsyncResponse;
@@ -33,7 +34,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Azure Function to initiate answer retrieval. Triggers Answer generation and returns unique transactionId.
+ * Azure Function to for answer generation.
+ * Initiates Answer generation and returns unique transactionId.
  */
 public class InitiateAnswerGenerationFunction {
 
@@ -51,7 +53,7 @@ public class InitiateAnswerGenerationFunction {
     }
 
     /**
-     * HTTP-triggered function for answer retrieval.
+     * HTTP-triggered function to initiate answer generation.
      *
      * @param request The HTTP request containing the query
      * @param context The execution context
@@ -83,11 +85,11 @@ public class InitiateAnswerGenerationFunction {
             message.setValue(convertObjectToJson(answerGenerationQueuePayload));
 
             // Persist status as ANSWER_GENERATION_PENDING in new Table  against the TransactionID
-            answerGenerationTableStorageService.saveAnswerGenerationRequest(transactionId.toString(), userQuery, userQueryPrompt, AnswerGenerationStatus.ANSWER_GENERATION_PENDING);
+            answerGenerationTableStorageService.saveAnswerGenerationRequest(transactionId.toString(), userQuery, userQueryPrompt, ANSWER_GENERATION_PENDING);
 
             LOGGER.info("Successfully initiated answer retrieval processing for the query: {} with transactionId: {}", userQuery, transactionId);
 
-            final String responseAsString = convertObjectToJson(new QueryAsyncResponse(transactionId));
+            final String responseAsString = convertObjectToJson(new QueryAsyncResponse(transactionId.toString(), ANSWER_GENERATION_PENDING.name()));
             return generateResponse(request, HttpStatus.OK, responseAsString);
 
         } catch (Exception e) {

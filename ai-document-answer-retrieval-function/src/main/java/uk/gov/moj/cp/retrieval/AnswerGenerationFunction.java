@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.retrieval;
 
+import static java.lang.System.currentTimeMillis;
 import static java.util.UUID.randomUUID;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION;
@@ -19,6 +20,7 @@ import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
 import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -82,7 +84,7 @@ public class AnswerGenerationFunction {
             ) final OutputBinding<String> scoringMessage
     ) {
 
-        long startTime = System.currentTimeMillis();
+        long startTime = currentTimeMillis();
         AnswerGenerationQueuePayload payload = null;
 
         try {
@@ -127,8 +129,7 @@ public class AnswerGenerationFunction {
                             payload.queryPrompt()
                     );
 
-            final long durationMs =
-                    System.currentTimeMillis() - startTime;
+            final long durationMs = currentTimeMillis() - startTime;
 
             tableStorageService.upsertIntoTable(
                     transactionId.toString(),
@@ -138,6 +139,7 @@ public class AnswerGenerationFunction {
                     llmResponse,
                     AnswerGenerationStatus.ANSWER_GENERATED,
                     null,
+                    OffsetDateTime.now(),
                     durationMs
             );
 
@@ -166,9 +168,7 @@ public class AnswerGenerationFunction {
                     transactionId, durationMs);
 
         } catch (Exception e) {
-
-            final long durationMs =
-                    System.currentTimeMillis() - startTime;
+            final long durationMs = currentTimeMillis() - startTime;
 
             LOGGER.error("Answer generation failed", e);
 
@@ -181,6 +181,7 @@ public class AnswerGenerationFunction {
                         null,
                         AnswerGenerationStatus.ANSWER_GENERATION_FAILED,
                         e.getMessage(),
+                        OffsetDateTime.now(),
                         durationMs
                 );
             }

@@ -1,25 +1,35 @@
 package uk.gov.moj.cp.retrieval.service;
 
+import static java.util.Objects.nonNull;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_ANSWER_STATUS;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_CHUNKED_ENTRIES;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_LLM_RESPONSE;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_QUERY_PROMPT;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_REASON;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_RESPONSE_GENERATION_DURATION;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_RESPONSE_GENERATION_TIME;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_TRANSACTION_ID;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_USER_QUERY;
+import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.RowKeyUtil.generateKeyForRowAndPartition;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.client.TableClientFactory;
+import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
+import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus;
+
+import java.time.OffsetDateTime;
+import java.util.List;
 
 import com.azure.data.tables.TableClient;
 import com.azure.data.tables.models.TableEntity;
 import com.azure.data.tables.models.TableErrorCode;
 import com.azure.data.tables.models.TableServiceException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,7 +66,7 @@ public class AnswerGenerationTableStorageService {
             final String queryPrompt,
             final AnswerGenerationStatus status
     ) throws DuplicateRecordException {
-        insertIntoTable(transactionId, userQuery, queryPrompt, null, null, status, null, null);
+        insertIntoTable(transactionId, userQuery, queryPrompt, null, null, status, null, null, null);
     }
 
     public void insertIntoTable(
@@ -67,6 +77,7 @@ public class AnswerGenerationTableStorageService {
             final String llmResponse,
             final AnswerGenerationStatus status,
             final String reason,
+            final OffsetDateTime responseGenerationTime,
             final Long responseGenerationDuration
     ) throws DuplicateRecordException {
 
@@ -79,6 +90,7 @@ public class AnswerGenerationTableStorageService {
                     llmResponse,
                     status,
                     reason,
+                    responseGenerationTime,
                     responseGenerationDuration
             );
 
@@ -114,6 +126,7 @@ public class AnswerGenerationTableStorageService {
             final String llmResponse,
             final AnswerGenerationStatus status,
             final String reason,
+            final OffsetDateTime responseGenerationTime,
             final Long responseGenerationDuration
     ) {
 
@@ -126,6 +139,7 @@ public class AnswerGenerationTableStorageService {
                     llmResponse,
                     status,
                     reason,
+                    responseGenerationTime,
                     responseGenerationDuration
             );
 
@@ -145,31 +159,29 @@ public class AnswerGenerationTableStorageService {
     // RETRIEVE
     // ---------------------------------------------------------------------
 
-    public TableEntity getByTransactionId(final String transactionId)
-            throws EntityRetrievalException {
-
-        final String rowAndPartitionKey =
-                generateKeyForRowAndPartition(transactionId);
-
+    public GeneratedAnswer getGeneratedAnswer(final String transactionId) throws EntityRetrievalException {
         try {
-            return tableClient.getEntity(
-                    rowAndPartitionKey,
-                    rowAndPartitionKey);
+
+            final TableEntity entity = tableClient.getEntity(transactionId, transactionId);
+            return new GeneratedAnswer(
+                    getPropertyAsString(entity.getProperty(TC_TRANSACTION_ID)),
+                    getPropertyAsString(entity.getProperty(TC_USER_QUERY)),
+                    getPropertyAsString(entity.getProperty(TC_QUERY_PROMPT)),
+                    toChunkedEntries(getPropertyAsString(entity.getProperty(TC_CHUNKED_ENTRIES))),
+                    getPropertyAsString(entity.getProperty(TC_ANSWER_STATUS)),
+                    getPropertyAsString(entity.getProperty(TC_REASON)),
+                    (OffsetDateTime) entity.getProperty(TC_RESPONSE_GENERATION_TIME),
+                    getPropertyAsLong(entity.getProperty(TC_RESPONSE_GENERATION_DURATION))
+            );
 
         } catch (final TableServiceException tse) {
             if (tse.getValue().getErrorCode() == TableErrorCode.ENTITY_NOT_FOUND
                     || tse.getValue().getErrorCode() == TableErrorCode.RESOURCE_NOT_FOUND) {
                 return null;
             }
-            throw new EntityRetrievalException(
-                    "Failed to retrieve answer generation record for transactionId "
-                            + transactionId,
-                    tse);
+            throw new EntityRetrievalException("Failed to retrieve answer generation record for transactionId " + transactionId, tse);
         } catch (Exception e) {
-            throw new EntityRetrievalException(
-                    "Failed to retrieve answer generation record for transactionId "
-                            + transactionId,
-                    e);
+            throw new EntityRetrievalException("Failed to retrieve answer generation record for transactionId " + transactionId, e);
         }
     }
 
@@ -185,6 +197,7 @@ public class AnswerGenerationTableStorageService {
             final String llmResponse,
             final AnswerGenerationStatus status,
             final String reason,
+            final OffsetDateTime responseGenerationTime,
             final Long responseGenerationDuration
     ) {
 
@@ -201,8 +214,27 @@ public class AnswerGenerationTableStorageService {
         entity.addProperty(TC_LLM_RESPONSE, llmResponse);
         entity.addProperty(TC_ANSWER_STATUS, status.name());
         entity.addProperty(TC_REASON, reason);
+        entity.addProperty(TC_RESPONSE_GENERATION_TIME, responseGenerationTime);
         entity.addProperty(TC_RESPONSE_GENERATION_DURATION, responseGenerationDuration);
 
         return entity;
+    }
+
+    private String getPropertyAsString(final Object value) {
+        return nonNull(value) ? value.toString() : null;
+    }
+
+    private Long getPropertyAsLong(final Object value) {
+        return value instanceof Number number ? number.longValue() : null;
+    }
+
+    private List<ChunkedEntry> toChunkedEntries(final String chunkedEntriesAsString) throws JsonProcessingException {
+        if (nonNull(chunkedEntriesAsString)) {
+            return getObjectMapper().readValue(
+                    chunkedEntriesAsString,
+                    new TypeReference<List<ChunkedEntry>>() {
+                    });
+        }
+        return null;
     }
 }
