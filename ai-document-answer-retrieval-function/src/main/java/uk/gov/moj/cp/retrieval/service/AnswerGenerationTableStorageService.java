@@ -11,7 +11,6 @@ import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_RESPONSE_GENERATION
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_TRANSACTION_ID;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_USER_QUERY;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
-import static uk.gov.moj.cp.ai.util.RowKeyUtil.generateKeyForRowAndPartition;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.client.TableClientFactory;
@@ -200,12 +199,7 @@ public class AnswerGenerationTableStorageService {
             final OffsetDateTime responseGenerationTime,
             final Long responseGenerationDuration
     ) {
-
-        final String rowAndPartitionKey =
-                generateKeyForRowAndPartition(transactionId);
-
-        final TableEntity entity =
-                new TableEntity(rowAndPartitionKey, rowAndPartitionKey);
+        final TableEntity entity = new TableEntity(transactionId, transactionId);
 
         entity.addProperty(TC_TRANSACTION_ID, transactionId);
         entity.addProperty(TC_USER_QUERY, userQuery);

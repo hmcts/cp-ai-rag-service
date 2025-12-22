@@ -60,7 +60,7 @@ public class GetAnswerGenerationResultFunction {
      */
     @FunctionName("GetAnswerGeneration")
     public HttpResponseMessage run(
-            @HttpTrigger(name = "req", methods = HttpMethod.GET, authLevel = FUNCTION, route = "answers/{transactionId}")
+            @HttpTrigger(name = "req", methods = HttpMethod.GET, authLevel = FUNCTION, route = "answer-user-query-async-status/{transactionId}")
             HttpRequestMessage<Optional<String>> request,
             @BindingName("transactionId") String transactionId,
             final ExecutionContext context
