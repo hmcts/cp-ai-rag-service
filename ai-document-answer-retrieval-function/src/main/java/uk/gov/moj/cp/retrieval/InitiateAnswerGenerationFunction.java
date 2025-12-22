@@ -61,7 +61,7 @@ public class InitiateAnswerGenerationFunction {
      */
     @FunctionName("InitiateAnswerGeneration")
     public HttpResponseMessage run(
-            @HttpTrigger(name = "req", methods = {HttpMethod.POST}, authLevel = FUNCTION) HttpRequestMessage<RequestPayload> request,
+            @HttpTrigger(name = "req", methods = {HttpMethod.POST}, authLevel = FUNCTION, route = "answer-user-query-async") HttpRequestMessage<RequestPayload> request,
             @QueueOutput(name = "message", queueName = "%" + STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION + "%",
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING) OutputBinding<String> message,
             final ExecutionContext context) {
