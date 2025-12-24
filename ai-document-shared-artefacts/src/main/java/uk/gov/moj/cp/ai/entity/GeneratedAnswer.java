@@ -15,6 +15,7 @@ public class GeneratedAnswer extends BaseTableEntity {
 
     private List<ChunkedEntry> chunkedEntries;
 
+    private String llmResponse;
     private String answerStatus;
     private String reason;
     private OffsetDateTime responseGenerationTime;
@@ -29,6 +30,7 @@ public class GeneratedAnswer extends BaseTableEntity {
                            final String userQuery,
                            final String queryPrompt,
                            final List<ChunkedEntry> chunkedEntries,
+                           final String llmResponse,
                            final String answerStatus,
                            final String reason,
                            final OffsetDateTime responseGenerationTime,
@@ -37,6 +39,7 @@ public class GeneratedAnswer extends BaseTableEntity {
         this.userQuery = userQuery;
         this.queryPrompt = queryPrompt;
         this.chunkedEntries = chunkedEntries;
+        this.llmResponse = llmResponse;
         this.answerStatus = answerStatus;
         this.reason = reason;
         this.responseGenerationTime = responseGenerationTime;
@@ -73,6 +76,14 @@ public class GeneratedAnswer extends BaseTableEntity {
 
     public void setChunkedEntries(final List<ChunkedEntry> chunkedEntries) {
         this.chunkedEntries = chunkedEntries;
+    }
+
+    public String getLlmResponse() {
+        return llmResponse;
+    }
+
+    public void setLlmResponse(final String llmResponse) {
+        this.llmResponse = llmResponse;
     }
 
     public String getAnswerStatus() {

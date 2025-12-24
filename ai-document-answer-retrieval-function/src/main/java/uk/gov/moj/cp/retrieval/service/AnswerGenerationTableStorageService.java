@@ -68,7 +68,7 @@ public class AnswerGenerationTableStorageService {
         insertIntoTable(transactionId, userQuery, queryPrompt, null, null, status, null, null, null);
     }
 
-    public void insertIntoTable(
+    private void insertIntoTable(
             final String transactionId,
             final String userQuery,
             final String queryPrompt,
@@ -116,7 +116,6 @@ public class AnswerGenerationTableStorageService {
     // ---------------------------------------------------------------------
     // UPSERT
     // ---------------------------------------------------------------------
-
     public void upsertIntoTable(
             final String transactionId,
             final String userQuery,
@@ -167,6 +166,7 @@ public class AnswerGenerationTableStorageService {
                     getPropertyAsString(entity.getProperty(TC_USER_QUERY)),
                     getPropertyAsString(entity.getProperty(TC_QUERY_PROMPT)),
                     toChunkedEntries(getPropertyAsString(entity.getProperty(TC_CHUNKED_ENTRIES))),
+                    getPropertyAsString(entity.getProperty(TC_LLM_RESPONSE)),
                     getPropertyAsString(entity.getProperty(TC_ANSWER_STATUS)),
                     getPropertyAsString(entity.getProperty(TC_REASON)),
                     (OffsetDateTime) entity.getProperty(TC_RESPONSE_GENERATION_TIME),

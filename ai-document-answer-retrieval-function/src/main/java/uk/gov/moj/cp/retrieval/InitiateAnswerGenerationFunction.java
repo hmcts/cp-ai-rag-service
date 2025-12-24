@@ -6,14 +6,13 @@ import static java.util.UUID.randomUUID;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
-import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
+import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
 
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.model.QueryAsyncResponse;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
-import uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
 import uk.gov.moj.cp.retrieval.service.AnswerGenerationTableStorageService;
 
@@ -73,28 +72,26 @@ public class InitiateAnswerGenerationFunction {
 
             if (isNullOrEmpty(userQuery) || isNullOrEmpty(userQueryPrompt) || isNull(metadataFilters) || metadataFilters.isEmpty()) {
                 LOGGER.error("Error: userQuery, queryPrompt and metadataFilter attributes are required");
-                final String errorMessage = convertObjectToJson(Map.of("errorMessage", "Error: userQuery, queryPrompt and metadataFilter attributes are required"));
+                final String errorMessage = convert(Map.of("errorMessage", "Error: userQuery, queryPrompt and metadataFilter attributes are required"));
                 return generateResponse(request, HttpStatus.BAD_REQUEST, errorMessage);
             }
 
             final UUID transactionId = randomUUID();
             LOGGER.info("Initiating answer generation async process for the query: {} with transactionId: {}", userQuery, transactionId);
 
-            // persist payload in Queue
             final AnswerGenerationQueuePayload answerGenerationQueuePayload = new AnswerGenerationQueuePayload(transactionId, userQuery, userQueryPrompt, metadataFilters);
-            message.setValue(convertObjectToJson(answerGenerationQueuePayload));
+            message.setValue(convert(answerGenerationQueuePayload));
 
-            // Persist status as ANSWER_GENERATION_PENDING in new Table  against the TransactionID
             answerGenerationTableStorageService.saveAnswerGenerationRequest(transactionId.toString(), userQuery, userQueryPrompt, ANSWER_GENERATION_PENDING);
 
             LOGGER.info("Successfully initiated answer retrieval processing for the query: {} with transactionId: {}", userQuery, transactionId);
 
-            final String responseAsString = convertObjectToJson(new QueryAsyncResponse(transactionId.toString(), ANSWER_GENERATION_PENDING.name()));
+            final String responseAsString = convert(new QueryAsyncResponse(transactionId.toString()));
             return generateResponse(request, HttpStatus.OK, responseAsString);
 
         } catch (Exception e) {
             LOGGER.error("Error initiating answer retrieval for request: {}", request, e);
-            final String errorMessage = convertObjectToJson(Map.of("errorMessage", "An internal error occurred: " + e.getMessage()));
+            final String errorMessage = convert(Map.of("errorMessage", "An internal error occurred: " + e.getMessage()));
             return generateResponse(request, HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
         }
     }
@@ -108,12 +105,4 @@ public class InitiateAnswerGenerationFunction {
                 .build();
     }
 
-    private String convertObjectToJson(final Object object) {
-        try {
-            return getObjectMapper().writeValueAsString(object);
-        } catch (Exception e) {
-            LOGGER.error("Error converting object to JSON", e);
-            return "{}";
-        }
-    }
 }
