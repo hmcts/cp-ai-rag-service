@@ -30,8 +30,8 @@ public record QueryAsyncResponse(
         this.responseGenerationDuration = responseGenerationDuration;
     }
 
-    public QueryAsyncResponse(final String transactionId, final String status) {
-        this(transactionId, status, null, null, null, null,
+    public QueryAsyncResponse(final String transactionId) {
+        this(transactionId, null, null, null, null, null,
                 null, null, null);
     }
 

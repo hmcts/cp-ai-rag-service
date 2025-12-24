@@ -5,10 +5,8 @@ import static com.microsoft.azure.functions.HttpStatus.OK;
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
 import static java.util.Objects.nonNull;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
-import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
+import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
-import static uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus.ANSWER_GENERATED;
-import static uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
 
 import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
 import uk.gov.moj.cp.ai.model.QueryAsyncResponse;
@@ -17,6 +15,7 @@ import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
@@ -36,18 +35,14 @@ public class GetAnswerGenerationResultFunction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GetAnswerGenerationResultFunction.class);
 
-    private final ResponseGenerationService responseGenerationService;
-
     private final AnswerGenerationTableStorageService answerGenerationTableStorageService;
 
     public GetAnswerGenerationResultFunction() {
-        responseGenerationService = new ResponseGenerationService();
         final String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION);
         answerGenerationTableStorageService = new AnswerGenerationTableStorageService(tableName);
     }
 
     public GetAnswerGenerationResultFunction(final ResponseGenerationService responseGenerationService, final AnswerGenerationTableStorageService answerGenerationTableStorageService) {
-        this.responseGenerationService = responseGenerationService;
         this.answerGenerationTableStorageService = answerGenerationTableStorageService;
     }
 
@@ -68,33 +63,33 @@ public class GetAnswerGenerationResultFunction {
 
         try {
 
-            if (isNullOrEmpty(transactionId)) {
+            if (isNullOrEmpty(transactionId) || !isValid(transactionId)) {
                 LOGGER.error("Error: transactionId is required");
-                final String errorMessage = convertObjectToJson(Map.of("errorMessage", "Error: transactionId is required"));
+                final String errorMessage = convert(Map.of("errorMessage", "Error: transactionId is required"));
                 return generateResponse(request, HttpStatus.BAD_REQUEST, errorMessage);
             }
 
             final GeneratedAnswer generatedAnswer = answerGenerationTableStorageService.getGeneratedAnswer(transactionId);
-
             if (nonNull(generatedAnswer)) {
-                if (!ANSWER_GENERATION_PENDING.name().equals(generatedAnswer.getAnswerStatus())) {
-                    String generatedResponse = null;
-                    if (ANSWER_GENERATED.name().equals(generatedAnswer.getAnswerStatus())) {
-                        generatedResponse = responseGenerationService.generateResponse(generatedAnswer.getUserQuery(), generatedAnswer.getChunkedEntries(), generatedAnswer.getQueryPrompt());
-                    }
-
-                    final QueryAsyncResponse queryResponse = toQueryResponse(generatedAnswer, generatedResponse);
-                    return generateResponse(request, OK, convertObjectToJson(queryResponse));
-                }
-                return generateResponse(request, OK, convertObjectToJson(new QueryAsyncResponse(generatedAnswer.getTransactionId(), generatedAnswer.getAnswerStatus())));
+                final QueryAsyncResponse queryResponse = toQueryResponse(generatedAnswer);
+                return generateResponse(request, OK, convert(queryResponse));
             }
 
             return generateResponse(request, NOT_FOUND, String.format("No Answer request found for the transactionId=%s", transactionId));
 
         } catch (Exception e) {
             LOGGER.error("Error initiating answer retrieval for request: {}", request, e);
-            final String errorMessage = convertObjectToJson(Map.of("errorMessage", "An internal error occurred: " + e.getMessage()));
+            final String errorMessage = convert(Map.of("errorMessage", "An internal error occurred: " + e.getMessage()));
             return generateResponse(request, HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
+        }
+    }
+
+    private boolean isValid(final String transactionId) {
+        try {
+            UUID.fromString(transactionId);
+            return true;
+        } catch (IllegalArgumentException iae) {
+            return false;
         }
     }
 
@@ -105,21 +100,12 @@ public class GetAnswerGenerationResultFunction {
                 .build();
     }
 
-    private String convertObjectToJson(final Object object) {
-        try {
-            return getObjectMapper().writeValueAsString(object);
-        } catch (Exception e) {
-            LOGGER.error("Error converting object to JSON", e);
-            return "{}";
-        }
-    }
-
-    private static QueryAsyncResponse toQueryResponse(final GeneratedAnswer generatedAnswer, final String generatedResponse) {
+    private static QueryAsyncResponse toQueryResponse(final GeneratedAnswer generatedAnswer) {
         return new QueryAsyncResponse(generatedAnswer.getTransactionId(),
                 generatedAnswer.getAnswerStatus(),
                 generatedAnswer.getReason(),
                 generatedAnswer.getUserQuery(),
-                generatedResponse,
+                generatedAnswer.getLlmResponse(),
                 generatedAnswer.getQueryPrompt(),
                 generatedAnswer.getChunkedEntries(),
                 generatedAnswer.getResponseGenerationTime().toString(),
