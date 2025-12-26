@@ -6,6 +6,7 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCO
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
@@ -51,7 +52,7 @@ public class AnswerGenerationFunction {
         this.responseGenerationService = new ResponseGenerationService();
         this.blobPersistenceService = new BlobPersistenceService();
         this.tableStorageService =
-                new AnswerGenerationTableStorageService(System.getenv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION));
+                new AnswerGenerationTableStorageService(getRequiredEnv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION));
     }
 
     public AnswerGenerationFunction(
@@ -108,12 +109,9 @@ public class AnswerGenerationFunction {
 
             final UUID transactionId = payload.transactionId();
 
-            LOGGER.info(
-                    "Starting answer generation for transactionId={}",
-                    transactionId);
+            LOGGER.info("Starting answer generation for transactionId={}", transactionId);
 
-            final List<Float> embeddings =
-                    embedDataService.getEmbedding(payload.userQuery());
+            final List<Float> embeddings = embedDataService.getEmbedding(payload.userQuery());
 
             final List<ChunkedEntry> chunkedEntries =
                     searchService.search(
@@ -144,8 +142,7 @@ public class AnswerGenerationFunction {
             );
 
             // Persist blob + scoring queue
-            final String filename =
-                    "llm-answer-with-chunks-" + randomUUID() + ".json";
+            final String filename = "llm-answer-with-chunks-" + randomUUID() + ".json";
 
             blobPersistenceService.saveBlob(
                     filename,
