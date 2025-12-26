@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.retrieval;
 
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
+import static java.lang.String.format;
 import static java.util.Objects.isNull;
 import static java.util.UUID.randomUUID;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
@@ -11,7 +12,6 @@ import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
 
 import uk.gov.moj.cp.ai.model.KeyValuePair;
-import uk.gov.moj.cp.ai.model.QueryAsyncResponse;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
 import uk.gov.moj.cp.retrieval.service.AnswerGenerationTableStorageService;
@@ -41,6 +41,8 @@ public class InitiateAnswerGenerationFunction {
     private static final Logger LOGGER = LoggerFactory.getLogger(InitiateAnswerGenerationFunction.class);
 
     private final AnswerGenerationTableStorageService answerGenerationTableStorageService;
+
+    private static final String RESPONSE_STR = "{\"transactionId\":\"%s\"}";
 
     public InitiateAnswerGenerationFunction() {
         final String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION);
@@ -83,11 +85,9 @@ public class InitiateAnswerGenerationFunction {
             message.setValue(convert(answerGenerationQueuePayload));
 
             answerGenerationTableStorageService.saveAnswerGenerationRequest(transactionId.toString(), userQuery, userQueryPrompt, ANSWER_GENERATION_PENDING);
-
             LOGGER.info("Successfully initiated answer retrieval processing for the query: {} with transactionId: {}", userQuery, transactionId);
 
-            final String responseAsString = convert(new QueryAsyncResponse(transactionId.toString()));
-            return generateResponse(request, HttpStatus.OK, responseAsString);
+            return generateResponse(request, HttpStatus.OK, format(RESPONSE_STR, transactionId));
 
         } catch (Exception e) {
             LOGGER.error("Error initiating answer retrieval for request: {}", request, e);
