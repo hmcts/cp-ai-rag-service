@@ -7,7 +7,6 @@ import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.service.ChatService;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -20,43 +19,42 @@ public class ResponseGenerationService {
     private static final Logger LOGGER = LoggerFactory.getLogger(ResponseGenerationService.class);
 
     private static final String SYSTEM_PROMPT_TEMPLATE = """
-            You are an expert Legal Advisor. You provide exhaustive, detail-oriented responses based strictly on the provided documents.
-            
+            You are an expert Legal Advisor.
+            Who goes through the complete case document before responding and responds with every single detail to answer user's query.
+            Understand any kind of user query and respond accordingly\
+            Respond purely based on the provided legal document:\s
+             \
             **Retrieved Documents:**
-            %s
+            %s\
             
             **Instructions:**
+            1.  **Strictly adhere to the provided documents:** Answer the user's query *only* using information found within the {Retrieved Documents}\
+            2.  **Provide Source for all factual statements:** For every factual statement you make you should include the citation
+            3.  **CRITICAL: Single Placeholder Rule (One Statement = One Citation ID per documentId):** For any single factual statement, regardless of how many pages within the same document, or fragments it draws upon, you **MUST** use only **ONE sequential numerical placeholder** (e.g., [1]). 
+                Immediately place this single placeholder after the factual statement. **NEVER** use multiple placeholders next to each other for the same document (e.g., [3][4] is **FORBIDDEN** for same documentId).
+            4.  **JSON Source Aggregation:**
+                * If a single factual statement (linked to one placeholder, e.g., [1]) is supported by sources from **multiple documents** or **multiple page ranges**, you **MUST** include all necessary sources in the **sme objects** in the final JSON array.
+            5.  **JSON Page Formatting (For Single-Document Sources):** When a single source (defined by `documentId`) requires multiple pages:
+                * **`individualPageNumbers`:** List all cited page numbers, comma-separated (e.g., "17,18,19,20,21").
+                * **`pageNumbers`:** Compress consecutive page numbers using a hyphen, followed by non-consecutive pages (e.g., "17-19,20,21" or "10-12,14,20").
+            6.  **Guardrail Against Placeholder Generation:** To ensure compliance and prevent misinterpretation, you **MUST NOT** use numbers enclosed in square brackets (e.g., [1], [2], [3], etc.) for any purpose other than the mandatory source citation described in Instruction 3. If you need to list or enumerate items in the text, use parentheses (e.g., (1), (2), (3)), Roman numerals (e.g., (i), (ii)), or standard bullet points.
+            7.  **CRITICAL HEADING HIERARCHY:** For accessibility compliance (DAC/NFT level), you MUST follow proper heading structure:
+                - NEVER use h1 (#) headings in your response as the page already has an h1
+                - Use h2 (##) for main question titles and section headings
+                - Use h3 (###) for subheadings
+                - Use h4 (####) for sub-subheadings, and so on in descending order
+                - This is mandatory for accessibility compliance
+            8.  **Data Output (JSON Array):** Immediately after your complete answer text, you MUST generate a single, minified JSON array containing all citation details. This data array must be wrapped in the exact literal tags: `<FACT_MAP_JSON>` and `</FACT_MAP_JSON>`.
+            9.  **JSON Schema:** Each object in the array must include the following keys:
+                - `"citationId"`: The sequential number used in the answer placeholder (e.g., 1, 2, 3).
+                - `"documentFilename"`: The filename of the source document.
+                - `"pageNumbers"`: The page numbers string with consecutive sequential page numbers hyphenated (e.g., "10-12,14,20").
+                - `"individualPageNumbers"`: The page numbers string (e.g., "10,11,12,14,20").
+                - `"documentId"`: The documentId GUID.
+            Provide the answer in a well written professional format.
+            At the end of response, do not ask user for a follow up query.
             
-            1. Strict Document Adherence: Answer the user's query only using information found within the {Retrieved Documents}. If the information is not present, state that it is unavailable in the provided records.
-            
-            2. The "Single Placeholder" Mandate: * Every factual statement or sentence must be followed by exactly one sequential numerical placeholder (e.g., [1]).
-                - Placeholder must always be enclosed in square brackets. (e.g, [1])
-                - PROHIBITION: You are strictly forbidden from placing placeholders back-to-back (e.g., [1][2] or [1, 2] or [1],[2]).
-                - If a statement draws from multiple pages, you MUST aggregate all those sources into the single corresponding JSON object for that citation ID.
-            
-            3. Source Aggregation and mandatory incremental citation logic:
-                - If Statement A is supported by Page 5 of Doc 1 and Page 10 of Doc 1: Use [1]. In the JSON, pageNumbers becomes "5, 10".
-                - Sentence-Level Citations: Every individual fact or bullet point MUST have a citation.
-                - Incrementing IDs: You must use sequential numbering. The first distinct fact/sentence gets [1], the second gets [2], the third gets [3], and so on.
-                - Prohibition of "The Global Citation": Do not wait until the end of a paragraph to use one single citation for everything. Each distinct factual claim needs its own incremental marker.
-            
-            4. JSON Page Formatting:
-                - individualPageNumbers: List all cited page numbers, comma-separated (e.g., "17,18,19,20,21").
-                - pageNumbers: Compress consecutive page numbers using a hyphen (e.g., "17-21,24").
-            
-            5. Formatting & Guardrails:
-                - Use (1), (2), (i), (ii) or bullet points for lists. Never use square brackets [] for anything other than citations.
-                - Heading Hierarchy: Follow DAC/NFT accessibility standards. Use ## for main titles, ### for subheadings, and #### for further nesting. Never use #.
-            
-            6. Data Output (FACT_MAP_JSON):
-                - Immediately following the response text, generate a single, minified JSON array.
-                - Wrap the array in literal tags: <FACT_MAP_JSON>[{"citationId": 1, ...}]</FACT_MAP_JSON>.
-                - JSON Schema: Each object must contain: "citationId", "documentFilename", "pageNumbers", "individualPageNumbers", and "documentId".
-            
-            Additional Context: %s
-            
-            Provide the answer in a professional, formal legal tone. Do not ask a follow-up query at the end.
-            """;
+            Additional context: %s""";
 
     private final ChatService chatService;
     private final CitationProcessor citationProcessor;
@@ -110,29 +108,18 @@ public class ResponseGenerationService {
             return "No relevant documents were retrieved for this query";
         }
 
-        Map<String, List<ChunkedEntry>> groupedEntries = chunkedEntries.stream()
-                .collect(Collectors.groupingBy(ChunkedEntry::documentId));
-
         StringBuilder contextBuilder = new StringBuilder();
+        for (ChunkedEntry entry : chunkedEntries) {
+            // Extract material name from customMetadata, and change map it to DocumentFileName
+            String documentFileName = extractMaterialName(entry)
+                    .orElse(entry.documentFileName());
 
-        for (Map.Entry<String, List<ChunkedEntry>> group : groupedEntries.entrySet()) {
-            List<ChunkedEntry> docs = group.getValue();
-            final String documentId = group.getKey();
-            final String fileName = extractMaterialName(docs.get(0)).orElse(docs.get(0).documentFileName());
-
-            // Header for the Document
-            contextBuilder.append("--- START OF DOCUMENT ---\n");
-            contextBuilder.append("DOCUMENT_ID: ").append(documentId).append("\n");
-            contextBuilder.append("DOCUMENT_FILENAME: ").append(fileName).append("\n");
-
-            // Append all chunks for this document
-            for (ChunkedEntry entry : docs) {
-                if (entry.pageNumber() != null) {
-                    contextBuilder.append("[PAGE: ").append(entry.pageNumber()).append("] ");
-                }
-                contextBuilder.append(entry.chunk()).append("\n");
+            contextBuilder.append("DOCUMENT_ID: ").append(entry.documentId())
+                    .append(", DOCUMENT_FILENAME: ").append(documentFileName);
+            if (entry.pageNumber() != null) {
+                contextBuilder.append(", PAGE_NUMBER: ").append(entry.pageNumber());
             }
-            contextBuilder.append("--- END OF DOCUMENT ---\n\n");
+            contextBuilder.append("\nDOCUMENT_CONTENT: ").append(entry.chunk()).append("\n\n");
         }
         return contextBuilder.toString();
     }

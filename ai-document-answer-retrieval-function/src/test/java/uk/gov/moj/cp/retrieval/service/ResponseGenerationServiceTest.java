@@ -1,7 +1,6 @@
 package uk.gov.moj.cp.retrieval.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
@@ -19,7 +18,6 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -53,13 +51,6 @@ class ResponseGenerationServiceTest {
                 .pageNumber(1)
                 .documentId("2876")
                 .build());
-        chunkedEntries.add(ChunkedEntry.builder()
-                .id("id2")
-                .chunk("Chunk 2")
-                .documentFileName("file name 1")
-                .pageNumber(2)
-                .documentId("2876")
-                .build());
 
 
         String mockResponse = "Valid AI Response [1]] " +
@@ -72,9 +63,7 @@ class ResponseGenerationServiceTest {
         String result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
 
         assertEquals(processedResponse, result);
-        final ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-        verify(mockChatService).callModel(captor.capture(), eq(userQuery), eq(String.class));
-        assertTrue(captor.getValue().contains("--- START OF DOCUMENT ---\nDOCUMENT_ID: 2876\nDOCUMENT_FILENAME: file name 1\n[PAGE: 1] Chunk 1\n[PAGE: 2] Chunk 2\n--- END OF DOCUMENT ---"));
+        verify(mockChatService).callModel(anyString(), eq(userQuery), eq(String.class));
     }
 
     @Test
