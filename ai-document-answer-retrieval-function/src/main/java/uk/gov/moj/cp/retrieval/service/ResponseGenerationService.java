@@ -7,8 +7,8 @@ import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.service.ChatService;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -108,18 +108,29 @@ public class ResponseGenerationService {
             return "No relevant documents were retrieved for this query";
         }
 
-        StringBuilder contextBuilder = new StringBuilder();
-        for (ChunkedEntry entry : chunkedEntries) {
-            // Extract material name from customMetadata, and change map it to DocumentFileName
-            String documentFileName = extractMaterialName(entry)
-                    .orElse(entry.documentFileName());
+        Map<String, List<ChunkedEntry>> groupedEntries = chunkedEntries.stream()
+                .collect(Collectors.groupingBy(ChunkedEntry::documentId));
 
-            contextBuilder.append("DOCUMENT_ID: ").append(entry.documentId())
-                    .append(", DOCUMENT_FILENAME: ").append(documentFileName);
+        StringBuilder contextBuilder = new StringBuilder();
+
+        for (Map.Entry<String, List<ChunkedEntry>> group : groupedEntries.entrySet()) {
+            List<ChunkedEntry> docs = group.getValue();
+            final String documentId = group.getKey();
+            final String fileName = extractMaterialName(docs.get(0)).orElse(docs.get(0).documentFileName());
+
+            // Header for the Document
+            contextBuilder.append("--- START OF DOCUMENT ---\n");
+            contextBuilder.append("DOCUMENT_ID: ").append(documentId).append("\n");
+            contextBuilder.append("DOCUMENT_FILENAME: ").append(fileName).append("\n");
+
+            // Append all chunks for this document
+            for (ChunkedEntry entry : docs) {
             if (entry.pageNumber() != null) {
-                contextBuilder.append(", PAGE_NUMBER: ").append(entry.pageNumber());
+                    contextBuilder.append("[PAGE: ").append(entry.pageNumber()).append("] ");
             }
-            contextBuilder.append("\nDOCUMENT_CONTENT: ").append(entry.chunk()).append("\n\n");
+                contextBuilder.append(entry.chunk()).append("\n");
+            }
+            contextBuilder.append("--- END OF DOCUMENT ---\n\n");
         }
         return contextBuilder.toString();
     }
