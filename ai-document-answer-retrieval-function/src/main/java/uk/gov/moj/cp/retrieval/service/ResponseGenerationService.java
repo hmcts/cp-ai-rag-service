@@ -63,7 +63,7 @@ public class ResponseGenerationService {
         String endpoint = System.getenv("AZURE_OPENAI_ENDPOINT");
         String deploymentName = System.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME");
 
-        // Using managed identity - pass null for API key to enable managed identity
+        // Using managed identity - pass null for API key to enable managed  identity
         chatService = new ChatService(endpoint, deploymentName);
         citationProcessor = new CitationProcessor();
     }
