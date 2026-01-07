@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.retrieval.model;
+package uk.gov.moj.cp.ai.service.table;
 
 public enum AnswerGenerationStatus {
     ANSWER_GENERATION_PENDING,

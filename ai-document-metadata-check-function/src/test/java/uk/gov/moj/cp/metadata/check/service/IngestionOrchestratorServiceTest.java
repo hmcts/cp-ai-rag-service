@@ -10,7 +10,7 @@ import static uk.gov.moj.cp.ai.model.DocumentStatus.METADATA_VALIDATED;
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
-import uk.gov.moj.cp.ai.service.TableStorageService;
+import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
 
 import java.util.HashMap;
@@ -31,7 +31,7 @@ class IngestionOrchestratorServiceTest {
     private DocumentMetadataService documentMetadataService;
 
     @Mock
-    private TableStorageService tableStorageService;
+    private DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService;
 
     @Mock
     private OutputBinding<String> queueMessage;
@@ -43,7 +43,7 @@ class IngestionOrchestratorServiceTest {
 
     @BeforeEach
     void setUp() {
-        ingestionOrchestratorService = new IngestionOrchestratorService(documentMetadataService, tableStorageService);
+        ingestionOrchestratorService = new IngestionOrchestratorService(documentMetadataService, documentIngestionOutcomeTableService);
     }
 
     @Test
@@ -58,7 +58,7 @@ class IngestionOrchestratorServiceTest {
 
         when(documentMetadataService.processDocumentMetadata(documentName)).thenReturn(metadata);
         doThrow(new DuplicateRecordException("Duplicate record found for document: " + documentName))
-                .when(tableStorageService).insertIntoTable(documentName, documentId, METADATA_VALIDATED.name(), METADATA_VALIDATED.getReason());
+                .when(documentIngestionOutcomeTableService).insertIntoTable(documentName, documentId, METADATA_VALIDATED.name(), METADATA_VALIDATED.getReason());
 
 
         // when
@@ -66,7 +66,7 @@ class IngestionOrchestratorServiceTest {
 
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
-        verify(tableStorageService).insertIntoTable(documentName, documentId, METADATA_VALIDATED.name(), METADATA_VALIDATED.getReason());
+        verify(documentIngestionOutcomeTableService).insertIntoTable(documentName, documentId, METADATA_VALIDATED.name(), METADATA_VALIDATED.getReason());
         verify(queueMessage, never()).setValue(anyString());
     }
 
@@ -88,7 +88,7 @@ class IngestionOrchestratorServiceTest {
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
         verify(queueMessage).setValue(anyString());
-        verify(tableStorageService).insertIntoTable(documentName, documentId, "METADATA_VALIDATED", "Document metadata validated and sent to queue");
+        verify(documentIngestionOutcomeTableService).insertIntoTable(documentName, documentId, "METADATA_VALIDATED", "Document metadata validated and sent to queue");
     }
 
     @Test
@@ -106,7 +106,7 @@ class IngestionOrchestratorServiceTest {
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
         verify(queueMessage, never()).setValue(anyString());
-        verify(tableStorageService).insertIntoTable(documentName, "UNKNOWN_DOCUMENT", "INVALID_METADATA", "Blob not found: " + documentName);
+        verify(documentIngestionOutcomeTableService).insertIntoTable(documentName, "UNKNOWN_DOCUMENT", "INVALID_METADATA", "Blob not found: " + documentName);
     }
 
     @Test
@@ -118,7 +118,7 @@ class IngestionOrchestratorServiceTest {
         when(documentMetadataService.processDocumentMetadata(documentName))
                 .thenThrow(new MetadataValidationException("Blob not found: " + documentName));
 
-        doThrow(new DuplicateRecordException("Duplicate record found for document: " + documentName)).when(tableStorageService).insertIntoTable(documentName, "UNKNOWN_DOCUMENT", "INVALID_METADATA", "Blob not found: " + documentName);
+        doThrow(new DuplicateRecordException("Duplicate record found for document: " + documentName)).when(documentIngestionOutcomeTableService).insertIntoTable(documentName, "UNKNOWN_DOCUMENT", "INVALID_METADATA", "Blob not found: " + documentName);
 
         // when
         ingestionOrchestratorService.processDocument(documentName, queueMessage);
@@ -126,7 +126,7 @@ class IngestionOrchestratorServiceTest {
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
         verify(queueMessage, never()).setValue(anyString());
-        verify(tableStorageService).insertIntoTable(documentName, "UNKNOWN_DOCUMENT", "INVALID_METADATA", "Blob not found: " + documentName);
+        verify(documentIngestionOutcomeTableService).insertIntoTable(documentName, "UNKNOWN_DOCUMENT", "INVALID_METADATA", "Blob not found: " + documentName);
     }
 
     @Test
@@ -144,8 +144,8 @@ class IngestionOrchestratorServiceTest {
         // then
         verify(documentMetadataService).processDocumentMetadata(documentName);
         verify(queueMessage, never()).setValue(anyString());
-        verify(tableStorageService).getFirstDocumentMatching(documentName);
-        verify(tableStorageService).insertIntoTable(documentName, "UNKNOWN_DOCUMENT", "INVALID_METADATA", "Invalid metadata: Missing document ID: " + documentName);
+        verify(documentIngestionOutcomeTableService).getFirstDocumentMatching(documentName);
+        verify(documentIngestionOutcomeTableService).insertIntoTable(documentName, "UNKNOWN_DOCUMENT", "INVALID_METADATA", "Invalid metadata: Missing document ID: " + documentName);
     }
 
     @Test
@@ -154,15 +154,15 @@ class IngestionOrchestratorServiceTest {
         // given
         String documentName = "test.pdf";
 
-        when(tableStorageService.getFirstDocumentMatching(documentName)).thenReturn(new DocumentIngestionOutcome());
+        when(documentIngestionOutcomeTableService.getFirstDocumentMatching(documentName)).thenReturn(new DocumentIngestionOutcome());
 
         // when
         ingestionOrchestratorService.processDocument(documentName, queueMessage);
 
         // then
-        verify(tableStorageService).getFirstDocumentMatching(documentName);
+        verify(documentIngestionOutcomeTableService).getFirstDocumentMatching(documentName);
         verify(documentMetadataService, never()).processDocumentMetadata(documentName);
         verify(queueMessage, never()).setValue(anyString());
-        verify(tableStorageService, never()).insertIntoTable(documentName, "UNKNOWN_DOCUMENT", "QUEUE_FAILED", "Connection failed");
+        verify(documentIngestionOutcomeTableService, never()).insertIntoTable(documentName, "UNKNOWN_DOCUMENT", "QUEUE_FAILED", "Connection failed");
     }
 }

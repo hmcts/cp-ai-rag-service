@@ -10,7 +10,7 @@ import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
 import uk.gov.moj.cp.ai.model.QueryAsyncResponse;
-import uk.gov.moj.cp.retrieval.service.AnswerGenerationTableStorageService;
+import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
 
 import java.util.Map;
@@ -35,15 +35,15 @@ public class GetAnswerGenerationResultFunction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GetAnswerGenerationResultFunction.class);
 
-    private final AnswerGenerationTableStorageService answerGenerationTableStorageService;
+    private final AnswerGenerationTableService answerGenerationTableService;
 
     public GetAnswerGenerationResultFunction() {
         final String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION);
-        answerGenerationTableStorageService = new AnswerGenerationTableStorageService(tableName);
+        answerGenerationTableService = new AnswerGenerationTableService(tableName);
     }
 
-    public GetAnswerGenerationResultFunction(final ResponseGenerationService responseGenerationService, final AnswerGenerationTableStorageService answerGenerationTableStorageService) {
-        this.answerGenerationTableStorageService = answerGenerationTableStorageService;
+    public GetAnswerGenerationResultFunction(final ResponseGenerationService responseGenerationService, final AnswerGenerationTableService answerGenerationTableService) {
+        this.answerGenerationTableService = answerGenerationTableService;
     }
 
     /**
@@ -69,7 +69,7 @@ public class GetAnswerGenerationResultFunction {
                 return generateResponse(request, HttpStatus.BAD_REQUEST, errorMessage);
             }
 
-            final GeneratedAnswer generatedAnswer = answerGenerationTableStorageService.getGeneratedAnswer(transactionId);
+            final GeneratedAnswer generatedAnswer = answerGenerationTableService.getGeneratedAnswer(transactionId);
             if (nonNull(generatedAnswer)) {
                 final QueryAsyncResponse queryResponse = toQueryResponse(generatedAnswer);
                 return generateResponse(request, OK, convert(queryResponse));

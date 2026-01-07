@@ -7,7 +7,7 @@ import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
-import uk.gov.moj.cp.ai.service.TableStorageService;
+import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
 import uk.gov.moj.cp.azure.status.check.model.DocumentStatusRetrievedResponse;
 import uk.gov.moj.cp.azure.status.check.model.DocumentUnknownResponse;
 
@@ -34,15 +34,15 @@ public class DocumentStatusCheckFunction {
     private static final String RESPONSE_CONTENT_TYPE_VALUE = "application/json";
     private static final String QUERY_PARAM_DOCUMENT_NAME = "document-name";
 
-    private final TableStorageService tableStorageService;
+    private final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService;
 
     public DocumentStatusCheckFunction() {
         String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
-        this.tableStorageService = new TableStorageService(tableName);
+        this.documentIngestionOutcomeTableService = new DocumentIngestionOutcomeTableService(tableName);
     }
 
-    public DocumentStatusCheckFunction(TableStorageService tableStorageService) {
-        this.tableStorageService = tableStorageService;
+    public DocumentStatusCheckFunction(DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService) {
+        this.documentIngestionOutcomeTableService = documentIngestionOutcomeTableService;
     }
 
 
@@ -71,7 +71,7 @@ public class DocumentStatusCheckFunction {
         LOGGER.info("Retrieving status for document name: {}", documentName);
 
         try {
-            final DocumentIngestionOutcome firstDocumentMatching = tableStorageService.getFirstDocumentMatching(documentName);
+            final DocumentIngestionOutcome firstDocumentMatching = documentIngestionOutcomeTableService.getFirstDocumentMatching(documentName);
             if (nonNull(firstDocumentMatching)) {
                 return request.createResponseBuilder(HttpStatus.OK)
                         .body(generateResponse(firstDocumentMatching))
