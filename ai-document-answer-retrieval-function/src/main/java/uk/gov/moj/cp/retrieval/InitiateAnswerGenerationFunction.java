@@ -9,12 +9,12 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWE
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
-import static uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
+import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
 
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
-import uk.gov.moj.cp.retrieval.service.AnswerGenerationTableStorageService;
+import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 
 import java.util.List;
 import java.util.Map;
@@ -40,17 +40,17 @@ public class InitiateAnswerGenerationFunction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(InitiateAnswerGenerationFunction.class);
 
-    private final AnswerGenerationTableStorageService answerGenerationTableStorageService;
+    private final AnswerGenerationTableService answerGenerationTableService;
 
     private static final String RESPONSE_STR = "{\"transactionId\":\"%s\"}";
 
     public InitiateAnswerGenerationFunction() {
         final String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION);
-        answerGenerationTableStorageService = new AnswerGenerationTableStorageService(tableName);
+        answerGenerationTableService = new AnswerGenerationTableService(tableName);
     }
 
-    public InitiateAnswerGenerationFunction(final AnswerGenerationTableStorageService answerGenerationTableStorageService) {
-        this.answerGenerationTableStorageService = answerGenerationTableStorageService;
+    public InitiateAnswerGenerationFunction(final AnswerGenerationTableService answerGenerationTableService) {
+        this.answerGenerationTableService = answerGenerationTableService;
     }
 
     /**
@@ -84,7 +84,7 @@ public class InitiateAnswerGenerationFunction {
             final AnswerGenerationQueuePayload answerGenerationQueuePayload = new AnswerGenerationQueuePayload(transactionId, userQuery, userQueryPrompt, metadataFilters);
             message.setValue(convert(answerGenerationQueuePayload));
 
-            answerGenerationTableStorageService.saveAnswerGenerationRequest(transactionId.toString(), userQuery, userQueryPrompt, ANSWER_GENERATION_PENDING);
+            answerGenerationTableService.saveAnswerGenerationRequest(transactionId.toString(), userQuery, userQueryPrompt, ANSWER_GENERATION_PENDING);
             LOGGER.info("Successfully initiated answer retrieval processing for the query: {} with transactionId: {}", userQuery, transactionId);
 
             return generateResponse(request, HttpStatus.OK, format(RESPONSE_STR, transactionId));

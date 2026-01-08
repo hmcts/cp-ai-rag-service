@@ -14,8 +14,8 @@ import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.QueryResponse;
 import uk.gov.moj.cp.ai.model.ScoringQueuePayload;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
-import uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus;
-import uk.gov.moj.cp.retrieval.service.AnswerGenerationTableStorageService;
+import uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus;
+import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 import uk.gov.moj.cp.retrieval.service.AzureAISearchService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
@@ -44,15 +44,15 @@ public class AnswerGenerationFunction {
     private final AzureAISearchService searchService;
     private final ResponseGenerationService responseGenerationService;
     private final BlobPersistenceService blobPersistenceService;
-    private final AnswerGenerationTableStorageService tableStorageService;
+    private final AnswerGenerationTableService answerGenerationTableService;
 
     public AnswerGenerationFunction() {
         this.embedDataService = new EmbedDataService();
         this.searchService = new AzureAISearchService();
         this.responseGenerationService = new ResponseGenerationService();
         this.blobPersistenceService = new BlobPersistenceService();
-        this.tableStorageService =
-                new AnswerGenerationTableStorageService(getRequiredEnv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION));
+        this.answerGenerationTableService =
+                new AnswerGenerationTableService(getRequiredEnv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION));
     }
 
     public AnswerGenerationFunction(
@@ -60,13 +60,13 @@ public class AnswerGenerationFunction {
             AzureAISearchService searchService,
             ResponseGenerationService responseGenerationService,
             BlobPersistenceService blobPersistenceService,
-            AnswerGenerationTableStorageService tableStorageService
+            AnswerGenerationTableService answerGenerationTableService
     ) {
         this.embedDataService = embedDataService;
         this.searchService = searchService;
         this.responseGenerationService = responseGenerationService;
         this.blobPersistenceService = blobPersistenceService;
-        this.tableStorageService = tableStorageService;
+        this.answerGenerationTableService = answerGenerationTableService;
     }
 
 
@@ -129,7 +129,7 @@ public class AnswerGenerationFunction {
 
             final long durationMs = currentTimeMillis() - startTime;
 
-            tableStorageService.upsertIntoTable(
+            answerGenerationTableService.upsertIntoTable(
                     transactionId.toString(),
                     payload.userQuery(),
                     payload.queryPrompt(),
@@ -170,7 +170,7 @@ public class AnswerGenerationFunction {
             LOGGER.error("Answer generation failed", e);
 
             if (payload != null && payload.transactionId() != null) {
-                tableStorageService.upsertIntoTable(
+                answerGenerationTableService.upsertIntoTable(
                         payload.transactionId().toString(),
                         payload.userQuery(),
                         payload.queryPrompt(),

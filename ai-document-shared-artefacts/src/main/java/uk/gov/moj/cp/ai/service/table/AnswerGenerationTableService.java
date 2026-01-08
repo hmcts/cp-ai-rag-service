@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.retrieval.service;
+package uk.gov.moj.cp.ai.service.table;
 
 import static java.util.Objects.nonNull;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_ANSWER_STATUS;
@@ -13,20 +13,15 @@ import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_USER_QUERY;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
-import uk.gov.moj.cp.ai.client.TableClientFactory;
 import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
-import uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 
-import com.azure.data.tables.TableClient;
 import com.azure.data.tables.models.TableEntity;
-import com.azure.data.tables.models.TableErrorCode;
-import com.azure.data.tables.models.TableServiceException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.slf4j.Logger;
@@ -35,25 +30,22 @@ import org.slf4j.LoggerFactory;
 /**
  * Table storage service for Answer Generation outcomes.
  */
-public class AnswerGenerationTableStorageService {
+public class AnswerGenerationTableService {
 
     private static final Logger LOGGER =
-            LoggerFactory.getLogger(AnswerGenerationTableStorageService.class);
+            LoggerFactory.getLogger(AnswerGenerationTableService.class);
 
-    private static final String ERROR_MESSAGE =
-            "Failed to %s answer generation record for transactionId '%s'";
+    private final TableService tableService;
 
-    private final TableClient tableClient;
-
-    public AnswerGenerationTableStorageService(final String tableName) {
+    public AnswerGenerationTableService(final String tableName) {
         if (isNullOrEmpty(tableName)) {
             throw new IllegalArgumentException("Table name cannot be null or empty.");
         }
-        this.tableClient = TableClientFactory.getInstance(tableName);
+        this.tableService = new TableService(tableName);
     }
 
-    protected AnswerGenerationTableStorageService(final TableClient tableClient) {
-        this.tableClient = tableClient;
+    protected AnswerGenerationTableService(final TableService tableService) {
+        this.tableService = tableService;
     }
 
     // ---------------------------------------------------------------------
@@ -80,37 +72,22 @@ public class AnswerGenerationTableStorageService {
             final Long responseGenerationDuration
     ) throws DuplicateRecordException {
 
-        try {
-            final TableEntity entity = buildEntity(
-                    transactionId,
-                    userQuery,
-                    queryPrompt,
-                    chunkedEntries,
-                    llmResponse,
-                    status,
-                    reason,
-                    responseGenerationTime,
-                    responseGenerationDuration
-            );
+        final TableEntity entity = buildEntity(
+                transactionId,
+                userQuery,
+                queryPrompt,
+                chunkedEntries,
+                llmResponse,
+                status,
+                reason,
+                responseGenerationTime,
+                responseGenerationDuration
+        );
 
-            tableClient.createEntity(entity);
+        tableService.insertIntoTable(entity);
 
-            LOGGER.info(
-                    "Answer generation record INSERTED with status={} for transactionId={}",
-                    status, transactionId);
+        LOGGER.info("Answer generation record INSERTED with status={} for transactionId={}", status, transactionId);
 
-        } catch (final TableServiceException tse) {
-            if (tse.getValue().getErrorCode() == TableErrorCode.ENTITY_ALREADY_EXISTS) {
-                throw new DuplicateRecordException(
-                        "Answer generation record already exists for transactionId " + transactionId,
-                        tse);
-            }
-            throw new RuntimeException(
-                    String.format(ERROR_MESSAGE, "INSERT", transactionId), tse);
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    String.format(ERROR_MESSAGE, "INSERT", transactionId), e);
-        }
     }
 
     // ---------------------------------------------------------------------
@@ -128,29 +105,22 @@ public class AnswerGenerationTableStorageService {
             final Long responseGenerationDuration
     ) {
 
-        try {
-            final TableEntity entity = buildEntity(
-                    transactionId,
-                    userQuery,
-                    queryPrompt,
-                    chunkedEntries,
-                    llmResponse,
-                    status,
-                    reason,
-                    responseGenerationTime,
-                    responseGenerationDuration
-            );
+        final TableEntity entity = buildEntity(
+                transactionId,
+                userQuery,
+                queryPrompt,
+                chunkedEntries,
+                llmResponse,
+                status,
+                reason,
+                responseGenerationTime,
+                responseGenerationDuration
+        );
 
-            tableClient.upsertEntity(entity);
+        tableService.upsertIntoTable(entity);
 
-            LOGGER.info(
-                    "Answer generation record UPSERTED with status={} for transactionId={}",
-                    status, transactionId);
+        LOGGER.info("Answer generation record UPSERTED with status={} for transactionId={}", status, transactionId);
 
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    String.format(ERROR_MESSAGE, "UPSERT", transactionId), e);
-        }
     }
 
     // ---------------------------------------------------------------------
@@ -158,30 +128,24 @@ public class AnswerGenerationTableStorageService {
     // ---------------------------------------------------------------------
 
     public GeneratedAnswer getGeneratedAnswer(final String transactionId) throws EntityRetrievalException {
-        try {
 
-            final TableEntity entity = tableClient.getEntity(transactionId, transactionId);
-            return new GeneratedAnswer(
-                    getPropertyAsString(entity.getProperty(TC_TRANSACTION_ID)),
-                    getPropertyAsString(entity.getProperty(TC_USER_QUERY)),
-                    getPropertyAsString(entity.getProperty(TC_QUERY_PROMPT)),
-                    toChunkedEntries(getPropertyAsString(entity.getProperty(TC_CHUNKED_ENTRIES))),
-                    getPropertyAsString(entity.getProperty(TC_LLM_RESPONSE)),
-                    getPropertyAsString(entity.getProperty(TC_ANSWER_STATUS)),
-                    getPropertyAsString(entity.getProperty(TC_REASON)),
-                    (OffsetDateTime) entity.getProperty(TC_RESPONSE_GENERATION_TIME),
-                    getPropertyAsLong(entity.getProperty(TC_RESPONSE_GENERATION_DURATION))
-            );
-
-        } catch (final TableServiceException tse) {
-            if (tse.getValue().getErrorCode() == TableErrorCode.ENTITY_NOT_FOUND
-                    || tse.getValue().getErrorCode() == TableErrorCode.RESOURCE_NOT_FOUND) {
-                return null;
-            }
-            throw new EntityRetrievalException("Failed to retrieve answer generation record for transactionId " + transactionId, tse);
-        } catch (Exception e) {
-            throw new EntityRetrievalException("Failed to retrieve answer generation record for transactionId " + transactionId, e);
+        final TableEntity entity = tableService.getFirstDocumentMatching(transactionId, transactionId);
+        if (null == entity) {
+            return null;
         }
+
+        return new GeneratedAnswer(
+                getPropertyAsString(entity.getProperty(TC_TRANSACTION_ID)),
+                getPropertyAsString(entity.getProperty(TC_USER_QUERY)),
+                getPropertyAsString(entity.getProperty(TC_QUERY_PROMPT)),
+                toChunkedEntries(getPropertyAsString(entity.getProperty(TC_CHUNKED_ENTRIES))),
+                getPropertyAsString(entity.getProperty(TC_LLM_RESPONSE)),
+                getPropertyAsString(entity.getProperty(TC_ANSWER_STATUS)),
+                getPropertyAsString(entity.getProperty(TC_REASON)),
+                (OffsetDateTime) entity.getProperty(TC_RESPONSE_GENERATION_TIME),
+                getPropertyAsLong(entity.getProperty(TC_RESPONSE_GENERATION_DURATION))
+        );
+
     }
 
     // ---------------------------------------------------------------------
@@ -222,12 +186,17 @@ public class AnswerGenerationTableStorageService {
         return value instanceof Number number ? number.longValue() : null;
     }
 
-    private List<ChunkedEntry> toChunkedEntries(final String chunkedEntriesAsString) throws JsonProcessingException {
+    private List<ChunkedEntry> toChunkedEntries(final String chunkedEntriesAsString) {
         if (nonNull(chunkedEntriesAsString)) {
-            return getObjectMapper().readValue(
-                    chunkedEntriesAsString,
-                    new TypeReference<List<ChunkedEntry>>() {
-                    });
+            try {
+                return getObjectMapper().readValue(
+                        chunkedEntriesAsString,
+                        new TypeReference<>() {
+                        });
+            } catch (JsonProcessingException e) {
+                LOGGER.error("Unable to parse chunked entries from string", e);
+                return List.of();
+            }
         }
         return null;
     }

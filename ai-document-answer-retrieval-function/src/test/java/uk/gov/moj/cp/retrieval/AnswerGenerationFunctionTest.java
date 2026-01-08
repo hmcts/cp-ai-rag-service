@@ -12,8 +12,8 @@ import static uk.org.webcompere.modelassert.json.JsonAssertions.json;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
-import uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus;
-import uk.gov.moj.cp.retrieval.service.AnswerGenerationTableStorageService;
+import uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus;
+import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 import uk.gov.moj.cp.retrieval.service.AzureAISearchService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
@@ -48,7 +48,7 @@ class AnswerGenerationFunctionTest {
     private BlobPersistenceService mockBlobPersistenceService;
 
     @Mock
-    private AnswerGenerationTableStorageService mockTableStorageService;
+    private AnswerGenerationTableService mockAnswerGenerationTableService;
 
     @Mock
     private OutputBinding<String> mockScoringOutputBinding;
@@ -66,7 +66,7 @@ class AnswerGenerationFunctionTest {
                 mockSearchService,
                 mockResponseGenerationService,
                 mockBlobPersistenceService,
-                mockTableStorageService
+                mockAnswerGenerationTableService
         );
     }
 
@@ -76,7 +76,7 @@ class AnswerGenerationFunctionTest {
 
         verify(mockEmbedDataService, never()).getEmbedding(anyString());
         verify(mockScoringOutputBinding, never()).setValue(anyString());
-        verify(mockTableStorageService, never()).upsertIntoTable(
+        verify(mockAnswerGenerationTableService, never()).upsertIntoTable(
                 anyString(), any(), any(), any(), any(), any(), any(), any(), any()
         );
     }
@@ -97,7 +97,7 @@ class AnswerGenerationFunctionTest {
 
         verify(mockEmbedDataService, never()).getEmbedding(anyString());
         verify(mockScoringOutputBinding, never()).setValue(anyString());
-        verify(mockTableStorageService, never()).upsertIntoTable(
+        verify(mockAnswerGenerationTableService, never()).upsertIntoTable(
                 anyString(), any(), any(), any(), any(), any(), any(), any(), any()
         );
     }
@@ -138,7 +138,7 @@ class AnswerGenerationFunctionTest {
 
         function.run(queueMessage, mockScoringOutputBinding);
 
-        verify(mockTableStorageService).upsertIntoTable(
+        verify(mockAnswerGenerationTableService).upsertIntoTable(
                 eq(transactionId.toString()),
                 eq("query"),
                 eq("prompt"),
@@ -189,7 +189,7 @@ class AnswerGenerationFunctionTest {
 
         function.run(queueMessage, mockScoringOutputBinding);
 
-        verify(mockTableStorageService).upsertIntoTable(
+        verify(mockAnswerGenerationTableService).upsertIntoTable(
                 eq(transactionId.toString()),
                 eq("query"),
                 eq("prompt"),

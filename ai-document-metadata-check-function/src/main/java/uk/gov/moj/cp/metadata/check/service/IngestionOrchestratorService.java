@@ -13,7 +13,7 @@ import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
-import uk.gov.moj.cp.ai.service.TableStorageService;
+import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
 import uk.gov.moj.cp.metadata.check.exception.DataRetrievalException;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
 
@@ -38,17 +38,17 @@ public class IngestionOrchestratorService {
     private static final String DUPLICATE_RECORD_LOG_MESSAGE = "Duplicate record found when attempting to record outcome for document '{}'.  Skipping remainder of ingestion.";
 
     private final DocumentMetadataService documentMetadataService;
-    private final TableStorageService tableStorageService;
+    private final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService;
 
     public IngestionOrchestratorService(DocumentMetadataService documentMetadataService) {
         this.documentMetadataService = documentMetadataService;
         String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
-        this.tableStorageService = new TableStorageService(tableName);
+        this.documentIngestionOutcomeTableService = new DocumentIngestionOutcomeTableService(tableName);
     }
 
-    public IngestionOrchestratorService(DocumentMetadataService documentMetadataService, TableStorageService tableStorageService) {
+    public IngestionOrchestratorService(DocumentMetadataService documentMetadataService, DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService) {
         this.documentMetadataService = documentMetadataService;
-        this.tableStorageService = tableStorageService;
+        this.documentIngestionOutcomeTableService = documentIngestionOutcomeTableService;
     }
 
     public void processDocument(final String documentName, final OutputBinding<String> queueMessage) {
@@ -87,7 +87,7 @@ public class IngestionOrchestratorService {
 
     private boolean isDocumentAlreadyProcessed(final String documentName) {
         try {
-            final DocumentIngestionOutcome firstDocumentMatching = tableStorageService.getFirstDocumentMatching(documentName);
+            final DocumentIngestionOutcome firstDocumentMatching = documentIngestionOutcomeTableService.getFirstDocumentMatching(documentName);
             if (null != firstDocumentMatching) {
                 LOGGER.info("Document '{}' is already processed and has status '{}'.  Skipping further processing", documentName, firstDocumentMatching.getStatus());
                 return true;
@@ -119,7 +119,7 @@ public class IngestionOrchestratorService {
                                String status,
                                String reason) throws DuplicateRecordException {
         final String effectiveDocumentId = isNullOrEmpty(documentId) ? UNKNOWN_DOCUMENT : documentId.trim();
-        tableStorageService.insertIntoTable(documentName, effectiveDocumentId, status, reason);
+        documentIngestionOutcomeTableService.insertIntoTable(documentName, effectiveDocumentId, status, reason);
 
         LOGGER.info("Status for document '{}' with ID '{}' updated to '{}'", documentName, effectiveDocumentId, status);
     }

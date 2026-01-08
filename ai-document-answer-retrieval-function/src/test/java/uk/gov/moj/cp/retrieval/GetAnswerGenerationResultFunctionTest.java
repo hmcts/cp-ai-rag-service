@@ -9,14 +9,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
-import static uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus.ANSWER_GENERATED;
-import static uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus.ANSWER_GENERATION_FAILED;
-import static uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
+import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATED;
+import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATION_FAILED;
+import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
 
 import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.model.QueryAsyncResponse;
-import uk.gov.moj.cp.retrieval.service.AnswerGenerationTableStorageService;
+import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -41,7 +41,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class GetAnswerGenerationResultFunctionTest {
 
     @Mock
-    private AnswerGenerationTableStorageService tableStorageService;
+    private AnswerGenerationTableService tableStorageService;
 
     @InjectMocks
     private GetAnswerGenerationResultFunction function;

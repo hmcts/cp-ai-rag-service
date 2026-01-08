@@ -10,7 +10,7 @@ import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
-import uk.gov.moj.cp.ai.service.TableStorageService;
+import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 
 import java.util.Collections;
@@ -27,7 +27,7 @@ public class DocumentIngestionOrchestrator {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentIngestionOrchestrator.class);
 
-    private final TableStorageService tableStorageService;
+    private final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService;
     private final DocumentAnalysisService documentAnalysisService;
     private final DocumentChunkingService documentChunkingService;
     private final ChunkEmbeddingService chunkEmbeddingService;
@@ -47,7 +47,7 @@ public class DocumentIngestionOrchestrator {
 
         this.documentAnalysisService = new DocumentAnalysisService(documentIntelligenceEndpoint);
 
-        this.tableStorageService = new TableStorageService(tableDocumentIngestionOutcome);
+        this.documentIngestionOutcomeTableService = new DocumentIngestionOutcomeTableService(tableDocumentIngestionOutcome);
 
         this.documentChunkingService = new DocumentChunkingService();
 
@@ -56,12 +56,12 @@ public class DocumentIngestionOrchestrator {
         this.documentStorageService = new DocumentStorageService(azureSearchServiceEndpoint, azureSearchIndexName);
     }
 
-    public DocumentIngestionOrchestrator(final TableStorageService tableStorageService,
+    public DocumentIngestionOrchestrator(final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService,
                                          final DocumentAnalysisService documentAnalysisService,
                                          final DocumentChunkingService documentChunkingService,
                                          final ChunkEmbeddingService chunkEmbeddingService,
                                          final DocumentStorageService documentStorageService) {
-        this.tableStorageService = requireNonNull(tableStorageService, "TableStorageService must not be null");
+        this.documentIngestionOutcomeTableService = requireNonNull(documentIngestionOutcomeTableService, "TableStorageService must not be null");
         this.documentAnalysisService = requireNonNull(documentAnalysisService, "DocumentAnalysisService must not be null");
         this.documentChunkingService = requireNonNull(documentChunkingService, "DocumentChunkingService must not be null");
         this.chunkEmbeddingService = requireNonNull(chunkEmbeddingService, "ChunkEmbeddingService must not be null");
@@ -103,7 +103,7 @@ public class DocumentIngestionOrchestrator {
                                String status,
                                String reason) {
 
-        tableStorageService.upsertIntoTable(documentName, documentId, status, reason);
+        documentIngestionOutcomeTableService.upsertIntoTable(documentName, documentId, status, reason);
 
         LOGGER.info("event=outcome_recorded status={} documentName={} documentId={}",
                 status, documentName, documentId);

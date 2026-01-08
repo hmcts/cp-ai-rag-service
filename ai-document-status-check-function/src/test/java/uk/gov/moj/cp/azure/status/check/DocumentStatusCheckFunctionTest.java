@@ -9,7 +9,7 @@ import static org.mockito.Mockito.when;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
-import uk.gov.moj.cp.ai.service.TableStorageService;
+import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
 import uk.gov.moj.cp.azure.status.check.model.DocumentStatusRetrievedResponse;
 import uk.gov.moj.cp.azure.status.check.model.DocumentUnknownResponse;
 
@@ -32,7 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class DocumentStatusCheckFunctionTest {
 
     @Mock
-    private TableStorageService tableStorageService;
+    private DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService;
 
     @Mock
     private ExecutionContext mockContext;
@@ -47,14 +47,14 @@ class DocumentStatusCheckFunctionTest {
 
     @BeforeEach
     void setUp() {
-        function = new DocumentStatusCheckFunction(tableStorageService);
+        function = new DocumentStatusCheckFunction(documentIngestionOutcomeTableService);
     }
 
     @Test
     void returnsOkResponseWhenDocumentIsFound() throws EntityRetrievalException {
         String documentName = "test-document";
         DocumentIngestionOutcome outcome = new DocumentIngestionOutcome("123", documentName, "COMPLETED", "No issues", "2023-10-01T10:00:00Z");
-        when(tableStorageService.getFirstDocumentMatching(documentName)).thenReturn(outcome);
+        when(documentIngestionOutcomeTableService.getFirstDocumentMatching(documentName)).thenReturn(outcome);
 
         Map<String, String> queryParams = new HashMap<>();
         queryParams.put("document-name", documentName);
@@ -87,7 +87,7 @@ class DocumentStatusCheckFunctionTest {
     @Test
     void returnsNotFoundResponseWhenDocumentIsNotFound() throws EntityRetrievalException {
         String documentName = "non-existent-document";
-        when(tableStorageService.getFirstDocumentMatching(documentName)).thenReturn(null);
+        when(documentIngestionOutcomeTableService.getFirstDocumentMatching(documentName)).thenReturn(null);
 
         Map<String, String> queryParams = new HashMap<>();
         queryParams.put("document-name", documentName);
@@ -108,7 +108,7 @@ class DocumentStatusCheckFunctionTest {
     @Test
     void returnsServerErrorResponseWhenErroringWhilstRetrievingEntity() throws EntityRetrievalException {
         String documentName = "random-document";
-        when(tableStorageService.getFirstDocumentMatching(documentName)).thenThrow(EntityRetrievalException.class);
+        when(documentIngestionOutcomeTableService.getFirstDocumentMatching(documentName)).thenThrow(EntityRetrievalException.class);
 
         Map<String, String> queryParams = new HashMap<>();
         queryParams.put("document-name", documentName);

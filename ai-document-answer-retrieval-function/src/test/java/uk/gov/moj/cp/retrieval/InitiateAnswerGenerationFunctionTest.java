@@ -7,12 +7,12 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
-import static uk.gov.moj.cp.retrieval.model.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
+import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
 
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
-import uk.gov.moj.cp.retrieval.service.AnswerGenerationTableStorageService;
+import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 
 import java.util.List;
 
@@ -31,7 +31,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class InitiateAnswerGenerationFunctionTest {
 
     @Mock
-    private AnswerGenerationTableStorageService answerGenerationTableStorageService;
+    private AnswerGenerationTableService answerGenerationTableService;
 
     @Mock
     private ExecutionContext executionContext;
@@ -63,7 +63,7 @@ class InitiateAnswerGenerationFunctionTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, result.getStatus());
         verifyNoInteractions(outputBinding);
-        verifyNoInteractions(answerGenerationTableStorageService);
+        verifyNoInteractions(answerGenerationTableService);
     }
 
     @Test
@@ -81,7 +81,7 @@ class InitiateAnswerGenerationFunctionTest {
 
         assertEquals(HttpStatus.OK, result.getStatus());
         verify(outputBinding).setValue(anyString());
-        verify(answerGenerationTableStorageService).saveAnswerGenerationRequest(anyString(),
+        verify(answerGenerationTableService).saveAnswerGenerationRequest(anyString(),
                 eq(userQuery), eq(queryPrompt),
                 eq(ANSWER_GENERATION_PENDING));
     }
@@ -95,7 +95,7 @@ class InitiateAnswerGenerationFunctionTest {
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, result.getStatus());
         verifyNoInteractions(outputBinding);
-        verifyNoInteractions(answerGenerationTableStorageService);
+        verifyNoInteractions(answerGenerationTableService);
     }
 
     private void mockHttpResponse(final HttpStatus expectedStatus) {
