@@ -8,6 +8,7 @@ import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_QUERY_PROMPT;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_REASON;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_RESPONSE_GENERATION_DURATION;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_RESPONSE_GENERATION_TIME;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_RESPONSE_GROUNDEDNESS_SCORE;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_TRANSACTION_ID;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_USER_QUERY;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
@@ -18,6 +19,7 @@ import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -146,6 +148,12 @@ public class AnswerGenerationTableService {
                 getPropertyAsLong(entity.getProperty(TC_RESPONSE_GENERATION_DURATION))
         );
 
+    }
+
+    public void recordGroundednessScore(final String transactionId, final BigDecimal bigDecimal) {
+        final TableEntity entity = new TableEntity(transactionId, transactionId);
+        entity.addProperty(TC_RESPONSE_GROUNDEDNESS_SCORE, bigDecimal);
+        tableService.upsertIntoTable(entity);
     }
 
     // ---------------------------------------------------------------------

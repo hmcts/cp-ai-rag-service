@@ -1,7 +1,6 @@
 package uk.gov.moj.cp.retrieval;
 
 import static java.lang.System.currentTimeMillis;
-import static java.util.UUID.randomUUID;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING;
@@ -11,11 +10,11 @@ import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
-import uk.gov.moj.cp.ai.model.QueryResponse;
+import uk.gov.moj.cp.ai.model.ScoringPayload;
 import uk.gov.moj.cp.ai.model.ScoringQueuePayload;
-import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
+import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
 import uk.gov.moj.cp.retrieval.service.AzureAISearchService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
@@ -103,13 +102,13 @@ public class AnswerGenerationFunction {
                     || payload.metadataFilter() == null
                     || payload.metadataFilter().isEmpty()) {
 
-                LOGGER.error("transactionId is missing in queueMessage received: {}", payload);
+                LOGGER.error("Minimal mandatory data not available for processing: {}", payload);
                 return;
             }
 
             final UUID transactionId = payload.transactionId();
 
-            LOGGER.info("Starting answer generation for transactionId={}", transactionId);
+            LOGGER.info("Starting answer generation for transactionId '{}'", transactionId);
 
             final List<Float> embeddings = embedDataService.getEmbedding(payload.userQuery());
 
@@ -142,16 +141,17 @@ public class AnswerGenerationFunction {
             );
 
             // Persist blob + scoring queue
-            final String filename = "llm-answer-with-chunks-" + randomUUID() + ".json";
+            final String filename = "llm-answer-with-chunks-" + transactionId + ".json";
 
             blobPersistenceService.saveBlob(
                     filename,
                     getObjectMapper().writeValueAsString(
-                            new QueryResponse(
+                            new ScoringPayload(
                                     payload.userQuery(),
                                     llmResponse,
                                     payload.queryPrompt(),
-                                    chunkedEntries
+                                    chunkedEntries,
+                                    transactionId.toString()
                             )
                     )
             );

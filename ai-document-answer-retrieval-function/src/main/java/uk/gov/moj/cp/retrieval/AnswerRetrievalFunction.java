@@ -10,6 +10,7 @@ import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.model.QueryResponse;
+import uk.gov.moj.cp.ai.model.ScoringPayload;
 import uk.gov.moj.cp.ai.model.ScoringQueuePayload;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
 import uk.gov.moj.cp.retrieval.service.AzureAISearchService;
@@ -101,7 +102,18 @@ public class AnswerRetrievalFunction {
             final String responseAsString = convertObjectToJson(queryResponse);
 
             final String filename = "llm-answer-with-chunks-" + randomUUID() + ".json";
-            blobPersistenceService.saveBlob(filename, responseAsString);
+            blobPersistenceService.saveBlob(
+                    filename,
+                    getObjectMapper().writeValueAsString(
+                            new ScoringPayload(
+                                    userQuery,
+                                    generatedResponse,
+                                    userQueryPrompt,
+                                    chunkedEntries,
+                                    null
+                            )
+                    )
+            );
 
             ScoringQueuePayload scoringQueuePayload = new ScoringQueuePayload(filename);
             message.setValue(convertObjectToJson(scoringQueuePayload));

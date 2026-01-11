@@ -3,7 +3,6 @@ package uk.gov.moj.cp.scoring.service;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 
-import uk.gov.moj.cp.ai.model.QueryResponse;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.ai.util.StringUtil;
 import uk.gov.moj.cp.scoring.exception.BlobParsingException;
@@ -29,7 +28,7 @@ public class BlobService {
         this.blobClientService = blobClientService;
     }
 
-    public QueryResponse readBlob(final String filename) throws BlobParsingException {
+    public <T> T readBlob(final String filename, Class<T> payloadClass) throws BlobParsingException {
 
         if (StringUtil.isNullOrEmpty(filename)) {
             throw new BlobParsingException("Unable to process blob as file name is null or empty");
@@ -39,7 +38,7 @@ public class BlobService {
             LOGGER.info("Reading blob with filename: {}", filename);
             final BlobClient blobClient = blobClientService.getBlobClient(filename);
             final String blobPayload = blobClient.downloadContent().toString();
-            return getObjectMapper().readValue(blobPayload, QueryResponse.class);
+            return getObjectMapper().readValue(blobPayload, payloadClass);
         } catch (JsonProcessingException e) {
             throw new BlobParsingException("Unable to process blob with filename: " + filename, e);
         }

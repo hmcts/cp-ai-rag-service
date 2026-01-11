@@ -141,6 +141,7 @@ class AnswerRetrievalFunctionTest {
                         .at("/llmResponse").isText("generated response")
                         .at("/queryPrompt").isText("prompt")
                         .at("/chunkedEntries").isArray()
+                        .at("/transactionId").isNull()
                         .toArgumentMatcher()));
 
         verify(mockOutputBinding).setValue(argThat(
