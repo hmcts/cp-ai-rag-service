@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.ai.service;
 
+import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
@@ -21,7 +22,6 @@ import com.azure.ai.openai.models.CompletionsFinishReason;
 import com.azure.ai.openai.models.ContentFilterResultsForChoice;
 import com.azure.ai.openai.models.ContentFilterResultsForPrompt;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,12 +81,12 @@ public class ChatService {
                     LOGGER.info("LLM produced complete response.  See details \n{}", resultExplanation);
                 }
             }
-
             final T responseModel;
             if (responseClass == String.class) {
                 responseModel = responseClass.cast(jsonResponse);
             } else {
-                responseModel = new ObjectMapper().readValue(jsonResponse, responseClass);
+                final String sanitisedResponse = ensureRawJsonAsConvertingPayloadToObject(jsonResponse);
+                responseModel = getObjectMapper().readValue(sanitisedResponse, responseClass);
             }
             return Optional.of(responseModel);
         } catch (JsonProcessingException e) {
@@ -125,6 +125,20 @@ public class ChatService {
         }
 
         return resultExplanation.toString();
+    }
+
+    private String ensureRawJsonAsConvertingPayloadToObject(final String llmResponse) {
+        if(llmResponse.contains("```")){
+            LOGGER.info("LLM response contains \"```\" and will require sanitising");
+        }
+
+        int firstBrace = llmResponse.indexOf("{");
+        int lastBrace = llmResponse.lastIndexOf("}");
+
+        if (firstBrace >= 0 && lastBrace > firstBrace) {
+            return llmResponse.substring(firstBrace, lastBrace + 1);
+        }
+        return llmResponse; // Fallback to original if no braces found
     }
 
 }

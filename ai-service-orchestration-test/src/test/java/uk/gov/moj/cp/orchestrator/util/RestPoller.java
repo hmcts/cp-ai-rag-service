@@ -2,6 +2,7 @@ package uk.gov.moj.cp.orchestrator.util;
 
 import static java.lang.System.currentTimeMillis;
 import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -10,7 +11,6 @@ import java.util.function.Predicate;
 
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
-import org.awaitility.Awaitility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,5 +51,21 @@ public class RestPoller {
         }
 
         return response.get();
+    }
+
+    public static Response postRequest(RequestSpecification requestSpec,
+                                       String path,
+                                       Predicate<Response> successCondition) {
+
+        LOGGER.info("Starting POST request for path '{};", path);
+        final AtomicReference<Response> response = new AtomicReference<Response>();
+
+        response.set(requestSpec.post(path));
+        if (successCondition.test(response.get())) {
+            LOGGER.info("Successfully posted request to '{}'.", path);
+            return response.get();
+        }
+        fail();
+        return null;
     }
 }

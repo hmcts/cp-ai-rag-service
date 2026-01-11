@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.orchestrator;
 
 import static io.restassured.RestAssured.given;
+import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.ANSWER_RETRIEVAL_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.ANSWER_SCORING_FUNCTION;
@@ -9,6 +10,7 @@ import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_METADATA_CHECK
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_STATUS_CHECK_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.util.BlobUtil.deleteContainer;
 import static uk.gov.moj.cp.orchestrator.util.BlobUtil.ensureContainerExists;
+import static uk.gov.moj.cp.orchestrator.util.TableUtil.deleteTable;
 import static uk.gov.moj.cp.orchestrator.util.TableUtil.ensureTableExists;
 
 import uk.gov.moj.cp.orchestrator.util.FunctionHostManager;
@@ -41,14 +43,18 @@ public abstract class FunctionTestBase {
     private static final String DOCUMENT_METADATA_CHECK_FUNCTION_DIRECTORY = "../ai-document-metadata-check-function/target/azure-functions/fa-ste-ai-document-metadata-check";
     private static final String DOCUMENT_INGESTION_FUNCTION_DIRECTORY = "../ai-document-ingestion-function/target/azure-functions/fa-ste-ai-document-ingestion";
 
-    private static final String TEST_RANDOM_KEY = RandomStringUtils.randomAlphanumeric(10).toLowerCase();
+    private static final String TEST_RANDOM_KEY = randomAlphanumeric(10).toLowerCase();
     protected static final String DOCUMENT_LANDING_FOLDER = "test-documents-folder-" + TEST_RANDOM_KEY;
     protected static final String LLM_EVAL_PAYLOADS_FOLDER = "test-llm-eval-payloads-folder-" + TEST_RANDOM_KEY;
     protected static final String DOCUMENT_STATUS_OUTCOME_TABLE = "testoutcometable" + TEST_RANDOM_KEY;
+    protected static final String ANSWER_GENERATION_TABLE = "testanswergeneration" + TEST_RANDOM_KEY;
     protected static final String DOCUMENT_INGESTION_QUEUE = "test-ingestion-queue" + TEST_RANDOM_KEY;
     protected static final String SCORING_QUEUE = "test-scoring-queue" + TEST_RANDOM_KEY;
-    protected static final String STORAGE_ACCOUNT_NAME = "sasteairag";
+    protected static final String STORAGE_ACCOUNT_NAME = getRequiredEnv("AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING__accountName");
+
     protected static final String BLOB_STORAGE_ACCOUNT_ENDPOINT = String.format("https://%s.blob.core.windows.net/", STORAGE_ACCOUNT_NAME);
+    protected static final String TABLE_STORAGE_ACCOUNT_ENDPOINT = String.format("https://%s.table.core.windows.net/", STORAGE_ACCOUNT_NAME);
+    protected static final String QUEUE_STORAGE_ACCOUNT_ENDPOINT = String.format("https://%s.queue.core.windows.net/", STORAGE_ACCOUNT_NAME);
 
     private static Map<FunctionAppName, Pair<FunctionHostManager, RequestSpecification>> FUNCTION_CONFIG_MAP;
 
@@ -69,7 +75,8 @@ public abstract class FunctionTestBase {
 
         ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_LANDING_FOLDER);
         ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, LLM_EVAL_PAYLOADS_FOLDER);
-        ensureTableExists("https://sasteairag.table.core.windows.net", DOCUMENT_STATUS_OUTCOME_TABLE);
+        ensureTableExists(TABLE_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_STATUS_OUTCOME_TABLE);
+        ensureTableExists(TABLE_STORAGE_ACCOUNT_ENDPOINT, ANSWER_GENERATION_TABLE);
 
         FUNCTION_CONFIG_MAP = Map.of(
                 DOCUMENT_METADATA_CHECK_FUNCTION, getFunctionConfig(documentMetadataCheckFunctionPort, DOCUMENT_METADATA_CHECK_FUNCTION_DIRECTORY),
@@ -94,7 +101,11 @@ public abstract class FunctionTestBase {
         return Map.ofEntries(
                 Map.entry("AzureWebJobsStorage", getRequiredEnv("AzureWebJobsStorage")),
                 Map.entry("AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING__accountName", getRequiredEnv("AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING__accountName")),
+                Map.entry("AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT", BLOB_STORAGE_ACCOUNT_ENDPOINT),
+                Map.entry("AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT", TABLE_STORAGE_ACCOUNT_ENDPOINT),
+                Map.entry("AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT", QUEUE_STORAGE_ACCOUNT_ENDPOINT),
                 Map.entry("STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME", DOCUMENT_STATUS_OUTCOME_TABLE),
+                Map.entry("STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION", ANSWER_GENERATION_TABLE),
                 Map.entry("STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION", DOCUMENT_INGESTION_QUEUE),
                 Map.entry("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME", DOCUMENT_LANDING_FOLDER),
                 Map.entry("STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING", SCORING_QUEUE),
@@ -131,6 +142,9 @@ public abstract class FunctionTestBase {
 
         deleteContainer(BLOB_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_LANDING_FOLDER);
         deleteContainer(BLOB_STORAGE_ACCOUNT_ENDPOINT, LLM_EVAL_PAYLOADS_FOLDER);
+
+        deleteTable(TABLE_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_STATUS_OUTCOME_TABLE);
+        deleteTable(TABLE_STORAGE_ACCOUNT_ENDPOINT, ANSWER_GENERATION_TABLE);
 
     }
 

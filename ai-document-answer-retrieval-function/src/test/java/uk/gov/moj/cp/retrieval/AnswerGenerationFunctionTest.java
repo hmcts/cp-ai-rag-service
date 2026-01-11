@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.retrieval;
 
+import static java.util.UUID.randomUUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -104,7 +105,7 @@ class AnswerGenerationFunctionTest {
 
     @Test
     void run_GeneratesAnswer_WhenValidPayloadProvided() throws Exception {
-        UUID transactionId = UUID.randomUUID();
+        UUID transactionId = randomUUID();
 
         AnswerGenerationQueuePayload payload =
                 new AnswerGenerationQueuePayload(
@@ -157,6 +158,7 @@ class AnswerGenerationFunctionTest {
                                 .at("/llmResponse").isText("generated response")
                                 .at("/queryPrompt").isText("prompt")
                                 .at("/chunkedEntries").isArray()
+                                .at("/transactionId").isText(transactionId.toString())
                                 .toArgumentMatcher()
                 )
         );
@@ -164,7 +166,7 @@ class AnswerGenerationFunctionTest {
         verify(mockScoringOutputBinding).setValue(
                 argThat(
                         json().at("/filename")
-                                .matches("^llm-answer-with-chunks-.*\\.json$")
+                                .matches("^llm-answer-with-chunks-" + transactionId + ".json$")
                                 .toArgumentMatcher()
                 )
         );
@@ -172,7 +174,7 @@ class AnswerGenerationFunctionTest {
 
     @Test
     void run_UpdatesTableWithFailure_WhenExceptionOccurs() throws Exception {
-        UUID transactionId = UUID.randomUUID();
+        UUID transactionId = randomUUID();
 
         AnswerGenerationQueuePayload payload =
                 new AnswerGenerationQueuePayload(

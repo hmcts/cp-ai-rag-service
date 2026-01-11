@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import uk.gov.moj.cp.ai.model.QueryResponse;
+import uk.gov.moj.cp.ai.model.ScoringPayload;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.scoring.exception.BlobParsingException;
 
@@ -39,14 +40,15 @@ class BlobServiceTest {
                     "llmResponse": "response",
                     "userQuery": "query",
                     "queryPrompt": "prompt",
-                    "chunkedEntries": []
+                    "chunkedEntries": [],
+                    "transactionId": "12345"
                 }
                 """;
 
         when(blobClientServiceMock.getBlobClient(filename)).thenReturn(blobClientMock);
         when(blobClientMock.downloadContent()).thenReturn(BinaryData.fromString(blobContent));
 
-        QueryResponse actualResponse = blobService.readBlob(filename);
+        ScoringPayload actualResponse = blobService.readBlob(filename, ScoringPayload.class);
 
         verify(blobClientServiceMock).getBlobClient(filename);
         verify(blobClientMock).downloadContent();
@@ -55,6 +57,7 @@ class BlobServiceTest {
         assertEquals("query", actualResponse.userQuery());
         assertEquals("prompt", actualResponse.queryPrompt());
         assertEquals(0, actualResponse.chunkedEntries().size());
+        assertEquals("12345", actualResponse.transactionId());
     }
 
     @Test
@@ -66,12 +69,12 @@ class BlobServiceTest {
         when(blobClientServiceMock.getBlobClient(filename)).thenReturn(blobClientMock);
         when(blobClientMock.downloadContent()).thenReturn(BinaryData.fromString(blobContent));
 
-        assertThrows(BlobParsingException.class, () -> blobService.readBlob(filename));
+        assertThrows(BlobParsingException.class, () -> blobService.readBlob(filename, ScoringPayload.class));
     }
 
     @Test
     @DisplayName("Throws BlobParsingException when filename is null")
     void throwsBlobParsingExceptionWhenFilenameIsNull() {
-        assertThrows(BlobParsingException.class, () -> blobService.readBlob(null));
+        assertThrows(BlobParsingException.class, () -> blobService.readBlob(null, ScoringPayload.class));
     }
 }

@@ -52,6 +52,20 @@ class ChatServiceTest {
     }
 
     @Test
+    @DisplayName("Returns parsed response when valid input is provided along with backticks")
+    void returnsParsedResponseWhenValidInputIsProvidedAlongWithBackticks() throws Exception {
+        String jsonResponse = "```json{\"key\":\"value\"}```";
+        ChatCompletions chatCompletions = mockChatCompletions(jsonResponse);
+        when(openAIClientMock.getChatCompletions(eq(DEPLOYMENT_NAME), any(ChatCompletionsOptions.class)))
+                .thenReturn(chatCompletions);
+
+        var result = chatService.callModel("systemInstruction", "userInstruction", Map.class);
+
+        assertTrue(result.isPresent());
+        assertEquals("value", result.get().get("key"));
+    }
+
+    @Test
     @DisplayName("Returns client specific exception when OpenAI client throws exception")
     void returnsEmptyOptionalWhenOpenAIClientThrowsException() throws ChatServiceException {
         when(openAIClientMock.getChatCompletions(eq(DEPLOYMENT_NAME), any(ChatCompletionsOptions.class)))

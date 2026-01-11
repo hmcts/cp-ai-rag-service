@@ -25,7 +25,24 @@ public class TableUtil {
 
             LOGGER.info("Table '{}' created successfully (or already existed).", tableName);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to create up table.", e);
+            throw new RuntimeException("Failed to create table.", e);
+        }
+    }
+
+    public static void deleteTable(final String endpoint, final String tableName) {
+        LOGGER.info("Connecting to '{}' and deleting Table '{}'...", endpoint, tableName);
+
+        try {
+            TableServiceClient tableClient = new TableServiceClientBuilder()
+                    .endpoint(endpoint)
+                    .credential(getCredentialInstance())
+                    .buildClient();
+
+            tableClient.deleteTable(tableName);
+
+            LOGGER.info("Table '{}' deleted successfully", tableName);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to delete table.", e);
         }
     }
 }

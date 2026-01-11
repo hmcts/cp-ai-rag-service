@@ -10,6 +10,8 @@ import static org.mockito.Mockito.when;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 
 import uk.gov.moj.cp.ai.model.QueryResponse;
+import uk.gov.moj.cp.ai.model.ScoringPayload;
+import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 import uk.gov.moj.cp.scoring.exception.BlobParsingException;
 import uk.gov.moj.cp.scoring.model.ModelScore;
 import uk.gov.moj.cp.scoring.service.BlobService;
@@ -30,6 +32,7 @@ class AnswerScoringFunctionTest {
     private AnswerScoringFunction answerScoringFunction;
     private ScoringService scoringServiceMock;
     private PublishScoreService publishScoreService;
+    private AnswerGenerationTableService answerGenerationTableService;
     private BlobService blobService;
     private ExecutionContext contextMock;
 
@@ -37,22 +40,23 @@ class AnswerScoringFunctionTest {
     void setUp() {
         scoringServiceMock = mock(ScoringService.class);
         publishScoreService = mock(PublishScoreService.class);
+        answerGenerationTableService = mock(AnswerGenerationTableService.class);
         blobService = mock(BlobService.class);
         contextMock = mock(ExecutionContext.class);
-        answerScoringFunction = new AnswerScoringFunction(scoringServiceMock, publishScoreService, blobService);
+        answerScoringFunction = new AnswerScoringFunction(scoringServiceMock, publishScoreService, blobService, answerGenerationTableService);
     }
 
     @Test
     @DisplayName("Processes valid message and logs success")
     void processesValidMessageAndLogsSuccess() throws JsonProcessingException, BlobParsingException {
         String queueMessage = "{\"filename\":\"test123.pdf\"}";
-        String blobMessage = "{\"llmResponse\":\"response\",\"userQuery\":\"query\",\"chunkedEntries\":[]}";
+        String blobMessage = "{\"llmResponse\":\"response\",\"userQuery\":\"query\",\"chunkedEntries\":[],\"transactionId\":\"12345\"}";
         final BigDecimal llmScore = BigDecimal.valueOf(5);
         final String userQuery = "query";
 
         ModelScore modelScore = new ModelScore(llmScore, "Well supported");
 
-        when(blobService.readBlob("test123.pdf")).thenReturn(getObjectMapper().readValue(blobMessage, QueryResponse.class));
+        when(blobService.readBlob("test123.pdf", ScoringPayload.class)).thenReturn(getObjectMapper().readValue(blobMessage, ScoringPayload.class));
 
         when(scoringServiceMock.evaluateGroundedness("response", userQuery, List.of()))
                 .thenReturn(modelScore);
@@ -61,6 +65,7 @@ class AnswerScoringFunctionTest {
 
         verify(scoringServiceMock).evaluateGroundedness("response", userQuery, List.of());
         verify(publishScoreService).publishGroundednessScore(llmScore, userQuery);
+        verify(answerGenerationTableService).recordGroundednessScore("12345", llmScore);
     }
 
     @Test
@@ -90,9 +95,9 @@ class AnswerScoringFunctionTest {
     @DisplayName("Handles scoring service failure and logs error")
     void handlesScoringServiceFailureAndLogsError() throws Exception {
         String queueMessage = "{\"filename\":\"test123.pdf\"}";
-        String blobMessage = "{\"llmResponse\":\"response\",\"userQuery\":\"query\",\"chunkedEntries\":[]}";
+        String blobMessage = "{\"llmResponse\":\"response\",\"userQuery\":\"query\",\"chunkedEntries\":[],\"transactionId\":\"12345\"}";
 
-        when(blobService.readBlob("test123.pdf")).thenReturn(getObjectMapper().readValue(blobMessage, QueryResponse.class));
+        when(blobService.readBlob("test123.pdf", ScoringPayload.class)).thenReturn(getObjectMapper().readValue(blobMessage, ScoringPayload.class));
 
         when(scoringServiceMock.evaluateGroundedness("response", "query", List.of()))
                 .thenThrow(new RuntimeException("Scoring service error"));
