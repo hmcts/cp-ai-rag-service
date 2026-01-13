@@ -59,6 +59,13 @@ public class TableService {
             LOGGER.info("Record UPSERTED into table with partition key '{}' and row key '{}'", tableEntity.getPartitionKey(), tableEntity.getRowKey());
 
         } catch (Exception e) {
+            LOGGER.error(
+                    "Unexpected error during UPSERT [table={}, partitionKey={}, rowKey={}]",
+                    tableClient.getTableName(),
+                    tableEntity.getPartitionKey(),
+                    tableEntity.getRowKey(),
+                    e
+            );
             throw new RuntimeException(String.format(ERROR_MESSAGE, "UPSERT", tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), e);
         }
     }
