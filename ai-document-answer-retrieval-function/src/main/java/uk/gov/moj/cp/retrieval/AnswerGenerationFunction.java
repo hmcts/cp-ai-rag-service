@@ -132,7 +132,9 @@ public class AnswerGenerationFunction {
                     transactionId.toString(),
                     payload.userQuery(),
                     payload.queryPrompt(),
-                    getObjectMapper().writeValueAsString(chunkedEntries),
+                    //getObjectMapper().writeValueAsString(chunkedEntries),
+                    //chunkedEntries size is more, for now loaded null till we resolve
+                    null,
                     llmResponse,
                     AnswerGenerationStatus.ANSWER_GENERATED,
                     null,
