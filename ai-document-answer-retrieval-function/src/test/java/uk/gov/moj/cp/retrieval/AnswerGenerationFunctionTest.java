@@ -143,7 +143,7 @@ class AnswerGenerationFunctionTest {
                 eq(transactionId.toString()),
                 eq("query"),
                 eq("prompt"),
-                anyString(),
+                any(),
                 eq("generated response"),
                 eq(AnswerGenerationStatus.ANSWER_GENERATED),
                 eq(null),
