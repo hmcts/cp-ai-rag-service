@@ -133,7 +133,7 @@ public class AnswerGenerationFunction {
                     payload.userQuery(),
                     payload.queryPrompt(),
                     //getObjectMapper().writeValueAsString(chunkedEntries),
-                    //chunkedEntries size is more, for now loaded null till we resolve
+                    //chunkedEntries size is more, for  now loaded null till we resolve
                     null,
                     llmResponse,
                     AnswerGenerationStatus.ANSWER_GENERATED,
