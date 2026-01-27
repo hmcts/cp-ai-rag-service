@@ -7,6 +7,9 @@
     <version>17.0.50-SNAPSHOT</version>
     <packaging>pom</packaging>
 
+    <name>AI RAG service</name>
+    <description>Generative AI service using native azure capabilities</description>
+
     <modules>
         <module>ai-document-shared-artefacts</module>
         <module>ai-document-metadata-check-function</module>
@@ -23,27 +26,25 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <azure.functions.maven.plugin.version>1.24.0</azure.functions.maven.plugin.version>
-        <azure.functions.java.library.version>3.1.0</azure.functions.java.library.version>
+        <azure.functions.java.library.version>3.2.3</azure.functions.java.library.version>
         <plugins.maven.jgitflow.version>1.0-m5.1</plugins.maven.jgitflow.version>
         <azure.openai.version>1.0.0-beta.16</azure.openai.version>
-        <junit-jupiter-engine.version>5.11.0-M2</junit-jupiter-engine.version>
-        <mockito-junit-jupiter.version>5.20.0</mockito-junit-jupiter.version>
+        <junit-jupiter-engine.version>6.0.2</junit-jupiter-engine.version>
+        <mockito-junit-jupiter.version>5.21.0</mockito-junit-jupiter.version>
         <assertj-core.version>3.24.2</assertj-core.version>
-        <azure.ai.formrecognizer>4.1.3</azure.ai.formrecognizer>
         <langchain4j.version>0.30.0</langchain4j.version>
         <jackson.version>2.15.2</jackson.version>
+        <azure-monitor-opentelemetry-exporter.version>1.0.0-beta.15</azure-monitor-opentelemetry-exporter.version>
+        <opentelemetry-sdk.version>1.58.0</opentelemetry-sdk.version>
 
         <!-- SonarQube Properties -->
         <sonar.projectKey>uk.gov.moj.cp.azure.ragservice:cp-ai-rag-service</sonar.projectKey>
         <sonar.projectName>CP AI RAG Service</sonar.projectName>
-        <opentelemetry-sdk.version>1.34.0</opentelemetry-sdk.version>
-        <azure-monitor-opentelemetry-exporter.version>1.0.0-beta.15
-        </azure-monitor-opentelemetry-exporter.version>
 
         <sonar.coverage.jacoco.xmlReportPaths>
             ${project.reporting.outputDirectory}/jacoco/jacoco.xml
         </sonar.coverage.jacoco.xmlReportPaths>
-        <plugins.jacoco.version>0.8.11</plugins.jacoco.version>
+        <plugins.jacoco.version>0.8.14</plugins.jacoco.version>
     </properties>
 
     <build>
@@ -130,12 +131,6 @@
                 <version>${azure.functions.java.library.version}</version>
             </dependency>
 
-            <!-- document intelligence-->
-            <dependency>
-                <groupId>com.azure</groupId>
-                <artifactId>azure-ai-formrecognizer</artifactId>
-                <version>${azure.ai.formrecognizer}</version>
-            </dependency>
             <!-- langchain4j -->
             <dependency>
                 <groupId>dev.langchain4j</groupId>
@@ -157,7 +152,7 @@
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-sdk-metrics</artifactId>
-                <version>1.34.0</version>
+                <version>${opentelemetry-sdk.version}</version>
             </dependency>
 
             <!-- Logging dependency -->

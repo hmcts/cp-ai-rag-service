@@ -6,11 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.azure.ai.formrecognizer.documentanalysis.DocumentAnalysisClient;
+import com.azure.ai.documentintelligence.DocumentIntelligenceClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-class DocumentAnalysisClientFactoryTest {
+class DocumentIntelligenceClientFactoryTest {
 
     protected static final String ENDPOINT = "https://example.com";
     protected static final String DIFFERENT_ENDPOINT = "https://different-example.com";
@@ -19,19 +19,19 @@ class DocumentAnalysisClientFactoryTest {
     @DisplayName("Throws exception when endpoint is null or empty")
     void getInstanceThrowsExceptionForNullOrEmptyEndpoint() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> DocumentAnalysisClientFactory.getInstance(null));
+                () -> DocumentIntelligenceClientFactory.getInstance(null));
         assertEquals("Endpoint value must be set.", exception.getMessage());
 
         exception = assertThrows(IllegalArgumentException.class,
-                () -> DocumentAnalysisClientFactory.getInstance(""));
+                () -> DocumentIntelligenceClientFactory.getInstance(""));
         assertEquals("Endpoint value must be set.", exception.getMessage());
     }
 
     @Test
     @DisplayName("Returns cached client for the same endpoint")
     void getInstanceReturnsCachedClientForSameEndpoint() {
-        DocumentAnalysisClient client1 = DocumentAnalysisClientFactory.getInstance(ENDPOINT);
-        DocumentAnalysisClient client2 = DocumentAnalysisClientFactory.getInstance(ENDPOINT);
+        DocumentIntelligenceClient client1 = DocumentIntelligenceClientFactory.getInstance(ENDPOINT);
+        DocumentIntelligenceClient client2 = DocumentIntelligenceClientFactory.getInstance(ENDPOINT);
 
         assertNotNull(client1);
         assertNotNull(client2);
@@ -42,8 +42,8 @@ class DocumentAnalysisClientFactoryTest {
     @DisplayName("Creates new client for different endpoints")
     void getInstanceCreatesNewClientForDifferentEndpoints() {
 
-        DocumentAnalysisClient client1 = DocumentAnalysisClientFactory.getInstance(ENDPOINT);
-        DocumentAnalysisClient client2 = DocumentAnalysisClientFactory.getInstance(DIFFERENT_ENDPOINT);
+        DocumentIntelligenceClient client1 = DocumentIntelligenceClientFactory.getInstance(ENDPOINT);
+        DocumentIntelligenceClient client2 = DocumentIntelligenceClientFactory.getInstance(DIFFERENT_ENDPOINT);
 
         assertNotNull(client1);
         assertNotNull(client2);

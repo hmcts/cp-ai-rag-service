@@ -12,9 +12,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import com.azure.ai.formrecognizer.documentanalysis.models.AnalyzeResult;
-import com.azure.ai.formrecognizer.documentanalysis.models.DocumentLine;
-import com.azure.ai.formrecognizer.documentanalysis.models.DocumentPage;
+import com.azure.ai.documentintelligence.models.AnalyzeResult;
+import com.azure.ai.documentintelligence.models.DocumentLine;
+import com.azure.ai.documentintelligence.models.DocumentPage;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.DocumentSplitter;
 import dev.langchain4j.data.segment.TextSegment;
@@ -27,13 +27,13 @@ public class DocumentChunkingService {
     private static final int MIN_CHUNK_LENGTH = 10;
 
     public List<ChunkedEntry> chunkDocument(AnalyzeResult result,
-                                         QueueIngestionMetadata queueMetadata) throws DocumentProcessingException {
+                                            QueueIngestionMetadata queueMetadata) throws DocumentProcessingException {
         return chunkDocument(result, queueMetadata, ChunkingConfig.getDefault());
     }
 
     public List<ChunkedEntry> chunkDocument(AnalyzeResult result,
-                                         QueueIngestionMetadata queueMetadata,
-                                         ChunkingConfig config) throws DocumentProcessingException {
+                                            QueueIngestionMetadata queueMetadata,
+                                            ChunkingConfig config) throws DocumentProcessingException {
 
         LOGGER.info("Starting document chunking for: {}", queueMetadata.documentName());
 
@@ -60,10 +60,10 @@ public class DocumentChunkingService {
     }
 
     private List<ChunkedEntry> processPage(DocumentPage page,
-                                        int pageIndex,
-                                        QueueIngestionMetadata queueMetadata,
-                                        DocumentSplitter splitter,
-                                        ChunkingConfig config) {
+                                           int pageIndex,
+                                           QueueIngestionMetadata queueMetadata,
+                                           DocumentSplitter splitter,
+                                           ChunkingConfig config) {
         List<ChunkedEntry> pageChunks = new ArrayList<>();
 
         List<String> lines = extractTextFromPage(page);
@@ -115,15 +115,15 @@ public class DocumentChunkingService {
     }
 
     private ChunkedEntry createChunkedEntry(int pageIndex,
-                                      String chunkContent,
-                                      QueueIngestionMetadata queueMetadata,
-                                      ChunkingConfig config,
-                                      int chunkIndex) {
+                                            String chunkContent,
+                                            QueueIngestionMetadata queueMetadata,
+                                            ChunkingConfig config,
+                                            int chunkIndex) {
 
         // Convert metadata to KeyValuePair list
         List<KeyValuePair> customMetadataList = new ArrayList<>();
-        queueMetadata.metadata().forEach((key, value) -> 
-            customMetadataList.add(new KeyValuePair(key, value)));
+        queueMetadata.metadata().forEach((key, value) ->
+                customMetadataList.add(new KeyValuePair(key, value)));
 
         ChunkedEntry chunk = ChunkedEntry.builder()
                 .id(UUID.randomUUID().toString())
