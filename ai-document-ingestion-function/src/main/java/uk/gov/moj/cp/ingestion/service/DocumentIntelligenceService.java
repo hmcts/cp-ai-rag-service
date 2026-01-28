@@ -1,7 +1,9 @@
 package uk.gov.moj.cp.ingestion.service;
 
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
+import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
+import uk.gov.moj.cp.ai.util.StringUtil;
 import uk.gov.moj.cp.ingestion.client.DocumentIntelligenceClientFactory;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 
@@ -32,9 +34,16 @@ public class DocumentIntelligenceService {
         LOGGER.info("Initialized Document Intelligence client with managed identity.");
     }
 
+    public DocumentIntelligenceService(final DocumentIntelligenceClient documentIntelligenceClient) {
+        this.documentIntelligenceClient = documentIntelligenceClient;
+    }
+
     public AnalyzeResult analyzeDocument(final String documentName,
                                          final String documentUrl)
             throws DocumentProcessingException {
+
+        validateNullOrEmpty(documentName, "Document name cannot be null or empty");
+        validateNullOrEmpty(documentUrl, "Document URL cannot be null or empty");
 
         LOGGER.info("Starting document analysis for: {}", documentName);
 
