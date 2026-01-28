@@ -1,46 +1,58 @@
 package uk.gov.moj.cp.ingestion.service;
 
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
+import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
-import uk.gov.moj.cp.ingestion.client.DocumentAnalysisClientFactory;
+import uk.gov.moj.cp.ai.util.StringUtil;
+import uk.gov.moj.cp.ingestion.client.DocumentIntelligenceClientFactory;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 
-import com.azure.ai.formrecognizer.documentanalysis.DocumentAnalysisClient;
-import com.azure.ai.formrecognizer.documentanalysis.models.AnalyzeResult;
-import com.azure.ai.formrecognizer.documentanalysis.models.OperationResult;
+import com.azure.ai.documentintelligence.DocumentIntelligenceClient;
+import com.azure.ai.documentintelligence.models.AnalyzeDocumentOptions;
+import com.azure.ai.documentintelligence.models.AnalyzeOperationDetails;
+import com.azure.ai.documentintelligence.models.AnalyzeResult;
 import com.azure.core.util.polling.SyncPoller;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DocumentAnalysisService {
+public class DocumentIntelligenceService {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(DocumentAnalysisService.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DocumentIntelligenceService.class);
 
     private static final String MODEL_ID = "prebuilt-layout";
-    private final DocumentAnalysisClient documentAnalysisClient;
+    private final DocumentIntelligenceClient documentIntelligenceClient;
 
-    public DocumentAnalysisService(String endpoint) {
+    public DocumentIntelligenceService(String endpoint) {
         if (isNullOrEmpty(endpoint)) {
             throw new IllegalArgumentException("Document Intelligence Endpoint cannot be null or empty");
         }
 
         LOGGER.info("Connecting to Document Intelligence endpoint '{}'", endpoint);
 
-        this.documentAnalysisClient = DocumentAnalysisClientFactory.getInstance(endpoint);
+        this.documentIntelligenceClient = DocumentIntelligenceClientFactory.getInstance(endpoint);
 
         LOGGER.info("Initialized Document Intelligence client with managed identity.");
+    }
+
+    public DocumentIntelligenceService(final DocumentIntelligenceClient documentIntelligenceClient) {
+        this.documentIntelligenceClient = documentIntelligenceClient;
     }
 
     public AnalyzeResult analyzeDocument(final String documentName,
                                          final String documentUrl)
             throws DocumentProcessingException {
 
+        validateNullOrEmpty(documentName, "Document name cannot be null or empty");
+        validateNullOrEmpty(documentUrl, "Document URL cannot be null or empty");
+
         LOGGER.info("Starting document analysis for: {}", documentName);
 
         try {
-            SyncPoller<OperationResult, AnalyzeResult> poller =
-                    documentAnalysisClient.beginAnalyzeDocumentFromUrl(MODEL_ID,
-                            documentUrl);
+            AnalyzeDocumentOptions options = new AnalyzeDocumentOptions(documentUrl);
+
+            SyncPoller<AnalyzeOperationDetails, AnalyzeResult> poller =
+                    documentIntelligenceClient.beginAnalyzeDocument(MODEL_ID,
+                            options);
 
             AnalyzeResult result = poller.getFinalResult();
 

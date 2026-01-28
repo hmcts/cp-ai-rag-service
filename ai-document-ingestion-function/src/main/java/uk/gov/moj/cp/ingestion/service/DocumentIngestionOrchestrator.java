@@ -16,7 +16,7 @@ import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 import java.util.Collections;
 import java.util.List;
 
-import com.azure.ai.formrecognizer.documentanalysis.models.AnalyzeResult;
+import com.azure.ai.documentintelligence.models.AnalyzeResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +28,7 @@ public class DocumentIngestionOrchestrator {
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentIngestionOrchestrator.class);
 
     private final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService;
-    private final DocumentAnalysisService documentAnalysisService;
+    private final DocumentIntelligenceService documentIntelligenceService;
     private final DocumentChunkingService documentChunkingService;
     private final ChunkEmbeddingService chunkEmbeddingService;
     private final DocumentStorageService documentStorageService;
@@ -45,7 +45,7 @@ public class DocumentIngestionOrchestrator {
         String azureSearchServiceEndpoint = getRequiredEnv(AZURE_SEARCH_SERVICE_ENDPOINT);
         String azureSearchIndexName = getRequiredEnv(AZURE_SEARCH_SERVICE_INDEX_NAME);
 
-        this.documentAnalysisService = new DocumentAnalysisService(documentIntelligenceEndpoint);
+        this.documentIntelligenceService = new DocumentIntelligenceService(documentIntelligenceEndpoint);
 
         this.documentIngestionOutcomeTableService = new DocumentIngestionOutcomeTableService(tableDocumentIngestionOutcome);
 
@@ -57,12 +57,12 @@ public class DocumentIngestionOrchestrator {
     }
 
     public DocumentIngestionOrchestrator(final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService,
-                                         final DocumentAnalysisService documentAnalysisService,
+                                         final DocumentIntelligenceService documentIntelligenceService,
                                          final DocumentChunkingService documentChunkingService,
                                          final ChunkEmbeddingService chunkEmbeddingService,
                                          final DocumentStorageService documentStorageService) {
         this.documentIngestionOutcomeTableService = requireNonNull(documentIngestionOutcomeTableService, "TableStorageService must not be null");
-        this.documentAnalysisService = requireNonNull(documentAnalysisService, "DocumentAnalysisService must not be null");
+        this.documentIntelligenceService = requireNonNull(documentIntelligenceService, "DocumentAnalysisService must not be null");
         this.documentChunkingService = requireNonNull(documentChunkingService, "DocumentChunkingService must not be null");
         this.chunkEmbeddingService = requireNonNull(chunkEmbeddingService, "ChunkEmbeddingService must not be null");
         this.documentStorageService = requireNonNull(documentStorageService, "DocumentStorageService must not be null");
@@ -79,7 +79,7 @@ public class DocumentIngestionOrchestrator {
 
         LOGGER.info("Starting document ingestion process for document: {} (ID: {})", documentName, documentId);
         // Step 1: Analyze document using Azure Document Intelligence
-        AnalyzeResult analyzeResult = documentAnalysisService.analyzeDocument(documentName, documentUrl);
+        AnalyzeResult analyzeResult = documentIntelligenceService.analyzeDocument(documentName, documentUrl);
 
         // Step 2: Chunk document using LangChain4j
         List<ChunkedEntry> chunkedEntries = documentChunkingService.chunkDocument(analyzeResult, queueIngestionMetadata);

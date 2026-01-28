@@ -22,7 +22,7 @@ class DocumentIngestionOrchestratorTest {
     @Mock
     private DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService;
     @Mock
-    private DocumentAnalysisService documentAnalysisService;
+    private DocumentIntelligenceService documentIntelligenceService;
     @Mock
     private DocumentChunkingService documentChunkingService;
     @Mock
@@ -34,7 +34,7 @@ class DocumentIngestionOrchestratorTest {
 
     @BeforeEach
     void setUp() {
-        orchestrator = new DocumentIngestionOrchestrator(documentIngestionOutcomeTableService, documentAnalysisService,
+        orchestrator = new DocumentIngestionOrchestrator(documentIngestionOutcomeTableService, documentIntelligenceService,
                 documentChunkingService, chunkEmbeddingService, documentStorageService);
     }
 

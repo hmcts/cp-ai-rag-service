@@ -41,7 +41,7 @@
         <!-- document intelligence-->
         <dependency>
             <groupId>com.azure</groupId>
-            <artifactId>azure-ai-formrecognizer</artifactId>
+            <artifactId>azure-ai-documentintelligence</artifactId>
         </dependency>
         <!-- langchain4j-->
         <dependency>
