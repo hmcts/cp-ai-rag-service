@@ -1,8 +1,8 @@
 package uk.gov.moj.cp.scoring.service;
 
-import java.util.concurrent.ConcurrentHashMap;
+import uk.gov.moj.cp.ai.coverage.Generated;
 
-import javax.annotation.processing.Generated;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.azure.monitor.opentelemetry.autoconfigure.AzureMonitorAutoConfigure;
 import io.opentelemetry.api.GlobalOpenTelemetry;
@@ -25,7 +25,7 @@ public class AzureMonitorService {
 
     private final ConcurrentHashMap<String, DoubleHistogram> HISTOGRAM_CACHE = new ConcurrentHashMap<>();
 
-    @Generated("Azure SDK initializer")
+    @Generated
     private AzureMonitorService() {
         LOGGER.info("Initializing service with OpenTelemetry SDK...");
         String connectionString = System.getenv("RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING");
