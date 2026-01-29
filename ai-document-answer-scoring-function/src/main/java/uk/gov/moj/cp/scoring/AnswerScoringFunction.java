@@ -6,7 +6,6 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWE
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 
-import uk.gov.moj.cp.ai.model.QueryResponse;
 import uk.gov.moj.cp.ai.model.ScoringPayload;
 import uk.gov.moj.cp.ai.model.ScoringQueuePayload;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
@@ -71,7 +70,7 @@ public class AnswerScoringFunction {
 
             final ScoringPayload scoringPayload = blobService.readBlob(queuePayload.filename(), ScoringPayload.class);
 
-            LOGGER.info("Starting process to score answer for query: {}", scoringPayload.toString());
+            LOGGER.info("Starting process to score answer for transactionId '{}' and query '{}'", scoringPayload.transactionId(), scoringPayload.userQuery());
 
             final ModelScore modelScore = scoringService.evaluateGroundedness(scoringPayload.llmResponse(), scoringPayload.userQuery(), scoringPayload.chunkedEntries());
 

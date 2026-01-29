@@ -34,7 +34,6 @@
         <assertj-core.version>3.24.2</assertj-core.version>
         <langchain4j.version>0.30.0</langchain4j.version>
         <jackson.version>2.15.2</jackson.version>
-        <azure-monitor-opentelemetry-exporter.version>1.0.0-beta.15</azure-monitor-opentelemetry-exporter.version>
         <opentelemetry-sdk.version>1.58.0</opentelemetry-sdk.version>
 
         <!-- SonarQube Properties -->
@@ -118,6 +117,14 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <!-- Keep the telemetry dependency in sync wth azure SDK bom version-->
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-bom</artifactId>
+                <version>1.31.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
 
             <dependency>
                 <groupId>com.azure</groupId>
@@ -136,23 +143,6 @@
                 <groupId>dev.langchain4j</groupId>
                 <artifactId>langchain4j</artifactId>
                 <version>${langchain4j.version}</version>
-            </dependency>
-
-            <!-- Telemetry dependencies -->
-            <dependency>
-                <groupId>com.azure</groupId>
-                <artifactId>azure-monitor-opentelemetry-exporter</artifactId>
-                <version>${azure-monitor-opentelemetry-exporter.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.opentelemetry</groupId>
-                <artifactId>opentelemetry-sdk</artifactId>
-                <version>${opentelemetry-sdk.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.opentelemetry</groupId>
-                <artifactId>opentelemetry-sdk-metrics</artifactId>
-                <version>${opentelemetry-sdk.version}</version>
             </dependency>
 
             <!-- Logging dependency -->

@@ -1,14 +1,17 @@
 package uk.gov.moj.cp.scoring.service;
 
-import com.azure.monitor.opentelemetry.exporter.AzureMonitorExporterBuilder;
+import uk.gov.moj.cp.ai.coverage.Generated;
+
+import java.util.concurrent.ConcurrentHashMap;
+
+import com.azure.monitor.opentelemetry.autoconfigure.AzureMonitorAutoConfigure;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.DoubleHistogram;
 import io.opentelemetry.api.metrics.Meter;
-import io.opentelemetry.sdk.OpenTelemetrySdk;
-import io.opentelemetry.sdk.metrics.SdkMeterProvider;
-import io.opentelemetry.sdk.metrics.export.PeriodicMetricReader;
+import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
+import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdkBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,25 +23,23 @@ public class AzureMonitorService {
 
     public static final String SCOPE_NAME = "ai-rag-service-meter";
 
-    private static AzureMonitorService INSTANCE;
+    private final ConcurrentHashMap<String, DoubleHistogram> HISTOGRAM_CACHE = new ConcurrentHashMap<>();
 
+    @Generated
     private AzureMonitorService() {
-        final String azureInsightsConnectionString = System.getenv("RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING");
+        LOGGER.info("Initializing service with OpenTelemetry SDK...");
+        String connectionString = System.getenv("RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING");
 
-        // Initialize and register OpenTelemetrySdk only once in the constructor
-        AzureMonitorExporterBuilder exporterBuilder = new AzureMonitorExporterBuilder()
-                .connectionString(azureInsightsConnectionString);
+        AutoConfiguredOpenTelemetrySdkBuilder sdkBuilder = AutoConfiguredOpenTelemetrySdk.builder();
+        AzureMonitorAutoConfigure.customize(sdkBuilder, connectionString);
 
-        SdkMeterProvider meterProvider = SdkMeterProvider.builder()
-                .registerMetricReader(PeriodicMetricReader.builder(exporterBuilder.buildMetricExporter()).build())
-                .build();
+        sdkBuilder.setResultAsGlobal().build();
+        meter = GlobalOpenTelemetry.get().getMeter(SCOPE_NAME);
+        LOGGER.info("AzureMonitorService initialized successfully.");
+    }
 
-        OpenTelemetrySdk.builder()
-                .setMeterProvider(meterProvider)
-                .buildAndRegisterGlobal();
-
-        // Get the meter instance from the globally registered OpenTelemetry
-        this.meter = GlobalOpenTelemetry.get().getMeter(SCOPE_NAME);
+    AzureMonitorService(final Meter meter) {
+        this.meter = meter;
     }
 
     // 2. Static Inner Holder Class
@@ -54,14 +55,22 @@ public class AzureMonitorService {
         return SingletonHolder.INSTANCE;
     }
 
-    public void publishHistogramScore(String metricName, String metricDescription, double score, String keyDimension, String valueDimension) {
-        // Use the pre-initialized meter to record the metric
-        final DoubleHistogram histogram = meter.histogramBuilder(metricName)
-                .setDescription(metricDescription)
-                .setUnit("1")
-                .build();
+    public void publishHistogramScore(final String metricName, final String metricDescription, final double score, final String keyDimension, final String valueDimension) {
+        final DoubleHistogram histogram = getDoubleHistogram(metricName, metricDescription);
         Attributes attributes = Attributes.of(AttributeKey.stringKey(keyDimension), valueDimension);
         histogram.record(score, attributes);
         LOGGER.info("Metrics have been exported successfully for query type: {} with score: {}", keyDimension, score);
+    }
+
+    private DoubleHistogram getDoubleHistogram(final String metricName, final String metricDescription) {
+        final String cacheKey = (metricName + ":" + metricDescription).replaceAll("\\s+", "").trim();
+        return HISTOGRAM_CACHE.computeIfAbsent(cacheKey, key -> {
+                    LOGGER.info("Creating double histogram object for key '{}'", cacheKey);
+                    return meter.histogramBuilder(metricName)
+                            .setDescription(metricDescription)
+                            .setUnit("1")
+                            .build();
+                }
+        );
     }
 }
