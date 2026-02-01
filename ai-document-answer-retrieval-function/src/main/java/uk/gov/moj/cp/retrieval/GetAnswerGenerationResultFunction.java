@@ -3,19 +3,26 @@ package uk.gov.moj.cp.retrieval;
 import static com.microsoft.azure.functions.HttpStatus.NOT_FOUND;
 import static com.microsoft.azure.functions.HttpStatus.OK;
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
+import static java.lang.Boolean.parseBoolean;
 import static java.util.Objects.nonNull;
+import static java.util.UUID.fromString;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
+import static uk.gov.moj.cp.retrieval.AnswerGenerationFunction.getInputChunksFilename;
 
 import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
+import uk.gov.moj.cp.ai.model.ChunkedEntry;
+import uk.gov.moj.cp.ai.model.InputChunksPayload;
 import uk.gov.moj.cp.ai.model.QueryAsyncResponse;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
-import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
+import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
@@ -36,14 +43,17 @@ public class GetAnswerGenerationResultFunction {
     private static final Logger LOGGER = LoggerFactory.getLogger(GetAnswerGenerationResultFunction.class);
 
     private final AnswerGenerationTableService answerGenerationTableService;
+    private final BlobPersistenceService blobPersistenceInputChunksService;
 
     public GetAnswerGenerationResultFunction() {
         final String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION);
         answerGenerationTableService = new AnswerGenerationTableService(tableName);
+        blobPersistenceInputChunksService = new BlobPersistenceService(getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS));
     }
 
-    public GetAnswerGenerationResultFunction(final ResponseGenerationService responseGenerationService, final AnswerGenerationTableService answerGenerationTableService) {
+    public GetAnswerGenerationResultFunction(final AnswerGenerationTableService answerGenerationTableService, final BlobPersistenceService blobPersistenceInputChunksService) {
         this.answerGenerationTableService = answerGenerationTableService;
+        this.blobPersistenceInputChunksService = blobPersistenceInputChunksService;
     }
 
     /**
@@ -70,8 +80,16 @@ public class GetAnswerGenerationResultFunction {
             }
 
             final GeneratedAnswer generatedAnswer = answerGenerationTableService.getGeneratedAnswer(transactionId);
+
             if (nonNull(generatedAnswer)) {
-                final QueryAsyncResponse queryResponse = toQueryResponse(generatedAnswer);
+                final boolean withChunkedEntries = parseBoolean(request.getQueryParameters().getOrDefault("withChunkedEntries", "false"));
+                final List<ChunkedEntry> chunkedEntriesFromBlobContainer =
+                        (withChunkedEntries && !isNullOrEmpty(generatedAnswer.getChunkedEntriesFile()))
+                                ? blobPersistenceInputChunksService.readBlob(getInputChunksFilename(fromString(transactionId)), InputChunksPayload.class).chunkedEntries()
+                                : List.of();
+
+
+                final QueryAsyncResponse queryResponse = toQueryResponse(generatedAnswer, chunkedEntriesFromBlobContainer);
                 return generateResponse(request, OK, convert(queryResponse));
             }
 
@@ -86,7 +104,7 @@ public class GetAnswerGenerationResultFunction {
 
     private boolean isValid(final String transactionId) {
         try {
-            UUID.fromString(transactionId);
+            fromString(transactionId);
             return true;
         } catch (IllegalArgumentException iae) {
             return false;
@@ -100,14 +118,14 @@ public class GetAnswerGenerationResultFunction {
                 .build();
     }
 
-    private static QueryAsyncResponse toQueryResponse(final GeneratedAnswer generatedAnswer) {
+    private static QueryAsyncResponse toQueryResponse(final GeneratedAnswer generatedAnswer, final List<ChunkedEntry> chunkedEntriesFromBlobContainer) {
         return new QueryAsyncResponse(generatedAnswer.getTransactionId(),
                 generatedAnswer.getAnswerStatus(),
                 generatedAnswer.getReason(),
                 generatedAnswer.getUserQuery(),
                 generatedAnswer.getLlmResponse(),
                 generatedAnswer.getQueryPrompt(),
-                generatedAnswer.getChunkedEntries(),
+                chunkedEntriesFromBlobContainer.isEmpty() ? generatedAnswer.getChunkedEntries() : chunkedEntriesFromBlobContainer,
                 generatedAnswer.getResponseGenerationTime().toString(),
                 generatedAnswer.getResponseGenerationDuration());
     }

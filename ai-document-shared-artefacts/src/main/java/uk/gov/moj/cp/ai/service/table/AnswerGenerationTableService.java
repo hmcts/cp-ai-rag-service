@@ -1,8 +1,10 @@
 package uk.gov.moj.cp.ai.service.table;
 
 import static java.util.Objects.nonNull;
+import static org.slf4j.LoggerFactory.getLogger;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_ANSWER_STATUS;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_CHUNKED_ENTRIES;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_CHUNKED_ENTRIES_FILE;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_LLM_RESPONSE;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_QUERY_PROMPT;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_REASON;
@@ -27,15 +29,12 @@ import com.azure.data.tables.models.TableEntity;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Table storage service for Answer Generation outcomes.
  */
 public class AnswerGenerationTableService {
-
-    private static final Logger LOGGER =
-            LoggerFactory.getLogger(AnswerGenerationTableService.class);
+    private static final Logger LOGGER = getLogger(AnswerGenerationTableService.class);
 
     private final TableService tableService;
 
@@ -50,68 +49,30 @@ public class AnswerGenerationTableService {
         this.tableService = tableService;
     }
 
-    // ---------------------------------------------------------------------
-    // INSERT
-    // ---------------------------------------------------------------------
-    public void saveAnswerGenerationRequest(
-            final String transactionId,
-            final String userQuery,
-            final String queryPrompt,
-            final AnswerGenerationStatus status
-    ) throws DuplicateRecordException {
-        insertIntoTable(transactionId, userQuery, queryPrompt, null, null, status, null, null, null);
-    }
-
-    private void insertIntoTable(
-            final String transactionId,
-            final String userQuery,
-            final String queryPrompt,
-            final String chunkedEntries,
-            final String llmResponse,
-            final AnswerGenerationStatus status,
-            final String reason,
-            final OffsetDateTime responseGenerationTime,
-            final Long responseGenerationDuration
-    ) throws DuplicateRecordException {
+    public void saveAnswerGenerationRequest(final String transactionId, final String userQuery,
+                                            final String queryPrompt, final AnswerGenerationStatus status) throws DuplicateRecordException {
 
         final TableEntity entity = buildEntity(
-                transactionId,
-                userQuery,
-                queryPrompt,
-                chunkedEntries,
-                llmResponse,
-                status,
-                reason,
-                responseGenerationTime,
-                responseGenerationDuration
+                transactionId, userQuery, queryPrompt,
+                null, null, status,
+                null, null, null
         );
 
         tableService.insertIntoTable(entity);
-
         LOGGER.info("Answer generation record INSERTED with status={} for transactionId={}", status, transactionId);
-
     }
 
-    // ---------------------------------------------------------------------
-    // UPSERT
-    // ---------------------------------------------------------------------
-    public void upsertIntoTable(
-            final String transactionId,
-            final String userQuery,
-            final String queryPrompt,
-            final String chunkedEntries,
-            final String llmResponse,
-            final AnswerGenerationStatus status,
-            final String reason,
-            final OffsetDateTime responseGenerationTime,
-            final Long responseGenerationDuration
+    public void upsertIntoTable(final String transactionId, final String userQuery,
+                                final String queryPrompt, final String chunkedEntriesFile, final String llmResponse,
+                                final AnswerGenerationStatus status, final String reason,
+                                final OffsetDateTime responseGenerationTime, final Long responseGenerationDuration
     ) {
 
         final TableEntity entity = buildEntity(
                 transactionId,
                 userQuery,
                 queryPrompt,
-                chunkedEntries,
+                chunkedEntriesFile,
                 llmResponse,
                 status,
                 reason,
@@ -122,12 +83,7 @@ public class AnswerGenerationTableService {
         tableService.upsertIntoTable(entity);
 
         LOGGER.info("Answer generation record UPSERTED with status={} for transactionId={}", status, transactionId);
-
     }
-
-    // ---------------------------------------------------------------------
-    // RETRIEVE
-    // ---------------------------------------------------------------------
 
     public GeneratedAnswer getGeneratedAnswer(final String transactionId) throws EntityRetrievalException {
 
@@ -141,6 +97,7 @@ public class AnswerGenerationTableService {
                 getPropertyAsString(entity.getProperty(TC_USER_QUERY)),
                 getPropertyAsString(entity.getProperty(TC_QUERY_PROMPT)),
                 toChunkedEntries(getPropertyAsString(entity.getProperty(TC_CHUNKED_ENTRIES))),
+                getPropertyAsString(entity.getProperty(TC_CHUNKED_ENTRIES_FILE)),
                 getPropertyAsString(entity.getProperty(TC_LLM_RESPONSE)),
                 getPropertyAsString(entity.getProperty(TC_ANSWER_STATUS)),
                 getPropertyAsString(entity.getProperty(TC_REASON)),
@@ -156,15 +113,11 @@ public class AnswerGenerationTableService {
         tableService.upsertIntoTable(entity);
     }
 
-    // ---------------------------------------------------------------------
-    // INTERNALS
-    // ---------------------------------------------------------------------
-
     private TableEntity buildEntity(
             final String transactionId,
             final String userQuery,
             final String queryPrompt,
-            final String chunkedEntries,
+            final String chunkedEntriesFile,
             final String llmResponse,
             final AnswerGenerationStatus status,
             final String reason,
@@ -176,7 +129,7 @@ public class AnswerGenerationTableService {
         entity.addProperty(TC_TRANSACTION_ID, transactionId);
         entity.addProperty(TC_USER_QUERY, userQuery);
         entity.addProperty(TC_QUERY_PROMPT, queryPrompt);
-        entity.addProperty(TC_CHUNKED_ENTRIES, chunkedEntries);
+        entity.addProperty(TC_CHUNKED_ENTRIES_FILE, chunkedEntriesFile);
         entity.addProperty(TC_LLM_RESPONSE, llmResponse);
         entity.addProperty(TC_ANSWER_STATUS, status.name());
         entity.addProperty(TC_REASON, reason);

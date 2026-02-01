@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.scoring.exception;
+package uk.gov.moj.cp.ai.exception;
 
 public class BlobParsingException extends Exception {
 

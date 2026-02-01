@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.retrieval;
 
+import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -8,6 +9,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static uk.gov.moj.cp.retrieval.AnswerGenerationFunction.LLM_INPUT_CHUNKS;
 import static uk.org.webcompere.modelassert.json.JsonAssertions.json;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
@@ -49,6 +51,9 @@ class AnswerGenerationFunctionTest {
     private BlobPersistenceService mockBlobPersistenceService;
 
     @Mock
+    private BlobPersistenceService mockBlobPersistenceInputChunksService;
+
+    @Mock
     private AnswerGenerationTableService mockAnswerGenerationTableService;
 
     @Mock
@@ -67,6 +72,7 @@ class AnswerGenerationFunctionTest {
                 mockSearchService,
                 mockResponseGenerationService,
                 mockBlobPersistenceService,
+                mockBlobPersistenceInputChunksService,
                 mockAnswerGenerationTableService
         );
     }
@@ -143,7 +149,7 @@ class AnswerGenerationFunctionTest {
                 eq(transactionId.toString()),
                 eq("query"),
                 eq("prompt"),
-                any(),
+                eq(format(LLM_INPUT_CHUNKS, transactionId)),
                 eq("generated response"),
                 eq(AnswerGenerationStatus.ANSWER_GENERATED),
                 eq(null),

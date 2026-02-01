@@ -14,6 +14,7 @@ public class GeneratedAnswer extends BaseTableEntity {
     private String queryPrompt;
 
     private List<ChunkedEntry> chunkedEntries;
+    private String chunkedEntriesFile;
 
     private String llmResponse;
     private String answerStatus;
@@ -30,6 +31,7 @@ public class GeneratedAnswer extends BaseTableEntity {
                            final String userQuery,
                            final String queryPrompt,
                            final List<ChunkedEntry> chunkedEntries,
+                           final String chunkedEntriesFile,
                            final String llmResponse,
                            final String answerStatus,
                            final String reason,
@@ -39,6 +41,7 @@ public class GeneratedAnswer extends BaseTableEntity {
         this.userQuery = userQuery;
         this.queryPrompt = queryPrompt;
         this.chunkedEntries = chunkedEntries;
+        this.chunkedEntriesFile = chunkedEntriesFile;
         this.llmResponse = llmResponse;
         this.answerStatus = answerStatus;
         this.reason = reason;
@@ -76,6 +79,14 @@ public class GeneratedAnswer extends BaseTableEntity {
 
     public void setChunkedEntries(final List<ChunkedEntry> chunkedEntries) {
         this.chunkedEntries = chunkedEntries;
+    }
+
+    public String getChunkedEntriesFile() {
+        return chunkedEntriesFile;
+    }
+
+    public void setChunkedEntriesFile(final String chunkedEntriesFile) {
+        this.chunkedEntriesFile = chunkedEntriesFile;
     }
 
     public String getLlmResponse() {
