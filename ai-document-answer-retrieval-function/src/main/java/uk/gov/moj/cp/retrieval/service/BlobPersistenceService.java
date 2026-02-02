@@ -6,6 +6,9 @@ import uk.gov.moj.cp.ai.exception.BlobParsingException;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.ai.util.StringUtil;
 
+import java.nio.charset.StandardCharsets;
+
+import com.azure.core.util.BinaryData;
 import com.azure.storage.blob.BlobClient;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.slf4j.Logger;
@@ -39,7 +42,8 @@ public class BlobPersistenceService {
         try {
             LOGGER.info("Reading blob with filename: {}", filename);
             final BlobClient blobClient = blobClientService.getBlobClient(filename);
-            final String blobPayload = blobClient.downloadContent().toString();
+            final BinaryData data = blobClient.downloadContent();
+            final String blobPayload = new String(data.toBytes(), StandardCharsets.UTF_8);
             return getObjectMapper().readValue(blobPayload, payloadClass);
         } catch (JsonProcessingException e) {
             throw new BlobParsingException("Unable to process blob with filename: " + filename, e);
