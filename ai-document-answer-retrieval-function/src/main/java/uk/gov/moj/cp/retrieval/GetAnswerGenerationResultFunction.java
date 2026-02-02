@@ -88,7 +88,6 @@ public class GetAnswerGenerationResultFunction {
                                 ? blobPersistenceInputChunksService.readBlob(getInputChunksFilename(fromString(transactionId)), InputChunksPayload.class).chunkedEntries()
                                 : List.of();
 
-
                 final QueryAsyncResponse queryResponse = toQueryResponse(generatedAnswer, chunkedEntriesFromBlobContainer);
                 return generateResponse(request, OK, convert(queryResponse));
             }
@@ -125,7 +124,7 @@ public class GetAnswerGenerationResultFunction {
                 generatedAnswer.getUserQuery(),
                 generatedAnswer.getLlmResponse(),
                 generatedAnswer.getQueryPrompt(),
-                chunkedEntriesFromBlobContainer.isEmpty() ? generatedAnswer.getChunkedEntries() : chunkedEntriesFromBlobContainer,
+                chunkedEntriesFromBlobContainer,
                 generatedAnswer.getResponseGenerationTime().toString(),
                 generatedAnswer.getResponseGenerationDuration());
     }
