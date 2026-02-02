@@ -1,26 +1,17 @@
 package uk.gov.moj.cp.ai.service.table;
 
-import com.azure.data.tables.models.TableEntity;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
-import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
-import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
-import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
-
-import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.UUID;
-
 import static java.util.UUID.randomUUID;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_ANSWER_STATUS;
-import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_CHUNKED_ENTRIES;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_CHUNKED_ENTRIES_FILE;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_LLM_RESPONSE;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_QUERY_PROMPT;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_REASON;
@@ -29,6 +20,15 @@ import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_RESPONSE_GENERATION
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_TRANSACTION_ID;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_USER_QUERY;
 import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATED;
+
+import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
+import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
+import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
+
+import com.azure.data.tables.models.TableEntity;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class AnswerGenerationTableServiceTest {
     private TableService tableService;
@@ -70,7 +70,7 @@ class AnswerGenerationTableServiceTest {
         entity.addProperty(TC_TRANSACTION_ID, transactionId);
         entity.addProperty(TC_USER_QUERY, "query");
         entity.addProperty(TC_QUERY_PROMPT, "prompt");
-        entity.addProperty(TC_CHUNKED_ENTRIES, null);
+        entity.addProperty(TC_CHUNKED_ENTRIES_FILE, null);
         entity.addProperty(TC_LLM_RESPONSE, null);
         entity.addProperty(TC_ANSWER_STATUS, ANSWER_GENERATED.toString());
         entity.addProperty(TC_REASON, null);

@@ -178,7 +178,7 @@ public class AnswerGenerationFunction {
 
     private String saveInputChunksToTheBlobContainer(final UUID transactionId, final List<ChunkedEntry> chunkedEntries) throws JsonProcessingException {
         final String inputChunksFilename = getInputChunksFilename(transactionId);
-        final InputChunksPayload inputChunksPayload = new InputChunksPayload(chunkedEntries, transactionId);
+        final InputChunksPayload inputChunksPayload = new InputChunksPayload(chunkedEntries);
 
         blobPersistenceInputChunksService.saveBlob(inputChunksFilename, getObjectMapper().writeValueAsString(inputChunksPayload));
         return inputChunksFilename;

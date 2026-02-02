@@ -3,7 +3,6 @@ package uk.gov.moj.cp.ai.service.table;
 import static java.util.Objects.nonNull;
 import static org.slf4j.LoggerFactory.getLogger;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_ANSWER_STATUS;
-import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_CHUNKED_ENTRIES;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_CHUNKED_ENTRIES_FILE;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_LLM_RESPONSE;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_QUERY_PROMPT;
@@ -96,7 +95,6 @@ public class AnswerGenerationTableService {
                 getPropertyAsString(entity.getProperty(TC_TRANSACTION_ID)),
                 getPropertyAsString(entity.getProperty(TC_USER_QUERY)),
                 getPropertyAsString(entity.getProperty(TC_QUERY_PROMPT)),
-                toChunkedEntries(getPropertyAsString(entity.getProperty(TC_CHUNKED_ENTRIES))),
                 getPropertyAsString(entity.getProperty(TC_CHUNKED_ENTRIES_FILE)),
                 getPropertyAsString(entity.getProperty(TC_LLM_RESPONSE)),
                 getPropertyAsString(entity.getProperty(TC_ANSWER_STATUS)),

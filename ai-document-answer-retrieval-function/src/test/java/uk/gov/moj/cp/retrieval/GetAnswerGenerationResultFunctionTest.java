@@ -1,25 +1,35 @@
 package uk.gov.moj.cp.retrieval;
 
 import static com.microsoft.azure.functions.HttpStatus.BAD_REQUEST;
+import static java.util.UUID.fromString;
+import static java.util.UUID.randomUUID;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
+import static uk.gov.moj.cp.ai.model.ChunkedEntry.builder;
 import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATED;
 import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATION_FAILED;
 import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
+import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
+import static uk.gov.moj.cp.retrieval.AnswerGenerationFunction.getInputChunksFilename;
 
 import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
+import uk.gov.moj.cp.ai.exception.BlobParsingException;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
+import uk.gov.moj.cp.ai.model.InputChunksPayload;
 import uk.gov.moj.cp.ai.model.QueryAsyncResponse;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
+import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -42,6 +52,9 @@ class GetAnswerGenerationResultFunctionTest {
 
     @Mock
     private AnswerGenerationTableService tableStorageService;
+
+    @Mock
+    private BlobPersistenceService blobPersistenceInputChunksService;
 
     @InjectMocks
     private GetAnswerGenerationResultFunction function;
@@ -84,7 +97,7 @@ class GetAnswerGenerationResultFunctionTest {
     }
 
     @Test
-    void shouldReturnGeneratedAnswer() throws EntityRetrievalException, JsonProcessingException {
+    void shouldReturnGeneratedAnswer() throws EntityRetrievalException, JsonProcessingException, BlobParsingException {
         final String transactionId = UUID.randomUUID().toString();
 
         final GeneratedAnswer generatedAnswer = mock(GeneratedAnswer.class);
@@ -94,11 +107,13 @@ class GetAnswerGenerationResultFunctionTest {
         when(generatedAnswer.getUserQuery()).thenReturn("user query 1");
         when(generatedAnswer.getQueryPrompt()).thenReturn("query prompt 1");
         when(generatedAnswer.getLlmResponse()).thenReturn("LLM response");
-        when(generatedAnswer.getChunkedEntries()).thenReturn(List.of());
+        when(generatedAnswer.getChunkedEntriesFile()).thenReturn("transactionId.json");
         when(generatedAnswer.getResponseGenerationTime()).thenReturn(OffsetDateTime.now());
         when(generatedAnswer.getResponseGenerationDuration()).thenReturn(123L);
-
+        when(request.getQueryParameters()).thenReturn(Map.of("withChunkedEntries", "true"));
         when(tableStorageService.getGeneratedAnswer(transactionId)).thenReturn(generatedAnswer);
+        when(blobPersistenceInputChunksService.readBlob(eq(getInputChunksFilename(fromString(transactionId))), any())).thenReturn(new InputChunksPayload(List.of(builder()
+                .id(randomUUID().toString()).chunk("").documentFileName("doc2").pageNumber(2).documentId(randomUUID().toString()).build())));
 
         function.run(request, transactionId, context);
 
@@ -124,9 +139,9 @@ class GetAnswerGenerationResultFunctionTest {
         when(generatedAnswer.getAnswerStatus()).thenReturn(ANSWER_GENERATION_FAILED.name());
         when(generatedAnswer.getUserQuery()).thenReturn("user query 1");
         when(generatedAnswer.getQueryPrompt()).thenReturn("query prompt 1");
-        when(generatedAnswer.getChunkedEntries()).thenReturn(List.of());
         when(generatedAnswer.getResponseGenerationTime()).thenReturn(OffsetDateTime.now());
         when(generatedAnswer.getResponseGenerationDuration()).thenReturn(123L);
+        when(request.getQueryParameters()).thenReturn(Map.of("withChunkedEntries", "false"));
 
         when(tableStorageService.getGeneratedAnswer(transactionId)).thenReturn(generatedAnswer);
 

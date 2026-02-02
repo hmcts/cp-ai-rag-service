@@ -1,21 +1,13 @@
 package uk.gov.moj.cp.ai.entity;
 
-import uk.gov.moj.cp.ai.model.ChunkedEntry;
-
 import java.time.OffsetDateTime;
-import java.util.List;
 
 public class GeneratedAnswer extends BaseTableEntity {
 
     private String transactionId;
-
     private String userQuery;
-
     private String queryPrompt;
-
-    private List<ChunkedEntry> chunkedEntries;
     private String chunkedEntriesFile;
-
     private String llmResponse;
     private String answerStatus;
     private String reason;
@@ -30,7 +22,6 @@ public class GeneratedAnswer extends BaseTableEntity {
     public GeneratedAnswer(final String transactionId,
                            final String userQuery,
                            final String queryPrompt,
-                           final List<ChunkedEntry> chunkedEntries,
                            final String chunkedEntriesFile,
                            final String llmResponse,
                            final String answerStatus,
@@ -40,7 +31,6 @@ public class GeneratedAnswer extends BaseTableEntity {
         this.transactionId = transactionId;
         this.userQuery = userQuery;
         this.queryPrompt = queryPrompt;
-        this.chunkedEntries = chunkedEntries;
         this.chunkedEntriesFile = chunkedEntriesFile;
         this.llmResponse = llmResponse;
         this.answerStatus = answerStatus;
@@ -71,14 +61,6 @@ public class GeneratedAnswer extends BaseTableEntity {
 
     public void setQueryPrompt(final String queryPrompt) {
         this.queryPrompt = queryPrompt;
-    }
-
-    public List<ChunkedEntry> getChunkedEntries() {
-        return chunkedEntries;
-    }
-
-    public void setChunkedEntries(final List<ChunkedEntry> chunkedEntries) {
-        this.chunkedEntries = chunkedEntries;
     }
 
     public String getChunkedEntriesFile() {
