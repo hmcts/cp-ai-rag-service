@@ -18,6 +18,7 @@ import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENER
 import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.retrieval.AnswerGenerationFunction.getInputChunksFilename;
+import static uk.gov.moj.cp.retrieval.GetAnswerGenerationResultFunction.PARAM_WITH_CHUNKED_ENTRIES;
 
 import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
 import uk.gov.moj.cp.ai.exception.BlobParsingException;
@@ -110,7 +111,7 @@ class GetAnswerGenerationResultFunctionTest {
         when(generatedAnswer.getChunkedEntriesFile()).thenReturn("transactionId.json");
         when(generatedAnswer.getResponseGenerationTime()).thenReturn(OffsetDateTime.now());
         when(generatedAnswer.getResponseGenerationDuration()).thenReturn(123L);
-        when(request.getQueryParameters()).thenReturn(Map.of("withChunkedEntries", "true"));
+        when(request.getQueryParameters()).thenReturn(Map.of(PARAM_WITH_CHUNKED_ENTRIES, "true"));
         when(tableStorageService.getGeneratedAnswer(transactionId)).thenReturn(generatedAnswer);
         when(blobPersistenceInputChunksService.readBlob(eq(getInputChunksFilename(fromString(transactionId))), any())).thenReturn(new InputChunksPayload(List.of(builder()
                 .id(randomUUID().toString()).chunk("").documentFileName("doc2").pageNumber(2).documentId(randomUUID().toString()).build())));
@@ -141,7 +142,7 @@ class GetAnswerGenerationResultFunctionTest {
         when(generatedAnswer.getQueryPrompt()).thenReturn("query prompt 1");
         when(generatedAnswer.getResponseGenerationTime()).thenReturn(OffsetDateTime.now());
         when(generatedAnswer.getResponseGenerationDuration()).thenReturn(123L);
-        when(request.getQueryParameters()).thenReturn(Map.of("withChunkedEntries", "false"));
+        when(request.getQueryParameters()).thenReturn(Map.of(PARAM_WITH_CHUNKED_ENTRIES, "false"));
 
         when(tableStorageService.getGeneratedAnswer(transactionId)).thenReturn(generatedAnswer);
 

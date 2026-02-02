@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 public class GetAnswerGenerationResultFunction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GetAnswerGenerationResultFunction.class);
+    static final String PARAM_WITH_CHUNKED_ENTRIES = "withChunkedEntries";
 
     private final AnswerGenerationTableService answerGenerationTableService;
     private final BlobPersistenceService blobPersistenceInputChunksService;
@@ -82,7 +83,7 @@ public class GetAnswerGenerationResultFunction {
             final GeneratedAnswer generatedAnswer = answerGenerationTableService.getGeneratedAnswer(transactionId);
 
             if (nonNull(generatedAnswer)) {
-                final boolean withChunkedEntries = parseBoolean(request.getQueryParameters().getOrDefault("withChunkedEntries", "false"));
+                final boolean withChunkedEntries = parseBoolean(request.getQueryParameters().getOrDefault(PARAM_WITH_CHUNKED_ENTRIES, "false"));
                 final List<ChunkedEntry> chunkedEntriesFromBlobContainer =
                         (withChunkedEntries && !isNullOrEmpty(generatedAnswer.getChunkedEntriesFile()))
                                 ? blobPersistenceInputChunksService.readBlob(getInputChunksFilename(fromString(transactionId)), InputChunksPayload.class).chunkedEntries()
