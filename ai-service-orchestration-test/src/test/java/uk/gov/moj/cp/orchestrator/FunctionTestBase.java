@@ -83,10 +83,10 @@ public abstract class FunctionTestBase {
 
         FUNCTION_CONFIG_MAP = Map.of(
                 DOCUMENT_METADATA_CHECK_FUNCTION, getFunctionConfig(documentMetadataCheckFunctionPort, DOCUMENT_METADATA_CHECK_FUNCTION_DIRECTORY),
-                DOCUMENT_STATUS_CHECK_FUNCTION, getFunctionConfig(documentStatusCheckFunctionPort, DOCUMENT_STATUS_CHECK_FUNCTION_DIRECTORY)
-//                DOCUMENT_INGESTION_FUNCTION, getFunctionConfig(documentIngestionFunctionPort, DOCUMENT_INGESTION_FUNCTION_DIRECTORY),
-//                ANSWER_RETRIEVAL_FUNCTION, getFunctionConfig(answerRetrievalFunctionPort, ANSWER_RETRIEVAL_FUNCTION_DIRECTORY),
-//                ANSWER_SCORING_FUNCTION, getFunctionConfig(answerScoringFunctionPort, ANSWER_SCORING_FUNCTION_DIRECTORY)
+                DOCUMENT_STATUS_CHECK_FUNCTION, getFunctionConfig(documentStatusCheckFunctionPort, DOCUMENT_STATUS_CHECK_FUNCTION_DIRECTORY),
+                DOCUMENT_INGESTION_FUNCTION, getFunctionConfig(documentIngestionFunctionPort, DOCUMENT_INGESTION_FUNCTION_DIRECTORY),
+                ANSWER_RETRIEVAL_FUNCTION, getFunctionConfig(answerRetrievalFunctionPort, ANSWER_RETRIEVAL_FUNCTION_DIRECTORY),
+                ANSWER_SCORING_FUNCTION, getFunctionConfig(answerScoringFunctionPort, ANSWER_SCORING_FUNCTION_DIRECTORY)
         );
 
         FUNCTION_CONFIG_MAP.values().forEach(fcm -> {

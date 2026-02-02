@@ -86,7 +86,7 @@ public class GetAnswerGenerationResultFunction {
                 final List<ChunkedEntry> chunkedEntriesFromBlobContainer =
                         (withChunkedEntries && !isNullOrEmpty(generatedAnswer.getChunkedEntriesFile()))
                                 ? blobPersistenceInputChunksService.readBlob(getInputChunksFilename(fromString(transactionId)), InputChunksPayload.class).chunkedEntries()
-                                : List.of();
+                                : null;
 
                 final QueryAsyncResponse queryResponse = toQueryResponse(generatedAnswer, chunkedEntriesFromBlobContainer);
                 return generateResponse(request, OK, convert(queryResponse));
