@@ -17,6 +17,7 @@ import uk.gov.moj.cp.retrieval.service.AzureAISearchService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
 import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
+import uk.gov.moj.cp.retrieval.langfuse.LangfuseConfig;
 
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,9 @@ import com.microsoft.azure.functions.OutputBinding;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
 import com.microsoft.azure.functions.annotation.QueueOutput;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Scope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,36 +93,54 @@ public class AnswerRetrievalFunction {
             }
             LOGGER.info("Initiating answer generation process for query - {}", userQuery);
 
-            final List<Float> queryEmbeddings = embedDataService.getEmbedding(userQuery);
+            Tracer tracer = LangfuseConfig.getTracer();
+            Span trace = tracer.spanBuilder("rag-answer-generation").startSpan();
+            try (Scope scope = trace.makeCurrent()) {
 
-            final List<ChunkedEntry> chunkedEntries = searchService.search(userQuery, queryEmbeddings, metadataFilters);
+                trace.setAttribute("input.value", userQuery);
+                Span embeddingSpan = tracer.spanBuilder("embedding").startSpan();
+                final List<Float> queryEmbeddings = embedDataService.getEmbedding(userQuery);
+                embeddingSpan.end();
 
-            final String generatedResponse = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
+                Span retrievalSpan = tracer.spanBuilder("retrieval").startSpan();
+                final List<ChunkedEntry> chunkedEntries = searchService.search(userQuery, queryEmbeddings, metadataFilters);
+                retrievalSpan.setAttribute("db.query.text", userQuery);
+                retrievalSpan.setAttribute("retrieval.output", chunkedEntries.stream()
+                        .map(ChunkedEntry::toString)
+                        .reduce((a, b) -> a + "\n" + b)
+                        .orElse(""));
+                retrievalSpan.end();
 
-            LOGGER.info("Answer retrieval processing completed successfully for query: {}", userQuery);
+                final String generatedResponse = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
 
-            final QueryResponse queryResponse = new QueryResponse(userQuery, generatedResponse, userQueryPrompt, chunkedEntries);
+                LOGGER.info("Answer retrieval processing completed successfully for query: {}", userQuery);
 
-            final String responseAsString = convertObjectToJson(queryResponse);
+                final QueryResponse queryResponse = new QueryResponse(userQuery, generatedResponse, userQueryPrompt, chunkedEntries);
 
-            final String filename = "llm-answer-with-chunks-" + randomUUID() + ".json";
-            blobPersistenceService.saveBlob(
-                    filename,
-                    getObjectMapper().writeValueAsString(
-                            new ScoringPayload(
-                                    userQuery,
-                                    generatedResponse,
-                                    userQueryPrompt,
-                                    chunkedEntries,
-                                    null
-                            )
-                    )
-            );
+                final String responseAsString = convertObjectToJson(queryResponse);
 
-            ScoringQueuePayload scoringQueuePayload = new ScoringQueuePayload(filename);
-            message.setValue(convertObjectToJson(scoringQueuePayload));
+                final String filename = "llm-answer-with-chunks-" + randomUUID() + ".json";
+                blobPersistenceService.saveBlob(
+                        filename,
+                        getObjectMapper().writeValueAsString(
+                                new ScoringPayload(
+                                        userQuery,
+                                        generatedResponse,
+                                        userQueryPrompt,
+                                        chunkedEntries,
+                                        null
+                                )
+                        )
+                );
 
-            return generateResponse(request, HttpStatus.OK, responseAsString);
+                ScoringQueuePayload scoringQueuePayload = new ScoringQueuePayload(filename);
+                message.setValue(convertObjectToJson(scoringQueuePayload));
+
+                return generateResponse(request, HttpStatus.OK, responseAsString);
+            }finally {
+                trace.end();
+            }
+
 
         } catch (Exception e) {
             LOGGER.error("Error processing answer retrieval for request: {}", request, e);
