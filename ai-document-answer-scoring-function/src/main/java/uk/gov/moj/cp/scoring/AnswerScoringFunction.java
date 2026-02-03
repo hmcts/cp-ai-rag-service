@@ -6,10 +6,10 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWE
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 
+import uk.gov.moj.cp.ai.exception.BlobParsingException;
 import uk.gov.moj.cp.ai.model.ScoringPayload;
 import uk.gov.moj.cp.ai.model.ScoringQueuePayload;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
-import uk.gov.moj.cp.scoring.exception.BlobParsingException;
 import uk.gov.moj.cp.scoring.model.ModelScore;
 import uk.gov.moj.cp.scoring.service.BlobService;
 import uk.gov.moj.cp.scoring.service.PublishScoreService;

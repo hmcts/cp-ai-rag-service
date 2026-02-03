@@ -2,6 +2,7 @@ package uk.gov.moj.cp.orchestrator;
 
 import static io.restassured.RestAssured.given;
 import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.ANSWER_RETRIEVAL_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.ANSWER_SCORING_FUNCTION;
@@ -46,6 +47,7 @@ public abstract class FunctionTestBase {
     private static final String TEST_RANDOM_KEY = randomAlphanumeric(10).toLowerCase();
     protected static final String DOCUMENT_LANDING_FOLDER = "test-documents-folder-" + TEST_RANDOM_KEY;
     protected static final String LLM_EVAL_PAYLOADS_FOLDER = "test-llm-eval-payloads-folder-" + TEST_RANDOM_KEY;
+    protected static final String LLM_INPUT_CHUNKS_FOLDER = "test-llm-input-chunks-folder-" + TEST_RANDOM_KEY;
     protected static final String DOCUMENT_STATUS_OUTCOME_TABLE = "testoutcometable" + TEST_RANDOM_KEY;
     protected static final String ANSWER_GENERATION_TABLE = "testanswergeneration" + TEST_RANDOM_KEY;
     protected static final String DOCUMENT_INGESTION_QUEUE = "test-ingestion-queue" + TEST_RANDOM_KEY;
@@ -75,6 +77,7 @@ public abstract class FunctionTestBase {
 
         ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_LANDING_FOLDER);
         ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, LLM_EVAL_PAYLOADS_FOLDER);
+        ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, LLM_INPUT_CHUNKS_FOLDER);
         ensureTableExists(TABLE_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_STATUS_OUTCOME_TABLE);
         ensureTableExists(TABLE_STORAGE_ACCOUNT_ENDPOINT, ANSWER_GENERATION_TABLE);
 
@@ -100,7 +103,7 @@ public abstract class FunctionTestBase {
     private static @NotNull Map<String, String> setupEnvVarMap() {
         return Map.ofEntries(
                 Map.entry("AzureWebJobsStorage", getRequiredEnv("AzureWebJobsStorage")),
-                Map.entry("AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING__accountName", getRequiredEnv("AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING__accountName")),
+                Map.entry("AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING__accountName", STORAGE_ACCOUNT_NAME),
                 Map.entry("AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT", BLOB_STORAGE_ACCOUNT_ENDPOINT),
                 Map.entry("AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT", TABLE_STORAGE_ACCOUNT_ENDPOINT),
                 Map.entry("AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT", QUEUE_STORAGE_ACCOUNT_ENDPOINT),
@@ -110,22 +113,23 @@ public abstract class FunctionTestBase {
                 Map.entry("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME", DOCUMENT_LANDING_FOLDER),
                 Map.entry("STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING", SCORING_QUEUE),
                 Map.entry("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS", LLM_EVAL_PAYLOADS_FOLDER),
+                Map.entry("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS", LLM_INPUT_CHUNKS_FOLDER),
 
-                Map.entry("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", getRequiredEnv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")),
+                Map.entry("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", "https://document-intelligence-ste-ai-qwrw.cognitiveservices.azure.com/"),
 
-                Map.entry("AZURE_SEARCH_SERVICE_ENDPOINT", getRequiredEnv("AZURE_SEARCH_SERVICE_ENDPOINT")),
-                Map.entry("AZURE_SEARCH_SERVICE_INDEX_NAME", getRequiredEnv("AZURE_SEARCH_SERVICE_INDEX_NAME")),
+                Map.entry("AZURE_SEARCH_SERVICE_ENDPOINT", "https://search-service-ste-ai-01.search.windows.net"),
+                Map.entry("AZURE_SEARCH_SERVICE_INDEX_NAME", "ai-rag-service-index"),
 
-                Map.entry("AZURE_EMBEDDING_SERVICE_ENDPOINT", getRequiredEnv("AZURE_EMBEDDING_SERVICE_ENDPOINT")),
-                Map.entry("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME", getRequiredEnv("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME")),
+                Map.entry("AZURE_EMBEDDING_SERVICE_ENDPOINT", "https://open-ai-ste-c3vx.openai.azure.com"),
+                Map.entry("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME", "text-embedding-3-large"),
 
-                Map.entry("AZURE_OPENAI_ENDPOINT", getRequiredEnv("AZURE_OPENAI_ENDPOINT")),
-                Map.entry("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", getRequiredEnv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME")),
+                Map.entry("AZURE_OPENAI_ENDPOINT", "https://open-ai-ste-c3vx.cognitiveservices.azure.com"),
+                Map.entry("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-response-generation"),
 
-                Map.entry("AZURE_JUDGE_OPENAI_ENDPOINT", getRequiredEnv("AZURE_JUDGE_OPENAI_ENDPOINT")),
-                Map.entry("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME", getRequiredEnv("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME")),
+                Map.entry("AZURE_JUDGE_OPENAI_ENDPOINT", "https://open-ai-ste-c3vx.openai.azure.com"),
+                Map.entry("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-judge"),
 
-                Map.entry("RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING", getRequiredEnv("RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING"))
+                Map.entry("RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING", "InstrumentationKey=a1825998-dce1-4bd8-b74f-29ad1a4c382c;IngestionEndpoint=https://uksouth-1.in.applicationinsights.azure.com/;LiveEndpoint=https://uksouth.livediagnostics.monitor.azure.com/;ApplicationId=fb1f6c66-6296-4611-99e3-ee9cfe6ca5b8")
         );
     }
 
@@ -142,6 +146,7 @@ public abstract class FunctionTestBase {
 
         deleteContainer(BLOB_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_LANDING_FOLDER);
         deleteContainer(BLOB_STORAGE_ACCOUNT_ENDPOINT, LLM_EVAL_PAYLOADS_FOLDER);
+        deleteContainer(BLOB_STORAGE_ACCOUNT_ENDPOINT, LLM_INPUT_CHUNKS_FOLDER);
 
         deleteTable(TABLE_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_STATUS_OUTCOME_TABLE);
         deleteTable(TABLE_STORAGE_ACCOUNT_ENDPOINT, ANSWER_GENERATION_TABLE);

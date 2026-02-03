@@ -3,7 +3,9 @@ package uk.gov.moj.cp.retrieval;
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
 import static java.util.UUID.randomUUID;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
@@ -53,7 +55,7 @@ public class AnswerRetrievalFunction {
         embedDataService = new EmbedDataService();
         searchService = new AzureAISearchService();
         responseGenerationService = new ResponseGenerationService();
-        blobPersistenceService = new BlobPersistenceService();
+        blobPersistenceService = new BlobPersistenceService(getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS));
     }
 
     public AnswerRetrievalFunction(final EmbedDataService embedDataService, final AzureAISearchService searchService, final ResponseGenerationService responseGenerationService, final BlobPersistenceService blobPersistenceService) {

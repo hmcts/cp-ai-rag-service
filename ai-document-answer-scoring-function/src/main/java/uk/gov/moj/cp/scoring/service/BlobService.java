@@ -3,9 +3,9 @@ package uk.gov.moj.cp.scoring.service;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 
+import uk.gov.moj.cp.ai.exception.BlobParsingException;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.ai.util.StringUtil;
-import uk.gov.moj.cp.scoring.exception.BlobParsingException;
 
 import com.azure.storage.blob.BlobClient;
 import com.fasterxml.jackson.core.JsonProcessingException;

@@ -7,10 +7,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import uk.gov.moj.cp.ai.model.QueryResponse;
+import uk.gov.moj.cp.ai.exception.BlobParsingException;
 import uk.gov.moj.cp.ai.model.ScoringPayload;
 import uk.gov.moj.cp.ai.service.BlobClientService;
-import uk.gov.moj.cp.scoring.exception.BlobParsingException;
 
 import com.azure.core.util.BinaryData;
 import com.azure.storage.blob.BlobClient;

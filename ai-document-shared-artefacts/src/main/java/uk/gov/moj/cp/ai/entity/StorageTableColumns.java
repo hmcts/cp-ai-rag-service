@@ -14,7 +14,7 @@ public class StorageTableColumns {
     public static final String TC_TRANSACTION_ID = "TransactionId";
     public static final String TC_USER_QUERY = "UserQuery";
     public static final String TC_QUERY_PROMPT = "QueryPrompt";
-    public static final String TC_CHUNKED_ENTRIES = "ChunkedEntries";
+    public static final String TC_CHUNKED_ENTRIES_FILE = "ChunkedEntriesFile";
     public static final String TC_LLM_RESPONSE = "LlmResponse";
     public static final String TC_ANSWER_STATUS = "AnswerStatus";
     public static final String TC_RESPONSE_GENERATION_TIME = "ResponseGenerationTime";

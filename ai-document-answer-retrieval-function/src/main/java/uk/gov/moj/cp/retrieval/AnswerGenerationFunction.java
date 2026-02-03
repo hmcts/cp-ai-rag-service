@@ -1,7 +1,12 @@
 package uk.gov.moj.cp.retrieval;
 
+import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
+import static java.util.Objects.isNull;
+import static java.util.Objects.nonNull;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
@@ -10,6 +15,7 @@ import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
+import uk.gov.moj.cp.ai.model.InputChunksPayload;
 import uk.gov.moj.cp.ai.model.ScoringPayload;
 import uk.gov.moj.cp.ai.model.ScoringQueuePayload;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus;
@@ -24,6 +30,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.microsoft.azure.functions.OutputBinding;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.QueueOutput;
@@ -38,33 +45,39 @@ public class AnswerGenerationFunction {
 
     private static final Logger LOGGER =
             LoggerFactory.getLogger(AnswerGenerationFunction.class);
+    public static final String LLM_ANSWER_WITH_CHUNKS = "llm-answer-with-chunks-%s.json";
+    static final String LLM_INPUT_CHUNKS = "llm-input-chunks-%s.json";
 
     private final EmbedDataService embedDataService;
     private final AzureAISearchService searchService;
     private final ResponseGenerationService responseGenerationService;
-    private final BlobPersistenceService blobPersistenceService;
+    private final BlobPersistenceService blobPersistenceEvalPayloadsService;
+    private final BlobPersistenceService blobPersistenceInputChunksService;
     private final AnswerGenerationTableService answerGenerationTableService;
 
     public AnswerGenerationFunction() {
         this.embedDataService = new EmbedDataService();
         this.searchService = new AzureAISearchService();
         this.responseGenerationService = new ResponseGenerationService();
-        this.blobPersistenceService = new BlobPersistenceService();
-        this.answerGenerationTableService =
-                new AnswerGenerationTableService(getRequiredEnv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION));
+
+        this.blobPersistenceEvalPayloadsService = new BlobPersistenceService(getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS));
+        this.blobPersistenceInputChunksService = new BlobPersistenceService(getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS));
+        this.answerGenerationTableService = new AnswerGenerationTableService(getRequiredEnv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION));
     }
 
     public AnswerGenerationFunction(
             EmbedDataService embedDataService,
             AzureAISearchService searchService,
             ResponseGenerationService responseGenerationService,
-            BlobPersistenceService blobPersistenceService,
+            BlobPersistenceService blobPersistenceEvalPayloadsService,
+            BlobPersistenceService blobPersistenceInputChunksService,
             AnswerGenerationTableService answerGenerationTableService
     ) {
         this.embedDataService = embedDataService;
         this.searchService = searchService;
         this.responseGenerationService = responseGenerationService;
-        this.blobPersistenceService = blobPersistenceService;
+        this.blobPersistenceEvalPayloadsService = blobPersistenceEvalPayloadsService;
+        this.blobPersistenceInputChunksService = blobPersistenceInputChunksService;
         this.answerGenerationTableService = answerGenerationTableService;
     }
 
@@ -92,14 +105,11 @@ public class AnswerGenerationFunction {
                 throw new IllegalArgumentException("Queue message is empty");
             }
 
-            payload = getObjectMapper()
-                    .readValue(queueMessage, AnswerGenerationQueuePayload.class);
+            payload = getObjectMapper().readValue(queueMessage, AnswerGenerationQueuePayload.class);
 
             // Validation
-            if (payload.transactionId() == null
-                    || isNullOrEmpty(payload.userQuery())
-                    || isNullOrEmpty(payload.queryPrompt())
-                    || payload.metadataFilter() == null
+            if (isNull(payload.transactionId()) || isNullOrEmpty(payload.userQuery())
+                    || isNullOrEmpty(payload.queryPrompt()) || isNull(payload.metadataFilter())
                     || payload.metadataFilter().isEmpty()) {
 
                 LOGGER.error("Minimal mandatory data not available for processing: {}", payload);
@@ -111,20 +121,10 @@ public class AnswerGenerationFunction {
             LOGGER.info("Starting answer generation for transactionId '{}'", transactionId);
 
             final List<Float> embeddings = embedDataService.getEmbedding(payload.userQuery());
+            final List<ChunkedEntry> chunkedEntries = searchService.search(payload.userQuery(), embeddings, payload.metadataFilter());
+            final String llmResponse = responseGenerationService.generateResponse(payload.userQuery(), chunkedEntries, payload.queryPrompt());
 
-            final List<ChunkedEntry> chunkedEntries =
-                    searchService.search(
-                            payload.userQuery(),
-                            embeddings,
-                            payload.metadataFilter()
-                    );
-
-            final String llmResponse =
-                    responseGenerationService.generateResponse(
-                            payload.userQuery(),
-                            chunkedEntries,
-                            payload.queryPrompt()
-                    );
+            final String inputChunksFilename = saveInputChunksToTheBlobContainer(transactionId, chunkedEntries);
 
             final long durationMs = currentTimeMillis() - startTime;
 
@@ -132,9 +132,7 @@ public class AnswerGenerationFunction {
                     transactionId.toString(),
                     payload.userQuery(),
                     payload.queryPrompt(),
-                    //getObjectMapper().writeValueAsString(chunkedEntries),
-                    //chunkedEntries size is more, for  now loaded null till we resolve
-                    null,
+                    inputChunksFilename,
                     llmResponse,
                     AnswerGenerationStatus.ANSWER_GENERATED,
                     null,
@@ -143,35 +141,17 @@ public class AnswerGenerationFunction {
             );
 
             // Persist blob + scoring queue
-            final String filename = "llm-answer-with-chunks-" + transactionId + ".json";
+            final String filename = saveLlmResponseToTheBlobContainer(transactionId, payload.userQuery(), payload.queryPrompt(),
+                    llmResponse, chunkedEntries);
+            scoringMessage.setValue(getObjectMapper().writeValueAsString(new ScoringQueuePayload(filename)));
 
-            blobPersistenceService.saveBlob(
-                    filename,
-                    getObjectMapper().writeValueAsString(
-                            new ScoringPayload(
-                                    payload.userQuery(),
-                                    llmResponse,
-                                    payload.queryPrompt(),
-                                    chunkedEntries,
-                                    transactionId.toString()
-                            )
-                    )
-            );
-
-            scoringMessage.setValue(
-                    getObjectMapper().writeValueAsString(
-                            new ScoringQueuePayload(filename)));
-
-            LOGGER.info(
-                    "Answer generation completed for transactionId={} in {} ms",
-                    transactionId, durationMs);
-
+            LOGGER.info("Answer generation completed for transactionId={} in {} ms", transactionId, durationMs);
         } catch (Exception e) {
             final long durationMs = currentTimeMillis() - startTime;
 
             LOGGER.error("Answer generation failed", e);
 
-            if (payload != null && payload.transactionId() != null) {
+            if (nonNull(payload) && nonNull(payload.transactionId())) {
                 answerGenerationTableService.upsertIntoTable(
                         payload.transactionId().toString(),
                         payload.userQuery(),
@@ -184,7 +164,27 @@ public class AnswerGenerationFunction {
                         durationMs
                 );
             }
-
         }
+    }
+
+    private String saveLlmResponseToTheBlobContainer(final UUID transactionId, final String userQuery, final String queryPrompt,
+                                                     final String llmResponse, final List<ChunkedEntry> chunkedEntries) throws JsonProcessingException {
+        final String filename = format(LLM_ANSWER_WITH_CHUNKS, transactionId);
+        final ScoringPayload scoringPayload = new ScoringPayload(userQuery,
+                llmResponse, queryPrompt, chunkedEntries, transactionId.toString());
+        blobPersistenceEvalPayloadsService.saveBlob(filename, getObjectMapper().writeValueAsString(scoringPayload));
+        return filename;
+    }
+
+    private String saveInputChunksToTheBlobContainer(final UUID transactionId, final List<ChunkedEntry> chunkedEntries) throws JsonProcessingException {
+        final String inputChunksFilename = getInputChunksFilename(transactionId);
+        final InputChunksPayload inputChunksPayload = new InputChunksPayload(chunkedEntries);
+
+        blobPersistenceInputChunksService.saveBlob(inputChunksFilename, getObjectMapper().writeValueAsString(inputChunksPayload));
+        return inputChunksFilename;
+    }
+
+    static String getInputChunksFilename(final UUID transactionId) {
+        return format(LLM_INPUT_CHUNKS, transactionId);
     }
 }
