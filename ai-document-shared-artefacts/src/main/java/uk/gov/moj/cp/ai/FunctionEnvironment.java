@@ -18,6 +18,7 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWE
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
+import static uk.gov.moj.cp.ai.client.ConnectionMode.CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.client.ConnectionMode.MANAGED_IDENTITY;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 
@@ -55,8 +56,8 @@ public record FunctionEnvironment(
     }
 
     public record StorageConfig(
-            String accountName,
             String accountConnectionMode,
+            String accountName,
             String blobEndpoint,
             String tableEndpoint,
             String documentLandingContainer,
@@ -64,9 +65,11 @@ public record FunctionEnvironment(
             String inputsContainer
     ) {
         private static StorageConfig load() {
+            final String connectionMode = getRequiredEnv(AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE, MANAGED_IDENTITY.name());
+
             return new StorageConfig(
-                    getRequiredEnv(AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING),
-                    getRequiredEnv(AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE, MANAGED_IDENTITY.name()),
+                    connectionMode,
+                    connectionMode.equals(CONNECTION_STRING.name()) ? getRequiredEnv(AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING) : null,
                     getRequiredEnv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT),
                     getRequiredEnv(AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT),
                     getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME),
