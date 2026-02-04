@@ -2,12 +2,10 @@ package uk.gov.moj.cp.ingestion.service;
 
 
 import static java.util.Objects.requireNonNull;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_ENDPOINT;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_INDEX_NAME;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
 import static uk.gov.moj.cp.ai.model.DocumentStatus.INGESTION_SUCCESS;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 
+import uk.gov.moj.cp.ai.FunctionEnvironment;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
@@ -35,24 +33,21 @@ public class DocumentIngestionOrchestrator {
 
     public DocumentIngestionOrchestrator() {
 
+        final FunctionEnvironment env = FunctionEnvironment.get();
         // Document Intelligence Configuration
-        String documentIntelligenceEndpoint = getRequiredEnv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT");
+        final String documentIntelligenceEndpoint = getRequiredEnv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT");
 
         // Storage Configuration
-        String tableDocumentIngestionOutcome = getRequiredEnv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
+        final String tableDocumentIngestionOutcome = env.tableConfig().documentIngestionOutcomeTable();
 
         // Search Service Configuration
-        String azureSearchServiceEndpoint = getRequiredEnv(AZURE_SEARCH_SERVICE_ENDPOINT);
-        String azureSearchIndexName = getRequiredEnv(AZURE_SEARCH_SERVICE_INDEX_NAME);
+        final String azureSearchServiceEndpoint = env.searchConfig().serviceEndpoint();
+        final String azureSearchIndexName = env.searchConfig().serviceIndexName();
 
         this.documentIntelligenceService = new DocumentIntelligenceService(documentIntelligenceEndpoint);
-
         this.documentIngestionOutcomeTableService = new DocumentIngestionOutcomeTableService(tableDocumentIngestionOutcome);
-
         this.documentChunkingService = new DocumentChunkingService();
-
         this.chunkEmbeddingService = new ChunkEmbeddingService();
-
         this.documentStorageService = new DocumentStorageService(azureSearchServiceEndpoint, azureSearchIndexName);
     }
 

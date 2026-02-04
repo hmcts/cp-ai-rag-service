@@ -4,15 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT;
+import static org.mockito.Mockito.when;
 import static uk.gov.moj.cp.ai.client.ConnectionMode.MANAGED_IDENTITY;
-import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 
+import uk.gov.moj.cp.ai.FunctionEnvironment;
 import uk.gov.moj.cp.ai.client.config.ClientConfiguration;
-import uk.gov.moj.cp.ai.util.EnvVarUtil;
 
 import com.azure.core.http.policy.ExponentialBackoffOptions;
 import com.azure.core.http.policy.RetryOptions;
@@ -29,13 +27,17 @@ class TableClientFactoryTest {
 
     @Test
     void getInstanceCreatesNewTableClientUsingManagedIdentityWhenNotInCache() {
-        try (MockedStatic<EnvVarUtil> mockedEnvVarUtil = mockStatic(EnvVarUtil.class);
+        try (MockedStatic<FunctionEnvironment> envStatic = mockStatic(FunctionEnvironment.class);
              MockedStatic<ClientConfiguration> mockedClientConfiguration = mockStatic(ClientConfiguration.class)
         ) {
-            mockedEnvVarUtil.when(() -> getRequiredEnv(AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE, MANAGED_IDENTITY.name()))
-                    .thenReturn(MANAGED_IDENTITY.name());
-            mockedEnvVarUtil.when(() -> getRequiredEnv(AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT))
-                    .thenReturn(TABLE_STORAGE_ENDPOINT);
+
+            final FunctionEnvironment mockEnv = mock(FunctionEnvironment.class);
+            final FunctionEnvironment.StorageConfig mockStorageConfig = mock(FunctionEnvironment.StorageConfig.class);
+            envStatic.when(FunctionEnvironment::get).thenReturn(mockEnv);
+            when(mockEnv.storageConfig()).thenReturn(mockStorageConfig);
+
+            when(mockStorageConfig.accountConnectionMode()).thenReturn(MANAGED_IDENTITY.name());
+            when(mockStorageConfig.tableEndpoint()).thenReturn(TABLE_STORAGE_ENDPOINT);
             mockedClientConfiguration.when(ClientConfiguration::getRetryOptions).thenReturn(new RetryOptions(new ExponentialBackoffOptions()));
 
             TableClient client = TableClientFactory.getInstance(TABLE_NAME);
@@ -46,13 +48,16 @@ class TableClientFactoryTest {
 
     @Test
     void getInstanceCreatesNewTableClientUsingConnectionStringWhenNotInCache() {
-        try (MockedStatic<EnvVarUtil> mockedEnvVarUtil = mockStatic(EnvVarUtil.class);
+        try (MockedStatic<FunctionEnvironment> envStatic = mockStatic(FunctionEnvironment.class);
              MockedStatic<ClientConfiguration> mockedClientConfiguration = mockStatic(ClientConfiguration.class)
         ) {
-            mockedEnvVarUtil.when(() -> getRequiredEnv(AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE, MANAGED_IDENTITY.name()))
-                    .thenReturn(ConnectionMode.CONNECTION_STRING.name());
-            mockedEnvVarUtil.when(() -> getRequiredEnv(AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING))
-                    .thenReturn(CONNECTION_STRING);
+            final FunctionEnvironment mockEnv = mock(FunctionEnvironment.class);
+            final FunctionEnvironment.StorageConfig mockStorageConfig = mock(FunctionEnvironment.StorageConfig.class);
+            envStatic.when(FunctionEnvironment::get).thenReturn(mockEnv);
+            when(mockEnv.storageConfig()).thenReturn(mockStorageConfig);
+
+            when(mockStorageConfig.accountConnectionMode()).thenReturn(ConnectionMode.CONNECTION_STRING.name());
+            when(mockStorageConfig.accountName()).thenReturn(CONNECTION_STRING);
             mockedClientConfiguration.when(ClientConfiguration::getRetryOptions).thenReturn(new RetryOptions(new ExponentialBackoffOptions()));
 
             TableClient client = TableClientFactory.getInstance(TABLE_NAME);
@@ -63,13 +68,17 @@ class TableClientFactoryTest {
 
     @Test
     void getInstanceReturnsCachedTableClientUsingManagedIdentityForSameEndpointAndTableName() {
-        try (MockedStatic<EnvVarUtil> mockedEnvVarUtil = mockStatic(EnvVarUtil.class);
+        try (MockedStatic<FunctionEnvironment> envStatic = mockStatic(FunctionEnvironment.class);
              MockedStatic<ClientConfiguration> mockedClientConfiguration = mockStatic(ClientConfiguration.class)
         ) {
-            mockedEnvVarUtil.when(() -> getRequiredEnv(AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE, MANAGED_IDENTITY.name()))
-                    .thenReturn(MANAGED_IDENTITY.name());
-            mockedEnvVarUtil.when(() -> getRequiredEnv(AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT))
-                    .thenReturn(TABLE_STORAGE_ENDPOINT);
+
+            final FunctionEnvironment mockEnv = mock(FunctionEnvironment.class);
+            final FunctionEnvironment.StorageConfig mockStorageConfig = mock(FunctionEnvironment.StorageConfig.class);
+            envStatic.when(FunctionEnvironment::get).thenReturn(mockEnv);
+            when(mockEnv.storageConfig()).thenReturn(mockStorageConfig);
+
+            when(mockStorageConfig.accountConnectionMode()).thenReturn(MANAGED_IDENTITY.name());
+            when(mockStorageConfig.tableEndpoint()).thenReturn(TABLE_STORAGE_ENDPOINT);
             mockedClientConfiguration.when(ClientConfiguration::getRetryOptions).thenReturn(new RetryOptions(new ExponentialBackoffOptions()));
 
             TableClient firstClient = TableClientFactory.getInstance(TABLE_NAME);
@@ -81,13 +90,17 @@ class TableClientFactoryTest {
 
     @Test
     void getInstanceReturnsCachedTableClientUsingConnectionStringForSameEndpointAndTableName() {
-        try (MockedStatic<EnvVarUtil> mockedEnvVarUtil = mockStatic(EnvVarUtil.class);
+        try (MockedStatic<FunctionEnvironment> envStatic = mockStatic(FunctionEnvironment.class);
              MockedStatic<ClientConfiguration> mockedClientConfiguration = mockStatic(ClientConfiguration.class)
         ) {
-            mockedEnvVarUtil.when(() -> getRequiredEnv(AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE, MANAGED_IDENTITY.name()))
-                    .thenReturn(ConnectionMode.CONNECTION_STRING.name());
-            mockedEnvVarUtil.when(() -> getRequiredEnv(AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING))
-                    .thenReturn(CONNECTION_STRING);
+
+            final FunctionEnvironment mockEnv = mock(FunctionEnvironment.class);
+            final FunctionEnvironment.StorageConfig mockStorageConfig = mock(FunctionEnvironment.StorageConfig.class);
+            envStatic.when(FunctionEnvironment::get).thenReturn(mockEnv);
+            when(mockEnv.storageConfig()).thenReturn(mockStorageConfig);
+
+            when(mockStorageConfig.accountConnectionMode()).thenReturn(ConnectionMode.CONNECTION_STRING.name());
+            when(mockStorageConfig.accountName()).thenReturn(CONNECTION_STRING);
             mockedClientConfiguration.when(ClientConfiguration::getRetryOptions).thenReturn(new RetryOptions(new ExponentialBackoffOptions()));
 
             TableClient firstClient = TableClientFactory.getInstance(TABLE_NAME);
@@ -99,13 +112,16 @@ class TableClientFactoryTest {
 
     @Test
     void getInstanceReturnsNewTableClientForDifferentEndpointOrTableName() {
-        try (MockedStatic<EnvVarUtil> mockedEnvVarUtil = mockStatic(EnvVarUtil.class);
+        try (MockedStatic<FunctionEnvironment> envStatic = mockStatic(FunctionEnvironment.class);
              MockedStatic<ClientConfiguration> mockedClientConfiguration = mockStatic(ClientConfiguration.class)
         ) {
-            mockedEnvVarUtil.when(() -> getRequiredEnv(AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE, MANAGED_IDENTITY.name()))
-                    .thenReturn(MANAGED_IDENTITY.name());
-            mockedEnvVarUtil.when(() -> getRequiredEnv(AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT))
-                    .thenReturn(TABLE_STORAGE_ENDPOINT);
+            final FunctionEnvironment mockEnv = mock(FunctionEnvironment.class);
+            final FunctionEnvironment.StorageConfig mockStorageConfig = mock(FunctionEnvironment.StorageConfig.class);
+            envStatic.when(FunctionEnvironment::get).thenReturn(mockEnv);
+            when(mockEnv.storageConfig()).thenReturn(mockStorageConfig);
+
+            when(mockStorageConfig.accountConnectionMode()).thenReturn(MANAGED_IDENTITY.name());
+            when(mockStorageConfig.tableEndpoint()).thenReturn(TABLE_STORAGE_ENDPOINT);
             mockedClientConfiguration.when(ClientConfiguration::getRetryOptions).thenReturn(new RetryOptions(new ExponentialBackoffOptions()));
 
             TableClient firstClient = TableClientFactory.getInstance(TABLE_NAME);

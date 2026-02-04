@@ -1,12 +1,10 @@
 package uk.gov.moj.cp.ai.client;
 
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.client.config.ClientConfiguration.createNettyClient;
 import static uk.gov.moj.cp.ai.client.config.ClientConfiguration.getRetryOptions;
 import static uk.gov.moj.cp.ai.util.CredentialUtil.getCredentialInstance;
-import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
+
+import uk.gov.moj.cp.ai.FunctionEnvironment;
 
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -27,16 +25,16 @@ public class BlobContainerClientFactory {
     }
 
     public static BlobContainerClient getInstance(final String containerName) {
-
-        final ConnectionMode connectionMode = ConnectionMode.valueOf(getRequiredEnv(AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE, ConnectionMode.MANAGED_IDENTITY.name()));
+        final FunctionEnvironment env = FunctionEnvironment.get();
+        final ConnectionMode connectionMode = ConnectionMode.valueOf(env.storageConfig().accountConnectionMode());
 
         return switch (connectionMode) {
             case CONNECTION_STRING -> {
-                final String connectionString = getRequiredEnv(AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING);
+                final String connectionString = env.storageConfig().accountName();
                 yield getConnectionStringBlobContainerClient(connectionString, containerName);
             }
             case MANAGED_IDENTITY -> {
-                final String endpoint = getRequiredEnv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT);
+                final String endpoint = env.storageConfig().blobEndpoint();
                 yield getManagedIdentityBlobContainerClient(endpoint, containerName);
             }
             default ->
