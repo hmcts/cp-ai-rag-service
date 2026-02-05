@@ -48,7 +48,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class GetAnswerGenerationResultFunctionTest {
+class
+GetAnswerGenerationResultFunctionTest {
 
     @Mock
     private AnswerGenerationTableService tableStorageService;
