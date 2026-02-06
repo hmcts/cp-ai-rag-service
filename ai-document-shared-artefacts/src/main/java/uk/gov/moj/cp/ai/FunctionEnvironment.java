@@ -22,20 +22,20 @@ import static uk.gov.moj.cp.ai.client.ConnectionMode.CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.client.ConnectionMode.MANAGED_IDENTITY;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 
-public record FunctionEnvironment(
-        StorageConfig storageConfig,
-        QueueConfig queueConfig,
-        SearchConfig searchConfig,
-        EmbeddingConfig embeddingConfig,
-        TableConfig tableConfig
-) {
+public final class FunctionEnvironment {
+
+    private StorageConfig storageConfig;
+    private QueueConfig queueConfig;
+    private SearchConfig searchConfig;
+    private EmbeddingConfig embeddingConfig;
+    private TableConfig tableConfig;
 
     private static class Holder {
         private static FunctionEnvironment INSTANCE;
 
         public static FunctionEnvironment get() {
             if (isNull(INSTANCE)) {
-                INSTANCE = load();
+                INSTANCE = new FunctionEnvironment();
             }
             return INSTANCE;
         }
@@ -45,14 +45,39 @@ public record FunctionEnvironment(
         return Holder.get();
     }
 
-    private static FunctionEnvironment load() {
-        return new FunctionEnvironment(
-                StorageConfig.load(),
-                QueueConfig.load(),
-                SearchConfig.load(),
-                EmbeddingConfig.load(),
-                TableConfig.load()
-        );
+    public StorageConfig storageConfig() {
+        if (storageConfig == null) {
+            storageConfig = StorageConfig.load();
+        }
+        return storageConfig;
+    }
+
+    public QueueConfig queueConfig() {
+        if (queueConfig == null) {
+            queueConfig = QueueConfig.load();
+        }
+        return queueConfig;
+    }
+
+    public SearchConfig searchConfig() {
+        if (searchConfig == null) {
+            searchConfig = SearchConfig.load();
+        }
+        return searchConfig;
+    }
+
+    public EmbeddingConfig embeddingConfig() {
+        if (embeddingConfig == null) {
+            embeddingConfig = EmbeddingConfig.load();
+        }
+        return embeddingConfig;
+    }
+
+    public TableConfig tableConfig() {
+        if (tableConfig == null) {
+            tableConfig = TableConfig.load();
+        }
+        return tableConfig;
     }
 
     public record StorageConfig(
