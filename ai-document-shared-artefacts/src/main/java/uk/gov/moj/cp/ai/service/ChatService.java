@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.ai.service;
 
+import static uk.gov.moj.cp.ai.langfuse.LangfuseConfig.getTracer;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
@@ -19,9 +20,11 @@ import com.azure.ai.openai.models.ChatRequestMessage;
 import com.azure.ai.openai.models.ChatRequestSystemMessage;
 import com.azure.ai.openai.models.ChatRequestUserMessage;
 import com.azure.ai.openai.models.CompletionsFinishReason;
+import com.azure.ai.openai.models.CompletionsUsage;
 import com.azure.ai.openai.models.ContentFilterResultsForChoice;
 import com.azure.ai.openai.models.ContentFilterResultsForPrompt;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import io.opentelemetry.api.trace.Span;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,13 +66,16 @@ public class ChatService {
 
         try {
             final ChatCompletions chatCompletions = openAIClient.getChatCompletions(deploymentName, chatCompletionsOptions);
+            final CompletionsUsage chatUsage = chatCompletions.getUsage();
             final ChatChoice chatChoice = chatCompletions.getChoices().get(0);
-            final String jsonResponse = chatChoice.getMessage().getContent();
+            final String rawLlmResponse = chatChoice.getMessage().getContent();
             final CompletionsFinishReason finishReason = chatChoice.getFinishReason();
 
             final String resultExplanation = generateExplanationForEmptyResponse(chatChoice, chatCompletions, finishReason);
 
-            if (isNullOrEmpty(jsonResponse)) {
+            setTracingDetails(chatUsage, systemInstruction, rawLlmResponse);
+
+            if (isNullOrEmpty(rawLlmResponse)) {
                 throw new ChatServiceException("LLM produced an empty response.  See explanation below \n" + resultExplanation);
             } else {
                 LOGGER.info("Received response from LLM. Finish reason: {}", finishReason);
@@ -81,11 +87,13 @@ public class ChatService {
                     LOGGER.info("LLM produced complete response.  See details \n{}", resultExplanation);
                 }
             }
+
+
             final T responseModel;
             if (responseClass == String.class) {
-                responseModel = responseClass.cast(jsonResponse);
+                responseModel = responseClass.cast(rawLlmResponse);
             } else {
-                final String sanitisedResponse = ensureRawJsonAsConvertingPayloadToObject(jsonResponse);
+                final String sanitisedResponse = ensureRawJsonAsConvertingPayloadToObject(rawLlmResponse);
                 responseModel = getObjectMapper().readValue(sanitisedResponse, responseClass);
             }
             return Optional.of(responseModel);
@@ -128,7 +136,7 @@ public class ChatService {
     }
 
     private String ensureRawJsonAsConvertingPayloadToObject(final String llmResponse) {
-        if(llmResponse.contains("```")){
+        if (llmResponse.contains("```")) {
             LOGGER.info("LLM response contains \"```\" and will require sanitising");
         }
 
@@ -139,6 +147,17 @@ public class ChatService {
             return llmResponse.substring(firstBrace, lastBrace + 1);
         }
         return llmResponse; // Fallback to original if no braces found
+    }
+
+    private void setTracingDetails(CompletionsUsage usage, String systemPromptContent, String rawLLmResponse) {
+        Span genSpan = Span.current();
+        genSpan.setAttribute("gen_ai.prompt", systemPromptContent);
+        genSpan.setAttribute("gen_ai.completion.0.content", rawLLmResponse);
+        genSpan.setAttribute("gen_ai.system", "openai");
+        genSpan.setAttribute("gen_ai.request.model", "gpt-4o");
+        genSpan.setAttribute("gen_ai.usage.input_tokens", usage.getPromptTokens());
+        genSpan.setAttribute("gen_ai.usage.output_tokens", usage.getCompletionTokens());
+        genSpan.setAttribute("gen_ai.usage.total_tokens", usage.getTotalTokens());
     }
 
 }

@@ -45,5 +45,21 @@
             <groupId>com.azure</groupId>
             <artifactId>azure-storage-queue</artifactId>
         </dependency>
+
+        <!-- Telemetry dependencies for langfuse -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-exporter-otlp</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.langfuse</groupId>
+            <artifactId>langfuse-java</artifactId>
+            <version>0.1.0</version>
+        </dependency>
+        <!-- Telemetry dependencies for langfuse -->
     </dependencies>
 </project>

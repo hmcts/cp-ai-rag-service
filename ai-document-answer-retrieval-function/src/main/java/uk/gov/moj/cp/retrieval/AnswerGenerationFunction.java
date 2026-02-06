@@ -69,7 +69,7 @@ public class AnswerGenerationFunction {
     }
 
 
-    @FunctionName("AnswerGeneration")
+//    @FunctionName("AnswerGeneration")
     public void run(
             @QueueTrigger(
                     name = "queueMessage",

@@ -12,12 +12,12 @@ import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.model.QueryResponse;
 import uk.gov.moj.cp.ai.model.ScoringPayload;
 import uk.gov.moj.cp.ai.model.ScoringQueuePayload;
+import uk.gov.moj.cp.ai.langfuse.LangfuseConfig;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
 import uk.gov.moj.cp.retrieval.service.AzureAISearchService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
 import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
-import uk.gov.moj.cp.retrieval.langfuse.LangfuseConfig;
 
 import java.util.List;
 import java.util.Map;
@@ -94,24 +94,23 @@ public class AnswerRetrievalFunction {
             LOGGER.info("Initiating answer generation process for query - {}", userQuery);
 
             Tracer tracer = LangfuseConfig.getTracer();
-            Span trace = tracer.spanBuilder("rag-answer-generation").startSpan();
-            try (Scope scope = trace.makeCurrent()) {
+            Span rootSpan = tracer.spanBuilder("rag-answer-generation").startSpan();
+            rootSpan.setAttribute("input.value", userQuery);
 
-                trace.setAttribute("input.value", userQuery);
-                Span embeddingSpan = tracer.spanBuilder("embedding").startSpan();
+            try (Scope scope = rootSpan.makeCurrent()) {
                 final List<Float> queryEmbeddings = embedDataService.getEmbedding(userQuery);
-                embeddingSpan.end();
 
                 Span retrievalSpan = tracer.spanBuilder("retrieval").startSpan();
                 final List<ChunkedEntry> chunkedEntries = searchService.search(userQuery, queryEmbeddings, metadataFilters);
                 retrievalSpan.setAttribute("db.query.text", userQuery);
-                retrievalSpan.setAttribute("retrieval.output", chunkedEntries.stream()
+                retrievalSpan.setAttribute("langfuse.observation.metadata.retrieval.output", chunkedEntries.stream()
                         .map(ChunkedEntry::toString)
                         .reduce((a, b) -> a + "\n" + b)
                         .orElse(""));
                 retrievalSpan.end();
 
                 final String generatedResponse = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
+                rootSpan.setAttribute("output.value", generatedResponse);
 
                 LOGGER.info("Answer retrieval processing completed successfully for query: {}", userQuery);
 
@@ -137,8 +136,8 @@ public class AnswerRetrievalFunction {
                 message.setValue(convertObjectToJson(scoringQueuePayload));
 
                 return generateResponse(request, HttpStatus.OK, responseAsString);
-            }finally {
-                trace.end();
+            } finally {
+                rootSpan.end();
             }
 
 

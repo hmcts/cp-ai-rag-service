@@ -1,5 +1,18 @@
 package uk.gov.moj.cp.ai.service.table;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import uk.gov.moj.cp.ai.client.TableClientFactory;
+import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
+import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
+
 import com.azure.data.tables.TableClient;
 import com.azure.data.tables.models.TableEntity;
 import com.azure.data.tables.models.TableErrorCode;
@@ -8,15 +21,8 @@ import com.azure.data.tables.models.TableServiceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
-import uk.gov.moj.cp.ai.client.TableClientFactory;
-import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
-import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 class TableServiceTest {
     private TableClient tableClient;

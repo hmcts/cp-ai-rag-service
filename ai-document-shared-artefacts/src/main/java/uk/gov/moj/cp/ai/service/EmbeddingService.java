@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.ai.service;
 
+import static uk.gov.moj.cp.ai.langfuse.LangfuseConfig.getTracer;
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
 import uk.gov.moj.cp.ai.client.OpenAIClientFactory;
@@ -11,6 +12,8 @@ import com.azure.ai.openai.OpenAIClient;
 import com.azure.ai.openai.models.EmbeddingItem;
 import com.azure.ai.openai.models.Embeddings;
 import com.azure.ai.openai.models.EmbeddingsOptions;
+import com.azure.ai.openai.models.EmbeddingsUsage;
+import io.opentelemetry.api.trace.Span;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,6 +60,8 @@ public class EmbeddingService {
 
         try {
             Embeddings embeddingsResult = openAIClient.getEmbeddings(embeddingDeploymentName, embeddingsOptions);
+            final EmbeddingsUsage usage = embeddingsResult.getUsage();
+            setTracingDetails(usage, contents);
 
             if (embeddingsResult.getData() != null && !embeddingsResult.getData().isEmpty()) {
                 List<List<Float>> embeddings = embeddingsResult.getData().stream()
@@ -71,6 +76,24 @@ public class EmbeddingService {
         } catch (Exception e) {
             throw new EmbeddingServiceException("Failed to embed content", e);
         }
+    }
+
+    private void setTracingDetails(EmbeddingsUsage usage, List<String> contents) {
+
+        Span embeddingSpan = getTracer().spanBuilder("embedding").startSpan();
+        embeddingSpan.setAttribute("gen_ai.system", "openai");
+        embeddingSpan.setAttribute("gen_ai.request.model", embeddingDeploymentName);
+        // 1. Set the Input (Show the first few items or join them)
+        String inputSummary = String.join(" | ", contents.stream().limit(3).toList());
+        if (contents.size() > 3) inputSummary += "... (total " + contents.size() + ")";
+        embeddingSpan.setAttribute("input.value", inputSummary);
+
+        if (null != usage) {
+            embeddingSpan.setAttribute("gen_ai.usage.input_tokens", usage.getPromptTokens());
+            embeddingSpan.setAttribute("gen_ai.usage.total_tokens", usage.getTotalTokens());
+        }
+        embeddingSpan.end();
+
     }
 
 }

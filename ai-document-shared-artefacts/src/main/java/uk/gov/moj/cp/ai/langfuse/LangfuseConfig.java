@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.retrieval.langfuse;
+package uk.gov.moj.cp.ai.langfuse;
 
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 
