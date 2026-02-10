@@ -31,7 +31,7 @@
         <azure.openai.version>1.0.0-beta.16</azure.openai.version>
         <junit-jupiter-engine.version>6.0.2</junit-jupiter-engine.version>
         <mockito-junit-jupiter.version>5.21.0</mockito-junit-jupiter.version>
-        <assertj-core.version>3.24.2</assertj-core.version>
+        <assertj-core.version>3.27.7</assertj-core.version>
         <langchain4j.version>0.30.0</langchain4j.version>
         <jackson.version>2.15.2</jackson.version>
         <opentelemetry-sdk.version>1.58.0</opentelemetry-sdk.version>
@@ -181,12 +181,6 @@
                 <version>1.1.0</version>
                 <scope>test</scope>
             </dependency>
-            <dependency>
-                <groupId>org.mockito</groupId>
-                <artifactId>mockito-inline</artifactId>
-                <version>5.2.0</version>
-                <scope>test</scope>
-            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -216,11 +210,6 @@
         <dependency>
             <groupId>uk.org.webcompere</groupId>
             <artifactId>model-assert</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-inline</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
