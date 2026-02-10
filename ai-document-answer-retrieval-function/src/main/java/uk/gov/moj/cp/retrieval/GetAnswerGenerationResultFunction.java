@@ -126,7 +126,9 @@ public class GetAnswerGenerationResultFunction {
                 generatedAnswer.getLlmResponse(),
                 generatedAnswer.getQueryPrompt(),
                 chunkedEntriesFromBlobContainer,
-                generatedAnswer.getResponseGenerationTime().toString(),
-                generatedAnswer.getResponseGenerationDuration());
+                nonNull(generatedAnswer.getResponseGenerationTime()) ? generatedAnswer.getResponseGenerationTime().toString() : null,
+                nonNull(generatedAnswer.getResponseGenerationDuration()) && generatedAnswer.getResponseGenerationDuration() > 0
+                        ? generatedAnswer.getResponseGenerationDuration()
+                        : null);
     }
 }

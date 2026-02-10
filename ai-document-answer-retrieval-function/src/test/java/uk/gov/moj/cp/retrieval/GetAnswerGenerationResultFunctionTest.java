@@ -4,6 +4,7 @@ import static com.microsoft.azure.functions.HttpStatus.BAD_REQUEST;
 import static java.util.UUID.fromString;
 import static java.util.UUID.randomUUID;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -163,7 +164,6 @@ class GetAnswerGenerationResultFunctionTest {
         GeneratedAnswer generatedAnswer = mock(GeneratedAnswer.class);
         when(generatedAnswer.getTransactionId()).thenReturn(transactionId);
         when(generatedAnswer.getAnswerStatus()).thenReturn(ANSWER_GENERATION_PENDING.name());
-        when(generatedAnswer.getResponseGenerationTime()).thenReturn(OffsetDateTime.now().minusHours(1));
 
         when(tableStorageService.getGeneratedAnswer(transactionId)).thenReturn(generatedAnswer);
 
@@ -174,6 +174,8 @@ class GetAnswerGenerationResultFunctionTest {
         final QueryAsyncResponse asyncResponse = getObjectMapper().readValue(bodyCaptor.getValue(), QueryAsyncResponse.class);
         assertThat(asyncResponse.transactionId(), is(transactionId));
         assertThat(asyncResponse.status(), is(ANSWER_GENERATION_PENDING.name()));
+        assertThat(asyncResponse.responseGenerationTime(), is(nullValue()));
+        assertThat(asyncResponse.responseGenerationDuration(), is(nullValue()));
     }
 
     @Test
