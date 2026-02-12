@@ -12,6 +12,7 @@ import static uk.gov.moj.cp.retrieval.service.ResponseGenerationService.SYSTEM_P
 import uk.gov.moj.cp.ai.exception.ChatServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.service.ChatService;
+import uk.gov.moj.cp.ai.util.ChunkFormatterUtility;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,7 +32,7 @@ class ResponseGenerationServiceTest {
     private CitationProcessor citationProcessor;
 
     @Mock
-    private ChunkFormatterService chunkFormatterService;
+    private ChunkFormatterUtility chunkFormatterUtility;
 
     @Mock
     private UserInstructionService userInstructionService;
@@ -45,7 +46,7 @@ class ResponseGenerationServiceTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        responseGenerationService = new ResponseGenerationService(mockChatService, citationProcessor, chunkFormatterService, userInstructionService);
+        responseGenerationService = new ResponseGenerationService(mockChatService, citationProcessor, chunkFormatterUtility, userInstructionService);
     }
 
     @Test
@@ -67,7 +68,7 @@ class ResponseGenerationServiceTest {
                 "and even more response with faulty citation [2]";
 
         when(citationProcessor.processAndFormatCitations(mockResponse)).thenReturn(mockProcessedResponse);
-        when(chunkFormatterService.buildChunkContext(chunkedEntries)).thenReturn(mockFormattedChunk);
+        when(chunkFormatterUtility.buildChunkContext(chunkedEntries)).thenReturn(mockFormattedChunk);
         when(userInstructionService.buildUserInstruction(userQuery, userQueryPrompt, mockFormattedChunk)).thenReturn(mockUserInstructions);
         when(mockChatService.callModel(eq(SYSTEM_PROMPT_TEMPLATE), eq(mockUserInstructions), eq(String.class)))
                 .thenReturn(Optional.of(mockResponse));
@@ -76,7 +77,7 @@ class ResponseGenerationServiceTest {
 
         assertEquals(mockProcessedResponse, result);
         verify(citationProcessor).processAndFormatCitations(mockResponse);
-        verify(chunkFormatterService).buildChunkContext(chunkedEntries);
+        verify(chunkFormatterUtility).buildChunkContext(chunkedEntries);
         verify(userInstructionService).buildUserInstruction(userQuery, userQueryPrompt, mockFormattedChunk);
         verify(mockChatService).callModel(eq(SYSTEM_PROMPT_TEMPLATE), eq(mockUserInstructions), eq(String.class));
     }
@@ -95,7 +96,7 @@ class ResponseGenerationServiceTest {
                         .build()
         );
 
-        when(chunkFormatterService.buildChunkContext(chunkedEntries)).thenReturn(mockFormattedChunk);
+        when(chunkFormatterUtility.buildChunkContext(chunkedEntries)).thenReturn(mockFormattedChunk);
         when(userInstructionService.buildUserInstruction(userQuery, userQueryPrompt, mockFormattedChunk)).thenReturn(mockUserInstructions);
         when(mockChatService.callModel(eq(SYSTEM_PROMPT_TEMPLATE), eq(mockUserInstructions), eq(String.class)))
                 .thenReturn(Optional.empty());
@@ -106,7 +107,7 @@ class ResponseGenerationServiceTest {
 
         verify(mockChatService).callModel(eq(SYSTEM_PROMPT_TEMPLATE), eq(mockUserInstructions), eq(String.class));
         verify(citationProcessor, never()).processAndFormatCitations(any());
-        verify(chunkFormatterService).buildChunkContext(chunkedEntries);
+        verify(chunkFormatterUtility).buildChunkContext(chunkedEntries);
         verify(userInstructionService).buildUserInstruction(userQuery, userQueryPrompt, mockFormattedChunk);
     }
 
@@ -124,7 +125,7 @@ class ResponseGenerationServiceTest {
                         .build()
         );
 
-        when(chunkFormatterService.buildChunkContext(chunkedEntries)).thenReturn(mockFormattedChunk);
+        when(chunkFormatterUtility.buildChunkContext(chunkedEntries)).thenReturn(mockFormattedChunk);
         when(userInstructionService.buildUserInstruction(userQuery, userQueryPrompt, mockFormattedChunk)).thenReturn(mockUserInstructions);
         when(mockChatService.callModel(eq(SYSTEM_PROMPT_TEMPLATE), eq(mockUserInstructions), eq(String.class)))
                 .thenThrow(new RuntimeException("Service error"));
@@ -134,7 +135,7 @@ class ResponseGenerationServiceTest {
         assertEquals("An error occurred while generating the response.", result);
         verify(mockChatService).callModel(eq(SYSTEM_PROMPT_TEMPLATE), eq(mockUserInstructions), eq(String.class));
         verify(citationProcessor, never()).processAndFormatCitations(any());
-        verify(chunkFormatterService).buildChunkContext(chunkedEntries);
+        verify(chunkFormatterUtility).buildChunkContext(chunkedEntries);
         verify(userInstructionService).buildUserInstruction(userQuery, userQueryPrompt, mockFormattedChunk);
     }
 
