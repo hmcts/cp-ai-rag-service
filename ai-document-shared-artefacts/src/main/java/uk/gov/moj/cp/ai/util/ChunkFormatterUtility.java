@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.retrieval.service;
+package uk.gov.moj.cp.ai.util;
 
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-public class ChunkFormatterService {
+public class ChunkFormatterUtility {
 
     public String buildChunkContext(List<ChunkedEntry> chunkedEntries) {
 

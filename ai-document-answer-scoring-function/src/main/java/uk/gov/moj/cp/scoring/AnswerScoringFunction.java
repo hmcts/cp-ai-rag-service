@@ -72,7 +72,7 @@ public class AnswerScoringFunction {
 
             LOGGER.info("Starting process to score answer for transactionId '{}' and query '{}'", scoringPayload.transactionId(), scoringPayload.userQuery());
 
-            final ModelScore modelScore = scoringService.evaluateGroundedness(scoringPayload.llmResponse(), scoringPayload.userQuery(), scoringPayload.chunkedEntries());
+            final ModelScore modelScore = scoringService.evaluateGroundedness(scoringPayload.llmResponse(), scoringPayload.userQuery(), scoringPayload.queryPrompt(), scoringPayload.chunkedEntries());
 
             LOGGER.info("Score now available for the answer : {}", modelScore.groundednessScore());
 

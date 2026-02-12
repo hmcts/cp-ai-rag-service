@@ -1,12 +1,11 @@
 package uk.gov.moj.cp.scoring;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 
 import uk.gov.moj.cp.ai.exception.BlobParsingException;
 import uk.gov.moj.cp.ai.model.ScoringPayload;
@@ -47,23 +46,22 @@ class AnswerScoringFunctionTest {
     @Test
     @DisplayName("Processes valid message and logs success")
     void processesValidMessageAndLogsSuccess() throws JsonProcessingException, BlobParsingException {
-        String queueMessage = "{\"filename\":\"test123.pdf\"}";
-        String blobMessage = "{\"llmResponse\":\"response\",\"userQuery\":\"query\",\"chunkedEntries\":[],\"transactionId\":\"12345\"}";
+        final String queueMessage = "{\"filename\":\"test123.pdf\"}";
+        final ScoringPayload scoringPayload = new ScoringPayload("response", "query", "query prompt", List.of(), "12345");
         final BigDecimal llmScore = BigDecimal.valueOf(5);
-        final String userQuery = "query";
 
         ModelScore modelScore = new ModelScore(llmScore, "Well supported");
 
-        when(blobService.readBlob("test123.pdf", ScoringPayload.class)).thenReturn(getObjectMapper().readValue(blobMessage, ScoringPayload.class));
+        when(blobService.readBlob("test123.pdf", ScoringPayload.class)).thenReturn(scoringPayload);
 
-        when(scoringServiceMock.evaluateGroundedness("response", userQuery, List.of()))
+        when(scoringServiceMock.evaluateGroundedness(scoringPayload.llmResponse(), scoringPayload.userQuery(), scoringPayload.queryPrompt(), List.of()))
                 .thenReturn(modelScore);
 
         answerScoringFunction.run(queueMessage, contextMock);
 
-        verify(scoringServiceMock).evaluateGroundedness("response", userQuery, List.of());
-        verify(publishScoreService).publishGroundednessScore(llmScore, userQuery);
-        verify(answerGenerationTableService).recordGroundednessScore("12345", llmScore);
+        verify(scoringServiceMock).evaluateGroundedness(scoringPayload.llmResponse(), scoringPayload.userQuery(), scoringPayload.queryPrompt(), List.of());
+        verify(publishScoreService).publishGroundednessScore(llmScore, scoringPayload.userQuery());
+        verify(answerGenerationTableService).recordGroundednessScore(scoringPayload.transactionId(), llmScore);
     }
 
     @Test
@@ -75,16 +73,14 @@ class AnswerScoringFunctionTest {
             answerScoringFunction.run(invalidMessage, contextMock);
         });
 
-        assertTrue(exception.getCause() instanceof JsonProcessingException);
+        assertInstanceOf(JsonProcessingException.class, exception.getCause());
     }
 
     @Test
     @DisplayName("Handles null message and logs error")
     void handlesNullMessageAndLogsError() {
-        String nullMessage = null;
-
-        Exception exception = assertThrows(RuntimeException.class, () -> {
-            answerScoringFunction.run(nullMessage, contextMock);
+        assertThrows(RuntimeException.class, () -> {
+            answerScoringFunction.run(null, contextMock);
         });
 
     }
@@ -93,11 +89,11 @@ class AnswerScoringFunctionTest {
     @DisplayName("Handles scoring service failure and logs error")
     void handlesScoringServiceFailureAndLogsError() throws Exception {
         String queueMessage = "{\"filename\":\"test123.pdf\"}";
-        String blobMessage = "{\"llmResponse\":\"response\",\"userQuery\":\"query\",\"chunkedEntries\":[],\"transactionId\":\"12345\"}";
+        final ScoringPayload scoringPayload = new ScoringPayload("response", "query", "query prompt", List.of(), "12345");
 
-        when(blobService.readBlob("test123.pdf", ScoringPayload.class)).thenReturn(getObjectMapper().readValue(blobMessage, ScoringPayload.class));
+        when(blobService.readBlob("test123.pdf", ScoringPayload.class)).thenReturn(scoringPayload);
 
-        when(scoringServiceMock.evaluateGroundedness("response", "query", List.of()))
+        when(scoringServiceMock.evaluateGroundedness(scoringPayload.llmResponse(), scoringPayload.userQuery(), scoringPayload.queryPrompt(), List.of()))
                 .thenThrow(new RuntimeException("Scoring service error"));
 
         Exception exception = assertThrows(RuntimeException.class, () -> {

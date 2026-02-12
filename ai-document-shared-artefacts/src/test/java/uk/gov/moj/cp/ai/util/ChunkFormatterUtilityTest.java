@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.retrieval.service;
+package uk.gov.moj.cp.ai.util;
 
 import static org.xmlunit.assertj3.XmlAssert.assertThat;
 
@@ -9,14 +9,14 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-class ChunkFormatterServiceTest {
+class ChunkFormatterUtilityTest {
 
-    private final ChunkFormatterService chunkFormatterService = new ChunkFormatterService();
+    private final ChunkFormatterUtility chunkFormatterUtility = new ChunkFormatterUtility();
 
     @Test
     void buildChunkContext_ReturnsEmptyTag_WhenEntriesNullOrEmpty() {
-        String resultNull = chunkFormatterService.buildChunkContext(null);
-        String resultEmpty = chunkFormatterService.buildChunkContext(List.of());
+        String resultNull = chunkFormatterUtility.buildChunkContext(null);
+        String resultEmpty = chunkFormatterUtility.buildChunkContext(List.of());
         assertThat(resultNull).hasXPath("/RETRIEVED_DOCUMENTS");
         assertThat(resultNull).doesNotHaveXPath("/RETRIEVED_DOCUMENTS/DOCUMENT");
         assertThat(resultEmpty).hasXPath("/RETRIEVED_DOCUMENTS");
@@ -33,7 +33,7 @@ class ChunkFormatterServiceTest {
                 .pageNumber(5)
                 .customMetadata(List.of(new KeyValuePair("material_name", "MaterialX")))
                 .build();
-        String result = chunkFormatterService.buildChunkContext(List.of(entry));
+        String result = chunkFormatterUtility.buildChunkContext(List.of(entry));
         assertThat(result).hasXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_ID='doc1' and @DOCUMENT_FILENAME='MaterialX']/DATA[1]/DOCUMENT_CONTENT[text()='Some content']");
         assertThat(result).hasXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_ID='doc1' and @DOCUMENT_FILENAME='MaterialX']/DATA[1]/PAGE_NUMBER[text()='5']");
     }
@@ -48,7 +48,7 @@ class ChunkFormatterServiceTest {
                 .pageNumber(2)
                 .customMetadata(List.of(new KeyValuePair("other_key", "value")))
                 .build();
-        String result = chunkFormatterService.buildChunkContext(List.of(entry));
+        String result = chunkFormatterUtility.buildChunkContext(List.of(entry));
         assertThat(result).hasXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_ID='doc2' and @DOCUMENT_FILENAME='file2.pdf']/DATA[1]/DOCUMENT_CONTENT[text()='Other content']");
 
     }
@@ -79,7 +79,7 @@ class ChunkFormatterServiceTest {
                 .pageNumber(3)
                 .customMetadata(List.of(new KeyValuePair("material_name", "Mat2")))
                 .build();
-        String result = chunkFormatterService.buildChunkContext(List.of(entry1, entry2, entry3));
+        String result = chunkFormatterUtility.buildChunkContext(List.of(entry1, entry2, entry3));
         assertThat(result).hasXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_ID='doc1']/DATA[1]/DOCUMENT_CONTENT[text()='Content1']");
         assertThat(result).hasXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_ID='doc1']/DATA[2]/DOCUMENT_CONTENT[text()='Content2']");
         assertThat(result).hasXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_ID='doc2']/DATA[1]/DOCUMENT_CONTENT[text()='Content3']");
@@ -94,7 +94,7 @@ class ChunkFormatterServiceTest {
                 .documentFileName("file3.pdf")
                 .customMetadata(List.of())
                 .build();
-        String result = chunkFormatterService.buildChunkContext(List.of(entry));
+        String result = chunkFormatterUtility.buildChunkContext(List.of(entry));
         assertThat(result).valueByXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_ID='doc3']/DATA[1]/PAGE_NUMBER").isEmpty();
     }
 }

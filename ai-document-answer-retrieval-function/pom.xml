@@ -42,13 +42,6 @@
             <groupId>com.azure</groupId>
             <artifactId>azure-search-documents</artifactId>
         </dependency>
-
-        <dependency>
-            <groupId>org.xmlunit</groupId>
-            <artifactId>xmlunit-assertj3</artifactId>
-            <version>2.11.0</version>
-            <scope>test</scope>
-        </dependency>
         
     </dependencies>
 
