@@ -2,7 +2,6 @@ package uk.gov.moj.cp.orchestrator;
 
 import static io.restassured.RestAssured.given;
 import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.ANSWER_RETRIEVAL_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.ANSWER_SCORING_FUNCTION;
@@ -22,7 +21,6 @@ import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 import io.restassured.specification.RequestSpecification;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;

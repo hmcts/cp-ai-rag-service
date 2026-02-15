@@ -1,8 +1,8 @@
 package uk.gov.moj.cp.scoring.service;
 
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 
+import uk.gov.moj.cp.ai.FunctionEnvironment;
 import uk.gov.moj.cp.ai.exception.BlobParsingException;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.ai.util.StringUtil;
@@ -19,9 +19,8 @@ public class BlobService {
     private final BlobClientService blobClientService;
 
     public BlobService() {
-        final String documentContainerName = System.getenv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS);
-
-        this.blobClientService = new BlobClientService(documentContainerName);
+        final FunctionEnvironment env = FunctionEnvironment.get();
+        this.blobClientService = new BlobClientService(env.storageConfig().evalPayloadsContainer());
     }
 
     public BlobService(final BlobClientService blobClientService) {

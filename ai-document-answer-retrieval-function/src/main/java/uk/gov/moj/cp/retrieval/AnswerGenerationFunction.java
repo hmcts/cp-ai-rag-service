@@ -5,15 +5,12 @@ import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
-import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
+import uk.gov.moj.cp.ai.FunctionEnvironment;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.InputChunksPayload;
 import uk.gov.moj.cp.ai.model.ScoringPayload;
@@ -60,9 +57,10 @@ public class AnswerGenerationFunction {
         this.searchService = new AzureAISearchService();
         this.responseGenerationService = new ResponseGenerationService();
 
-        this.blobPersistenceEvalPayloadsService = new BlobPersistenceService(getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS));
-        this.blobPersistenceInputChunksService = new BlobPersistenceService(getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS));
-        this.answerGenerationTableService = new AnswerGenerationTableService(getRequiredEnv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION));
+        final FunctionEnvironment env = FunctionEnvironment.get();
+        this.blobPersistenceEvalPayloadsService = new BlobPersistenceService(env.storageConfig().evalPayloadsContainer());
+        this.blobPersistenceInputChunksService = new BlobPersistenceService(env.storageConfig().inputsContainer());
+        this.answerGenerationTableService = new AnswerGenerationTableService(env.tableConfig().answerGenerationTable());
     }
 
     public AnswerGenerationFunction(

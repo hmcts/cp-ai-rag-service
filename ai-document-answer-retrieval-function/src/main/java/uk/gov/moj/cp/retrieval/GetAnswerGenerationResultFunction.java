@@ -6,13 +6,11 @@ import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTI
 import static java.lang.Boolean.parseBoolean;
 import static java.util.Objects.nonNull;
 import static java.util.UUID.fromString;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
-import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.retrieval.AnswerGenerationFunction.getInputChunksFilename;
 
+import uk.gov.moj.cp.ai.FunctionEnvironment;
 import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.InputChunksPayload;
@@ -47,9 +45,10 @@ public class GetAnswerGenerationResultFunction {
     private final BlobPersistenceService blobPersistenceInputChunksService;
 
     public GetAnswerGenerationResultFunction() {
-        final String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION);
+        final FunctionEnvironment env = FunctionEnvironment.get();
+        final String tableName = env.tableConfig().answerGenerationTable();
         answerGenerationTableService = new AnswerGenerationTableService(tableName);
-        blobPersistenceInputChunksService = new BlobPersistenceService(getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS));
+        blobPersistenceInputChunksService = new BlobPersistenceService(env.storageConfig().inputsContainer());
     }
 
     public GetAnswerGenerationResultFunction(final AnswerGenerationTableService answerGenerationTableService, final BlobPersistenceService blobPersistenceInputChunksService) {
