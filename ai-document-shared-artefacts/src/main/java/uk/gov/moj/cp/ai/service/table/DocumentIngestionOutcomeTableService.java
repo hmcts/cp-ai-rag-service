@@ -49,6 +49,18 @@ public class DocumentIngestionOutcomeTableService {
 
     }
 
+    public void insertUploadInitiated(String documentName, String documentId, String status, String reason) throws DuplicateRecordException {
+        final TableEntity entity = new TableEntity(documentId, documentId);
+        entity.addProperty(TC_DOCUMENT_FILE_NAME, documentName);
+        entity.addProperty(TC_DOCUMENT_ID, documentId);
+        entity.addProperty(TC_DOCUMENT_STATUS, status);
+        entity.addProperty(TC_REASON, reason);
+
+        tableService.insertIntoTable(entity);
+
+        LOGGER.info("Document upload record INSERTED into table with status '{}' for document '{}' with ID '{}'", status, documentName, documentId);
+    }
+
     public void upsertIntoTable(String documentName, String documentId, String status, String reason) {
         try {
 

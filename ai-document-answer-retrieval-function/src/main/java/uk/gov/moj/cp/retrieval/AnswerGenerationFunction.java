@@ -13,6 +13,7 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWE
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
+import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.InputChunksPayload;
@@ -172,7 +173,7 @@ public class AnswerGenerationFunction {
         final String filename = format(LLM_ANSWER_WITH_CHUNKS, transactionId);
         final ScoringPayload scoringPayload = new ScoringPayload(userQuery,
                 llmResponse, queryPrompt, chunkedEntries, transactionId.toString());
-        blobPersistenceEvalPayloadsService.saveBlob(filename, getObjectMapper().writeValueAsString(scoringPayload));
+        blobPersistenceEvalPayloadsService.saveBlob(filename, convert(scoringPayload));
         return filename;
     }
 
@@ -180,7 +181,7 @@ public class AnswerGenerationFunction {
         final String inputChunksFilename = getInputChunksFilename(transactionId);
         final InputChunksPayload inputChunksPayload = new InputChunksPayload(chunkedEntries);
 
-        blobPersistenceInputChunksService.saveBlob(inputChunksFilename, getObjectMapper().writeValueAsString(inputChunksPayload));
+        blobPersistenceInputChunksService.saveBlob(inputChunksFilename, convert(inputChunksPayload));
         return inputChunksFilename;
     }
 

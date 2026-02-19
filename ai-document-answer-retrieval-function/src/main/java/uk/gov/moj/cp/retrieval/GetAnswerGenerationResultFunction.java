@@ -11,6 +11,7 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWE
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
+import static uk.gov.moj.cp.ai.util.UuidUtil.isValid;
 import static uk.gov.moj.cp.retrieval.AnswerGenerationFunction.getInputChunksFilename;
 
 import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
@@ -99,15 +100,6 @@ public class GetAnswerGenerationResultFunction {
             LOGGER.error("Error initiating answer retrieval for request: {}", request, e);
             final String errorMessage = convert(Map.of("errorMessage", "An internal error occurred: " + e.getMessage()));
             return generateResponse(request, HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
-        }
-    }
-
-    private boolean isValid(final String transactionId) {
-        try {
-            fromString(transactionId);
-            return true;
-        } catch (IllegalArgumentException iae) {
-            return false;
         }
     }
 
