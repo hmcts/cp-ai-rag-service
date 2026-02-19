@@ -85,7 +85,7 @@ public class IngestionOrchestratorService {
     }
 
 
-    public boolean isDocumentAlreadyProcessed(final String documentName) {
+    private boolean isDocumentAlreadyProcessed(final String documentName) {
         try {
             final DocumentIngestionOutcome firstDocumentMatching = documentIngestionOutcomeTableService.getFirstDocumentMatching(documentName);
             if (null != firstDocumentMatching) {
@@ -122,16 +122,5 @@ public class IngestionOrchestratorService {
         documentIngestionOutcomeTableService.insertIntoTable(documentName, effectiveDocumentId, status, reason);
 
         LOGGER.info("Status for document '{}' with ID '{}' updated to '{}'", documentName, effectiveDocumentId, status);
-    }
-
-    /**
-     * Records a document ingestion outcome (success or failure) in Table Storage.
-     */
-    public void recordUploadInitiated(final String documentName, final String documentId) throws DuplicateRecordException {
-        final String effectiveDocumentId = isNullOrEmpty(documentId) ? UNKNOWN_DOCUMENT : documentId.trim();
-
-        documentIngestionOutcomeTableService.insertUploadInitiated(documentName, effectiveDocumentId, METADATA_VALIDATED.name(), METADATA_VALIDATED.getReason());
-
-        LOGGER.info("Status for document '{}' with ID '{}' updated to '{}'", documentName, effectiveDocumentId, METADATA_VALIDATED.name());
     }
 }

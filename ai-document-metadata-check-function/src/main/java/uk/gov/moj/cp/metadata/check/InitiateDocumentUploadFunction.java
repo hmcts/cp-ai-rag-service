@@ -2,9 +2,8 @@ package uk.gov.moj.cp.metadata.check;
 
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
 import static java.util.Objects.isNull;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION;
-import static uk.gov.moj.cp.ai.model.BlobMetadataAttributes.DOCUMENT_ID;
+import static java.util.Objects.nonNull;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.util.UuidUtil.isValid;
@@ -12,9 +11,8 @@ import static uk.gov.moj.cp.ai.util.UuidUtil.isValid;
 import uk.gov.hmcts.cp.openapi.model.DocumentUploadRequest;
 import uk.gov.hmcts.cp.openapi.model.FileStorageLocationReturnedSuccessfully;
 import uk.gov.hmcts.cp.openapi.model.MetadataFilter;
-import uk.gov.moj.cp.metadata.check.service.DocumentMetadataService;
-import uk.gov.moj.cp.metadata.check.service.IngestionOrchestratorService;
-import uk.gov.moj.cp.metadata.check.service.StorageService;
+import uk.gov.moj.cp.ai.service.BlobClientService;
+import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
 
 import java.util.List;
 import java.util.Map;
@@ -24,10 +22,8 @@ import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
-import com.microsoft.azure.functions.OutputBinding;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
-import com.microsoft.azure.functions.annotation.QueueOutput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,24 +35,19 @@ public class InitiateDocumentUploadFunction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(InitiateDocumentUploadFunction.class);
 
-    private final DocumentMetadataService documentMetadataService;
-    private final IngestionOrchestratorService orchestratorService;
-    private final StorageService storageService;
-
-    private static final String RESPONSE_STR = "{\"documentReference\":\"%s\"}";
+    private final DocumentUploadService documentUploadService;
+    private final BlobClientService blobClientService;
 
     public InitiateDocumentUploadFunction() {
-        this.documentMetadataService = new DocumentMetadataService();
-        this.orchestratorService = new IngestionOrchestratorService(documentMetadataService);
-        this.storageService = new StorageService();
+        final String documentContainerName = System.getenv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME);
+        this.blobClientService = new BlobClientService(documentContainerName);
+        this.documentUploadService = new DocumentUploadService();
     }
 
-    public InitiateDocumentUploadFunction(final DocumentMetadataService documentMetadataService,
-                                          final IngestionOrchestratorService orchestratorService,
-                                          final StorageService storageService) {
-        this.documentMetadataService = documentMetadataService;
-        this.orchestratorService = orchestratorService;
-        this.storageService = storageService;
+    public InitiateDocumentUploadFunction(final BlobClientService blobClientService,
+                                          final DocumentUploadService documentUploadService) {
+        this.blobClientService = blobClientService;
+        this.documentUploadService = documentUploadService;
     }
 
     /**
@@ -69,8 +60,6 @@ public class InitiateDocumentUploadFunction {
     @FunctionName("InitiateDocumentUpload")
     public HttpResponseMessage run(
             @HttpTrigger(name = "req", methods = {HttpMethod.POST}, authLevel = FUNCTION, route = "document-upload") HttpRequestMessage<DocumentUploadRequest> request,
-            @QueueOutput(name = "message", queueName = "%" + STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION + "%",
-                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING) OutputBinding<String> message,
             final ExecutionContext context) {
 
         try {
@@ -78,7 +67,7 @@ public class InitiateDocumentUploadFunction {
             final String documentName = request.getBody().getDocumentName();
             final List<MetadataFilter> metadataFilters = request.getBody().getMetadataFilter();
 
-            if (isNull(documentId) || !isValid(documentId) || isNullOrEmpty(documentName) || isNull(metadataFilters) || metadataFilters.isEmpty()) {
+            if (isNull(documentId) || !isValid(documentId) || isNullOrEmpty(documentName) || isValidMetadata(metadataFilters)) {
                 LOGGER.error("Error: documentId, documentName and metadataFilter attributes are required");
                 final String errorMessage = convert(Map.of("errorMessage", "Error: documentId, documentName and metadataFilter attributes are required"));
                 return generateResponse(request, HttpStatus.BAD_REQUEST, errorMessage);
@@ -87,26 +76,19 @@ public class InitiateDocumentUploadFunction {
             LOGGER.info("Initiating document upload for the documentId: {} documentName: {}", documentId, documentName);
 
             //check documentId not already processed
-            if (orchestratorService.isDocumentAlreadyProcessed(documentName)) {
+            if (documentUploadService.isDocumentAlreadyProcessed(documentId)) {
                 final String errorMessage = convert(Map.of("errorMessage", "An upload request has already been initiated for documentId: " + documentId));
                 return generateResponse(request, HttpStatus.BAD_REQUEST, errorMessage);
             }
 
-            //validate metadata
-            final Map<String, String> metadata = documentMetadataService.processDocumentMetadata(documentName);
-            LOGGER.info("Metadata for document '{}' with ID '{}' validated successfully", documentName, metadata.get(DOCUMENT_ID));
-
             //generate storageUrl
-            final String storageUrl = storageService.getSasUrl(documentName);
+            final String storageUrl = blobClientService.getSasUrl(documentName);
 
             //save record in documentsoutcome table with metadata validated status
-            orchestratorService.recordUploadInitiated(documentName, documentId);
-
-            //return storageUrl and documentReference (documentId) to client
-            final FileStorageLocationReturnedSuccessfully fileStorageLocationReturnedSuccessfully = new FileStorageLocationReturnedSuccessfully(storageUrl, documentId);
+            documentUploadService.recordUploadInitiated(documentName, documentId);
 
             LOGGER.info("Successfully initiated document upload for the documentId: {} documentName: {}", documentId, documentName);
-
+            final FileStorageLocationReturnedSuccessfully fileStorageLocationReturnedSuccessfully = new FileStorageLocationReturnedSuccessfully(storageUrl, documentId);
             return generateResponse(request, HttpStatus.OK, convert(fileStorageLocationReturnedSuccessfully));
 
         } catch (Exception e) {
@@ -123,6 +105,11 @@ public class InitiateDocumentUploadFunction {
                 .header("Content-Type", "application/json")
                 .body(message)
                 .build();
+    }
+
+    private boolean isValidMetadata(final List<MetadataFilter> metadataFilters) {
+        return nonNull(metadataFilters) && !metadataFilters.isEmpty()
+                && metadataFilters.stream().noneMatch(mf -> isNullOrEmpty(mf.getKey()) || isNullOrEmpty(mf.getValue()));
     }
 
 }
