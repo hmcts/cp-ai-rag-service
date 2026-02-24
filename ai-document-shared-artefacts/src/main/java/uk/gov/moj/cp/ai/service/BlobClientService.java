@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.ai.service;
 
+import static java.lang.String.format;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.client.BlobContainerClientFactory;
@@ -18,7 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class BlobClientService {
-    public static final int EXPIRY_MINUTES = 120;
+    private static final String SAS_URL_STR = "%s?%s";
     private static final Logger LOGGER = LoggerFactory.getLogger(BlobClientService.class);
 
     private final BlobContainerClient containerClient;
@@ -51,13 +52,11 @@ public class BlobClientService {
         LOGGER.info("Blob added: {}/{}", containerClient.getBlobContainerName(), documentName);
     }
 
-    public String getSasUrl(final String blobName) {
-        // 1. Get User Delegation Key (Valid for the signing process)
+    public String getSasUrl(final String blobName, int urlExpiryMinutes) {
         final OffsetDateTime start = OffsetDateTime.now().minusMinutes(1); // Buffer for clock skew
-        final OffsetDateTime expiry = start.plusMinutes(EXPIRY_MINUTES);
+        final OffsetDateTime expiry = start.plusMinutes(urlExpiryMinutes);
         final UserDelegationKey key = serviceClient.getUserDelegationKey(start, expiry);
 
-        // 2. Set Permissions (Create + Write for new file upload)
         final BlobSasPermission permissions = new BlobSasPermission()
                 .setCreatePermission(true)
                 .setWritePermission(true);
@@ -65,9 +64,7 @@ public class BlobClientService {
         final BlobServiceSasSignatureValues sasValues = new BlobServiceSasSignatureValues(expiry, permissions)
                 .setStartTime(start);
 
-        // 3. Generate the URL for the specific blob
         final BlobClient blobClient = containerClient.getBlobClient(blobName);
-
-        return blobClient.getBlobUrl() + "?" + blobClient.generateUserDelegationSas(sasValues, key);
+        return format(SAS_URL_STR, blobClient.getBlobUrl(), blobClient.generateUserDelegationSas(sasValues, key));
     }
 }

@@ -25,6 +25,10 @@ public class SharedSystemVariables {
     public static final String AZURE_SEARCH_SERVICE_ENDPOINT = "AZURE_SEARCH_SERVICE_ENDPOINT";
     public static final String AZURE_SEARCH_SERVICE_INDEX_NAME = "AZURE_SEARCH_SERVICE_INDEX_NAME";
 
+    public static final String UPLOAD_FILE_EXTENSION = "UPLOAD_FILE_EXTENSION";
+    public static final String UPLOAD_FILE_DATE_FORMAT = "UPLOAD_FILE_DATE_FORMAT";
+    public static final String SAS_STORAGE_URL_EXPIRY_MINUTES = "SAS_STORAGE_URL_EXPIRY_MINUTES";
+
     private SharedSystemVariables() {
         // Prevent instantiation
     }

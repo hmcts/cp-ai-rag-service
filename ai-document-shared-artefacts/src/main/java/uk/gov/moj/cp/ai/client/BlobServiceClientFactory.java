@@ -42,8 +42,6 @@ public class BlobServiceClientFactory {
             default ->
                     throw new IllegalArgumentException("Unsupported connection mode for Blob Container Client: " + connectionMode);
         };
-
-
     }
 
     private static BlobServiceClient getManagedIdentityBlobServiceClient(final String endpoint, final String containerName) {

@@ -12,14 +12,9 @@ import uk.gov.moj.cp.metadata.check.exception.DataRetrievalException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Orchestrates the document ingestion process: 1. Validates metadata from the blob. 2. Sends
- * message to Azure Queue if valid. 3. Records success/failure in Azure Table Storage.
- */
 public class DocumentUploadService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentUploadService.class);
-    private static final String UNKNOWN_DOCUMENT = "UNKNOWN_DOCUMENT";
 
     public static final String DUPLICATE_RECORD_LOG_MESSAGE = "Duplicate record found when attempting to initiate document upload for document '{}'.  Skipping remainder of ingestion.";
 
@@ -35,7 +30,7 @@ public class DocumentUploadService {
     }
 
     /**
-     * Check if documentId already processed and recorded in Table Storage.
+     * Check if documentId already recorded in Table Storage.
      */
     public boolean isDocumentAlreadyProcessed(final String documentId) {
         try {
@@ -51,7 +46,7 @@ public class DocumentUploadService {
     }
 
     /**
-     * Records a document ingestion outcome (success or failure) in Table Storage.
+     * Records a document upload initiated with status AWAITING_UPLOAD.
      */
     public void recordUploadInitiated(final String documentName, final String documentId) {
         try {
