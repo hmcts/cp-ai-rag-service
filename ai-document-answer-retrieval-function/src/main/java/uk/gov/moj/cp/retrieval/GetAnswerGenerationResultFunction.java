@@ -75,7 +75,7 @@ public class GetAnswerGenerationResultFunction {
 
         try {
 
-            if (isNullOrEmpty(transactionId) || !isValid(transactionId)) {
+            if (!isValid(transactionId)) {
                 LOGGER.error("Error: transactionId is required");
                 final String errorMessage = convert(Map.of("errorMessage", "Error: transactionId is required"));
                 return generateResponse(request, HttpStatus.BAD_REQUEST, errorMessage);

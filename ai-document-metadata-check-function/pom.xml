@@ -34,18 +34,15 @@
         <dependency>
             <groupId>uk.gov.hmcts.cp</groupId>
             <artifactId>api-cp-ai-rag</artifactId>
-            <version>0.0.8</version>
         </dependency>
 
         <dependency>
             <groupId>org.hibernate.validator</groupId>
             <artifactId>hibernate-validator</artifactId>
-            <version>9.0.1.Final</version>
         </dependency>
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
-            <version>3.1.1</version>
         </dependency>
         <!-- Azure Functions -->
         <dependency>

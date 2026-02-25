@@ -62,17 +62,6 @@ public class DocumentUploadFunctionTest {
         function = new DocumentUploadFunction(blobClientService, documentUploadService);
     }
 
-    private DocumentUploadRequest validRequest() {
-        final MetadataFilter metadataFilter = new MetadataFilter();
-        metadataFilter.setKey("document_id");
-        metadataFilter.setValue(randomUUID().toString());
-        return new DocumentUploadRequest(
-                randomUUID().toString(),
-                "test.pdf",
-                List.of(metadataFilter)
-        );
-    }
-
     @Test
     void shouldReturn400_whenValidationFails() {
         final DocumentUploadRequest invalidRequest = new DocumentUploadRequest();
@@ -143,6 +132,17 @@ public class DocumentUploadFunctionTest {
         HttpResponseMessage result = function.run(request, context);
 
         assertThat(response, is(result));
+    }
+
+    private DocumentUploadRequest validRequest() {
+        final MetadataFilter metadataFilter = new MetadataFilter();
+        metadataFilter.setKey("document_id");
+        metadataFilter.setValue(randomUUID().toString());
+        return new DocumentUploadRequest(
+                randomUUID().toString(),
+                "test.pdf",
+                List.of(metadataFilter)
+        );
     }
 
     private void mockResponseBuilder(HttpStatus expectedStatus) {

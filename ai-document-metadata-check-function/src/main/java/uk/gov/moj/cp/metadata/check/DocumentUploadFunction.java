@@ -4,13 +4,14 @@ import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTI
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.lang.String.join;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.SAS_STORAGE_URL_EXPIRY_MINUTES;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.UPLOAD_FILE_DATE_FORMAT;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.UPLOAD_FILE_EXTENSION;
+import static java.time.format.DateTimeFormatter.ofPattern;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
+import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.SAS_STORAGE_URL_EXPIRY_MINUTES;
+import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.UPLOAD_FILE_DATE_FORMAT;
+import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.UPLOAD_FILE_EXTENSION;
 import static uk.gov.moj.cp.metadata.check.validation.RequestValidator.validate;
 
 import uk.gov.hmcts.cp.openapi.model.DocumentUploadRequest;
@@ -53,9 +54,9 @@ public class DocumentUploadFunction {
     private final String uploadFileExtension;
 
     public DocumentUploadFunction() {
-        final String documentContainerName = System.getenv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME);
+        final String documentContainerName = getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD);
         this.urlExpiryMinutes = getRequiredEnvAsInteger(SAS_STORAGE_URL_EXPIRY_MINUTES, DEFAULT_URL_EXPIRY_MINUTES);
-        this.dateTimeFormatter = DateTimeFormatter.ofPattern(getRequiredEnv(UPLOAD_FILE_DATE_FORMAT, DEFAULT_DATETIME_FORMAT));
+        this.dateTimeFormatter = ofPattern(getRequiredEnv(UPLOAD_FILE_DATE_FORMAT, DEFAULT_DATETIME_FORMAT));
         this.uploadFileExtension = getRequiredEnv(UPLOAD_FILE_EXTENSION, FILE_EXTENSION_PDF);
 
         this.blobClientService = new BlobClientService(documentContainerName);
@@ -66,7 +67,7 @@ public class DocumentUploadFunction {
     public DocumentUploadFunction(final BlobClientService blobClientService,
                                   final DocumentUploadService documentUploadService) {
         this.urlExpiryMinutes = parseInt(DEFAULT_URL_EXPIRY_MINUTES);
-        this.dateTimeFormatter = DateTimeFormatter.ofPattern(DEFAULT_DATETIME_FORMAT);
+        this.dateTimeFormatter = ofPattern(DEFAULT_DATETIME_FORMAT);
         this.uploadFileExtension = FILE_EXTENSION_PDF;
 
         this.blobClientService = blobClientService;

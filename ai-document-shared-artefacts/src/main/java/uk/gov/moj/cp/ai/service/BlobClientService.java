@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.ai.service;
 
+import static com.azure.storage.common.sas.SasProtocol.HTTPS_ONLY;
 import static java.lang.String.format;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
@@ -57,12 +58,11 @@ public class BlobClientService {
         final OffsetDateTime expiry = start.plusMinutes(urlExpiryMinutes);
         final UserDelegationKey key = serviceClient.getUserDelegationKey(start, expiry);
 
-        final BlobSasPermission permissions = new BlobSasPermission()
-                .setCreatePermission(true)
-                .setWritePermission(true);
+        final BlobSasPermission permissions = new BlobSasPermission().setCreatePermission(true);
 
         final BlobServiceSasSignatureValues sasValues = new BlobServiceSasSignatureValues(expiry, permissions)
-                .setStartTime(start);
+                .setStartTime(start)
+                .setProtocol(HTTPS_ONLY);
 
         final BlobClient blobClient = containerClient.getBlobClient(blobName);
         return format(SAS_URL_STR, blobClient.getBlobUrl(), blobClient.generateUserDelegationSas(sasValues, key));

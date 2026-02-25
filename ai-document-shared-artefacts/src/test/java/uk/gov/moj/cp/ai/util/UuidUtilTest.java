@@ -29,8 +29,10 @@ public class UuidUtilTest {
     }
 
     @Test
-    void shouldThrowException_whenNullPassed() {
-        assertThrows(NullPointerException.class, () -> UuidUtil.isValid(null));
+    void shouldReturnFalse_whenNullPassed() {
+        boolean result = isValid(null);
+
+        assertFalse(result);
     }
 
     @Test

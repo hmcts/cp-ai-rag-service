@@ -1,7 +1,8 @@
 package uk.gov.moj.cp.metadata.check.service;
 
+import static uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatus.AWAITING_UPLOAD;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
-import static uk.gov.moj.cp.ai.model.DocumentStatus.AWAITING_UPLOAD;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
@@ -16,12 +17,13 @@ public class DocumentUploadService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentUploadService.class);
 
-    public static final String DUPLICATE_RECORD_LOG_MESSAGE = "Duplicate record found when attempting to initiate document upload for document '{}'.  Skipping remainder of ingestion.";
+    private static final String DUPLICATE_RECORD_LOG_MESSAGE = "Duplicate record found when attempting to initiate document upload for documentId: '{}'";
+    private static final String AWAITING_UPLOAD_REASON = "Upload initiated, document awaiting upload";
 
     private final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService;
 
     public DocumentUploadService() {
-        String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
+        String tableName = getRequiredEnv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
         this.documentIngestionOutcomeTableService = new DocumentIngestionOutcomeTableService(tableName);
     }
 
@@ -36,7 +38,7 @@ public class DocumentUploadService {
         try {
             final DocumentIngestionOutcome firstDocumentMatching = documentIngestionOutcomeTableService.getDocumentById(documentId);
             if (null != firstDocumentMatching) {
-                LOGGER.info("Document '{}' is already processed and has status '{}'.  Skipping document initiation...", documentId, firstDocumentMatching.getStatus());
+                LOGGER.info("Document '{}' is already processed and has status '{}'.", documentId, firstDocumentMatching.getStatus());
                 return true;
             }
         } catch (EntityRetrievalException e) {
@@ -50,7 +52,7 @@ public class DocumentUploadService {
      */
     public void recordUploadInitiated(final String documentName, final String documentId) {
         try {
-            documentIngestionOutcomeTableService.insert(documentName, documentId, AWAITING_UPLOAD.name(), AWAITING_UPLOAD.getReason());
+            documentIngestionOutcomeTableService.insert(documentName, documentId, AWAITING_UPLOAD.name(), AWAITING_UPLOAD_REASON);
         } catch (DuplicateRecordException dre) {
             LOGGER.info(DUPLICATE_RECORD_LOG_MESSAGE, documentName);
         }
