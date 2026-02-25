@@ -49,7 +49,7 @@ public class DocumentIngestionOutcomeTableService {
 
     }
 
-    public void insertWithDocumentId(final String documentId, final String documentName, final String status, final String reason) throws DuplicateRecordException {
+    public void insert(final String documentId, final String documentName, final String status, final String reason) throws DuplicateRecordException {
         final TableEntity entity = new TableEntity(documentId, documentId);
         entity.addProperty(TC_DOCUMENT_FILE_NAME, documentName);
         entity.addProperty(TC_DOCUMENT_ID, documentId);

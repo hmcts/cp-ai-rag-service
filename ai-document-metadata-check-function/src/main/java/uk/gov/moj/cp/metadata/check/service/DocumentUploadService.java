@@ -50,7 +50,7 @@ public class DocumentUploadService {
      */
     public void recordUploadInitiated(final String documentName, final String documentId) {
         try {
-            documentIngestionOutcomeTableService.insertWithDocumentId(documentName, documentId, AWAITING_UPLOAD.name(), AWAITING_UPLOAD.getReason());
+            documentIngestionOutcomeTableService.insert(documentName, documentId, AWAITING_UPLOAD.name(), AWAITING_UPLOAD.getReason());
         } catch (DuplicateRecordException dre) {
             LOGGER.info(DUPLICATE_RECORD_LOG_MESSAGE, documentName);
         }

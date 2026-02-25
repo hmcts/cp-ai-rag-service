@@ -79,7 +79,7 @@ public class DocumentUploadServiceTest {
 
         documentUploadService.recordUploadInitiated(documentName, documentId);
 
-        verify(tableService).insertWithDocumentId(eq(documentName), eq(documentId), anyString(), anyString());
+        verify(tableService).insert(eq(documentName), eq(documentId), anyString(), anyString());
     }
 
     @Test
@@ -87,10 +87,10 @@ public class DocumentUploadServiceTest {
         final String documentId = "doc-123";
         final String documentName = "TestDoc";
 
-        doThrow(new DuplicateRecordException("duplicate")).when(tableService).insertWithDocumentId(any(), any(), any(), any());
+        doThrow(new DuplicateRecordException("duplicate")).when(tableService).insert(any(), any(), any(), any());
 
         assertDoesNotThrow(() -> documentUploadService.recordUploadInitiated(documentName, documentId));
 
-        verify(tableService).insertWithDocumentId(eq(documentName), eq(documentId), anyString(), anyString());
+        verify(tableService).insert(eq(documentName), eq(documentId), anyString(), anyString());
     }
 }

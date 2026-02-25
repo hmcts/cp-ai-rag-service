@@ -52,6 +52,28 @@ class DocumentIngestionOutcomeTableServiceTest {
     }
 
     @Test
+    @DisplayName("Successfully inserts document outcome with documentId as partitionKey/rowKey")
+    void successfullyInsertsDocumentOutcomeWithDocumentIdAsKey() throws DuplicateRecordException {
+        final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
+
+        service.insert("docId", "docName", "status", "reason");
+
+        verify(mockTableService).insertIntoTable(any(TableEntity.class));
+    }
+
+    @Test
+    @DisplayName("Successfully get document outcome by documentId")
+    void successfullyGetDocumentOutcomeByDocumentId() throws DuplicateRecordException, EntityRetrievalException {
+        final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
+        final TableEntity mockTableEntity = mock(TableEntity.class);
+        when(mockTableService.getFirstDocumentMatching("docId", "docId")).thenReturn(mockTableEntity);
+
+        final DocumentIngestionOutcome document = service.getDocumentById("docId");
+
+        verify(mockTableService).getFirstDocumentMatching("docId", "docId");
+    }
+
+    @Test
     @DisplayName("Successfully upserts document outcome")
     void successfullyUpsertsDocumentOutcome() {
         final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
@@ -65,7 +87,8 @@ class DocumentIngestionOutcomeTableServiceTest {
     @DisplayName("Throws exception when insert fails due to duplicate record")
     void throwsExceptionWhenInsertFailsDueToDuplicateRecord() throws DuplicateRecordException {
         final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
-        doThrow(new DuplicateRecordException("Upsert failed")).when(mockTableService).insertIntoTable(any(TableEntity.class));;
+        doThrow(new DuplicateRecordException("Upsert failed")).when(mockTableService).insertIntoTable(any(TableEntity.class));
+        ;
 
         assertThrows(DuplicateRecordException.class,
                 () -> service.insertIntoTable("docName", "docId", "status", "reason"));
