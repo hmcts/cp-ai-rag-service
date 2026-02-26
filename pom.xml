@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>uk.gov.moj.cp.azure.ragservice</groupId>
@@ -22,8 +24,8 @@
 
     <properties>
 
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <azure.functions.maven.plugin.version>1.24.0</azure.functions.maven.plugin.version>
         <azure.functions.java.library.version>3.2.3</azure.functions.java.library.version>
@@ -35,6 +37,9 @@
         <langchain4j.version>0.30.0</langchain4j.version>
         <jackson.version>2.15.2</jackson.version>
         <opentelemetry-sdk.version>1.58.0</opentelemetry-sdk.version>
+        <api-cp-ai-rag.version>0.0.8</api-cp-ai-rag.version>
+        <hibernate-validator.version>9.0.1.Final</hibernate-validator.version>
+        <jakarta.validation-api.version>3.1.1</jakarta.validation-api.version>
 
         <!-- SonarQube Properties -->
         <sonar.projectKey>uk.gov.moj.cp.azure.ragservice:cp-ai-rag-service</sonar.projectKey>
@@ -138,6 +143,22 @@
                 <version>${azure.functions.java.library.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>uk.gov.hmcts.cp</groupId>
+                <artifactId>api-cp-ai-rag</artifactId>
+                <version>${api-cp-ai-rag.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.hibernate.validator</groupId>
+                <artifactId>hibernate-validator</artifactId>
+                <version>${hibernate-validator.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>jakarta.validation</groupId>
+                <artifactId>jakarta.validation-api</artifactId>
+                <version>${jakarta.validation-api.version}</version>
+            </dependency>
+
             <!-- langchain4j -->
             <dependency>
                 <groupId>dev.langchain4j</groupId>
@@ -190,10 +211,6 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-slf4j-impl</artifactId>
         </dependency>
 
         <!-- Test dependencies -->

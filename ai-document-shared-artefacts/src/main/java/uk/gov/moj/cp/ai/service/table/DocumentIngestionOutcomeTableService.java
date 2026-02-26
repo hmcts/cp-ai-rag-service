@@ -49,6 +49,18 @@ public class DocumentIngestionOutcomeTableService {
 
     }
 
+    public void insert(final String documentId, final String documentName, final String status, final String reason) throws DuplicateRecordException {
+        final TableEntity entity = new TableEntity(documentId, documentId);
+        entity.addProperty(TC_DOCUMENT_FILE_NAME, documentName);
+        entity.addProperty(TC_DOCUMENT_ID, documentId);
+        entity.addProperty(TC_DOCUMENT_STATUS, status);
+        entity.addProperty(TC_REASON, reason);
+
+        tableService.insertIntoTable(entity);
+
+        LOGGER.info("Document upload record INSERTED into table with status '{}' for document '{}' with ID '{}'", status, documentName, documentId);
+    }
+
     public void upsertIntoTable(String documentName, String documentId, String status, String reason) {
         try {
 
@@ -70,12 +82,16 @@ public class DocumentIngestionOutcomeTableService {
         if (null == entity) {
             return null;
         }
-        return new DocumentIngestionOutcome(
-                getPropertyAsString(entity.getProperty(TC_DOCUMENT_ID)),
-                getPropertyAsString(entity.getProperty(TC_DOCUMENT_FILE_NAME)),
-                getPropertyAsString(entity.getProperty(TC_DOCUMENT_STATUS)),
-                getPropertyAsString(entity.getProperty(TC_REASON)),
-                getPropertyAsString(entity.getProperty(TC_TIMESTAMP)));
+        return getDocumentIngestionOutcome(entity);
+
+    }
+
+    public DocumentIngestionOutcome getDocumentById(String documentId) throws EntityRetrievalException {
+        final TableEntity entity = tableService.getFirstDocumentMatching(documentId, documentId);
+        if (null == entity) {
+            return null;
+        }
+        return getDocumentIngestionOutcome(entity);
 
     }
 
@@ -95,6 +111,15 @@ public class DocumentIngestionOutcomeTableService {
         entity.addProperty(TC_DOCUMENT_STATUS, status);
         entity.addProperty(TC_REASON, reason);
         return entity;
+    }
+
+    private DocumentIngestionOutcome getDocumentIngestionOutcome(final TableEntity entity) {
+        return new DocumentIngestionOutcome(
+                getPropertyAsString(entity.getProperty(TC_DOCUMENT_ID)),
+                getPropertyAsString(entity.getProperty(TC_DOCUMENT_FILE_NAME)),
+                getPropertyAsString(entity.getProperty(TC_DOCUMENT_STATUS)),
+                getPropertyAsString(entity.getProperty(TC_REASON)),
+                getPropertyAsString(entity.getProperty(TC_TIMESTAMP)));
     }
 
 }

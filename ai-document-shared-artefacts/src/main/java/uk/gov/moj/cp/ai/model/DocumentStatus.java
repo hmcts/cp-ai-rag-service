@@ -6,6 +6,7 @@ public enum DocumentStatus {
 
     METADATA_VALIDATED("Document metadata validated and sent to queue"),
     INVALID_METADATA("Invalid or incomplete nested metadata detected"),
+    AWAITING_UPLOAD("Upload initiated, document awaiting upload"),
 
     QUEUE_FAILED("Document metadata validated but failed to enqueue for processing"),
 

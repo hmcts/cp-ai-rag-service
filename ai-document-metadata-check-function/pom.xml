@@ -31,6 +31,19 @@
             <version>${project.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>uk.gov.hmcts.cp</groupId>
+            <artifactId>api-cp-ai-rag</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.hibernate.validator</groupId>
+            <artifactId>hibernate-validator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
         <!-- Azure Functions -->
         <dependency>
             <groupId>com.microsoft.azure.functions</groupId>
