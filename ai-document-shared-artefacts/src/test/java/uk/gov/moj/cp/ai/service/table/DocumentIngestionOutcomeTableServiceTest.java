@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.ai.service.table;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -9,6 +10,11 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_FILE_NAME;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_ID;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_METADATA;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_STATUS;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_REASON;
 import static uk.gov.moj.cp.ai.util.RowKeyUtil.generateKeyForRowAndPartition;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
@@ -19,6 +25,7 @@ import com.azure.data.tables.models.TableEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class DocumentIngestionOutcomeTableServiceTest {
 
@@ -56,9 +63,19 @@ class DocumentIngestionOutcomeTableServiceTest {
     void successfullyInsertsDocumentOutcomeWithDocumentIdAsKey() throws DuplicateRecordException {
         final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
 
-        service.insert("docId", "docName", "status", "reason");
+        service.insert("docId", "docName", "metadata","status", "reason");
 
-        verify(mockTableService).insertIntoTable(any(TableEntity.class));
+        final ArgumentCaptor<TableEntity> tableEntityCaptor = ArgumentCaptor.forClass(TableEntity.class);
+        verify(mockTableService).insertIntoTable(tableEntityCaptor.capture());
+
+        final TableEntity actualTableEntity = tableEntityCaptor.getValue();
+        assertThat(actualTableEntity.getPartitionKey()).isEqualTo("docId");
+        assertThat(actualTableEntity.getRowKey()).isEqualTo("docId");
+        assertThat(actualTableEntity.getProperty(TC_DOCUMENT_ID)).isEqualTo("docId");
+        assertThat(actualTableEntity.getProperty(TC_DOCUMENT_FILE_NAME)).isEqualTo("docName");
+        assertThat(actualTableEntity.getProperty(TC_DOCUMENT_METADATA)).isEqualTo("metadata");
+        assertThat(actualTableEntity.getProperty(TC_DOCUMENT_STATUS)).isEqualTo("status");
+        assertThat(actualTableEntity.getProperty(TC_REASON)).isEqualTo("reason");
     }
 
     @Test

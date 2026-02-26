@@ -2,7 +2,6 @@ package uk.gov.moj.cp.metadata.check.service;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
@@ -11,12 +10,17 @@ import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatus.AWAITING_UPLOAD;
+import static uk.gov.moj.cp.metadata.check.service.DocumentUploadService.AWAITING_UPLOAD_REASON;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
 import uk.gov.moj.cp.metadata.check.exception.DataRetrievalException;
+import uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer;
+
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,21 +80,23 @@ public class DocumentUploadServiceTest {
     void shouldCallInsert_whenNoDuplicate() throws Exception {
         final String documentId = "doc-123";
         final String documentName = "TestDoc";
+        final Map<String, String> metadataMap = Map.of("k1", "v1");
 
-        documentUploadService.recordUploadInitiated(documentName, documentId);
+        documentUploadService.recordUploadInitiated(documentId, documentName, metadataMap);
 
-        verify(tableService).insert(eq(documentName), eq(documentId), anyString(), anyString());
+        verify(tableService).insert(eq(documentId), eq(documentName), eq("{\"k1\":\"v1\"}"), eq(AWAITING_UPLOAD.name()), eq(AWAITING_UPLOAD_REASON));
     }
 
     @Test
-    void shouldNotThrow_whenDuplicateRecordExceptionOccurs() throws Exception {
+    void shouldThrow_whenDuplicateRecordExceptionOccurs() throws Exception {
         final String documentId = "doc-123";
         final String documentName = "TestDoc";
+        final Map<String, String> metadataMap = Map.of("k1", "v1");
 
-        doThrow(new DuplicateRecordException("duplicate")).when(tableService).insert(any(), any(), any(), any());
+        doThrow(new DuplicateRecordException("duplicate")).when(tableService).insert(any(), any(), any(), any(), any());
 
-        assertDoesNotThrow(() -> documentUploadService.recordUploadInitiated(documentName, documentId));
+        assertThrows(DuplicateRecordException.class, () -> documentUploadService.recordUploadInitiated(documentId, documentName, metadataMap));
 
-        verify(tableService).insert(eq(documentName), eq(documentId), anyString(), anyString());
+        verify(tableService).insert(eq(documentId), eq(documentName), anyString(), anyString(), anyString());
     }
 }
