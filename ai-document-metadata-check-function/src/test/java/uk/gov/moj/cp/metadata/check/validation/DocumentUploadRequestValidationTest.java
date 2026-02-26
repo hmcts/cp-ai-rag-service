@@ -13,17 +13,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 public class DocumentUploadRequestValidationTest {
-    private DocumentUploadRequest createValidRequest() {
-        final MetadataFilter filter = new MetadataFilter();
-        filter.setKey("key");
-        filter.setValue("val");
-        // initialize required fields in MetadataFilter if needed
-        return new DocumentUploadRequest(
-                UUID.randomUUID().toString(),
-                "Test Document",
-                List.of(filter)
-        );
-    }
 
     @Test
     void shouldReturnNoErrors_whenRequestIsValid() {
@@ -91,7 +80,7 @@ public class DocumentUploadRequestValidationTest {
 
     @Test
     void shouldCascadeValidation_whenMetadataFilterIsInvalid() {
-        MetadataFilter invalidFilter = new MetadataFilter();
+        final MetadataFilter invalidFilter = new MetadataFilter();
 
         final DocumentUploadRequest request = new DocumentUploadRequest(
                 UUID.randomUUID().toString(),
@@ -105,5 +94,16 @@ public class DocumentUploadRequestValidationTest {
         assertThat(errors, containsInAnyOrder("metadataFilter[0].value: must not be null",
                 "metadataFilter[0].key: must not be null"));
 
+    }
+
+    private DocumentUploadRequest createValidRequest() {
+        final MetadataFilter filter = new MetadataFilter();
+        filter.setKey("key");
+        filter.setValue("val");
+        return new DocumentUploadRequest(
+                UUID.randomUUID().toString(),
+                "Test Document",
+                List.of(filter)
+        );
     }
 }
