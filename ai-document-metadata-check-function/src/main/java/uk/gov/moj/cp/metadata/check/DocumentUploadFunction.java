@@ -12,12 +12,17 @@ import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
 import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.SAS_STORAGE_URL_EXPIRY_MINUTES;
 import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.UPLOAD_FILE_DATE_FORMAT;
 import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.UPLOAD_FILE_EXTENSION;
+import static uk.gov.moj.cp.metadata.check.service.DocumentUploadService.DUPLICATE_RECORD_ERROR;
+import static uk.gov.moj.cp.metadata.check.service.DocumentUploadService.UPLOAD_ALREADY_INITIATED_ERROR;
+import static uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer.toMap;
 import static uk.gov.moj.cp.metadata.check.validation.RequestValidator.validate;
 
 import uk.gov.hmcts.cp.openapi.model.DocumentUploadRequest;
 import uk.gov.hmcts.cp.openapi.model.FileStorageLocationReturnedSuccessfully;
+import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
+import uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -61,7 +66,6 @@ public class DocumentUploadFunction {
 
         this.blobClientService = new BlobClientService(documentContainerName);
         this.documentUploadService = new DocumentUploadService();
-
     }
 
     public DocumentUploadFunction(final BlobClientService blobClientService,
@@ -99,19 +103,22 @@ public class DocumentUploadFunction {
             LOGGER.info("Initiating document upload for the documentId: {} documentName: {}", documentId, documentName);
 
             if (documentUploadService.isDocumentAlreadyProcessed(documentId)) {
-                final String errorMessage = convert(Map.of("errorMessage", "An upload request has already been initiated for documentId: " + documentId));
+                final String errorMessage = convert(Map.of("errorMessage", format(UPLOAD_ALREADY_INITIATED_ERROR, documentId)));
                 return generateResponse(request, HttpStatus.BAD_REQUEST, errorMessage);
             }
 
             final String blobName = getBlobName(documentId);
             final String storageSasUrl = blobClientService.getSasUrl(blobName, urlExpiryMinutes);
 
-            documentUploadService.recordUploadInitiated(documentName, documentId);
+            documentUploadService.recordUploadInitiated(documentId, documentName, toMap(documentUploadRequest.getMetadataFilter()));
 
             LOGGER.info("Successfully initiated document upload for the documentId: {} documentName: {}", documentId, documentName);
             final FileStorageLocationReturnedSuccessfully fileStorageLocationReturnedSuccessfully = new FileStorageLocationReturnedSuccessfully(storageSasUrl, documentId);
             return generateResponse(request, HttpStatus.OK, convert(fileStorageLocationReturnedSuccessfully));
 
+        } catch (DuplicateRecordException dre) {
+            final String duplicateRecordError = format(DUPLICATE_RECORD_ERROR, request.getBody().getDocumentId());
+            return generateResponse(request, HttpStatus.BAD_REQUEST, convert(Map.of("errorMessage", duplicateRecordError)));
         } catch (Exception e) {
             LOGGER.error("Error initiating document upload for request: {}", request, e);
             final String errorMessage = convert(Map.of("errorMessage", "An internal error occurred: " + e.getMessage()));

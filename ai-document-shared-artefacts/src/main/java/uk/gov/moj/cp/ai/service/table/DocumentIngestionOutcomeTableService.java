@@ -2,6 +2,7 @@ package uk.gov.moj.cp.ai.service.table;
 
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_FILE_NAME;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_ID;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_METADATA;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_STATUS;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_REASON;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_TIMESTAMP;
@@ -49,10 +50,11 @@ public class DocumentIngestionOutcomeTableService {
 
     }
 
-    public void insert(final String documentId, final String documentName, final String status, final String reason) throws DuplicateRecordException {
+    public void insert(final String documentId, final String documentName, final String metadata, final String status, final String reason) throws DuplicateRecordException {
         final TableEntity entity = new TableEntity(documentId, documentId);
         entity.addProperty(TC_DOCUMENT_FILE_NAME, documentName);
         entity.addProperty(TC_DOCUMENT_ID, documentId);
+        entity.addProperty(TC_DOCUMENT_METADATA, metadata);
         entity.addProperty(TC_DOCUMENT_STATUS, status);
         entity.addProperty(TC_REASON, reason);
 
