@@ -3,6 +3,7 @@ package uk.gov.moj.cp.metadata.check.validation;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static uk.gov.moj.cp.ai.validation.RequestValidator.validate;
 
 import uk.gov.hmcts.cp.openapi.model.DocumentUploadRequest;
 import uk.gov.hmcts.cp.openapi.model.MetadataFilter;
@@ -18,7 +19,7 @@ public class DocumentUploadRequestValidationTest {
     void shouldReturnNoErrors_whenRequestIsValid() {
         final DocumentUploadRequest request = createValidRequest();
 
-        final List<String> errors = RequestValidator.validate(request);
+        final List<String> errors = validate(request);
 
         assertThat(errors.isEmpty(), is(true));
     }
@@ -28,7 +29,7 @@ public class DocumentUploadRequestValidationTest {
         final DocumentUploadRequest request = createValidRequest();
         request.setDocumentId(null);
 
-        final List<String> errors = RequestValidator.validate(request);
+        final List<String> errors = validate(request);
 
         assertThat(errors.isEmpty(), is(false));
         assertThat(errors.stream().anyMatch(e -> e.contains("documentId")), is(true));
@@ -39,7 +40,7 @@ public class DocumentUploadRequestValidationTest {
         final DocumentUploadRequest request = createValidRequest();
         request.setDocumentId("invalid-uuid");
 
-        final List<String> errors = RequestValidator.validate(request);
+        final List<String> errors = validate(request);
 
         assertThat(errors.isEmpty(), is(false));
         assertThat(errors.stream().anyMatch(e -> e.contains("documentId")), is(true));
@@ -50,7 +51,7 @@ public class DocumentUploadRequestValidationTest {
         final DocumentUploadRequest request = createValidRequest();
         request.setDocumentName("A".repeat(51));
 
-        final List<String> errors = RequestValidator.validate(request);
+        final List<String> errors = validate(request);
 
         assertThat(errors.isEmpty(), is(false));
         assertThat(errors.stream().anyMatch(e -> e.contains("documentName")), is(true));
@@ -61,7 +62,7 @@ public class DocumentUploadRequestValidationTest {
         final DocumentUploadRequest request = createValidRequest();
         request.setDocumentName(null);
 
-        final List<String> errors = RequestValidator.validate(request);
+        final List<String> errors = validate(request);
 
         assertThat(errors.isEmpty(), is(false));
         assertThat(errors.stream().anyMatch(e -> e.contains("documentName")), is(true));
@@ -72,7 +73,7 @@ public class DocumentUploadRequestValidationTest {
         final DocumentUploadRequest request = createValidRequest();
         request.setMetadataFilter(null);
 
-        final List<String> errors = RequestValidator.validate(request);
+        final List<String> errors = validate(request);
 
         assertThat(errors.isEmpty(), is(false));
         assertThat(errors.stream().anyMatch(e -> e.contains("metadataFilter")), is(true));
@@ -88,7 +89,7 @@ public class DocumentUploadRequestValidationTest {
                 List.of(invalidFilter)
         );
 
-        final List<String> errors = RequestValidator.validate(request);
+        final List<String> errors = validate(request);
         assertThat(errors.isEmpty(), is(false));
         assertThat(errors.size(), is(2));
         assertThat(errors, containsInAnyOrder("metadataFilter[0].value: must not be null",

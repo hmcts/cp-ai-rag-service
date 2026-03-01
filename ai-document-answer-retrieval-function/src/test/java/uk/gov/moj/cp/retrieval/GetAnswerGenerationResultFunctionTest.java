@@ -12,19 +12,19 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATED;
+import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATION_FAILED;
+import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
 import static uk.gov.moj.cp.ai.model.ChunkedEntry.builder;
-import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATED;
-import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATION_FAILED;
-import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.retrieval.AnswerGenerationFunction.getInputChunksFilename;
 import static uk.gov.moj.cp.retrieval.GetAnswerGenerationResultFunction.PARAM_WITH_CHUNKED_ENTRIES;
 
+import uk.gov.hmcts.cp.openapi.model.UserQueryAnswerReturnedSuccessfullyAsynchronously;
 import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
 import uk.gov.moj.cp.ai.exception.BlobParsingException;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.model.InputChunksPayload;
-import uk.gov.moj.cp.ai.model.QueryAsyncResponse;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 
@@ -32,7 +32,6 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.microsoft.azure.functions.ExecutionContext;
@@ -99,18 +98,12 @@ class GetAnswerGenerationResultFunctionTest {
 
     @Test
     void shouldReturnGeneratedAnswer() throws EntityRetrievalException, JsonProcessingException, BlobParsingException {
-        final String transactionId = UUID.randomUUID().toString();
+        final String transactionId = randomUUID().toString();
 
-        final GeneratedAnswer generatedAnswer = mock(GeneratedAnswer.class);
+        final GeneratedAnswer generatedAnswer = new GeneratedAnswer(transactionId,
+                "user query 1", "query prompt 1", "transactionId.json",
+                "LLM response", ANSWER_GENERATED.name(), null, OffsetDateTime.now(), 123L);
 
-        when(generatedAnswer.getTransactionId()).thenReturn(transactionId);
-        when(generatedAnswer.getAnswerStatus()).thenReturn(ANSWER_GENERATED.name());
-        when(generatedAnswer.getUserQuery()).thenReturn("user query 1");
-        when(generatedAnswer.getQueryPrompt()).thenReturn("query prompt 1");
-        when(generatedAnswer.getLlmResponse()).thenReturn("LLM response");
-        when(generatedAnswer.getChunkedEntriesFile()).thenReturn("transactionId.json");
-        when(generatedAnswer.getResponseGenerationTime()).thenReturn(OffsetDateTime.now());
-        when(generatedAnswer.getResponseGenerationDuration()).thenReturn(123L);
         when(request.getQueryParameters()).thenReturn(Map.of(PARAM_WITH_CHUNKED_ENTRIES, "true"));
         when(tableStorageService.getGeneratedAnswer(transactionId)).thenReturn(generatedAnswer);
         when(blobPersistenceInputChunksService.readBlob(eq(getInputChunksFilename(fromString(transactionId))), any())).thenReturn(new InputChunksPayload(List.of(builder()
@@ -121,18 +114,18 @@ class GetAnswerGenerationResultFunctionTest {
         verify(responseBuilder).header("Content-Type", "application/json");
         verify(request).createResponseBuilder(HttpStatus.OK);
         verify(responseBuilder).body(bodyCaptor.capture());
-        final QueryAsyncResponse asyncResponse = getObjectMapper().readValue(bodyCaptor.getValue(), QueryAsyncResponse.class);
-        assertThat(asyncResponse.transactionId(), is(transactionId));
-        assertThat(asyncResponse.status(), is(ANSWER_GENERATED.name()));
-        assertThat(asyncResponse.userQuery(), is("user query 1"));
-        assertThat(asyncResponse.queryPrompt(), is("query prompt 1"));
-        assertThat(asyncResponse.llmResponse(), is("LLM response"));
-        assertThat(asyncResponse.responseGenerationDuration(), is(123L));
+        final UserQueryAnswerReturnedSuccessfullyAsynchronously asyncResponse = getObjectMapper().readValue(bodyCaptor.getValue(), UserQueryAnswerReturnedSuccessfullyAsynchronously.class);
+        assertThat(asyncResponse.getTransactionId(), is(transactionId));
+        assertThat(asyncResponse.getStatus(), is(ANSWER_GENERATED));
+        assertThat(asyncResponse.getUserQuery(), is("user query 1"));
+        assertThat(asyncResponse.getQueryPrompt(), is("query prompt 1"));
+        assertThat(asyncResponse.getLlmResponse(), is("LLM response"));
+        assertThat(asyncResponse.getResponseGenerationDuration(), is(123));
     }
 
     @Test
     void shouldReturnFailedAnswerGeneration() throws EntityRetrievalException, JsonProcessingException {
-        final String transactionId = UUID.randomUUID().toString();
+        final String transactionId = randomUUID().toString();
 
         final GeneratedAnswer generatedAnswer = mock(GeneratedAnswer.class);
 
@@ -151,14 +144,14 @@ class GetAnswerGenerationResultFunctionTest {
         verify(responseBuilder).header("Content-Type", "application/json");
         verify(request).createResponseBuilder(HttpStatus.OK);
         verify(responseBuilder).body(bodyCaptor.capture());
-        final QueryAsyncResponse asyncResponse = getObjectMapper().readValue(bodyCaptor.getValue(), QueryAsyncResponse.class);
-        assertThat(asyncResponse.transactionId(), is(transactionId));
-        assertThat(asyncResponse.status(), is(ANSWER_GENERATION_FAILED.name()));
+        final UserQueryAnswerReturnedSuccessfullyAsynchronously asyncResponse = getObjectMapper().readValue(bodyCaptor.getValue(), UserQueryAnswerReturnedSuccessfullyAsynchronously.class);
+        assertThat(asyncResponse.getTransactionId(), is(transactionId));
+        assertThat(asyncResponse.getStatus(), is(ANSWER_GENERATION_FAILED));
     }
 
     @Test
     void shouldReturnPendingStatusWhenAnswerIsPending() throws EntityRetrievalException, JsonProcessingException {
-        final String transactionId = UUID.randomUUID().toString();
+        final String transactionId = randomUUID().toString();
 
         GeneratedAnswer generatedAnswer = mock(GeneratedAnswer.class);
         when(generatedAnswer.getTransactionId()).thenReturn(transactionId);
@@ -170,16 +163,16 @@ class GetAnswerGenerationResultFunctionTest {
 
         verify(request).createResponseBuilder(HttpStatus.OK);
         verify(responseBuilder).body(bodyCaptor.capture());
-        final QueryAsyncResponse asyncResponse = getObjectMapper().readValue(bodyCaptor.getValue(), QueryAsyncResponse.class);
-        assertThat(asyncResponse.transactionId(), is(transactionId));
-        assertThat(asyncResponse.status(), is(ANSWER_GENERATION_PENDING.name()));
-        assertThat(asyncResponse.responseGenerationTime(), is(nullValue()));
-        assertThat(asyncResponse.responseGenerationDuration(), is(nullValue()));
+        final UserQueryAnswerReturnedSuccessfullyAsynchronously asyncResponse = getObjectMapper().readValue(bodyCaptor.getValue(), UserQueryAnswerReturnedSuccessfullyAsynchronously.class);
+        assertThat(asyncResponse.getTransactionId(), is(transactionId));
+        assertThat(asyncResponse.getStatus(), is(ANSWER_GENERATION_PENDING));
+        assertThat(asyncResponse.getResponseGenerationTime(), is(nullValue()));
+        assertThat(asyncResponse.getResponseGenerationDuration(), is(nullValue()));
     }
 
     @Test
     void shouldReturnNotFoundWhenNoAnswerExists() throws EntityRetrievalException {
-        final String transactionId = UUID.randomUUID().toString();
+        final String transactionId = randomUUID().toString();
 
         when(tableStorageService.getGeneratedAnswer(transactionId)).thenReturn(null);
 
@@ -190,7 +183,7 @@ class GetAnswerGenerationResultFunctionTest {
 
     @Test
     void shouldReturnInternalServerErrorOnException() throws EntityRetrievalException {
-        final String transactionId = UUID.randomUUID().toString();
+        final String transactionId = randomUUID().toString();
 
         when(tableStorageService.getGeneratedAnswer(transactionId)).thenThrow(new RuntimeException("DB failure"));
 
