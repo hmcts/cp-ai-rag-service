@@ -123,7 +123,7 @@ public class DocumentUploadFunction {
             return generateResponse(request, HttpStatus.BAD_REQUEST, convert(new RequestErrored(duplicateRecordError)));
         } catch (Exception e) {
             LOGGER.error("Error initiating document upload for request: {}", request, e);
-            final String errorMessage = convert(Map.of("errorMessage", "An internal error occurred: " + e.getMessage()));
+            final String errorMessage = "An internal error occurred: " + e.getMessage();
             return generateResponse(request, HttpStatus.INTERNAL_SERVER_ERROR, convert(new RequestErrored(errorMessage)));
         }
     }

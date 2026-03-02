@@ -54,8 +54,7 @@ public class DocumentBlobTriggerFunction {
             @BlobTrigger(
                     name = "blob",
                     path = "%STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD%/{name}",
-                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING
-            )
+                    connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING) byte[] content,
             @BindingName("name") String blobName,
             @QueueOutput(name = "queueMessage",
                     queueName = "%" + STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION + "%",
@@ -101,5 +100,3 @@ public class DocumentBlobTriggerFunction {
         return result;
     }
 }
-
-

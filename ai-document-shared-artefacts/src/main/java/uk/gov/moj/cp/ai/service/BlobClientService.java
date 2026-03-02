@@ -3,6 +3,7 @@ package uk.gov.moj.cp.ai.service;
 import static com.azure.storage.common.sas.SasProtocol.HTTPS_ONLY;
 import static java.lang.String.format;
 import static java.util.Objects.isNull;
+import static java.util.Objects.nonNull;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.client.BlobContainerClientFactory;
@@ -72,21 +73,11 @@ public class BlobClientService {
     }
 
     public boolean isBlobAvailable(final String documentName) {
-
         final BlobClient blobClient = getBlobClient(documentName);
         final BlobProperties blobProperties = blobClient.getProperties();
 
-        if (isNull(blobProperties)) {
-            // Blob properties should never be null here, but just in case...
-            throw new IllegalStateException("Blob properties for '" + documentName + "' could not be retrieved.");
-        }
-
-        if (CopyStatusType.PENDING == blobProperties.getCopyStatus()) {
-            // Blob is still being copied and happens when using async copy operations
-            throw new IllegalStateException("Blob '" + documentName + "' is still being copied.  Copy status is " + blobProperties.getCopyStatus());
-        }
-
         //Blob was placed synchronously / atomic operation or  async copy operations has completed with status SUCCESS
-        return isNull(blobProperties.getCopyStatus()) || CopyStatusType.SUCCESS == blobProperties.getCopyStatus();
+        return nonNull(blobProperties) &&
+                (isNull(blobProperties.getCopyStatus()) || CopyStatusType.SUCCESS == blobProperties.getCopyStatus());
     }
 }
