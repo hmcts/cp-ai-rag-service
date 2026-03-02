@@ -96,7 +96,8 @@ public class DocumentUploadFunction {
             final DocumentUploadRequest documentUploadRequest = request.getBody();
             final List<String> errors = validate(documentUploadRequest);
             if (!errors.isEmpty()) {
-                return generateResponse(request, HttpStatus.BAD_REQUEST, join(", ", errors));
+                final String errorMessage = join(", ", errors);
+                return generateResponse(request, HttpStatus.BAD_REQUEST, convert(new RequestErrored(errorMessage)));
             }
 
             final String documentId = documentUploadRequest.getDocumentId();
@@ -119,11 +120,11 @@ public class DocumentUploadFunction {
 
         } catch (DuplicateRecordException dre) {
             final String duplicateRecordError = format(DUPLICATE_RECORD_ERROR, request.getBody().getDocumentId());
-            return generateResponse(request, HttpStatus.BAD_REQUEST, convert(Map.of("errorMessage", duplicateRecordError)));
+            return generateResponse(request, HttpStatus.BAD_REQUEST, convert(new RequestErrored(duplicateRecordError)));
         } catch (Exception e) {
             LOGGER.error("Error initiating document upload for request: {}", request, e);
             final String errorMessage = convert(Map.of("errorMessage", "An internal error occurred: " + e.getMessage()));
-            return generateResponse(request, HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
+            return generateResponse(request, HttpStatus.INTERNAL_SERVER_ERROR, convert(new RequestErrored(errorMessage)));
         }
     }
 

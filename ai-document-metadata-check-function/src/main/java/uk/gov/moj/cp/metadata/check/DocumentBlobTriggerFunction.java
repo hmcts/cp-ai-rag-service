@@ -2,10 +2,8 @@ package uk.gov.moj.cp.metadata.check;
 
 import static java.lang.String.format;
 import static java.util.Objects.nonNull;
-import static uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatus.AWAITING_UPLOAD;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION;
 import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_ID;
@@ -17,9 +15,11 @@ import static uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer.strin
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
+import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -34,14 +34,18 @@ import org.slf4j.LoggerFactory;
 public class DocumentBlobTriggerFunction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentBlobTriggerFunction.class);
+
+    private final BlobClientService blobClientService;
     private final DocumentUploadService documentUploadService;
 
-
     public DocumentBlobTriggerFunction() {
+        final String documentContainerName = getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD);
+        this.blobClientService = new BlobClientService(documentContainerName);
         this.documentUploadService = new DocumentUploadService();
     }
 
-    DocumentBlobTriggerFunction(final DocumentUploadService documentUploadService) {
+    DocumentBlobTriggerFunction(final BlobClientService blobClientService, final DocumentUploadService documentUploadService) {
+        this.blobClientService = blobClientService;
         this.documentUploadService = documentUploadService;
     }
 
@@ -58,18 +62,17 @@ public class DocumentBlobTriggerFunction {
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING)
             OutputBinding<String> queueMessage) {
         try {
-            final String documentId = getDocumentId(blobName);
-            final DocumentIngestionOutcome document = documentUploadService.getDocument(documentId);
-
-            if (nonNull(document)
-                    && nonNull(document.getStatus())
-                    && !document.getStatus().equals(AWAITING_UPLOAD.name())) {
-                LOGGER.info("Document '{}' is already uploaded and has status '{}'.", documentId, document.getStatus());
+            if (!blobClientService.isBlobAvailable(blobName)) {
+                LOGGER.info("Blob container is not available for blobName: {}.", blobName);
                 return;
             }
+
+            final String documentId = getDocumentId(blobName);
+            final DocumentIngestionOutcome document = documentUploadService.getDocument(documentId);
             documentUploadService.updateDocumentAwaitingIngestion(document.getDocumentId(), document.getDocumentName());
 
-            final QueueIngestionMetadata queueIngestionMetadata = createQueueMessage(blobName, stringToMap(document.getMetadata()));
+            final Map<String, String> metadataMap = stringToMap(document.getMetadata());
+            final QueueIngestionMetadata queueIngestionMetadata = createQueueMessage(blobName, flatten(documentId, metadataMap));
             queueMessage.setValue(getObjectMapper().writeValueAsString(queueIngestionMetadata));
 
             LOGGER.info("Document blob trigger function processed a request for document with blobName: {}", blobName);
@@ -78,7 +81,7 @@ public class DocumentBlobTriggerFunction {
         }
     }
 
-    private QueueIngestionMetadata createQueueMessage(String blobName, Map<String, String> metadata) {
+    private QueueIngestionMetadata createQueueMessage(final String blobName, final Map<String, String> metadata) {
         final String documentId = metadata.get(DOCUMENT_ID);
         final String blobStorageEndpoint = removeTrailingSlash(getRequiredEnv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT));
         final String containerName = getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD);
@@ -86,6 +89,16 @@ public class DocumentBlobTriggerFunction {
         final String currentTimestamp = Instant.now().toString();
 
         return new QueueIngestionMetadata(documentId, blobName, metadata, blobUrl, currentTimestamp);
+    }
+
+    private static Map<String, String> flatten(final String documentId, final Map<String, String> metadataMap) {
+        final Map<String, String> result = new LinkedHashMap<>();
+
+        result.put(DOCUMENT_ID, documentId);
+        if (nonNull(metadataMap)) {
+            result.putAll(metadataMap);
+        }
+        return result;
     }
 }
 
