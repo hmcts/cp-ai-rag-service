@@ -9,13 +9,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATED;
 import static uk.gov.moj.cp.retrieval.AnswerGenerationFunction.LLM_INPUT_CHUNKS;
 import static uk.org.webcompere.modelassert.json.JsonAssertions.json;
 
+import uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
-import uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 import uk.gov.moj.cp.retrieval.service.AzureAISearchService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
@@ -151,7 +152,7 @@ class AnswerGenerationFunctionTest {
                 eq("prompt"),
                 eq(format(LLM_INPUT_CHUNKS, transactionId)),
                 eq("generated response"),
-                eq(AnswerGenerationStatus.ANSWER_GENERATED),
+                eq(ANSWER_GENERATED),
                 eq(null),
                 any(OffsetDateTime.class),
                 any(Long.class)

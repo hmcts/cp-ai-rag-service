@@ -10,6 +10,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATED;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_ANSWER_STATUS;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_CHUNKED_ENTRIES_FILE;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_LLM_RESPONSE;
@@ -19,7 +20,6 @@ import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_RESPONSE_GENERATION
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_RESPONSE_GENERATION_TIME;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_TRANSACTION_ID;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_USER_QUERY;
-import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATED;
 
 import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
