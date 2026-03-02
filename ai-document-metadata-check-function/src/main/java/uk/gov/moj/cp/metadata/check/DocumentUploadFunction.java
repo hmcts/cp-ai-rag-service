@@ -15,10 +15,8 @@ import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.UPL
 import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.UPLOAD_FILE_EXTENSION;
 import static uk.gov.moj.cp.metadata.check.validation.RequestValidator.validate;
 import static uk.gov.moj.cp.metadata.check.service.DocumentUploadService.DUPLICATE_RECORD_ERROR;
-import static uk.gov.moj.cp.metadata.check.service.DocumentUploadService.UPLOAD_ALREADY_INITIATED_ERROR;
 import static uk.gov.moj.cp.metadata.check.utils.DocumentBlobNameResolver.getBlobName;
 import static uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer.listToMap;
-import static uk.gov.moj.cp.metadata.check.validation.RequestValidator.validate;
 
 import uk.gov.hmcts.cp.openapi.model.DocumentUploadRequest;
 import uk.gov.hmcts.cp.openapi.model.FileStorageLocationReturnedSuccessfully;
