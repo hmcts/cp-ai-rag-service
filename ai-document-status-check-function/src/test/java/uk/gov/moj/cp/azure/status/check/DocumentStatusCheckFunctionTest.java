@@ -1,19 +1,17 @@
 package uk.gov.moj.cp.azure.status.check;
 
-import static java.time.OffsetDateTime.now;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatus.INGESTION_SUCCESS;
 
-import uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatusReturnedSuccessfully;
-import uk.gov.hmcts.cp.openapi.model.DocumentStatusNotAvailable;
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
+import uk.gov.moj.cp.azure.status.check.model.DocumentStatusRetrievedResponse;
+import uk.gov.moj.cp.azure.status.check.model.DocumentUnknownResponse;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -55,8 +53,7 @@ class DocumentStatusCheckFunctionTest {
     @Test
     void returnsOkResponseWhenDocumentIsFound() throws EntityRetrievalException {
         String documentName = "test-document";
-        final String statusTimestamp = now().toString();
-        DocumentIngestionOutcome outcome = new DocumentIngestionOutcome("123", documentName, INGESTION_SUCCESS.getValue(), "No issues", statusTimestamp);
+        DocumentIngestionOutcome outcome = new DocumentIngestionOutcome("123", documentName, "COMPLETED", "No issues", "2023-10-01T10:00:00Z");
         when(documentIngestionOutcomeTableService.getFirstDocumentMatching(documentName)).thenReturn(outcome);
 
         Map<String, String> queryParams = new HashMap<>();
@@ -72,18 +69,18 @@ class DocumentStatusCheckFunctionTest {
 
         function.run(mockRequest, mockContext);
 
-        final ArgumentCaptor<DocumentIngestionStatusReturnedSuccessfully> bodyCaptor = ArgumentCaptor.forClass(DocumentIngestionStatusReturnedSuccessfully.class);
+        final ArgumentCaptor<DocumentStatusRetrievedResponse> bodyCaptor = ArgumentCaptor.forClass(DocumentStatusRetrievedResponse.class);
 
         verify(mockResponseBuilder).header("Content-Type", "application/json");
         verify(mockResponseBuilder).build();
 
         verify(mockResponseBuilder).body(bodyCaptor.capture());
-        DocumentIngestionStatusReturnedSuccessfully capturedBody = bodyCaptor.getValue();
-        assertEquals("123", capturedBody.getDocumentId());
-        assertEquals(documentName, capturedBody.getDocumentName());
-        assertEquals("No issues", capturedBody.getReason());
-        assertEquals(INGESTION_SUCCESS, capturedBody.getStatus());
-        assertEquals(statusTimestamp, capturedBody.getLastUpdated().toString());
+        DocumentStatusRetrievedResponse capturedBody = bodyCaptor.getValue();
+        assertEquals("123", capturedBody.documentId());
+        assertEquals(documentName, capturedBody.documentName());
+        assertEquals("No issues", capturedBody.reason());
+        assertEquals("COMPLETED", capturedBody.status());
+        assertEquals("2023-10-01T10:00:00Z", capturedBody.lastUpdated());
 
     }
 
@@ -126,10 +123,10 @@ class DocumentStatusCheckFunctionTest {
         verify(mockResponseBuilder).header("Content-Type", "application/json");
         verify(mockResponseBuilder).build();
 
-        final ArgumentCaptor<DocumentStatusNotAvailable> bodyCaptor = ArgumentCaptor.forClass(DocumentStatusNotAvailable.class);
+        final ArgumentCaptor<DocumentUnknownResponse> bodyCaptor = ArgumentCaptor.forClass(DocumentUnknownResponse.class);
         verify(mockResponseBuilder).body(bodyCaptor.capture());
-        DocumentStatusNotAvailable capturedBody = bodyCaptor.getValue();
-        assertEquals(documentName, capturedBody.getDocumentName());
+        DocumentUnknownResponse capturedBody = bodyCaptor.getValue();
+        assertEquals(documentName, capturedBody.documentName());
     }
 
     @Test
@@ -145,9 +142,9 @@ class DocumentStatusCheckFunctionTest {
         verify(mockResponseBuilder).header("Content-Type", "application/json");
         verify(mockResponseBuilder).build();
 
-        final ArgumentCaptor<DocumentStatusNotAvailable> bodyCaptor = ArgumentCaptor.forClass(DocumentStatusNotAvailable.class);
+        final ArgumentCaptor<DocumentUnknownResponse> bodyCaptor = ArgumentCaptor.forClass(DocumentUnknownResponse.class);
         verify(mockResponseBuilder).body(bodyCaptor.capture());
-        DocumentStatusNotAvailable capturedBody = bodyCaptor.getValue();
-        assertEquals("N/A", capturedBody.getDocumentName());
+        DocumentUnknownResponse capturedBody = bodyCaptor.getValue();
+        assertEquals("N/A", capturedBody.documentName());
     }
 }

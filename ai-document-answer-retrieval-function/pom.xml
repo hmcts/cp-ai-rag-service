@@ -42,11 +42,6 @@
             <groupId>com.azure</groupId>
             <artifactId>azure-search-documents</artifactId>
         </dependency>
-
-        <dependency>
-            <groupId>uk.gov.hmcts.cp</groupId>
-            <artifactId>api-cp-ai-rag</artifactId>
-        </dependency>
         
     </dependencies>
 
