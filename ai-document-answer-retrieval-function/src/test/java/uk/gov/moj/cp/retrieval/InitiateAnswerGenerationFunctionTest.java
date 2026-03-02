@@ -1,22 +1,17 @@
 package uk.gov.moj.cp.retrieval;
 
-import static com.microsoft.azure.functions.HttpStatus.BAD_REQUEST;
-import static com.microsoft.azure.functions.HttpStatus.INTERNAL_SERVER_ERROR;
-import static com.microsoft.azure.functions.HttpStatus.OK;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
-import static uk.org.webcompere.modelassert.json.JsonAssertions.json;
 
-import uk.gov.hmcts.cp.openapi.model.AnswerUserQueryRequest;
-import uk.gov.hmcts.cp.openapi.model.MetadataFilter;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
+import uk.gov.moj.cp.ai.model.KeyValuePair;
+import uk.gov.moj.cp.retrieval.model.RequestPayload;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 
 import java.util.List;
@@ -42,7 +37,7 @@ class InitiateAnswerGenerationFunctionTest {
     private ExecutionContext executionContext;
 
     @Mock
-    private HttpRequestMessage<AnswerUserQueryRequest> mockRequest;
+    private HttpRequestMessage<RequestPayload> request;
 
     @Mock
     private OutputBinding<String> outputBinding;
@@ -51,20 +46,22 @@ class InitiateAnswerGenerationFunctionTest {
     private InitiateAnswerGenerationFunction function;
 
     @Mock
-    private HttpResponseMessage.Builder mockResponseBuilder;
+    private RequestPayload payload;
 
     @Mock
-    private HttpResponseMessage mockResponse;
+    private HttpResponseMessage.Builder builder;
+    @Mock
+    private HttpResponseMessage response;
 
     @Test
     void run_shouldReturnBadRequest_whenPayloadIsInvalid() {
-        final AnswerUserQueryRequest payload = new AnswerUserQueryRequest(null, "prompt", List.of(new MetadataFilter("key", "value")));
-        when(mockRequest.getBody()).thenReturn(payload);
-        mockHttpResponse(BAD_REQUEST);
+        when(payload.userQuery()).thenReturn(null);
+        when(request.getBody()).thenReturn(payload);
+        mockHttpResponse(HttpStatus.BAD_REQUEST);
 
-        final HttpResponseMessage result = function.run(mockRequest, outputBinding, executionContext);
+        final HttpResponseMessage result = function.run(request, outputBinding, executionContext);
 
-        assertEquals(BAD_REQUEST, result.getStatus());
+        assertEquals(HttpStatus.BAD_REQUEST, result.getStatus());
         verifyNoInteractions(outputBinding);
         verifyNoInteractions(answerGenerationTableService);
     }
@@ -73,44 +70,40 @@ class InitiateAnswerGenerationFunctionTest {
     void run_shouldReturnOk_andWriteToQueueAndTable() throws DuplicateRecordException {
         final String userQuery = "user query";
         final String queryPrompt = "query prompt";
-        final AnswerUserQueryRequest payload = new AnswerUserQueryRequest(userQuery, queryPrompt, List.of(new MetadataFilter("key", "value")));
-        when(mockRequest.getBody()).thenReturn(payload);
-        mockHttpResponse(OK);
 
-        final HttpResponseMessage result = function.run(mockRequest, outputBinding, executionContext);
+        when(payload.userQuery()).thenReturn(userQuery);
+        when(payload.queryPrompt()).thenReturn(queryPrompt);
+        when(payload.metadataFilter()).thenReturn(List.of(new KeyValuePair("k", "v")));
+        when(request.getBody()).thenReturn(payload);
+        mockHttpResponse(HttpStatus.OK);
 
-        assertEquals(OK, result.getStatus());
+        final HttpResponseMessage result = function.run(request, outputBinding, executionContext);
+
+        assertEquals(HttpStatus.OK, result.getStatus());
         verify(outputBinding).setValue(anyString());
         verify(answerGenerationTableService).saveAnswerGenerationRequest(anyString(),
                 eq(userQuery), eq(queryPrompt),
                 eq(ANSWER_GENERATION_PENDING));
-
-        verify(mockRequest).createResponseBuilder(OK);
-        verify(mockResponseBuilder).header("Content-Type", "application/json");
-        verify(mockResponseBuilder).body(argThat(
-                json().at("/transactionId").isNotNull()
-                        .toArgumentMatcher()
-        ));
     }
 
     @Test
     void run_shouldReturnInternalServerError_whenExceptionOccurs() {
-        when(mockRequest.getBody()).thenThrow(new RuntimeException("boom"));
-        mockHttpResponse(INTERNAL_SERVER_ERROR);
+        when(request.getBody()).thenThrow(new RuntimeException("boom"));
+        mockHttpResponse(HttpStatus.INTERNAL_SERVER_ERROR);
 
-        final HttpResponseMessage result = function.run(mockRequest, outputBinding, executionContext);
+        final HttpResponseMessage result = function.run(request, outputBinding, executionContext);
 
-        assertEquals(INTERNAL_SERVER_ERROR, result.getStatus());
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, result.getStatus());
         verifyNoInteractions(outputBinding);
         verifyNoInteractions(answerGenerationTableService);
     }
 
     private void mockHttpResponse(final HttpStatus expectedStatus) {
-        when(mockRequest.createResponseBuilder(any(HttpStatus.class))).thenReturn(mockResponseBuilder);
-        when(mockResponseBuilder.header("Content-Type", "application/json")).thenReturn(mockResponseBuilder);
-        when(mockResponseBuilder.body(any())).thenReturn(mockResponseBuilder);
-        when(mockResponseBuilder.build()).thenReturn(mockResponse);
-        when(mockResponse.getStatus()).thenReturn(expectedStatus);
+        when(request.createResponseBuilder(any(HttpStatus.class))).thenReturn(builder);
+        when(builder.header(anyString(), anyString())).thenReturn(builder);
+        when(builder.body(any())).thenReturn(builder);
+        when(builder.build()).thenReturn(response);
+        when(response.getStatus()).thenReturn(expectedStatus);
     }
 
 }

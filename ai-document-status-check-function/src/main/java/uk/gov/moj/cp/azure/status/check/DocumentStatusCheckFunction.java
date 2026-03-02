@@ -1,21 +1,16 @@
 package uk.gov.moj.cp.azure.status.check;
 
-import static com.microsoft.azure.functions.HttpStatus.BAD_REQUEST;
-import static com.microsoft.azure.functions.HttpStatus.NOT_FOUND;
-import static com.microsoft.azure.functions.HttpStatus.OK;
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
 import static java.util.Objects.nonNull;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
-import uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatus;
-import uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatusReturnedSuccessfully;
-import uk.gov.hmcts.cp.openapi.model.DocumentStatusNotAvailable;
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
+import uk.gov.moj.cp.azure.status.check.model.DocumentStatusRetrievedResponse;
+import uk.gov.moj.cp.azure.status.check.model.DocumentUnknownResponse;
 
-import java.time.OffsetDateTime;
 import java.util.Optional;
 
 import com.microsoft.azure.functions.ExecutionContext;
@@ -67,9 +62,9 @@ public class DocumentStatusCheckFunction {
         String documentName = request.getQueryParameters().get(QUERY_PARAM_DOCUMENT_NAME);
         if (isNullOrEmpty(documentName)) {
             LOGGER.error("Missing required parameter: document-name");
-            return request.createResponseBuilder(BAD_REQUEST)
+            return request.createResponseBuilder(HttpStatus.BAD_REQUEST)
                     .header(RESPONSE_CONTENT_TYPE_HEADER, RESPONSE_CONTENT_TYPE_VALUE)
-                    .body(new DocumentStatusNotAvailable("N/A", "Missing required query parameter: document-name"))
+                    .body(new DocumentUnknownResponse("N/A", "Missing required query parameter: document-name"))
                     .build();
         }
 
@@ -78,34 +73,33 @@ public class DocumentStatusCheckFunction {
         try {
             final DocumentIngestionOutcome firstDocumentMatching = documentIngestionOutcomeTableService.getFirstDocumentMatching(documentName);
             if (nonNull(firstDocumentMatching)) {
-                return request.createResponseBuilder(OK)
+                return request.createResponseBuilder(HttpStatus.OK)
                         .body(generateResponse(firstDocumentMatching))
                         .header(RESPONSE_CONTENT_TYPE_HEADER, RESPONSE_CONTENT_TYPE_VALUE)
                         .build();
             }
 
-            return request.createResponseBuilder(NOT_FOUND)
+            return request.createResponseBuilder(HttpStatus.NOT_FOUND)
                     .header(RESPONSE_CONTENT_TYPE_HEADER, RESPONSE_CONTENT_TYPE_VALUE)
-                    .body(new DocumentStatusNotAvailable(documentName, "Unknown file with name"))
+                    .body(new DocumentUnknownResponse(documentName, "Unknown file with name"))
                     .build();
 
         } catch (EntityRetrievalException e) {
             return request.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR)
                     .header(RESPONSE_CONTENT_TYPE_HEADER, RESPONSE_CONTENT_TYPE_VALUE)
-                    .body(new DocumentStatusNotAvailable(documentName, "Error retrieving status for document name"))
+                    .body(new DocumentUnknownResponse(documentName, "Error retrieving status for document name"))
                     .build();
         }
 
 
     }
 
-    private DocumentIngestionStatusReturnedSuccessfully generateResponse(final DocumentIngestionOutcome firstDocumentMatching) {
-        return new DocumentIngestionStatusReturnedSuccessfully(
-                firstDocumentMatching.getDocumentName(),
+    private DocumentStatusRetrievedResponse generateResponse(final DocumentIngestionOutcome firstDocumentMatching) {
+        return new DocumentStatusRetrievedResponse(
                 firstDocumentMatching.getDocumentId(),
-                DocumentIngestionStatus.valueOf(firstDocumentMatching.getStatus()),
-                OffsetDateTime.parse(firstDocumentMatching.getTimestamp()),
-                firstDocumentMatching.getReason()
-        );
+                firstDocumentMatching.getDocumentName(),
+                firstDocumentMatching.getStatus(),
+                firstDocumentMatching.getReason(),
+                firstDocumentMatching.getTimestamp());
     }
 }

@@ -9,14 +9,13 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAI
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
-import static uk.gov.moj.cp.ai.validation.RequestValidator.validate;
 import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.SAS_STORAGE_URL_EXPIRY_MINUTES;
 import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.UPLOAD_FILE_DATE_FORMAT;
 import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.UPLOAD_FILE_EXTENSION;
+import static uk.gov.moj.cp.metadata.check.validation.RequestValidator.validate;
 
 import uk.gov.hmcts.cp.openapi.model.DocumentUploadRequest;
 import uk.gov.hmcts.cp.openapi.model.FileStorageLocationReturnedSuccessfully;
-import uk.gov.hmcts.cp.openapi.model.RequestErrored;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
 
@@ -101,7 +100,7 @@ public class DocumentUploadFunction {
 
             if (documentUploadService.isDocumentAlreadyProcessed(documentId)) {
                 final String errorMessage = convert(Map.of("errorMessage", "An upload request has already been initiated for documentId: " + documentId));
-                return generateResponse(request, HttpStatus.BAD_REQUEST, convert(new RequestErrored(errorMessage)));
+                return generateResponse(request, HttpStatus.BAD_REQUEST, errorMessage);
             }
 
             final String blobName = getBlobName(documentId);

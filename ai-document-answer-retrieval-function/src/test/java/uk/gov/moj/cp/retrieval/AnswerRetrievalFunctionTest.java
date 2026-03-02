@@ -1,22 +1,18 @@
 package uk.gov.moj.cp.retrieval;
 
-import static com.microsoft.azure.functions.HttpStatus.BAD_REQUEST;
-import static com.microsoft.azure.functions.HttpStatus.INTERNAL_SERVER_ERROR;
-import static com.microsoft.azure.functions.HttpStatus.OK;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static uk.org.webcompere.modelassert.json.JsonAssertions.json;
 
-import uk.gov.hmcts.cp.openapi.model.AnswerUserQueryRequest;
-import uk.gov.hmcts.cp.openapi.model.MetadataFilter;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.exception.SearchServiceException;
+import uk.gov.moj.cp.retrieval.model.RequestPayload;
 import uk.gov.moj.cp.retrieval.service.AzureAISearchService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
@@ -34,10 +30,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-class SyncAnswerGenerationFunctionTest {
+class AnswerRetrievalFunctionTest {
 
     @Mock
-    private HttpRequestMessage<AnswerUserQueryRequest> mockRequest;
+    private HttpRequestMessage<RequestPayload> mockRequest;
 
     @Mock
     private ExecutionContext mockContext;
@@ -60,36 +56,55 @@ class SyncAnswerGenerationFunctionTest {
     @Mock
     private HttpResponseMessage.Builder mockResponseBuilder;
 
-    @Mock
-    private HttpResponseMessage mockResponse;
-
-    private SyncAnswerGenerationFunction function;
+    private AnswerRetrievalFunction function;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        function = new SyncAnswerGenerationFunction(mockEmbedDataService, mockSearchService, mockResponseGenerationService, mockBlobPersistenceService);
+        function = new AnswerRetrievalFunction(mockEmbedDataService, mockSearchService, mockResponseGenerationService, mockBlobPersistenceService);
     }
 
     @Test
-    void shouldReturnBadRequest_WhenValidationFails() {
-        AnswerUserQueryRequest payload = new AnswerUserQueryRequest(null, "prompt", List.of(new MetadataFilter("key", "value")));
+    void run_ReturnsBadRequest_WhenUserQueryIsNull() {
+        RequestPayload payload = new RequestPayload(null, "prompt", List.of(new KeyValuePair("key", "value")));
         when(mockRequest.getBody()).thenReturn(payload);
-        mockHttpResponse(BAD_REQUEST);
+        when(mockRequest.createResponseBuilder(HttpStatus.BAD_REQUEST)).thenReturn(mockResponseBuilder);
+        when(mockResponseBuilder.header("Content-Type", "application/json")).thenReturn(mockResponseBuilder);
+        when(mockResponseBuilder.body(anyString())).thenReturn(mockResponseBuilder);
+        final HttpResponseMessage mockResponse = mock(HttpResponseMessage.class);
+        when(mockResponseBuilder.build()).thenReturn(mockResponse);
 
         HttpResponseMessage response = function.run(mockRequest, mockOutputBinding, mockContext);
 
         assertEquals(mockResponse, response);
         verify(mockRequest).createResponseBuilder(HttpStatus.BAD_REQUEST);
         verify(mockResponseBuilder).header("Content-Type", "application/json");
-        verify(mockResponseBuilder).body(argThat(json().at("/errorMessage").textContains("userQuery").toArgumentMatcher()));
+        verify(mockResponseBuilder).body(argThat(json().at("/errorMessage").isText("Error: userQuery, queryPrompt and metadataFilter attributes are required").toArgumentMatcher()));
 
     }
 
     @Test
+    void run_ReturnsBadRequest_WhenMetadataFilterIsEmpty() {
+        RequestPayload payload = new RequestPayload("doc1", "prompt", List.of());
+        when(mockRequest.getBody()).thenReturn(payload);
+        when(mockRequest.createResponseBuilder(HttpStatus.BAD_REQUEST)).thenReturn(mockResponseBuilder);
+        when(mockResponseBuilder.header("Content-Type", "application/json")).thenReturn(mockResponseBuilder);
+        when(mockResponseBuilder.body(anyString())).thenReturn(mockResponseBuilder);
+        final HttpResponseMessage mockResponse = mock(HttpResponseMessage.class);
+        when(mockResponseBuilder.build()).thenReturn(mockResponse);
+
+        HttpResponseMessage response = function.run(mockRequest, mockOutputBinding, mockContext);
+
+        assertEquals(mockResponse, response);
+        verify(mockRequest).createResponseBuilder(HttpStatus.BAD_REQUEST);
+        verify(mockResponseBuilder).header("Content-Type", "application/json");
+        verify(mockResponseBuilder).body(argThat(json().at("/errorMessage").isText("Error: userQuery, queryPrompt and metadataFilter attributes are required").toArgumentMatcher()));
+    }
+
+    @Test
     void run_ReturnsOk_WhenValidRequestIsProvided() throws SearchServiceException {
-        final List<MetadataFilter> metadataFilter = List.of(new MetadataFilter("key", "value"));
-        AnswerUserQueryRequest payload = new AnswerUserQueryRequest("query", "prompt", metadataFilter);
+        final List<KeyValuePair> metadataFilter = List.of(new KeyValuePair("key", "value"));
+        RequestPayload payload = new RequestPayload("query", "prompt", metadataFilter);
 
         final List<Float> mockEmbeddings = List.of(1.0f, 2.0f);
         final List<ChunkedEntry> mockSearchDocuments = List.of(ChunkedEntry.builder()
@@ -98,14 +113,18 @@ class SyncAnswerGenerationFunctionTest {
                 .documentFileName("doc file name")
                 .pageNumber(5)
                 .documentId("doc1 id")
-                .customMetadata(List.of(new KeyValuePair("key1", "value1"), new KeyValuePair("key2", "value2")))
                 .build());
 
         when(mockEmbedDataService.getEmbedding("query")).thenReturn(mockEmbeddings);
-        when(mockSearchService.search(eq("query"), eq(mockEmbeddings), eq(convertToKeyValuePair(metadataFilter)))).thenReturn(mockSearchDocuments);
+        when(mockSearchService.search(eq("query"), eq(mockEmbeddings), eq(metadataFilter))).thenReturn(mockSearchDocuments);
         when(mockResponseGenerationService.generateResponse("query", mockSearchDocuments, "prompt")).thenReturn("generated response");
+
         when(mockRequest.getBody()).thenReturn(payload);
-        mockHttpResponse(OK);
+        when(mockRequest.createResponseBuilder(HttpStatus.OK)).thenReturn(mockResponseBuilder);
+        when(mockResponseBuilder.header("Content-Type", "application/json")).thenReturn(mockResponseBuilder);
+        when(mockResponseBuilder.body(anyString())).thenReturn(mockResponseBuilder);
+        final HttpResponseMessage mockResponse = mock(HttpResponseMessage.class);
+        when(mockResponseBuilder.build()).thenReturn(mockResponse);
 
         function.run(mockRequest, mockOutputBinding, mockContext);
         verify(mockRequest).createResponseBuilder(HttpStatus.OK);
@@ -114,12 +133,7 @@ class SyncAnswerGenerationFunctionTest {
                 json().at("/userQuery").isText("query")
                         .at("/llmResponse").isText("generated response")
                         .at("/queryPrompt").isText("prompt")
-                        .at("/documentChunks").isArray()
-                        .at("/documentChunks/0/documentId").isText("doc1 id")
-                        .at("/documentChunks/0/documentName").isText("doc file name")
-                        .at("/documentChunks/0/pageNumber").isNumberEqualTo(5)
-                        .at("/documentChunks/0/chunkContent").isText("Sample content")
-                        .at("/documentChunks/0/customMetadata/0/key").isText("key1")
+                        .at("/chunkedEntries").isArray()
                         .toArgumentMatcher()
         ));
         verify(mockBlobPersistenceService).saveBlob(anyString(), argThat(
@@ -138,27 +152,17 @@ class SyncAnswerGenerationFunctionTest {
     @Test
     void run_ReturnsInternalServerError_OnException() {
 
-        AnswerUserQueryRequest payload = new AnswerUserQueryRequest("query", "prompt", List.of(new MetadataFilter("key", "value")));
+        RequestPayload payload = new RequestPayload("query", "prompt", List.of(new KeyValuePair("key", "value")));
         when(mockRequest.getBody()).thenReturn(payload);
         when(mockEmbedDataService.getEmbedding("query")).thenThrow(new RuntimeException("Test exception"));
-        mockHttpResponse(INTERNAL_SERVER_ERROR);
+        when(mockRequest.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR)).thenReturn(mockResponseBuilder);
+        when(mockResponseBuilder.header("Content-Type", "application/json")).thenReturn(mockResponseBuilder);
+        when(mockResponseBuilder.body(anyString())).thenReturn(mockResponseBuilder);
 
         function.run(mockRequest, mockOutputBinding, mockContext);
 
-        verify(mockRequest).createResponseBuilder(INTERNAL_SERVER_ERROR);
+        verify(mockRequest).createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR);
         verify(mockResponseBuilder).header("Content-Type", "application/json");
         verify(mockResponseBuilder).body(argThat(json().at("/errorMessage").isText("An internal error occurred: Test exception").toArgumentMatcher()));
-    }
-
-    private List<KeyValuePair> convertToKeyValuePair(final List<MetadataFilter> metadataFilter) {
-        return metadataFilter.stream().map(mf -> new KeyValuePair(mf.getKey(), mf.getValue())).toList();
-    }
-
-    private void mockHttpResponse(final HttpStatus expectedStatus) {
-        when(mockRequest.createResponseBuilder(eq(expectedStatus))).thenReturn(mockResponseBuilder);
-        when(mockResponseBuilder.header("Content-Type", "application/json")).thenReturn(mockResponseBuilder);
-        when(mockResponseBuilder.body(any())).thenReturn(mockResponseBuilder);
-        when(mockResponseBuilder.build()).thenReturn(mockResponse);
-        when(mockResponse.getStatus()).thenReturn(expectedStatus);
     }
 }
