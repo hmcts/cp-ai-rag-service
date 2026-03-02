@@ -1,14 +1,12 @@
 package uk.gov.moj.cp.metadata.check.service;
 
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
 import static uk.gov.moj.cp.ai.model.DocumentStatus.INVALID_METADATA;
 import static uk.gov.moj.cp.ai.model.DocumentStatus.METADATA_VALIDATED;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.util.StringUtil.removeTrailingSlash;
 
+import uk.gov.moj.cp.ai.FunctionEnvironment;
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
@@ -39,16 +37,18 @@ public class IngestionOrchestratorService {
 
     private final DocumentMetadataService documentMetadataService;
     private final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService;
+    private final FunctionEnvironment env;
 
     public IngestionOrchestratorService(DocumentMetadataService documentMetadataService) {
         this.documentMetadataService = documentMetadataService;
-        String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
-        this.documentIngestionOutcomeTableService = new DocumentIngestionOutcomeTableService(tableName);
+        this.env = FunctionEnvironment.get();
+        this.documentIngestionOutcomeTableService = new DocumentIngestionOutcomeTableService(env.tableConfig().documentIngestionOutcomeTable());
     }
 
     public IngestionOrchestratorService(DocumentMetadataService documentMetadataService, DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService) {
         this.documentMetadataService = documentMetadataService;
         this.documentIngestionOutcomeTableService = documentIngestionOutcomeTableService;
+        this.env = FunctionEnvironment.get();
     }
 
     public void processDocument(final String documentName, final OutputBinding<String> queueMessage) {
@@ -103,9 +103,8 @@ public class IngestionOrchestratorService {
      */
     private QueueIngestionMetadata createQueueMessage(String blobName, Map<String, String> metadata) {
         final String documentId = metadata.get(DOCUMENT_ID);
-        final String blobStorageEndpoint = removeTrailingSlash(System.getenv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT));
-        final String containerName = System.getenv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME);
-        final String blobUrl = String.format("%s/%s/%s", blobStorageEndpoint, containerName, blobName);
+        final String blobStorageEndpoint = removeTrailingSlash(env.storageConfig().blobEndpoint());
+        final String blobUrl = String.format("%s/%s/%s", blobStorageEndpoint, env.storageConfig().documentLandingContainer(), blobName);
         final String currentTimestamp = Instant.now().toString();
 
         return new QueueIngestionMetadata(documentId, blobName, metadata, blobUrl, currentTimestamp);

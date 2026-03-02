@@ -1,11 +1,10 @@
 package uk.gov.moj.cp.ingestion.service;
 
 import static java.lang.Integer.parseInt;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_EMBEDDING_SERVICE_ENDPOINT;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
+import uk.gov.moj.cp.ai.FunctionEnvironment;
 import uk.gov.moj.cp.ai.exception.EmbeddingServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.service.EmbeddingService;
@@ -27,9 +26,9 @@ public class ChunkEmbeddingService {
     private final int embeddingsBatchSize;
 
     public ChunkEmbeddingService() {
-        // Initialize EmbeddingService with managed identity
-        final String embeddingServiceEndpoint = System.getenv(AZURE_EMBEDDING_SERVICE_ENDPOINT);
-        final String embeddingServiceDeploymentName = System.getenv(AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME);
+        final FunctionEnvironment env = FunctionEnvironment.get();
+        final String embeddingServiceEndpoint = env.embeddingConfig().serviceEndpoint();
+        final String embeddingServiceDeploymentName = env.embeddingConfig().deploymentName();
         embeddingsBatchSize = parseInt(getRequiredEnv("EMBEDDINGS_BATCH_SIZE", String.valueOf(DEFAULT_EMBEDDINGS_BATCH_SIZE)));
 
         this.embeddingService = new EmbeddingService(embeddingServiceEndpoint, embeddingServiceDeploymentName);
@@ -39,7 +38,6 @@ public class ChunkEmbeddingService {
         this.embeddingService = embeddingService;
         embeddingsBatchSize = parseInt(getRequiredEnv("EMBEDDINGS_BATCH_SIZE", String.valueOf(DEFAULT_EMBEDDINGS_BATCH_SIZE)));
     }
-
 
     public void enrichChunksWithEmbeddings(List<ChunkedEntry> chunkedEntries) throws DocumentProcessingException {
         if (chunkedEntries == null || chunkedEntries.isEmpty()) {

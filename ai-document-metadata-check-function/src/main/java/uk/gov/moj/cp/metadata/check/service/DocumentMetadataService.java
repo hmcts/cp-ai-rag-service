@@ -1,9 +1,9 @@
 package uk.gov.moj.cp.metadata.check.service;
 
 import static java.util.UUID.fromString;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
+import uk.gov.moj.cp.ai.FunctionEnvironment;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.metadata.check.exception.MetadataValidationException;
 
@@ -27,9 +27,8 @@ public class DocumentMetadataService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public DocumentMetadataService() {
-        String documentContainerName = System.getenv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME);
-
-        this.blobClientService = new BlobClientService(documentContainerName);
+        final FunctionEnvironment env = FunctionEnvironment.get();
+        this.blobClientService = new BlobClientService(env.storageConfig().documentLandingContainer());
     }
 
     public DocumentMetadataService(final BlobClientService blobClientService) {

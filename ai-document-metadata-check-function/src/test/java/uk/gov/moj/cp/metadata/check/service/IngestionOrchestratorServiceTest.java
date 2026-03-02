@@ -2,11 +2,13 @@ package uk.gov.moj.cp.metadata.check.service;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static uk.gov.moj.cp.ai.model.DocumentStatus.METADATA_VALIDATED;
 
+import uk.gov.moj.cp.ai.FunctionEnvironment;
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
@@ -22,15 +24,18 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class IngestionOrchestratorServiceTest {
 
-    @Mock
     private DocumentMetadataService documentMetadataService;
 
-    @Mock
     private DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService;
 
     @Mock
@@ -41,9 +46,22 @@ class IngestionOrchestratorServiceTest {
 
     private IngestionOrchestratorService ingestionOrchestratorService;
 
+    private static final String ENDPOINT = "https://example-endpoint.com";
+
     @BeforeEach
     void setUp() {
-        ingestionOrchestratorService = new IngestionOrchestratorService(documentMetadataService, documentIngestionOutcomeTableService);
+        try (MockedStatic<FunctionEnvironment> mocked = Mockito.mockStatic(FunctionEnvironment.class)) {
+            final FunctionEnvironment mockEnv = mock(FunctionEnvironment.class);
+            mocked.when(FunctionEnvironment::get).thenReturn(mockEnv);
+            final FunctionEnvironment.StorageConfig mockStorageConfig = mock(FunctionEnvironment.StorageConfig.class);
+
+            when(mockEnv.storageConfig()).thenReturn(mockStorageConfig);
+            when(mockStorageConfig.blobEndpoint()).thenReturn(ENDPOINT);
+
+            documentMetadataService = mock(DocumentMetadataService.class);
+            documentIngestionOutcomeTableService = mock(DocumentIngestionOutcomeTableService.class);
+            ingestionOrchestratorService = new IngestionOrchestratorService(documentMetadataService, documentIngestionOutcomeTableService);
+        }
     }
 
     @Test

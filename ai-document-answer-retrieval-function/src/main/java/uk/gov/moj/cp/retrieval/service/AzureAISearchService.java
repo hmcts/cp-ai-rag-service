@@ -1,12 +1,11 @@
 package uk.gov.moj.cp.retrieval.service;
 
 import static java.lang.Integer.parseInt;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_ENDPOINT;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_INDEX_NAME;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.StringUtil.escapeLuceneSpecialChars;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
+import uk.gov.moj.cp.ai.FunctionEnvironment;
 import uk.gov.moj.cp.ai.client.AISearchClientFactory;
 import uk.gov.moj.cp.ai.index.IndexConstants;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
@@ -38,12 +37,9 @@ public class AzureAISearchService {
 
     public AzureAISearchService() {
 
-        final String endpoint = getRequiredEnv(AZURE_SEARCH_SERVICE_ENDPOINT);
-        final String searchIndexName = getRequiredEnv(AZURE_SEARCH_SERVICE_INDEX_NAME);
-
-        if (isNullOrEmpty(endpoint) || isNullOrEmpty(searchIndexName)) {
-            throw new IllegalArgumentException("Azure AI Search endpoint and index name must be set as environment variables.");
-        }
+        final FunctionEnvironment env = FunctionEnvironment.get();
+        final String endpoint = env.searchConfig().serviceEndpoint();
+        final String searchIndexName = env.searchConfig().serviceIndexName();
 
         nearestNeighborsCount = parseInt(getRequiredEnv("SEARCH_NEAREST_NEIGHBOURS_COUNT", "50"));
         topResultsCount = parseInt(getRequiredEnv("SEARCH_TOP_RESULTS_COUNT", "50"));
@@ -52,7 +48,6 @@ public class AzureAISearchService {
 
         this.searchClient = AISearchClientFactory.getInstance(endpoint, searchIndexName);
         LOGGER.info("Initialized Azure AI Search client with managed identity.");
-
     }
 
     public List<ChunkedEntry> search(

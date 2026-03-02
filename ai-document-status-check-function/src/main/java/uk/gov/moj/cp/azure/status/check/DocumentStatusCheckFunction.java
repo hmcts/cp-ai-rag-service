@@ -2,9 +2,9 @@ package uk.gov.moj.cp.azure.status.check;
 
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
 import static java.util.Objects.nonNull;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
+import uk.gov.moj.cp.ai.FunctionEnvironment;
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
@@ -37,8 +37,8 @@ public class DocumentStatusCheckFunction {
     private final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService;
 
     public DocumentStatusCheckFunction() {
-        String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
-        this.documentIngestionOutcomeTableService = new DocumentIngestionOutcomeTableService(tableName);
+        final FunctionEnvironment env = FunctionEnvironment.get();
+        this.documentIngestionOutcomeTableService = new DocumentIngestionOutcomeTableService(env.tableConfig().documentIngestionOutcomeTable());
     }
 
     public DocumentStatusCheckFunction(DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService) {

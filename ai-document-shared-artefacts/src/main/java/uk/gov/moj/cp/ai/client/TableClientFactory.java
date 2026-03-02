@@ -1,15 +1,13 @@
 package uk.gov.moj.cp.ai.client;
 
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT;
 import static uk.gov.moj.cp.ai.client.ConnectionMode.CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.client.ConnectionMode.MANAGED_IDENTITY;
 import static uk.gov.moj.cp.ai.client.config.ClientConfiguration.createNettyClient;
 import static uk.gov.moj.cp.ai.client.config.ClientConfiguration.getRetryOptions;
 import static uk.gov.moj.cp.ai.util.CredentialUtil.getCredentialInstance;
-import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
+
+import uk.gov.moj.cp.ai.FunctionEnvironment;
 
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -32,12 +30,13 @@ public class TableClientFactory {
     public static TableClient getInstance(final String tableName) {
 
         validateNullOrEmpty(tableName, "Table name variable must be set.");
+        final FunctionEnvironment env = FunctionEnvironment.get();
 
-        final ConnectionMode connectionMode = ConnectionMode.valueOf(getRequiredEnv(AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE, MANAGED_IDENTITY.name()));
+        final ConnectionMode connectionMode = ConnectionMode.valueOf(env.storageConfig().accountConnectionMode());
 
         return switch (connectionMode) {
             case CONNECTION_STRING -> {
-                final String connectionString = getRequiredEnv(AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING);
+                final String connectionString = env.storageConfig().accountName();
                 final String cacheKey = connectionString + ":" + tableName;
 
                 yield TABLE_CLIENT_CACHE.computeIfAbsent(cacheKey, key -> {
@@ -52,7 +51,7 @@ public class TableClientFactory {
             }
             case MANAGED_IDENTITY -> {
 
-                final String endpoint = getRequiredEnv(AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT);
+                final String endpoint = env.storageConfig().tableEndpoint();
                 final String cacheKey = endpoint + ":" + tableName;
 
                 yield TABLE_CLIENT_CACHE.computeIfAbsent(

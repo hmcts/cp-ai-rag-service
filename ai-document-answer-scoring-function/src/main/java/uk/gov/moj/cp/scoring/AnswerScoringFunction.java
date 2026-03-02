@@ -2,10 +2,9 @@ package uk.gov.moj.cp.scoring;
 
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
-import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 
+import uk.gov.moj.cp.ai.FunctionEnvironment;
 import uk.gov.moj.cp.ai.exception.BlobParsingException;
 import uk.gov.moj.cp.ai.model.ScoringPayload;
 import uk.gov.moj.cp.ai.model.ScoringQueuePayload;
@@ -39,7 +38,8 @@ public class AnswerScoringFunction {
         scoringService = new ScoringService();
         publishScoreService = new PublishScoreService();
         blobService = new BlobService();
-        answerGenerationTableService = new AnswerGenerationTableService(getRequiredEnv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION));
+        final FunctionEnvironment env = FunctionEnvironment.get();
+        answerGenerationTableService = new AnswerGenerationTableService(env.tableConfig().answerGenerationTable());
     }
 
     AnswerScoringFunction(final ScoringService scoringService, final PublishScoreService publishScoreService, final BlobService blobService, final AnswerGenerationTableService answerGenerationTableService) {
@@ -78,7 +78,7 @@ public class AnswerScoringFunction {
 
             publishScoreService.publishGroundednessScore(modelScore.groundednessScore(), scoringPayload.userQuery());
 
-            if(null != scoringPayload.transactionId()) {
+            if (null != scoringPayload.transactionId()) {
                 LOGGER.info("Recording groundedness score against transaction id: {}", scoringPayload.transactionId());
                 answerGenerationTableService.recordGroundednessScore(scoringPayload.transactionId(), modelScore.groundednessScore());
             }

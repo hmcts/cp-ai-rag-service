@@ -6,15 +6,15 @@ import static java.util.Objects.isNull;
 import static java.util.UUID.randomUUID;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
+import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
-import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
 
+import uk.gov.moj.cp.ai.FunctionEnvironment;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
+import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
 import uk.gov.moj.cp.retrieval.model.RequestPayload;
-import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 
 import java.util.List;
 import java.util.Map;
@@ -45,8 +45,8 @@ public class InitiateAnswerGenerationFunction {
     private static final String RESPONSE_STR = "{\"transactionId\":\"%s\"}";
 
     public InitiateAnswerGenerationFunction() {
-        final String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION);
-        answerGenerationTableService = new AnswerGenerationTableService(tableName);
+        final FunctionEnvironment env = FunctionEnvironment.get();
+        answerGenerationTableService = new AnswerGenerationTableService(env.tableConfig().answerGenerationTable());
     }
 
     public InitiateAnswerGenerationFunction(final AnswerGenerationTableService answerGenerationTableService) {

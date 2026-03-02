@@ -1,11 +1,19 @@
 package uk.gov.moj.cp.ingestion.service;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 
+import uk.gov.moj.cp.ai.FunctionEnvironment;
+import uk.gov.moj.cp.ai.client.ConnectionMode;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
+import uk.gov.moj.cp.ai.util.EnvVarUtil;
 
 import java.util.Collections;
 
@@ -14,6 +22,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -123,5 +133,40 @@ class DocumentIngestionOrchestratorTest {
                 "789e0123-f456-7890-abcd-ef1234567890",
                 "INGESTION_SUCCESS",
                 "Document ingestion completed successfully");
+    }
+
+    @Test
+    void testDefaultConstructor() {
+        try (MockedStatic<FunctionEnvironment> mocked = Mockito.mockStatic(FunctionEnvironment.class);
+             MockedStatic<EnvVarUtil> mockedEnvUtil = Mockito.mockStatic(EnvVarUtil.class)) {
+
+            final FunctionEnvironment mockEnv = mock(FunctionEnvironment.class);
+            mocked.when(FunctionEnvironment::get).thenReturn(mockEnv);
+            final FunctionEnvironment.TableConfig mockTableConfig = mock(FunctionEnvironment.TableConfig.class);
+            final FunctionEnvironment.SearchConfig mockSearchConfig = mock(FunctionEnvironment.SearchConfig.class);
+            final FunctionEnvironment.StorageConfig mockStorageConfig = mock(FunctionEnvironment.StorageConfig.class);
+            final FunctionEnvironment.EmbeddingConfig mockEmbeddingConfig = mock(FunctionEnvironment.EmbeddingConfig.class);
+
+            when(mockEnv.tableConfig()).thenReturn(mockTableConfig);
+            when(mockEnv.searchConfig()).thenReturn(mockSearchConfig);
+            when(mockEnv.storageConfig()).thenReturn(mockStorageConfig);
+            when(mockEnv.embeddingConfig()).thenReturn(mockEmbeddingConfig);
+
+            mockedEnvUtil.when(() -> getRequiredEnv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")).thenReturn("http://doc");
+            mockedEnvUtil.when(() -> getRequiredEnvAsInteger("AZURE_CLIENT_BASE_DELAY_IN_SECONDS", "1")).thenReturn(1);
+            mockedEnvUtil.when(() -> getRequiredEnvAsInteger("AZURE_CLIENT_MAX_DELAY_IN_SECONDS", "60")).thenReturn(30);
+            mockedEnvUtil.when(() -> getRequiredEnv("EMBEDDINGS_BATCH_SIZE", "2048")).thenReturn("50");
+            when(mockTableConfig.documentIngestionOutcomeTable()).thenReturn("tableoutcome");
+            when(mockSearchConfig.serviceEndpoint()).thenReturn("http://service");
+            when(mockSearchConfig.serviceIndexName()).thenReturn("index");
+            when(mockStorageConfig.accountConnectionMode()).thenReturn(ConnectionMode.MANAGED_IDENTITY.name());
+            when(mockStorageConfig.tableEndpoint()).thenReturn("http://table");
+            when(mockEmbeddingConfig.serviceEndpoint()).thenReturn("http://service");
+            when(mockEmbeddingConfig.deploymentName()).thenReturn("deploy");
+
+            final DocumentIngestionOrchestrator documentIngestionOrchestrator = new DocumentIngestionOrchestrator();
+            assertNotNull(documentIngestionOrchestrator);
+
+        }
     }
 }
