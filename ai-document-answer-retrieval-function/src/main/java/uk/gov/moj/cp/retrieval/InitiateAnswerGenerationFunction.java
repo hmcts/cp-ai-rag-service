@@ -1,23 +1,26 @@
 package uk.gov.moj.cp.retrieval;
 
+import static com.microsoft.azure.functions.HttpStatus.BAD_REQUEST;
+import static com.microsoft.azure.functions.HttpStatus.INTERNAL_SERVER_ERROR;
+import static com.microsoft.azure.functions.HttpStatus.OK;
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
-import static java.lang.String.format;
-import static java.util.Objects.isNull;
+import static java.lang.String.join;
 import static java.util.UUID.randomUUID;
+import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
-import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
-import static uk.gov.moj.cp.ai.service.table.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
+import static uk.gov.moj.cp.ai.validation.RequestValidator.validate;
 
+import uk.gov.hmcts.cp.openapi.model.AnswerUserQueryRequest;
+import uk.gov.hmcts.cp.openapi.model.RequestErrored;
+import uk.gov.hmcts.cp.openapi.model.UserQueryAnswerRequestAccepted;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
-import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
-import uk.gov.moj.cp.retrieval.model.RequestPayload;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
+import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import com.microsoft.azure.functions.ExecutionContext;
@@ -33,8 +36,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Azure Function to for answer generation.
- * Initiates Answer generation and returns unique transactionId.
+ * Azure Function to for answer generation. Initiates Answer generation and returns unique
+ * transactionId.
  */
 public class InitiateAnswerGenerationFunction {
 
@@ -62,21 +65,22 @@ public class InitiateAnswerGenerationFunction {
      */
     @FunctionName("InitiateAnswerGeneration")
     public HttpResponseMessage run(
-            @HttpTrigger(name = "req", methods = {HttpMethod.POST}, authLevel = FUNCTION, route = "answer-user-query-async") HttpRequestMessage<RequestPayload> request,
+            @HttpTrigger(name = "req", methods = {HttpMethod.POST}, authLevel = FUNCTION, route = "answer-user-query-async") HttpRequestMessage<AnswerUserQueryRequest> request,
             @QueueOutput(name = "message", queueName = "%" + STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION + "%",
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING) OutputBinding<String> message,
             final ExecutionContext context) {
 
         try {
-            final String userQuery = request.getBody().userQuery();
-            final String userQueryPrompt = request.getBody().queryPrompt();
-            final List<KeyValuePair> metadataFilters = request.getBody().metadataFilter();
-
-            if (isNullOrEmpty(userQuery) || isNullOrEmpty(userQueryPrompt) || isNull(metadataFilters) || metadataFilters.isEmpty()) {
-                LOGGER.error("Error: userQuery, queryPrompt and metadataFilter attributes are required");
-                final String errorMessage = convert(Map.of("errorMessage", "Error: userQuery, queryPrompt and metadataFilter attributes are required"));
-                return generateResponse(request, HttpStatus.BAD_REQUEST, errorMessage);
+            final AnswerUserQueryRequest userQueryRequest = request.getBody();
+            final List<String> errors = validate(userQueryRequest);
+            if (!errors.isEmpty()) {
+                final String errorMessage = convert(new RequestErrored(join(", ", errors)));
+                return generateResponse(request, BAD_REQUEST, errorMessage);
             }
+
+            final String userQuery = userQueryRequest.getUserQuery();
+            final String userQueryPrompt = userQueryRequest.getQueryPrompt();
+            final List<KeyValuePair> metadataFilters = userQueryRequest.getMetadataFilter().stream().map(uqr -> new KeyValuePair(uqr.getKey(), uqr.getValue())).toList();
 
             final UUID transactionId = randomUUID();
             LOGGER.info("Initiating answer generation async process for the query: {} with transactionId: {}", userQuery, transactionId);
@@ -87,12 +91,12 @@ public class InitiateAnswerGenerationFunction {
             answerGenerationTableService.saveAnswerGenerationRequest(transactionId.toString(), userQuery, userQueryPrompt, ANSWER_GENERATION_PENDING);
             LOGGER.info("Successfully initiated answer retrieval processing for the query: {} with transactionId: {}", userQuery, transactionId);
 
-            return generateResponse(request, HttpStatus.OK, format(RESPONSE_STR, transactionId));
+            return generateResponse(request, OK, convert(new UserQueryAnswerRequestAccepted(transactionId.toString())));
 
         } catch (Exception e) {
             LOGGER.error("Error initiating answer retrieval for request: {}", request, e);
-            final String errorMessage = convert(Map.of("errorMessage", "An internal error occurred: " + e.getMessage()));
-            return generateResponse(request, HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
+            final String errorMessage = convert(new RequestErrored("An internal error occurred: " + e.getMessage()));
+            return generateResponse(request, INTERNAL_SERVER_ERROR, errorMessage);
         }
     }
 

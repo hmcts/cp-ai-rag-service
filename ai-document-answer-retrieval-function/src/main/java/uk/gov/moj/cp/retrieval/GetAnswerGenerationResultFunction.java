@@ -1,5 +1,7 @@
 package uk.gov.moj.cp.retrieval;
 
+import static com.microsoft.azure.functions.HttpStatus.BAD_REQUEST;
+import static com.microsoft.azure.functions.HttpStatus.INTERNAL_SERVER_ERROR;
 import static com.microsoft.azure.functions.HttpStatus.NOT_FOUND;
 import static com.microsoft.azure.functions.HttpStatus.OK;
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
@@ -13,16 +15,18 @@ import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.util.UuidUtil.isValid;
 import static uk.gov.moj.cp.retrieval.AnswerGenerationFunction.getInputChunksFilename;
+import static uk.gov.moj.cp.retrieval.util.ChunkUtil.transformChunkEntries;
 
+import uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus;
+import uk.gov.hmcts.cp.openapi.model.RequestErrored;
+import uk.gov.hmcts.cp.openapi.model.UserQueryAnswerReturnedSuccessfullyAsynchronously;
 import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.InputChunksPayload;
-import uk.gov.moj.cp.ai.model.QueryAsyncResponse;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import com.microsoft.azure.functions.ExecutionContext;
@@ -77,8 +81,8 @@ public class GetAnswerGenerationResultFunction {
 
             if (!isValid(transactionId)) {
                 LOGGER.error("Error: transactionId is required");
-                final String errorMessage = convert(Map.of("errorMessage", "Error: transactionId is required"));
-                return generateResponse(request, HttpStatus.BAD_REQUEST, errorMessage);
+                final String errorMessage = convert(new RequestErrored("Error: transactionId is required"));
+                return generateResponse(request, BAD_REQUEST, errorMessage);
             }
 
             final GeneratedAnswer generatedAnswer = answerGenerationTableService.getGeneratedAnswer(transactionId);
@@ -90,16 +94,15 @@ public class GetAnswerGenerationResultFunction {
                                 ? blobPersistenceInputChunksService.readBlob(getInputChunksFilename(fromString(transactionId)), InputChunksPayload.class).chunkedEntries()
                                 : null;
 
-                final QueryAsyncResponse queryResponse = toQueryResponse(generatedAnswer, chunkedEntriesFromBlobContainer);
-                return generateResponse(request, OK, convert(queryResponse));
+                return generateResponse(request, OK, convert(toQueryResponse(generatedAnswer, chunkedEntriesFromBlobContainer)));
             }
 
             return generateResponse(request, NOT_FOUND, String.format("No Answer request found for the transactionId=%s", transactionId));
 
         } catch (Exception e) {
             LOGGER.error("Error initiating answer retrieval for request: {}", request, e);
-            final String errorMessage = convert(Map.of("errorMessage", "An internal error occurred: " + e.getMessage()));
-            return generateResponse(request, HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
+            final String errorMessage = convert(new RequestErrored("An internal error occurred: " + e.getMessage()));
+            return generateResponse(request, INTERNAL_SERVER_ERROR, errorMessage);
         }
     }
 
@@ -110,17 +113,16 @@ public class GetAnswerGenerationResultFunction {
                 .build();
     }
 
-    private static QueryAsyncResponse toQueryResponse(final GeneratedAnswer generatedAnswer, final List<ChunkedEntry> chunkedEntriesFromBlobContainer) {
-        return new QueryAsyncResponse(generatedAnswer.getTransactionId(),
-                generatedAnswer.getAnswerStatus(),
-                generatedAnswer.getReason(),
+    private UserQueryAnswerReturnedSuccessfullyAsynchronously toQueryResponse(final GeneratedAnswer generatedAnswer, final List<ChunkedEntry> chunkedEntriesFromBlobContainer) {
+        final UserQueryAnswerReturnedSuccessfullyAsynchronously asyncResponse = new UserQueryAnswerReturnedSuccessfullyAsynchronously(generatedAnswer.getTransactionId(),
+                AnswerGenerationStatus.fromValue(generatedAnswer.getAnswerStatus()),
                 generatedAnswer.getUserQuery(),
                 generatedAnswer.getLlmResponse(),
-                generatedAnswer.getQueryPrompt(),
-                chunkedEntriesFromBlobContainer,
-                nonNull(generatedAnswer.getResponseGenerationTime()) ? generatedAnswer.getResponseGenerationTime().toString() : null,
-                nonNull(generatedAnswer.getResponseGenerationDuration()) && generatedAnswer.getResponseGenerationDuration() > 0
-                        ? generatedAnswer.getResponseGenerationDuration()
-                        : null);
+                generatedAnswer.getQueryPrompt());
+        asyncResponse.setReason(generatedAnswer.getReason());
+        asyncResponse.setDocumentChunks(transformChunkEntries(chunkedEntriesFromBlobContainer));
+        asyncResponse.setResponseGenerationDuration(nonNull(generatedAnswer.getResponseGenerationDuration()) && generatedAnswer.getResponseGenerationDuration() > 0 ? generatedAnswer.getResponseGenerationDuration().intValue() : null);
+        asyncResponse.setResponseGenerationTime(nonNull(generatedAnswer.getResponseGenerationTime()) ? generatedAnswer.getResponseGenerationTime() : null);
+        return asyncResponse;
     }
 }

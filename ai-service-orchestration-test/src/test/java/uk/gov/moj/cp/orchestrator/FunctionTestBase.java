@@ -115,21 +115,21 @@ public abstract class FunctionTestBase {
                 Map.entry("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS", LLM_EVAL_PAYLOADS_FOLDER),
                 Map.entry("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS", LLM_INPUT_CHUNKS_FOLDER),
 
-                Map.entry("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", "https://document-intelligence-ste-ai-qwrw.cognitiveservices.azure.com/"),
+                Map.entry("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", getRequiredEnv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")),
 
-                Map.entry("AZURE_SEARCH_SERVICE_ENDPOINT", "https://search-service-ste-ai-01.search.windows.net"),
-                Map.entry("AZURE_SEARCH_SERVICE_INDEX_NAME", "ai-rag-service-index"),
+                Map.entry("AZURE_SEARCH_SERVICE_ENDPOINT", getRequiredEnv("AZURE_SEARCH_SERVICE_ENDPOINT")),
+                Map.entry("AZURE_SEARCH_SERVICE_INDEX_NAME", getRequiredEnv("AZURE_SEARCH_SERVICE_INDEX_NAME")),
 
-                Map.entry("AZURE_EMBEDDING_SERVICE_ENDPOINT", "https://open-ai-ste-c3vx.openai.azure.com"),
-                Map.entry("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME", "text-embedding-3-large"),
+                Map.entry("AZURE_EMBEDDING_SERVICE_ENDPOINT", getRequiredEnv("AZURE_EMBEDDING_SERVICE_ENDPOINT")),
+                Map.entry("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME", getRequiredEnv("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME")),
 
-                Map.entry("AZURE_OPENAI_ENDPOINT", "https://open-ai-ste-c3vx.cognitiveservices.azure.com"),
-                Map.entry("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-response-generation"),
+                Map.entry("AZURE_OPENAI_ENDPOINT", getRequiredEnv("AZURE_OPENAI_ENDPOINT")),
+                Map.entry("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", getRequiredEnv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME")),
 
-                Map.entry("AZURE_JUDGE_OPENAI_ENDPOINT", "https://open-ai-ste-c3vx.openai.azure.com"),
-                Map.entry("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-judge"),
+                Map.entry("AZURE_JUDGE_OPENAI_ENDPOINT", getRequiredEnv("AZURE_JUDGE_OPENAI_ENDPOINT")),
+                Map.entry("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME", getRequiredEnv("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME")),
 
-                Map.entry("RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING", "InstrumentationKey=a1825998-dce1-4bd8-b74f-29ad1a4c382c;IngestionEndpoint=https://uksouth-1.in.applicationinsights.azure.com/;LiveEndpoint=https://uksouth.livediagnostics.monitor.azure.com/;ApplicationId=fb1f6c66-6296-4611-99e3-ee9cfe6ca5b8")
+                Map.entry("RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING", getRequiredEnv("RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING"))
         );
     }
 

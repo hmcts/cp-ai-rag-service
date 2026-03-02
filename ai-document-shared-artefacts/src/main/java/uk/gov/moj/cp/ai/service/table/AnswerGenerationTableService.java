@@ -12,21 +12,17 @@ import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_RESPONSE_GENERATION
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_RESPONSE_GROUNDEDNESS_SCORE;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_TRANSACTION_ID;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_USER_QUERY;
-import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
+import uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus;
 import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
-import uk.gov.moj.cp.ai.model.ChunkedEntry;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
-import java.util.List;
 
 import com.azure.data.tables.models.TableEntity;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import org.slf4j.Logger;
 
 /**
@@ -143,20 +139,5 @@ public class AnswerGenerationTableService {
 
     private Long getPropertyAsLong(final Object value) {
         return value instanceof Number number ? number.longValue() : null;
-    }
-
-    private List<ChunkedEntry> toChunkedEntries(final String chunkedEntriesAsString) {
-        if (nonNull(chunkedEntriesAsString)) {
-            try {
-                return getObjectMapper().readValue(
-                        chunkedEntriesAsString,
-                        new TypeReference<>() {
-                        });
-            } catch (JsonProcessingException e) {
-                LOGGER.error("Unable to parse chunked entries from string", e);
-                return List.of();
-            }
-        }
-        return null;
     }
 }
