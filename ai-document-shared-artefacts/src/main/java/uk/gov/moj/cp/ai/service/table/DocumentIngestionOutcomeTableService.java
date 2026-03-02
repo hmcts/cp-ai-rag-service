@@ -77,6 +77,22 @@ public class DocumentIngestionOutcomeTableService {
         }
     }
 
+    public void upsertDocument(final String documentId, final String documentName, final String status, final String reason) {
+
+        try {
+            final TableEntity entity = tableService.getFirstDocumentMatching(documentId, documentId);
+
+            entity.addProperty(TC_DOCUMENT_STATUS, status);
+            entity.addProperty(TC_REASON, reason);
+            tableService.upsertIntoTable(entity);
+
+            LOGGER.info("Record UPSERTED into table with status={} for document '{}' with ID '{}'", status, documentName, documentId);
+
+        } catch (Exception e) {
+            throw new RuntimeException(String.format(ERROR_MESSAGE, "UPSERT", documentName, documentId), e);
+        }
+    }
+
     public DocumentIngestionOutcome getFirstDocumentMatching(String documentName) throws EntityRetrievalException {
         String rowAndPartitionKey = generateKeyForRowAndPartition(documentName);
 
@@ -94,7 +110,6 @@ public class DocumentIngestionOutcomeTableService {
             return null;
         }
         return getDocumentIngestionOutcome(entity);
-
     }
 
     private String getPropertyAsString(final Object value) {

@@ -16,7 +16,8 @@ import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.UPL
 import static uk.gov.moj.cp.metadata.check.validation.RequestValidator.validate;
 import static uk.gov.moj.cp.metadata.check.service.DocumentUploadService.DUPLICATE_RECORD_ERROR;
 import static uk.gov.moj.cp.metadata.check.service.DocumentUploadService.UPLOAD_ALREADY_INITIATED_ERROR;
-import static uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer.toMap;
+import static uk.gov.moj.cp.metadata.check.utils.DocumentBlobNameResolver.getBlobName;
+import static uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer.listToMap;
 import static uk.gov.moj.cp.metadata.check.validation.RequestValidator.validate;
 
 import uk.gov.hmcts.cp.openapi.model.DocumentUploadRequest;
@@ -26,9 +27,7 @@ import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.hmcts.cp.openapi.model.RequestErrored;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
-import uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer;
 
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -111,10 +110,10 @@ public class DocumentUploadFunction {
                 return generateResponse(request, HttpStatus.BAD_REQUEST, convert(new RequestErrored(errorMessage)));
             }
 
-            final String blobName = getBlobName(documentId);
+            final String blobName = getBlobName(documentId, dateTimeFormatter, uploadFileExtension);
             final String storageSasUrl = blobClientService.getSasUrl(blobName, urlExpiryMinutes);
 
-            documentUploadService.recordUploadInitiated(documentId, documentName, toMap(documentUploadRequest.getMetadataFilter()));
+            documentUploadService.addDocumentAwaitingUpload(documentId, documentName, listToMap(documentUploadRequest.getMetadataFilter()));
 
             LOGGER.info("Successfully initiated document upload for the documentId: {} documentName: {}", documentId, documentName);
             final FileStorageLocationReturnedSuccessfully fileStorageLocationReturnedSuccessfully = new FileStorageLocationReturnedSuccessfully(storageSasUrl, documentId);
@@ -138,8 +137,4 @@ public class DocumentUploadFunction {
                 .build();
     }
 
-    private String getBlobName(final String documentId) {
-        final String today = LocalDateTime.now().format(dateTimeFormatter);
-        return format("%s_%s.%s", documentId, today, uploadFileExtension);
-    }
 }

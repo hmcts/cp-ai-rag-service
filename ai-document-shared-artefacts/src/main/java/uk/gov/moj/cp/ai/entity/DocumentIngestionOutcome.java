@@ -2,6 +2,7 @@ package uk.gov.moj.cp.ai.entity;
 
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_FILE_NAME;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_ID;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_METADATA;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_STATUS;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_REASON;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_TIMESTAMP;
@@ -15,6 +16,9 @@ public class DocumentIngestionOutcome extends BaseTableEntity {
 
     @JsonProperty(TC_DOCUMENT_FILE_NAME)
     private String documentName;
+
+    @JsonProperty(TC_DOCUMENT_METADATA)
+    private String metadata;
 
     @JsonProperty(TC_DOCUMENT_STATUS)
     private String status;
@@ -55,6 +59,14 @@ public class DocumentIngestionOutcome extends BaseTableEntity {
 
     public void setDocumentName(String documentName) {
         this.documentName = documentName;
+    }
+
+    public String getMetadata() {
+        return metadata;
+    }
+
+    public void setMetadata(final String metadata) {
+        this.metadata = metadata;
     }
 
     public String getStatus() {

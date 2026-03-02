@@ -12,14 +12,13 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
-import static uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer.toMap;
+import static uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer.listToMap;
 
 import uk.gov.hmcts.cp.openapi.model.DocumentUploadRequest;
 import uk.gov.hmcts.cp.openapi.model.MetadataFilter;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
-import uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -92,7 +91,7 @@ public class DocumentUploadFunctionTest {
 
         assertThat(response, is(result));
         verify(blobClientService, never()).getSasUrl(any(), anyInt());
-        verify(documentUploadService, never()).recordUploadInitiated(anyString(), anyString(), anyMap());
+        verify(documentUploadService, never()).addDocumentAwaitingUpload(anyString(), anyString(), anyMap());
     }
 
     @Test
@@ -107,7 +106,7 @@ public class DocumentUploadFunctionTest {
         final HttpResponseMessage result = function.run(request, context);
 
         assertThat(response, is(result));
-        verify(documentUploadService).recordUploadInitiated(body.getDocumentId(), body.getDocumentName(), toMap(body.getMetadataFilter()));
+        verify(documentUploadService).addDocumentAwaitingUpload(body.getDocumentId(), body.getDocumentName(), listToMap(body.getMetadataFilter()));
     }
 
     @Test
@@ -119,7 +118,7 @@ public class DocumentUploadFunctionTest {
         when(blobClientService.getSasUrl(any(String.class), anyInt())).thenReturn("http://sas-url");
         mockResponseBuilder(HttpStatus.BAD_REQUEST);
         doThrow(new DuplicateRecordException("Duplicate record error!"))
-                .when(documentUploadService).recordUploadInitiated(body.getDocumentId(), body.getDocumentName(), toMap(body.getMetadataFilter()));
+                .when(documentUploadService).addDocumentAwaitingUpload(body.getDocumentId(), body.getDocumentName(), listToMap(body.getMetadataFilter()));
 
         final HttpResponseMessage result = function.run(request, context);
 

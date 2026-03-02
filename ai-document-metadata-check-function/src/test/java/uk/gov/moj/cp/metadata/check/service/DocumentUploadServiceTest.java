@@ -18,7 +18,6 @@ import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
 import uk.gov.moj.cp.metadata.check.exception.DataRetrievalException;
-import uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer;
 
 import java.util.Map;
 
@@ -82,7 +81,7 @@ public class DocumentUploadServiceTest {
         final String documentName = "TestDoc";
         final Map<String, String> metadataMap = Map.of("k1", "v1");
 
-        documentUploadService.recordUploadInitiated(documentId, documentName, metadataMap);
+        documentUploadService.addDocumentAwaitingUpload(documentId, documentName, metadataMap);
 
         verify(tableService).insert(eq(documentId), eq(documentName), eq("{\"k1\":\"v1\"}"), eq(AWAITING_UPLOAD.name()), eq(AWAITING_UPLOAD_REASON));
     }
@@ -95,7 +94,7 @@ public class DocumentUploadServiceTest {
 
         doThrow(new DuplicateRecordException("duplicate")).when(tableService).insert(any(), any(), any(), any(), any());
 
-        assertThrows(DuplicateRecordException.class, () -> documentUploadService.recordUploadInitiated(documentId, documentName, metadataMap));
+        assertThrows(DuplicateRecordException.class, () -> documentUploadService.addDocumentAwaitingUpload(documentId, documentName, metadataMap));
 
         verify(tableService).insert(eq(documentId), eq(documentName), anyString(), anyString(), anyString());
     }
