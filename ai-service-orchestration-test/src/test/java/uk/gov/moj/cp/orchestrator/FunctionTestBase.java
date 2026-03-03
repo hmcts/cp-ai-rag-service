@@ -61,7 +61,7 @@ public abstract class FunctionTestBase {
     protected static final String SCORING_QUEUE = "test-scoring-queue-" + TEST_RANDOM_KEY;
     protected static final String ANSWER_GENERATION_QUEUE = "test-answer-generation-" + TEST_RANDOM_KEY;
 
-    protected static final String STORAGE_ACCOUNT_NAME = "sasteairag";
+    protected static final String STORAGE_ACCOUNT_NAME = getRequiredEnv("AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING__accountName");
 
     protected static final String BLOB_STORAGE_ACCOUNT_ENDPOINT = String.format("https://%s.blob.core.windows.net/", STORAGE_ACCOUNT_NAME);
     protected static final String TABLE_STORAGE_ACCOUNT_ENDPOINT = String.format("https://%s.table.core.windows.net/", STORAGE_ACCOUNT_NAME);
