@@ -117,7 +117,12 @@ public abstract class FunctionTestBase {
 
     static @NotNull Map<String, String> setupEnvVarMap() {
         return Map.ofEntries(
+                Map.entry("FUNCTIONS_WORKER_RUNTIME", "java"),
+                Map.entry("FUNCTIONS_EXTENSION_VERSION", "~4"),
+
+                Map.entry("AzureWebJobsSecretStorageType", "Files"),
                 Map.entry("AzureWebJobsStorage", getRequiredEnv("AzureWebJobsStorage")),
+
                 Map.entry("AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING__accountName", STORAGE_ACCOUNT_NAME),
                 Map.entry("AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT", BLOB_STORAGE_ACCOUNT_ENDPOINT),
                 Map.entry("AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT", TABLE_STORAGE_ACCOUNT_ENDPOINT),
@@ -133,7 +138,6 @@ public abstract class FunctionTestBase {
                 Map.entry("STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION", DOCUMENT_INGESTION_QUEUE),
                 Map.entry("STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING", SCORING_QUEUE),
                 Map.entry("STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION", ANSWER_GENERATION_QUEUE),
-
 
                 Map.entry("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", getRequiredEnv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")),
 
