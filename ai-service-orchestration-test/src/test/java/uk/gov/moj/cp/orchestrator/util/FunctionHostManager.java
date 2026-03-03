@@ -1,5 +1,7 @@
 package uk.gov.moj.cp.orchestrator.util;
 
+import static java.lang.Thread.currentThread;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
@@ -39,6 +41,8 @@ public class FunctionHostManager {
 
         functionProcess = processBuilder.start();
 
+        waitForHostReady();
+
         LOGGER.info("Function App started on http://localhost:{}", port);
 
     }
@@ -74,9 +78,26 @@ public class FunctionHostManager {
                 functionProcess.waitFor(10, TimeUnit.SECONDS);
                 LOGGER.info("Function App stopped successfully.");
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                currentThread().interrupt();
                 LOGGER.error("Error while stopping function host: {}", e.getMessage());
             }
         }
+    }
+
+    private void waitForHostReady() throws TimeoutException, InterruptedException {
+        long timeoutMillis = 30000; // 30 seconds timeout
+        long startTime = System.currentTimeMillis();
+
+        while (System.currentTimeMillis() - startTime < timeoutMillis) {
+            try (java.net.Socket socket = new java.net.Socket("localhost", port)) {
+                LOGGER.info("Azure Function App on port {} is now reachable.", port);
+                return; // Success!
+            } catch (IOException e) {
+                // Not ready yet, wait a bit
+                Thread.sleep(500);
+            }
+        }
+
+        throw new TimeoutException("Azure Function host failed to start on port " + port + " within " + timeoutMillis + "ms");
     }
 }
