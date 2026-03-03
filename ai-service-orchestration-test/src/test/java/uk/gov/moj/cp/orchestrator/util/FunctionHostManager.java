@@ -20,11 +20,13 @@ public class FunctionHostManager {
 
     private Process functionProcess;
     private final String appDirectory;
+    private final String friendlyDirectoryName;
     private final int port;
 
     public FunctionHostManager(String appDirectory, int port) {
         this.appDirectory = appDirectory;
         this.port = port;
+        this.friendlyDirectoryName = appDirectory.lastIndexOf("/") == -1 ? appDirectory : appDirectory.substring(appDirectory.lastIndexOf("/") + 1);
     }
 
     /**
@@ -37,13 +39,13 @@ public class FunctionHostManager {
         // Command to execute: func host start --port 7071
         final ProcessBuilder processBuilder = getProcessBuilder(environmentVariables);
 
-        LOGGER.info("Starting Azure Function App on port {}...", port);
+        LOGGER.info("Starting Azure Function App {} on port {}...", friendlyDirectoryName, port);
 
         functionProcess = processBuilder.start();
 
         waitForHostReady();
 
-        LOGGER.info("Function App started on http://localhost:{}", port);
+        LOGGER.info("Function App ({}) started on http://localhost:{}", friendlyDirectoryName, port);
 
     }
 
@@ -70,13 +72,13 @@ public class FunctionHostManager {
      */
     public void stop() {
         if (functionProcess != null) {
-            LOGGER.info("Stopping Azure Function App on port {}...", port);
+            LOGGER.info("Stopping Azure Function App ({}) on port {}...", friendlyDirectoryName, port);
             // Forcefully terminate the process
             functionProcess.destroyForcibly();
             try {
                 // Wait for the process to exit
                 functionProcess.waitFor(10, TimeUnit.SECONDS);
-                LOGGER.info("Function App stopped successfully.");
+                LOGGER.info("Function App ({}) stopped successfully.", friendlyDirectoryName);
             } catch (InterruptedException e) {
                 currentThread().interrupt();
                 LOGGER.error("Error while stopping function host: {}", e.getMessage());
@@ -85,12 +87,12 @@ public class FunctionHostManager {
     }
 
     private void waitForHostReady() throws TimeoutException, InterruptedException {
-        long timeoutMillis = 30000; // 30 seconds timeout
+        long timeoutMillis = 60000; // 60 seconds timeout
         long startTime = System.currentTimeMillis();
 
         while (System.currentTimeMillis() - startTime < timeoutMillis) {
             try (java.net.Socket socket = new java.net.Socket("localhost", port)) {
-                LOGGER.info("Azure Function App on port {} is now reachable.", port);
+                LOGGER.info("Azure Function App ({}) on port {} is now reachable.", friendlyDirectoryName, port);
                 return; // Success!
             } catch (IOException e) {
                 // Not ready yet, wait a bit
@@ -98,6 +100,6 @@ public class FunctionHostManager {
             }
         }
 
-        throw new TimeoutException("Azure Function host failed to start on port " + port + " within " + timeoutMillis + "ms");
+        throw new TimeoutException("Azure Function (" + friendlyDirectoryName + ") failed to start on port " + port + " within " + timeoutMillis + "ms");
     }
 }
