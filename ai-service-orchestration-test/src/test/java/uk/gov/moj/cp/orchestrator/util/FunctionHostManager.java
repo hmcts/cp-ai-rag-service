@@ -1,5 +1,7 @@
 package uk.gov.moj.cp.orchestrator.util;
 
+import static java.lang.Thread.currentThread;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
@@ -18,11 +20,13 @@ public class FunctionHostManager {
 
     private Process functionProcess;
     private final String appDirectory;
+    private final String friendlyDirectoryName;
     private final int port;
 
     public FunctionHostManager(String appDirectory, int port) {
         this.appDirectory = appDirectory;
         this.port = port;
+        this.friendlyDirectoryName = appDirectory.lastIndexOf("/") == -1 ? appDirectory : appDirectory.substring(appDirectory.lastIndexOf("/") + 1);
     }
 
     /**
@@ -35,11 +39,26 @@ public class FunctionHostManager {
         // Command to execute: func host start --port 7071
         final ProcessBuilder processBuilder = getProcessBuilder(environmentVariables);
 
-        LOGGER.info("Starting Azure Function App on port {}...", port);
+        LOGGER.info("Starting Azure Function App {} on port {}...", friendlyDirectoryName, port);
 
         functionProcess = processBuilder.start();
 
-        LOGGER.info("Function App started on http://localhost:{}", port);
+        // Read the stream in a separate thread to prevent the process from hanging
+        new Thread(() -> {
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(functionProcess.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    LOGGER.info("[Azure-Func-Output] {}", line);
+                }
+            } catch (IOException e) {
+                LOGGER.error("Error reading Function host output", e);
+            }
+        }).start();
+
+        waitForHostReady();
+
+        LOGGER.info("Function App ({}) started on http://localhost:{}", friendlyDirectoryName, port);
 
     }
 
@@ -57,7 +76,7 @@ public class FunctionHostManager {
 
         // This ensures the stdout and stderr streams from the 'func host start' process
         // are merged and streamed directly to the console where your Java test is running.
-        processBuilder.inheritIO();
+        processBuilder.redirectErrorStream(true);
         return processBuilder;
     }
 
@@ -66,17 +85,34 @@ public class FunctionHostManager {
      */
     public void stop() {
         if (functionProcess != null) {
-            LOGGER.info("Stopping Azure Function App on port {}...", port);
+            LOGGER.info("Stopping Azure Function App ({}) on port {}...", friendlyDirectoryName, port);
             // Forcefully terminate the process
             functionProcess.destroyForcibly();
             try {
                 // Wait for the process to exit
                 functionProcess.waitFor(10, TimeUnit.SECONDS);
-                LOGGER.info("Function App stopped successfully.");
+                LOGGER.info("Function App ({}) stopped successfully.", friendlyDirectoryName);
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                currentThread().interrupt();
                 LOGGER.error("Error while stopping function host: {}", e.getMessage());
             }
         }
+    }
+
+    private void waitForHostReady() throws TimeoutException, InterruptedException {
+        long timeoutMillis = 60000; // 60 seconds timeout
+        long startTime = System.currentTimeMillis();
+
+        while (System.currentTimeMillis() - startTime < timeoutMillis) {
+            try (java.net.Socket socket = new java.net.Socket("localhost", port)) {
+                LOGGER.info("Azure Function App ({}) on port {} is now reachable.", friendlyDirectoryName, port);
+                return; // Success!
+            } catch (IOException e) {
+                // Not ready yet, wait a bit
+                Thread.sleep(500);
+            }
+        }
+
+        throw new TimeoutException("Azure Function (" + friendlyDirectoryName + ") failed to start on port " + port + " within " + timeoutMillis + "ms");
     }
 }

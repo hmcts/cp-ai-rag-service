@@ -2,7 +2,6 @@ package uk.gov.moj.cp.orchestrator;
 
 import static io.restassured.RestAssured.given;
 import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
-import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.ANSWER_RETRIEVAL_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.ANSWER_SCORING_FUNCTION;
@@ -11,18 +10,21 @@ import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_METADATA_CHECK
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_STATUS_CHECK_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.util.BlobUtil.deleteContainer;
 import static uk.gov.moj.cp.orchestrator.util.BlobUtil.ensureContainerExists;
+import static uk.gov.moj.cp.orchestrator.util.QueueUtil.deleteQueue;
+import static uk.gov.moj.cp.orchestrator.util.QueueUtil.ensureQueueExists;
 import static uk.gov.moj.cp.orchestrator.util.TableUtil.deleteTable;
 import static uk.gov.moj.cp.orchestrator.util.TableUtil.ensureTableExists;
 
 import uk.gov.moj.cp.orchestrator.util.FunctionHostManager;
+import uk.gov.moj.cp.orchestrator.util.QueueUtil;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
+import com.azure.storage.queue.QueueClient;
 import io.restassured.specification.RequestSpecification;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
@@ -45,20 +47,27 @@ public abstract class FunctionTestBase {
     private static final String DOCUMENT_INGESTION_FUNCTION_DIRECTORY = "../ai-document-ingestion-function/target/azure-functions/fa-ste-ai-document-ingestion";
 
     private static final String TEST_RANDOM_KEY = randomAlphanumeric(10).toLowerCase();
-    protected static final String DOCUMENT_LANDING_FOLDER = "test-documents-folder-" + TEST_RANDOM_KEY;
-    protected static final String LLM_EVAL_PAYLOADS_FOLDER = "test-llm-eval-payloads-folder-" + TEST_RANDOM_KEY;
-    protected static final String LLM_INPUT_CHUNKS_FOLDER = "test-llm-input-chunks-folder-" + TEST_RANDOM_KEY;
+
+    protected static final String DOCUMENT_LANDING_FOLDER = "test-documents-" + TEST_RANDOM_KEY;
+    protected static final String DOCUMENT_LANDING_FOLDER_NEW = "test-documents-new-" + TEST_RANDOM_KEY;
+
+    protected static final String LLM_EVAL_PAYLOADS_FOLDER = "test-llm-eval-payloads-" + TEST_RANDOM_KEY;
+    protected static final String LLM_INPUT_CHUNKS_FOLDER = "test-llm-input-chunks-" + TEST_RANDOM_KEY;
+
     protected static final String DOCUMENT_STATUS_OUTCOME_TABLE = "testoutcometable" + TEST_RANDOM_KEY;
     protected static final String ANSWER_GENERATION_TABLE = "testanswergeneration" + TEST_RANDOM_KEY;
-    protected static final String DOCUMENT_INGESTION_QUEUE = "test-ingestion-queue" + TEST_RANDOM_KEY;
-    protected static final String SCORING_QUEUE = "test-scoring-queue" + TEST_RANDOM_KEY;
+
+    protected static final String DOCUMENT_INGESTION_QUEUE = "test-ingestion-queue-" + TEST_RANDOM_KEY;
+    protected static final String SCORING_QUEUE = "test-scoring-queue-" + TEST_RANDOM_KEY;
+    protected static final String ANSWER_GENERATION_QUEUE = "test-answer-generation-" + TEST_RANDOM_KEY;
+
     protected static final String STORAGE_ACCOUNT_NAME = getRequiredEnv("AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING__accountName");
 
     protected static final String BLOB_STORAGE_ACCOUNT_ENDPOINT = String.format("https://%s.blob.core.windows.net/", STORAGE_ACCOUNT_NAME);
     protected static final String TABLE_STORAGE_ACCOUNT_ENDPOINT = String.format("https://%s.table.core.windows.net/", STORAGE_ACCOUNT_NAME);
     protected static final String QUEUE_STORAGE_ACCOUNT_ENDPOINT = String.format("https://%s.queue.core.windows.net/", STORAGE_ACCOUNT_NAME);
 
-    private static Map<FunctionAppName, Pair<FunctionHostManager, RequestSpecification>> FUNCTION_CONFIG_MAP;
+    static Map<FunctionAppName, Pair<FunctionHostManager, RequestSpecification>> FUNCTION_CONFIG_MAP;
 
     private static int getAvailablePort() throws IOException {
         try (ServerSocket socket = new ServerSocket(0)) {
@@ -76,8 +85,14 @@ public abstract class FunctionTestBase {
         final int documentStatusCheckFunctionPort = getAvailablePort();
 
         ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_LANDING_FOLDER);
+        ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_LANDING_FOLDER_NEW);
         ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, LLM_EVAL_PAYLOADS_FOLDER);
         ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, LLM_INPUT_CHUNKS_FOLDER);
+
+        ensureQueueExists(QUEUE_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_INGESTION_QUEUE);
+        ensureQueueExists(QUEUE_STORAGE_ACCOUNT_ENDPOINT, SCORING_QUEUE);
+        ensureQueueExists(QUEUE_STORAGE_ACCOUNT_ENDPOINT, ANSWER_GENERATION_QUEUE);
+
         ensureTableExists(TABLE_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_STATUS_OUTCOME_TABLE);
         ensureTableExists(TABLE_STORAGE_ACCOUNT_ENDPOINT, ANSWER_GENERATION_TABLE);
 
@@ -100,20 +115,29 @@ public abstract class FunctionTestBase {
 
     }
 
-    private static @NotNull Map<String, String> setupEnvVarMap() {
+    static @NotNull Map<String, String> setupEnvVarMap() {
         return Map.ofEntries(
+                Map.entry("FUNCTIONS_WORKER_RUNTIME", "java"),
+                Map.entry("FUNCTIONS_EXTENSION_VERSION", "~4"),
+
+                Map.entry("AzureWebJobsSecretStorageType", "Files"),
                 Map.entry("AzureWebJobsStorage", getRequiredEnv("AzureWebJobsStorage")),
+
                 Map.entry("AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING__accountName", STORAGE_ACCOUNT_NAME),
                 Map.entry("AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT", BLOB_STORAGE_ACCOUNT_ENDPOINT),
                 Map.entry("AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT", TABLE_STORAGE_ACCOUNT_ENDPOINT),
                 Map.entry("AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT", QUEUE_STORAGE_ACCOUNT_ENDPOINT),
                 Map.entry("STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME", DOCUMENT_STATUS_OUTCOME_TABLE),
                 Map.entry("STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION", ANSWER_GENERATION_TABLE),
-                Map.entry("STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION", DOCUMENT_INGESTION_QUEUE),
+
                 Map.entry("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME", DOCUMENT_LANDING_FOLDER),
-                Map.entry("STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING", SCORING_QUEUE),
+                Map.entry("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD", DOCUMENT_LANDING_FOLDER_NEW),
                 Map.entry("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS", LLM_EVAL_PAYLOADS_FOLDER),
                 Map.entry("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS", LLM_INPUT_CHUNKS_FOLDER),
+
+                Map.entry("STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION", DOCUMENT_INGESTION_QUEUE),
+                Map.entry("STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING", SCORING_QUEUE),
+                Map.entry("STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION", ANSWER_GENERATION_QUEUE),
 
                 Map.entry("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", getRequiredEnv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")),
 
@@ -145,8 +169,13 @@ public abstract class FunctionTestBase {
         });
 
         deleteContainer(BLOB_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_LANDING_FOLDER);
+        deleteContainer(BLOB_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_LANDING_FOLDER_NEW);
         deleteContainer(BLOB_STORAGE_ACCOUNT_ENDPOINT, LLM_EVAL_PAYLOADS_FOLDER);
         deleteContainer(BLOB_STORAGE_ACCOUNT_ENDPOINT, LLM_INPUT_CHUNKS_FOLDER);
+
+        deleteQueue(QUEUE_STORAGE_ACCOUNT_ENDPOINT, SCORING_QUEUE);
+        deleteQueue(QUEUE_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_INGESTION_QUEUE);
+        deleteQueue(QUEUE_STORAGE_ACCOUNT_ENDPOINT, ANSWER_GENERATION_QUEUE);
 
         deleteTable(TABLE_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_STATUS_OUTCOME_TABLE);
         deleteTable(TABLE_STORAGE_ACCOUNT_ENDPOINT, ANSWER_GENERATION_TABLE);

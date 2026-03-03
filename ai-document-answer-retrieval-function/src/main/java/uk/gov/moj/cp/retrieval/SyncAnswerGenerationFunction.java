@@ -1,5 +1,8 @@
 package uk.gov.moj.cp.retrieval;
 
+import static com.microsoft.azure.functions.HttpStatus.BAD_REQUEST;
+import static com.microsoft.azure.functions.HttpStatus.INTERNAL_SERVER_ERROR;
+import static com.microsoft.azure.functions.HttpStatus.OK;
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
 import static java.lang.String.join;
 import static java.util.UUID.randomUUID;
@@ -87,7 +90,7 @@ public class SyncAnswerGenerationFunction {
             final List<String> errors = validate(userQueryRequest);
             if (!errors.isEmpty()) {
                 final String errorMessage = convert(new RequestErrored(join(", ", errors)));
-                return generateResponse(request, HttpStatus.BAD_REQUEST, errorMessage);
+                return generateResponse(request, BAD_REQUEST, errorMessage);
             }
 
             final String userQuery = userQueryRequest.getUserQuery();
@@ -125,12 +128,12 @@ public class SyncAnswerGenerationFunction {
             ScoringQueuePayload scoringQueuePayload = new ScoringQueuePayload(filename);
             message.setValue(convert(scoringQueuePayload));
 
-            return generateResponse(request, HttpStatus.OK, responseAsString);
+            return generateResponse(request, OK, responseAsString);
 
         } catch (Exception e) {
             LOGGER.error("Error processing answer retrieval for request: {}", request, e);
             final String errorMessage = convert(new RequestErrored("An internal error occurred: " + e.getMessage()));
-            return generateResponse(request, HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
+            return generateResponse(request, INTERNAL_SERVER_ERROR, errorMessage);
         }
     }
 

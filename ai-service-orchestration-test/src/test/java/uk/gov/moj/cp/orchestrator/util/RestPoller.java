@@ -18,8 +18,8 @@ public class RestPoller {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RestPoller.class);
 
-    private final static long POLL_INTERVAL_SECONDS = 2L; // Poll every 1 second
-    private final static long TIMEOUT_IN_SECONDS = 60L; // Poll every 1 second
+    private final static long POLL_INTERVAL_SECONDS = 5L; // Poll every 2 second
+    private final static long TIMEOUT_IN_SECONDS = 60L;
 
     public static Response pollForResponse(RequestSpecification requestSpec,
                                            RestOperation operation,
