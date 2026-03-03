@@ -43,6 +43,19 @@ public class FunctionHostManager {
 
         functionProcess = processBuilder.start();
 
+        // Read the stream in a separate thread to prevent the process from hanging
+        new Thread(() -> {
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(functionProcess.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    LOGGER.info("[Azure-Func-Output] {}", line);
+                }
+            } catch (IOException e) {
+                LOGGER.error("Error reading Function host output", e);
+            }
+        }).start();
+
         waitForHostReady();
 
         LOGGER.info("Function App ({}) started on http://localhost:{}", friendlyDirectoryName, port);
@@ -63,7 +76,7 @@ public class FunctionHostManager {
 
         // This ensures the stdout and stderr streams from the 'func host start' process
         // are merged and streamed directly to the console where your Java test is running.
-        processBuilder.inheritIO();
+        processBuilder.redirectErrorStream(true);
         return processBuilder;
     }
 
