@@ -8,17 +8,20 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatus.INGESTION_SUCCESS;
+import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 
 import uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatusReturnedSuccessfully;
 import uk.gov.hmcts.cp.openapi.model.DocumentStatusNotAvailable;
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
+import uk.gov.moj.cp.ai.util.ObjectMapperFactory;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
@@ -53,7 +56,7 @@ class DocumentStatusCheckFunctionTest {
     }
 
     @Test
-    void returnsOkResponseWhenDocumentIsFound() throws EntityRetrievalException {
+    void returnsOkResponseWhenDocumentIsFound() throws EntityRetrievalException, JsonProcessingException {
         String documentName = "test-document";
         final String statusTimestamp = now().toString();
         DocumentIngestionOutcome outcome = new DocumentIngestionOutcome("123", documentName, INGESTION_SUCCESS.name(), "No issues", statusTimestamp);
@@ -72,13 +75,13 @@ class DocumentStatusCheckFunctionTest {
 
         function.run(mockRequest, mockContext);
 
-        final ArgumentCaptor<DocumentIngestionStatusReturnedSuccessfully> bodyCaptor = ArgumentCaptor.forClass(DocumentIngestionStatusReturnedSuccessfully.class);
+        final ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
 
         verify(mockResponseBuilder).header("Content-Type", "application/json");
         verify(mockResponseBuilder).build();
 
         verify(mockResponseBuilder).body(bodyCaptor.capture());
-        DocumentIngestionStatusReturnedSuccessfully capturedBody = bodyCaptor.getValue();
+        DocumentIngestionStatusReturnedSuccessfully capturedBody = getObjectMapper().readValue(bodyCaptor.getValue(), DocumentIngestionStatusReturnedSuccessfully.class);
         assertEquals("123", capturedBody.getDocumentId());
         assertEquals(documentName, capturedBody.getDocumentName());
         assertEquals("No issues", capturedBody.getReason());
@@ -109,7 +112,7 @@ class DocumentStatusCheckFunctionTest {
     }
 
     @Test
-    void returnsServerErrorResponseWhenErroringWhilstRetrievingEntity() throws EntityRetrievalException {
+    void returnsServerErrorResponseWhenErroringWhilstRetrievingEntity() throws EntityRetrievalException, JsonProcessingException {
         String documentName = "random-document";
         when(documentIngestionOutcomeTableService.getFirstDocumentMatching(documentName)).thenThrow(EntityRetrievalException.class);
 
@@ -126,14 +129,14 @@ class DocumentStatusCheckFunctionTest {
         verify(mockResponseBuilder).header("Content-Type", "application/json");
         verify(mockResponseBuilder).build();
 
-        final ArgumentCaptor<DocumentStatusNotAvailable> bodyCaptor = ArgumentCaptor.forClass(DocumentStatusNotAvailable.class);
+        final ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
         verify(mockResponseBuilder).body(bodyCaptor.capture());
-        DocumentStatusNotAvailable capturedBody = bodyCaptor.getValue();
+        DocumentStatusNotAvailable capturedBody = getObjectMapper().readValue(bodyCaptor.getValue(), DocumentStatusNotAvailable.class);
         assertEquals(documentName, capturedBody.getDocumentName());
     }
 
     @Test
-    void throwsExceptionWhenDocumentNameIsMissing() {
+    void throwsExceptionWhenDocumentNameIsMissing() throws JsonProcessingException {
         final Map<String, String> queryParams = new HashMap<>();
         when(mockRequest.getQueryParameters()).thenReturn(queryParams);
         when(mockRequest.createResponseBuilder(HttpStatus.BAD_REQUEST)).thenReturn(mockResponseBuilder);
@@ -145,9 +148,9 @@ class DocumentStatusCheckFunctionTest {
         verify(mockResponseBuilder).header("Content-Type", "application/json");
         verify(mockResponseBuilder).build();
 
-        final ArgumentCaptor<DocumentStatusNotAvailable> bodyCaptor = ArgumentCaptor.forClass(DocumentStatusNotAvailable.class);
+        final ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
         verify(mockResponseBuilder).body(bodyCaptor.capture());
-        DocumentStatusNotAvailable capturedBody = bodyCaptor.getValue();
+        DocumentStatusNotAvailable capturedBody = getObjectMapper().readValue(bodyCaptor.getValue(), DocumentStatusNotAvailable.class);
         assertEquals("N/A", capturedBody.getDocumentName());
     }
 }

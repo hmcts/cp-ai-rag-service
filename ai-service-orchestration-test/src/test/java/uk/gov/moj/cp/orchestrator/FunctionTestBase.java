@@ -48,17 +48,20 @@ public abstract class FunctionTestBase {
     protected static final String DOCUMENT_LANDING_FOLDER = "test-documents-folder-" + TEST_RANDOM_KEY;
     protected static final String LLM_EVAL_PAYLOADS_FOLDER = "test-llm-eval-payloads-folder-" + TEST_RANDOM_KEY;
     protected static final String LLM_INPUT_CHUNKS_FOLDER = "test-llm-input-chunks-folder-" + TEST_RANDOM_KEY;
+
     protected static final String DOCUMENT_STATUS_OUTCOME_TABLE = "testoutcometable" + TEST_RANDOM_KEY;
     protected static final String ANSWER_GENERATION_TABLE = "testanswergeneration" + TEST_RANDOM_KEY;
+
     protected static final String DOCUMENT_INGESTION_QUEUE = "test-ingestion-queue" + TEST_RANDOM_KEY;
     protected static final String SCORING_QUEUE = "test-scoring-queue" + TEST_RANDOM_KEY;
+
     protected static final String STORAGE_ACCOUNT_NAME = getRequiredEnv("AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING__accountName");
 
     protected static final String BLOB_STORAGE_ACCOUNT_ENDPOINT = String.format("https://%s.blob.core.windows.net/", STORAGE_ACCOUNT_NAME);
     protected static final String TABLE_STORAGE_ACCOUNT_ENDPOINT = String.format("https://%s.table.core.windows.net/", STORAGE_ACCOUNT_NAME);
     protected static final String QUEUE_STORAGE_ACCOUNT_ENDPOINT = String.format("https://%s.queue.core.windows.net/", STORAGE_ACCOUNT_NAME);
 
-    private static Map<FunctionAppName, Pair<FunctionHostManager, RequestSpecification>> FUNCTION_CONFIG_MAP;
+    static Map<FunctionAppName, Pair<FunctionHostManager, RequestSpecification>> FUNCTION_CONFIG_MAP;
 
     private static int getAvailablePort() throws IOException {
         try (ServerSocket socket = new ServerSocket(0)) {
@@ -100,7 +103,7 @@ public abstract class FunctionTestBase {
 
     }
 
-    private static @NotNull Map<String, String> setupEnvVarMap() {
+    static @NotNull Map<String, String> setupEnvVarMap() {
         return Map.ofEntries(
                 Map.entry("AzureWebJobsStorage", getRequiredEnv("AzureWebJobsStorage")),
                 Map.entry("AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING__accountName", STORAGE_ACCOUNT_NAME),
