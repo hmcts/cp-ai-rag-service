@@ -1,4 +1,5 @@
 name: CPP Context Verify & Validation
+
 # Need to update this for actual migration
 trigger:
   branches:
@@ -20,7 +21,7 @@ resources:
       type: github
       name: hmcts/cpp-azure-devops-templates
       endpoint: 'hmcts'
-      ref: 'it-airag'
+      ref: 'main'
 
 pool:
   name: "MDV-ADO-AGENT-AKS-01"
