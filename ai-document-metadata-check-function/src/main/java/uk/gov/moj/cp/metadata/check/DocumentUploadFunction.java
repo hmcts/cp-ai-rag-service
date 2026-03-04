@@ -13,7 +13,6 @@ import static uk.gov.moj.cp.ai.validation.RequestValidator.validate;
 import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.SAS_STORAGE_URL_EXPIRY_MINUTES;
 import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.UPLOAD_FILE_DATE_FORMAT;
 import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.UPLOAD_FILE_EXTENSION;
-import static uk.gov.moj.cp.metadata.check.validation.RequestValidator.validate;
 import static uk.gov.moj.cp.metadata.check.service.DocumentUploadService.DUPLICATE_RECORD_ERROR;
 import static uk.gov.moj.cp.metadata.check.utils.DocumentBlobNameResolver.getBlobName;
 import static uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer.listToMap;
@@ -22,7 +21,6 @@ import uk.gov.hmcts.cp.openapi.model.DocumentUploadRequest;
 import uk.gov.hmcts.cp.openapi.model.FileStorageLocationReturnedSuccessfully;
 import uk.gov.hmcts.cp.openapi.model.RequestErrored;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
-import uk.gov.hmcts.cp.openapi.model.RequestErrored;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
 
@@ -105,7 +103,7 @@ public class DocumentUploadFunction {
             LOGGER.info("Initiating document upload for the documentId: {} documentName: {}", documentId, documentName);
 
             if (documentUploadService.isDocumentAlreadyProcessed(documentId)) {
-                final String errorMessage = convert(Map.of("errorMessage", "An upload request has already been initiated for documentId: " + documentId));
+                final String errorMessage = "An upload request has already been initiated for documentId: " + documentId;
                 return generateResponse(request, HttpStatus.BAD_REQUEST, convert(new RequestErrored(errorMessage)));
             }
 
