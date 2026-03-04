@@ -105,11 +105,9 @@ class DocumentIngestionOutcomeTableServiceTest {
     void throwsExceptionWhenInsertFailsDueToDuplicateRecord() throws DuplicateRecordException {
         final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
         doThrow(new DuplicateRecordException("Upsert failed")).when(mockTableService).insertIntoTable(any(TableEntity.class));
-        ;
 
         assertThrows(DuplicateRecordException.class,
                 () -> service.insertIntoTable("docName", "docId", "status", "reason"));
-
     }
 
     @Test

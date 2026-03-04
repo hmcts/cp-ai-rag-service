@@ -18,6 +18,7 @@ import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.ai.util.EnvVarUtil;
 import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
+import uk.gov.moj.cp.metadata.check.utils.DocumentBlobNameResolver;
 
 import com.microsoft.azure.functions.OutputBinding;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,7 +33,7 @@ class DocumentBlobTriggerFunctionTest {
     private BlobClientService blobClientService;
     private DocumentUploadService documentUploadService;
     private OutputBinding<String> outputBinding;
-
+    private DocumentBlobNameResolver documentBlobNameResolver;
     private DocumentBlobTriggerFunction function;
 
     @BeforeEach
@@ -40,8 +41,8 @@ class DocumentBlobTriggerFunctionTest {
         blobClientService = mock(BlobClientService.class);
         documentUploadService = mock(DocumentUploadService.class);
         outputBinding = mock(OutputBinding.class);
-
-        function = new DocumentBlobTriggerFunction(blobClientService, documentUploadService);
+        documentBlobNameResolver = mock(DocumentBlobNameResolver.class);
+        function = new DocumentBlobTriggerFunction(blobClientService, documentUploadService, documentBlobNameResolver);
     }
 
     @Test
@@ -61,6 +62,7 @@ class DocumentBlobTriggerFunctionTest {
             mockedEnvVarUtil.when(() -> getRequiredEnv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT)).thenReturn("http://blob.web.com/");
             mockedEnvVarUtil.when(() -> getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD)).thenReturn("doc-upload");
 
+            when(documentBlobNameResolver.getDocumentId(blobName)).thenReturn(documentId);
             when(blobClientService.isBlobAvailable(blobName)).thenReturn(true);
 
             DocumentIngestionOutcome document = mock(DocumentIngestionOutcome.class);
@@ -73,7 +75,7 @@ class DocumentBlobTriggerFunctionTest {
             function.run(new byte[]{}, blobName, outputBinding);
 
             verify(documentUploadService).getDocument(documentId);
-            verify(documentUploadService).updateDocumentAwaitingIngestion(documentId, "doc.json");
+            verify(documentUploadService).updateDocumentAwaitingIngestion(documentId);
 
             verify(outputBinding).setValue(anyString());
         }
@@ -86,6 +88,7 @@ class DocumentBlobTriggerFunctionTest {
         final DocumentIngestionOutcome document = mock(DocumentIngestionOutcome.class);
         when(document.getDocumentId()).thenReturn(documentId);
         when(document.getDocumentName()).thenReturn("doc.pdf");
+        when(documentBlobNameResolver.getDocumentId(blobName)).thenReturn(documentId);
 
         // invalid JSON to trigger stringToMap failure
         when(document.getMetadata()).thenReturn("invalid-json");

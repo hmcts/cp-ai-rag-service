@@ -10,13 +10,13 @@ import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_ID;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.removeTrailingSlash;
-import static uk.gov.moj.cp.metadata.check.utils.DocumentBlobNameResolver.getDocumentId;
 import static uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer.stringToMap;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
+import uk.gov.moj.cp.metadata.check.utils.DocumentBlobNameResolver;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -37,16 +37,21 @@ public class DocumentBlobTriggerFunction {
 
     private final BlobClientService blobClientService;
     private final DocumentUploadService documentUploadService;
+    private final DocumentBlobNameResolver documentBlobNameResolver;
 
     public DocumentBlobTriggerFunction() {
         final String documentContainerName = getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD);
         this.blobClientService = new BlobClientService(documentContainerName);
         this.documentUploadService = new DocumentUploadService();
+        this.documentBlobNameResolver = new DocumentBlobNameResolver();
     }
 
-    DocumentBlobTriggerFunction(final BlobClientService blobClientService, final DocumentUploadService documentUploadService) {
+    DocumentBlobTriggerFunction(final BlobClientService blobClientService,
+                                final DocumentUploadService documentUploadService,
+                                final DocumentBlobNameResolver documentBlobNameResolver) {
         this.blobClientService = blobClientService;
         this.documentUploadService = documentUploadService;
+        this.documentBlobNameResolver = documentBlobNameResolver;
     }
 
     @FunctionName("DocumentUploadCheck")
@@ -66,9 +71,9 @@ public class DocumentBlobTriggerFunction {
                 return;
             }
 
-            final String documentId = getDocumentId(blobName);
+            final String documentId = documentBlobNameResolver.getDocumentId(blobName);
             final DocumentIngestionOutcome document = documentUploadService.getDocument(documentId);
-            documentUploadService.updateDocumentAwaitingIngestion(document.getDocumentId(), document.getDocumentName());
+            documentUploadService.updateDocumentAwaitingIngestion(document.getDocumentId());
 
             final Map<String, String> metadataMap = stringToMap(document.getMetadata());
             final QueueIngestionMetadata queueIngestionMetadata = createQueueMessage(blobName, flatten(documentId, metadataMap));

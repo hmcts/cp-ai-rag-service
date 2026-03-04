@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.ai.service.table;
 
+import static java.lang.String.format;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_FILE_NAME;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_ID;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_METADATA;
@@ -73,11 +74,11 @@ public class DocumentIngestionOutcomeTableService {
             LOGGER.info("Record UPSERTED into table with status={} for document '{}' with ID '{}'", status, documentName, documentId);
 
         } catch (Exception e) {
-            throw new RuntimeException(String.format(ERROR_MESSAGE, "UPSERT", documentName, documentId), e);
+            throw new RuntimeException(format(ERROR_MESSAGE, "UPSERT", documentName, documentId), e);
         }
     }
 
-    public void upsertDocument(final String documentId, final String documentName, final String status, final String reason) {
+    public void upsertDocument(final String documentId, final String status, final String reason) {
 
         try {
             final TableEntity entity = tableService.getFirstDocumentMatching(documentId, documentId);
@@ -86,10 +87,10 @@ public class DocumentIngestionOutcomeTableService {
             entity.addProperty(TC_REASON, reason);
             tableService.upsertIntoTable(entity);
 
-            LOGGER.info("Record UPSERTED into table with status={} for document '{}' with ID '{}'", status, documentName, documentId);
+            LOGGER.info("Record UPSERTED into table with status={} for document with ID '{}'", status, documentId);
 
         } catch (Exception e) {
-            throw new RuntimeException(String.format(ERROR_MESSAGE, "UPSERT", documentName, documentId), e);
+            throw new RuntimeException(format("Failed to %s record for document with ID: '%s", "UPSERT", documentId), e);
         }
     }
 

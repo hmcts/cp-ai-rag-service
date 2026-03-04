@@ -61,8 +61,8 @@ public class DocumentUploadService {
     /**
      * upsert the document record in the table storage with status AWAITING_INGESTION.
      */
-    public void updateDocumentAwaitingIngestion(final String documentId, final String documentName) {
-        documentIngestionOutcomeTableService.upsertDocument(documentId, documentName, AWAITING_INGESTION.name(), AWAITING_INGESTION_REASON);
+    public void updateDocumentAwaitingIngestion(final String documentId) {
+        documentIngestionOutcomeTableService.upsertDocument(documentId, AWAITING_INGESTION.name(), AWAITING_INGESTION_REASON);
     }
 
     /**
