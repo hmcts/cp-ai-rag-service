@@ -6,9 +6,8 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_BLOB_STORAGE
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION;
-import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_ID;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
-import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
+import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
 import static uk.gov.moj.cp.ai.util.StringUtil.removeTrailingSlash;
 import static uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer.stringToMap;
 
@@ -34,6 +33,8 @@ import org.slf4j.LoggerFactory;
 public class DocumentBlobTriggerFunction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentBlobTriggerFunction.class);
+    private static final String DOCUMENT_ID_NEW = "documentId";
+    private static final String DOCUMENT_ID = "document_id";
 
     private final BlobClientService blobClientService;
     private final DocumentUploadService documentUploadService;
@@ -76,8 +77,8 @@ public class DocumentBlobTriggerFunction {
             documentUploadService.updateDocumentAwaitingIngestion(document.getDocumentId());
 
             final Map<String, String> metadataMap = stringToMap(document.getMetadata());
-            final QueueIngestionMetadata queueIngestionMetadata = createQueueMessage(blobName, flatten(documentId, metadataMap));
-            queueMessage.setValue(getObjectMapper().writeValueAsString(queueIngestionMetadata));
+            final QueueIngestionMetadata queueIngestionMetadata = createQueueMessage(blobName, document.getDocumentName(), flatten(documentId, metadataMap));
+            queueMessage.setValue(convert(queueIngestionMetadata));
 
             LOGGER.info("Document blob trigger function processed a request for document with blobName: {}", blobName);
         } catch (JsonProcessingException e) {
@@ -85,20 +86,23 @@ public class DocumentBlobTriggerFunction {
         }
     }
 
-    private QueueIngestionMetadata createQueueMessage(final String blobName, final Map<String, String> metadata) {
-        final String documentId = metadata.get(DOCUMENT_ID);
+    private QueueIngestionMetadata createQueueMessage(final String blobName, final String documentName, final Map<String, String> metadata) {
+        final String documentId = metadata.get(DOCUMENT_ID_NEW);
         final String blobStorageEndpoint = removeTrailingSlash(getRequiredEnv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT));
         final String containerName = getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD);
         final String blobUrl = format("%s/%s/%s", blobStorageEndpoint, containerName, blobName);
         final String currentTimestamp = Instant.now().toString();
 
-        return new QueueIngestionMetadata(documentId, blobName, metadata, blobUrl, currentTimestamp);
+        return new QueueIngestionMetadata(documentId, documentName, metadata, blobUrl, currentTimestamp);
     }
 
     private static Map<String, String> flatten(final String documentId, final Map<String, String> metadataMap) {
         final Map<String, String> result = new LinkedHashMap<>();
 
+        //for backwards compatibility
         result.put(DOCUMENT_ID, documentId);
+        //new approach going forward
+        result.put(DOCUMENT_ID_NEW, documentId);
         if (nonNull(metadataMap)) {
             result.putAll(metadataMap);
         }
