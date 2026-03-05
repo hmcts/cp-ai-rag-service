@@ -2,6 +2,8 @@ package uk.gov.moj.cp.ai.service;
 
 import static com.azure.storage.common.sas.SasProtocol.HTTPS_ONLY;
 import static java.lang.String.format;
+import static java.util.Objects.isNull;
+import static java.util.Objects.nonNull;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.client.BlobContainerClientFactory;
@@ -13,6 +15,8 @@ import java.time.OffsetDateTime;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.models.BlobProperties;
+import com.azure.storage.blob.models.CopyStatusType;
 import com.azure.storage.blob.models.UserDelegationKey;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
@@ -66,5 +70,14 @@ public class BlobClientService {
 
         final BlobClient blobClient = containerClient.getBlobClient(blobName);
         return format(SAS_URL_STR, blobClient.getBlobUrl(), blobClient.generateUserDelegationSas(sasValues, key));
+    }
+
+    public boolean isBlobAvailable(final String documentName) {
+        final BlobClient blobClient = getBlobClient(documentName);
+        final BlobProperties blobProperties = blobClient.getProperties();
+
+        //Blob was placed synchronously / atomic operation or  async copy operations has completed with status SUCCESS
+        return nonNull(blobProperties) &&
+                (isNull(blobProperties.getCopyStatus()) || CopyStatusType.SUCCESS == blobProperties.getCopyStatus());
     }
 }

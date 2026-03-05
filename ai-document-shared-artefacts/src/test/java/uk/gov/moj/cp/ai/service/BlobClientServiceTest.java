@@ -16,6 +16,8 @@ import java.time.OffsetDateTime;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.models.BlobProperties;
+import com.azure.storage.blob.models.CopyStatusType;
 import com.azure.storage.blob.models.UserDelegationKey;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import org.junit.jupiter.api.DisplayName;
@@ -38,13 +40,13 @@ class BlobClientServiceTest {
     @Test
     @DisplayName("Returns BlobClient for valid document name")
     void getBlobClientReturnsBlobClientForValidDocumentName() {
-        BlobClient blobClient = mock(BlobClient.class);
-        BlobContainerClient containerClientMock = mock(BlobContainerClient.class);
-        BlobServiceClient serviceClientMock = mock(BlobServiceClient.class);
+        final BlobClient blobClient = mock(BlobClient.class);
+        final BlobContainerClient containerClientMock = mock(BlobContainerClient.class);
+        final BlobServiceClient serviceClientMock = mock(BlobServiceClient.class);
         when(containerClientMock.getBlobClient("documentName")).thenReturn(blobClient);
 
-        BlobClientService service = new BlobClientService(containerClientMock, serviceClientMock);
-        BlobClient result = service.getBlobClient("documentName");
+        final BlobClientService service = new BlobClientService(containerClientMock, serviceClientMock);
+        final BlobClient result = service.getBlobClient("documentName");
 
         assertNotNull(result);
         assertEquals(blobClient, result);
@@ -53,13 +55,13 @@ class BlobClientServiceTest {
     @Test
     @DisplayName("Uploads blob successfully")
     void addBlobUploadsBlobSuccessfully() {
-        BlobClient blobClient = mock(BlobClient.class);
-        BlobContainerClient containerClientMock = mock(BlobContainerClient.class);
+        final BlobClient blobClient = mock(BlobClient.class);
+        final BlobContainerClient containerClientMock = mock(BlobContainerClient.class);
         when(containerClientMock.getBlobClient("documentName")).thenReturn(blobClient);
         when(containerClientMock.getBlobContainerName()).thenReturn("containerName");
-        BlobServiceClient serviceClientMock = mock(BlobServiceClient.class);
+        final BlobServiceClient serviceClientMock = mock(BlobServiceClient.class);
 
-        BlobClientService service = new BlobClientService(containerClientMock, serviceClientMock);
+        final BlobClientService service = new BlobClientService(containerClientMock, serviceClientMock);
         service.addBlob("documentName", "payload");
 
         verify(blobClient).upload(any(java.io.ByteArrayInputStream.class), eq(Long.valueOf("payload".getBytes(StandardCharsets.UTF_8).length)), eq(true));
@@ -68,9 +70,9 @@ class BlobClientServiceTest {
     @Test
     @DisplayName("Get SAS Storage URL")
     void getSASUrlForGivenBlobName() {
-        BlobClient blobClient = mock(BlobClient.class);
-        BlobContainerClient containerClientMock = mock(BlobContainerClient.class);
-        BlobServiceClient serviceClientMock = mock(BlobServiceClient.class);
+        final BlobClient blobClient = mock(BlobClient.class);
+        final BlobContainerClient containerClientMock = mock(BlobContainerClient.class);
+        final BlobServiceClient serviceClientMock = mock(BlobServiceClient.class);
         final UserDelegationKey UserDelegationKeyMock = mock(UserDelegationKey.class);
 
         when(serviceClientMock.getUserDelegationKey(any(OffsetDateTime.class), any(OffsetDateTime.class))).thenReturn(UserDelegationKeyMock);
@@ -80,9 +82,75 @@ class BlobClientServiceTest {
         when(blobClient.generateUserDelegationSas(any(BlobServiceSasSignatureValues.class), eq(UserDelegationKeyMock)))
                 .thenReturn("sv=2025-11-05&st=2026-02-19T15%3A40%3A57Z&se=2026-02-19T17%3A40%3A57Z");
 
-        BlobClientService service = new BlobClientService(containerClientMock, serviceClientMock);
+        final BlobClientService service = new BlobClientService(containerClientMock, serviceClientMock);
         final String sasUrl = service.getSasUrl("blobName", 120);
 
         assertThat(sasUrl).isEqualTo("https://account.blob.core.windows.net/documents/blobName.pdf?sv=2025-11-05&st=2026-02-19T15%3A40%3A57Z&se=2026-02-19T17%3A40%3A57Z");
+    }
+
+    @Test
+    void shouldReturnTrue_whenCopyStatusIsNull() {
+        final BlobClient blobClient = mock(BlobClient.class);
+        final BlobProperties blobProperties = mock(BlobProperties.class);
+        final BlobContainerClient containerClientMock = mock(BlobContainerClient.class);
+        final BlobServiceClient serviceClientMock = mock(BlobServiceClient.class);
+        final BlobClientService service = new BlobClientService(containerClientMock, serviceClientMock);
+
+        when(containerClientMock.getBlobClient("testBlob")).thenReturn(blobClient);
+        when(blobClient.getProperties()).thenReturn(blobProperties);
+        when(blobProperties.getCopyStatus()).thenReturn(null);
+
+        final boolean result = service.isBlobAvailable("testBlob");
+
+        assertThat(result).isTrue();
+    }
+
+    @Test
+    void shouldReturnTrue_whenCopyStatusIsSuccess() {
+        final BlobClient blobClient = mock(BlobClient.class);
+        final BlobProperties blobProperties = mock(BlobProperties.class);
+        final BlobContainerClient containerClientMock = mock(BlobContainerClient.class);
+        final BlobServiceClient serviceClientMock = mock(BlobServiceClient.class);
+        final BlobClientService service = new BlobClientService(containerClientMock, serviceClientMock);
+
+        when(containerClientMock.getBlobClient("testBlob")).thenReturn(blobClient);
+        when(blobClient.getProperties()).thenReturn(blobProperties);
+        when(blobProperties.getCopyStatus()).thenReturn(CopyStatusType.SUCCESS);
+
+        final boolean result = service.isBlobAvailable("testBlob");
+
+        assertThat(result).isTrue();
+    }
+
+    @Test
+    void shouldReturnFalse_whenCopyStatusIsNotSuccess() {
+        final BlobClient blobClient = mock(BlobClient.class);
+        final BlobProperties blobProperties = mock(BlobProperties.class);
+        final BlobContainerClient containerClientMock = mock(BlobContainerClient.class);
+        final BlobServiceClient serviceClientMock = mock(BlobServiceClient.class);
+        final BlobClientService service = new BlobClientService(containerClientMock, serviceClientMock);
+
+        when(containerClientMock.getBlobClient("testBlob")).thenReturn(blobClient);
+        when(blobClient.getProperties()).thenReturn(blobProperties);
+        when(blobProperties.getCopyStatus()).thenReturn(CopyStatusType.PENDING);
+
+        final boolean result = service.isBlobAvailable("testBlob");
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void shouldReturnFalse_whenBlobPropertiesIsNull() {
+        final BlobClient blobClient = mock(BlobClient.class);
+        final BlobContainerClient containerClientMock = mock(BlobContainerClient.class);
+        final BlobServiceClient serviceClientMock = mock(BlobServiceClient.class);
+        final BlobClientService service = new BlobClientService(containerClientMock, serviceClientMock);
+
+        when(containerClientMock.getBlobClient("testBlob")).thenReturn(blobClient);
+        when(blobClient.getProperties()).thenReturn(null);
+
+        final boolean result = service.isBlobAvailable("testBlob");
+
+        assertThat(result).isFalse();
     }
 }

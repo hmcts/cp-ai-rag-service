@@ -1,7 +1,9 @@
 package uk.gov.moj.cp.ai.service.table;
 
+import static java.lang.String.format;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_FILE_NAME;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_ID;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_METADATA;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_STATUS;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_REASON;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_TIMESTAMP;
@@ -49,10 +51,11 @@ public class DocumentIngestionOutcomeTableService {
 
     }
 
-    public void insert(final String documentId, final String documentName, final String status, final String reason) throws DuplicateRecordException {
+    public void insert(final String documentId, final String documentName, final String metadata, final String status, final String reason) throws DuplicateRecordException {
         final TableEntity entity = new TableEntity(documentId, documentId);
         entity.addProperty(TC_DOCUMENT_FILE_NAME, documentName);
         entity.addProperty(TC_DOCUMENT_ID, documentId);
+        entity.addProperty(TC_DOCUMENT_METADATA, metadata);
         entity.addProperty(TC_DOCUMENT_STATUS, status);
         entity.addProperty(TC_REASON, reason);
 
@@ -71,7 +74,23 @@ public class DocumentIngestionOutcomeTableService {
             LOGGER.info("Record UPSERTED into table with status={} for document '{}' with ID '{}'", status, documentName, documentId);
 
         } catch (Exception e) {
-            throw new RuntimeException(String.format(ERROR_MESSAGE, "UPSERT", documentName, documentId), e);
+            throw new RuntimeException(format(ERROR_MESSAGE, "UPSERT", documentName, documentId), e);
+        }
+    }
+
+    public void upsertDocument(final String documentId, final String status, final String reason) {
+
+        try {
+            final TableEntity entity = tableService.getFirstDocumentMatching(documentId, documentId);
+
+            entity.addProperty(TC_DOCUMENT_STATUS, status);
+            entity.addProperty(TC_REASON, reason);
+            tableService.upsertIntoTable(entity);
+
+            LOGGER.info("Record UPSERTED into table with status={} for document with ID '{}'", status, documentId);
+
+        } catch (Exception e) {
+            throw new RuntimeException(format("Failed to %s record for document with ID: '%s", "UPSERT", documentId), e);
         }
     }
 
@@ -92,7 +111,6 @@ public class DocumentIngestionOutcomeTableService {
             return null;
         }
         return getDocumentIngestionOutcome(entity);
-
     }
 
     private String getPropertyAsString(final Object value) {

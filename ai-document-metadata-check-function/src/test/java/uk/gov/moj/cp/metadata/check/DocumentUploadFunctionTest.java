@@ -4,20 +4,23 @@ import static java.util.UUID.randomUUID;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer.listToMap;
 
 import uk.gov.hmcts.cp.openapi.model.DocumentUploadRequest;
 import uk.gov.hmcts.cp.openapi.model.MetadataFilter;
+import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
+import uk.gov.moj.cp.metadata.check.utils.DocumentBlobNameResolver;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import com.microsoft.azure.functions.ExecutionContext;
@@ -52,6 +55,8 @@ public class DocumentUploadFunctionTest {
 
     @Mock
     private ExecutionContext context;
+    @Mock
+    private DocumentBlobNameResolver documentBlobNameResolver;
 
     private DocumentUploadFunction function;
     @Captor
@@ -59,7 +64,7 @@ public class DocumentUploadFunctionTest {
 
     @BeforeEach
     void setup() {
-        function = new DocumentUploadFunction(blobClientService, documentUploadService);
+        function = new DocumentUploadFunction(blobClientService, documentUploadService, documentBlobNameResolver);
     }
 
     @Test
@@ -75,7 +80,7 @@ public class DocumentUploadFunctionTest {
     }
 
     @Test
-    void shouldReturn400_whenDocumentAlreadyProcessed() {
+    void shouldReturn400_whenDocumentAlreadyProcessed() throws DuplicateRecordException {
 
         final DocumentUploadRequest body = validRequest();
 
@@ -87,22 +92,41 @@ public class DocumentUploadFunctionTest {
 
         assertThat(response, is(result));
         verify(blobClientService, never()).getSasUrl(any(), anyInt());
-        verify(documentUploadService, never()).recordUploadInitiated(any(), any());
+        verify(documentUploadService, never()).addDocumentAwaitingUpload(anyString(), anyString(), anyMap());
     }
 
     @Test
-    void shouldReturn200_whenRequestIsValid() {
+    void shouldReturn200_whenRequestIsValid() throws DuplicateRecordException {
         final DocumentUploadRequest body = validRequest();
 
         when(request.getBody()).thenReturn(body);
         when(documentUploadService.isDocumentAlreadyProcessed(body.getDocumentId())).thenReturn(false);
+        when(documentBlobNameResolver.getBlobName(any(String.class), any(String.class))).thenReturn("blobName");
         when(blobClientService.getSasUrl(any(String.class), anyInt())).thenReturn("http://sas-url");
         mockResponseBuilder(HttpStatus.OK);
 
         final HttpResponseMessage result = function.run(request, context);
 
         assertThat(response, is(result));
-        verify(documentUploadService).recordUploadInitiated(body.getDocumentName(), body.getDocumentId());
+        verify(documentUploadService).addDocumentAwaitingUpload(body.getDocumentId(), body.getDocumentName(), listToMap(body.getMetadataFilter()));
+    }
+
+    @Test
+    void shouldReturn400_whenEncounteredDuplicateRecordException() throws Exception {
+        final DocumentUploadRequest body = validRequest();
+
+        when(request.getBody()).thenReturn(body);
+        when(documentUploadService.isDocumentAlreadyProcessed(body.getDocumentId())).thenReturn(false);
+        when(blobClientService.getSasUrl(any(String.class), anyInt())).thenReturn("http://sas-url");
+        when(documentBlobNameResolver.getBlobName(any(String.class), any(String.class))).thenReturn("blobName");
+
+        mockResponseBuilder(HttpStatus.BAD_REQUEST);
+        doThrow(new DuplicateRecordException("Duplicate record error!"))
+                .when(documentUploadService).addDocumentAwaitingUpload(body.getDocumentId(), body.getDocumentName(), listToMap(body.getMetadataFilter()));
+
+        final HttpResponseMessage result = function.run(request, context);
+
+        assertThat(response, is(result));
     }
 
     @Test
@@ -111,6 +135,7 @@ public class DocumentUploadFunctionTest {
 
         when(request.getBody()).thenReturn(body);
         when(documentUploadService.isDocumentAlreadyProcessed(body.getDocumentId())).thenReturn(false);
+        when(documentBlobNameResolver.getBlobName(any(String.class), any(String.class))).thenReturn("documentId_date.pdf");
         when(blobClientService.getSasUrl(blobNameCaptor.capture(), anyInt())).thenReturn("http://sas-url");
         mockResponseBuilder(HttpStatus.OK);
 
@@ -118,7 +143,7 @@ public class DocumentUploadFunctionTest {
 
         assertThat(response, is(result));
         final String blobNameCaptorValue = blobNameCaptor.getValue();
-        assertThat(blobNameCaptorValue, is(getBlobName(body.getDocumentId())));
+        assertThat(blobNameCaptorValue, is("documentId_date.pdf"));
     }
 
     @Test
@@ -152,10 +177,5 @@ public class DocumentUploadFunctionTest {
         when(responseBuilder.build()).thenReturn(response);
     }
 
-    private String getBlobName(final String documentId) {
-        final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd");
-        final String today = LocalDateTime.now().format(dateTimeFormatter);
-        return documentId + "_" + today + ".pdf";
-    }
 
 }
