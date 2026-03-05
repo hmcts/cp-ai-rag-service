@@ -131,6 +131,7 @@ class DocumentIngestionOutcomeTableServiceTest {
         final TableEntity entity = new TableEntity("partitionKey", "rowKey")
                 .addProperty("DocumentId", "docId")
                 .addProperty("DocumentFileName", docName)
+                .addProperty("DocumentMetadata", "{\"k1\": \"v1\"}")
                 .addProperty("DocumentStatus", "status")
                 .addProperty("Reason", "reason");
         when(mockTableService.getFirstDocumentMatching(generateKeyForRowAndPartition(docName), generateKeyForRowAndPartition(docName))).thenReturn(entity);
@@ -140,6 +141,7 @@ class DocumentIngestionOutcomeTableServiceTest {
         assertNotNull(outcome);
         assertEquals("docId", outcome.getDocumentId());
         assertEquals(docName, outcome.getDocumentName());
+        assertEquals("{\"k1\": \"v1\"}", outcome.getMetadata());
         assertEquals("status", outcome.getStatus());
         assertEquals("reason", outcome.getReason());
     }
@@ -185,6 +187,7 @@ class DocumentIngestionOutcomeTableServiceTest {
         assertNotNull(outcome);
         assertNull(outcome.getDocumentId());
         assertNull(outcome.getDocumentName());
+        assertNull(outcome.getMetadata());
         assertNull(outcome.getStatus());
         assertNull(outcome.getReason());
 

@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.metadata.check;
+package uk.gov.moj.cp.azure.status.check;
 
 import static com.microsoft.azure.functions.HttpStatus.NOT_FOUND;
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
@@ -6,14 +6,16 @@ import static java.lang.String.format;
 import static java.time.OffsetDateTime.parse;
 import static java.util.Objects.isNull;
 import static uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatus.valueOf;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
 import static uk.gov.moj.cp.ai.util.UuidUtil.isValid;
 
 import uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatusReturnedSuccessfully;
-import uk.gov.hmcts.cp.openapi.model.DocumentUploadRequest;
 import uk.gov.hmcts.cp.openapi.model.RequestErrored;
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
-import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
+import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
+
+import java.util.Optional;
 
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
@@ -27,24 +29,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Azure Function to for answer generation.
- * Initiates Answer generation and returns unique transactionId.
+ * Azure Function to get the document status by documentReference.
  */
-public class DocumentUploadStatusFunction {
+public class DocumentStatusByReferenceFunction {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(DocumentUploadStatusFunction.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DocumentStatusByReferenceFunction.class);
 
-    public static final String DEFAULT_URL_EXPIRY_MINUTES = "120";
-    public static final String FILE_EXTENSION_PDF = "pdf";
+    private final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService;
 
-    private final DocumentUploadService documentUploadService;
-
-    public DocumentUploadStatusFunction() {
-        this.documentUploadService = new DocumentUploadService();
+    public DocumentStatusByReferenceFunction() {
+        String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
+        this.documentIngestionOutcomeTableService = new DocumentIngestionOutcomeTableService(tableName);
     }
 
-    public DocumentUploadStatusFunction(final DocumentUploadService documentUploadService) {
-        this.documentUploadService = documentUploadService;
+    public DocumentStatusByReferenceFunction(final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService) {
+        this.documentIngestionOutcomeTableService = documentIngestionOutcomeTableService;
     }
 
     /**
@@ -55,10 +54,10 @@ public class DocumentUploadStatusFunction {
      * @param context           The execution context
      * @return HTTP response with status
      */
-    @FunctionName("DocumentUploadStatus")
+    @FunctionName("DocumentStatusByReference")
     public HttpResponseMessage run(
             @HttpTrigger(name = "req", methods = HttpMethod.GET, authLevel = FUNCTION, route = "document-upload/{documentReference}")
-            HttpRequestMessage<DocumentUploadRequest> request,
+            HttpRequestMessage<Optional<String>> request,
             @BindingName("documentReference") String documentReference,
             final ExecutionContext context) {
 
@@ -68,7 +67,7 @@ public class DocumentUploadStatusFunction {
                 return generateResponse(request, HttpStatus.BAD_REQUEST, convert(new RequestErrored(errorMessage)));
             }
 
-            final DocumentIngestionOutcome document = documentUploadService.getDocument(documentReference);
+            final DocumentIngestionOutcome document = documentIngestionOutcomeTableService.getDocumentById(documentReference);
 
             if (isNull(document)) {
                 return generateResponse(request, NOT_FOUND, convert(new RequestErrored(format("No Document found for the documentReference=%s", documentReference))));
@@ -85,7 +84,7 @@ public class DocumentUploadStatusFunction {
 
     private DocumentIngestionStatusReturnedSuccessfully toDocumentStatus(final DocumentIngestionOutcome document) {
         return new DocumentIngestionStatusReturnedSuccessfully(document.getDocumentName(),
-                document.getDocumentName(),
+                document.getDocumentId(),
                 valueOf(document.getStatus()),
                 parse(document.getTimestamp()),
                 document.getReason());

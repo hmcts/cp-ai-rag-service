@@ -6,7 +6,6 @@ import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.ANSWER_RETRIEVAL_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_METADATA_CHECK_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_STATUS_CHECK_FUNCTION;
-import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_UPLOAD_STATUS_CHECK_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.util.BlobUtil.uploadFile;
 import static uk.gov.moj.cp.orchestrator.util.RestPoller.pollForResponse;
 import static uk.gov.moj.cp.orchestrator.util.RestPoller.postRequest;
@@ -126,7 +125,7 @@ public class OrchestrationIntegrationTest extends FunctionTestBase {
         LOGGER.info("Successfully uploaded file with reference {} and to URL {}", documentReference, uploadUrl);
 
         //check document upload status
-        final RequestSpecification documentUploadStatusRequestSpecification = getRequestSpecification(DOCUMENT_UPLOAD_STATUS_CHECK_FUNCTION)
+        final RequestSpecification documentUploadStatusRequestSpecification = getRequestSpecification(DOCUMENT_STATUS_CHECK_FUNCTION)
                 .contentType("application/json");
 
         final Response documentStatusResponse = pollForResponse(documentUploadStatusRequestSpecification, RestOperation.GET, "/document-upload/" + documentReference,
