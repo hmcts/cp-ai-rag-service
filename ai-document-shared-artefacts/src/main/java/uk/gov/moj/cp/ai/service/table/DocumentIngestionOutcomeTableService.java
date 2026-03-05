@@ -135,6 +135,7 @@ public class DocumentIngestionOutcomeTableService {
         return new DocumentIngestionOutcome(
                 getPropertyAsString(entity.getProperty(TC_DOCUMENT_ID)),
                 getPropertyAsString(entity.getProperty(TC_DOCUMENT_FILE_NAME)),
+                getPropertyAsString(entity.getProperty(TC_DOCUMENT_METADATA)),
                 getPropertyAsString(entity.getProperty(TC_DOCUMENT_STATUS)),
                 getPropertyAsString(entity.getProperty(TC_REASON)),
                 getPropertyAsString(entity.getProperty(TC_TIMESTAMP)));
