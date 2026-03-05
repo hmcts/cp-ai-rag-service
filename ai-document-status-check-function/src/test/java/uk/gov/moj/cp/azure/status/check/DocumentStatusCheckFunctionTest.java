@@ -59,7 +59,7 @@ class DocumentStatusCheckFunctionTest {
     void returnsOkResponseWhenDocumentIsFound() throws EntityRetrievalException, JsonProcessingException {
         String documentName = "test-document";
         final String statusTimestamp = now().toString();
-        DocumentIngestionOutcome outcome = new DocumentIngestionOutcome("123", documentName, INGESTION_SUCCESS.name(), "No issues", statusTimestamp);
+        DocumentIngestionOutcome outcome = new DocumentIngestionOutcome("123", documentName, "{\"k1\":\"v1\"}", INGESTION_SUCCESS.name(), "No issues", statusTimestamp);
         when(documentIngestionOutcomeTableService.getFirstDocumentMatching(documentName)).thenReturn(outcome);
 
         Map<String, String> queryParams = new HashMap<>();

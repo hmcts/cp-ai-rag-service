@@ -101,6 +101,23 @@ class DocumentIngestionOutcomeTableServiceTest {
     }
 
     @Test
+    @DisplayName("Successfully upserts document using the documentId")
+    void successfullyUpsertsDocument() throws EntityRetrievalException {
+        final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
+        final String docId = "docId";
+        final TableEntity entity = new TableEntity("partitionKey", "rowKey")
+                .addProperty("DocumentId", docId)
+                .addProperty("DocumentFileName", "docName")
+                .addProperty("DocumentStatus", "status")
+                .addProperty("Reason", "reason");
+        when(mockTableService.getFirstDocumentMatching(docId, docId)).thenReturn(entity);
+
+        service.upsertDocument(docId, "status", "reason");
+
+        verify(mockTableService).upsertIntoTable(any(TableEntity.class));
+    }
+
+    @Test
     @DisplayName("Throws exception when insert fails due to duplicate record")
     void throwsExceptionWhenInsertFailsDueToDuplicateRecord() throws DuplicateRecordException {
         final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
@@ -131,6 +148,7 @@ class DocumentIngestionOutcomeTableServiceTest {
         final TableEntity entity = new TableEntity("partitionKey", "rowKey")
                 .addProperty("DocumentId", "docId")
                 .addProperty("DocumentFileName", docName)
+                .addProperty("DocumentMetadata", "{\"k1\": \"v1\"}")
                 .addProperty("DocumentStatus", "status")
                 .addProperty("Reason", "reason");
         when(mockTableService.getFirstDocumentMatching(generateKeyForRowAndPartition(docName), generateKeyForRowAndPartition(docName))).thenReturn(entity);
@@ -140,6 +158,7 @@ class DocumentIngestionOutcomeTableServiceTest {
         assertNotNull(outcome);
         assertEquals("docId", outcome.getDocumentId());
         assertEquals(docName, outcome.getDocumentName());
+        assertEquals("{\"k1\": \"v1\"}", outcome.getMetadata());
         assertEquals("status", outcome.getStatus());
         assertEquals("reason", outcome.getReason());
     }
@@ -185,6 +204,7 @@ class DocumentIngestionOutcomeTableServiceTest {
         assertNotNull(outcome);
         assertNull(outcome.getDocumentId());
         assertNull(outcome.getDocumentName());
+        assertNull(outcome.getMetadata());
         assertNull(outcome.getStatus());
         assertNull(outcome.getReason());
 
