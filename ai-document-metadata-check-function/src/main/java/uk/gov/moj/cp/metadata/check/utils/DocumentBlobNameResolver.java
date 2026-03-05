@@ -4,7 +4,6 @@ import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ofPattern;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
-import static uk.gov.moj.cp.metadata.check.DocumentUploadFunction.DEFAULT_DATETIME_FORMAT;
 import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.UPLOAD_FILE_DATE_FORMAT;
 
 import java.time.LocalDateTime;
@@ -16,6 +15,7 @@ public class DocumentBlobNameResolver {
 
     private static final Pattern BLOB_PATTERN = Pattern.compile("^([^_]+)_([0-9]{8})\\.[^.]+$");
     private static final String INVALID_BLOB_NAME_ERROR_MSG = "Invalid blobName: '%s' format, expected format is documentId_yyyyMMdd.fileExtension";
+    private static final String DEFAULT_DATETIME_FORMAT = "yyyyMMdd";
 
     private final DateTimeFormatter dateTimeFormatter;
 

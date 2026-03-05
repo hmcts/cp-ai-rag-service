@@ -25,9 +25,6 @@ import uk.gov.moj.cp.ai.util.EnvVarUtil;
 import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
 import uk.gov.moj.cp.metadata.check.utils.DocumentBlobNameResolver;
 
-import java.time.LocalDateTime;
-import java.time.ZonedDateTime;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.microsoft.azure.functions.OutputBinding;
 import org.junit.jupiter.api.BeforeEach;

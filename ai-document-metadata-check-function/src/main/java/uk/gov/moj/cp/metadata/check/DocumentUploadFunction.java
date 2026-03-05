@@ -43,7 +43,6 @@ public class DocumentUploadFunction {
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentUploadFunction.class);
 
     public static final String DEFAULT_URL_EXPIRY_MINUTES = "120";
-    public static final String DEFAULT_DATETIME_FORMAT = "yyyyMMdd";
     public static final String FILE_EXTENSION_PDF = "pdf";
 
     private final DocumentUploadService documentUploadService;
