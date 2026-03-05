@@ -17,7 +17,6 @@
 
     <properties>
         <azureEnv>ste</azureEnv>
-        <java.version>17</java.version>
         <functionAppName>fa-${azureEnv}-ai-document-answer-scoring</functionAppName>
         <functionAppRegion>uksouth</functionAppRegion>
         <stagingDirectory>${project.build.directory}/azure-functions/${functionAppName}

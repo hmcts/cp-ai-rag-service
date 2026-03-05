@@ -15,7 +15,6 @@
 
     <properties>
         <azureEnv>ste</azureEnv>
-        <java.version>17</java.version>
         <functionAppName>fa-${azureEnv}-ai-document-status-check</functionAppName>
         <functionAppRegion>uksouth</functionAppRegion>
         <stagingDirectory>${project.build.directory}/azure-functions/${functionAppName}
