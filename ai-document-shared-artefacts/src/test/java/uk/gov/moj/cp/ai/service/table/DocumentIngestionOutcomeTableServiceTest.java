@@ -102,10 +102,17 @@ class DocumentIngestionOutcomeTableServiceTest {
 
     @Test
     @DisplayName("Successfully upserts document using the documentId")
-    void successfullyUpsertsDocument() {
+    void successfullyUpsertsDocument() throws EntityRetrievalException {
         final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
+        final String docId = "docId";
+        final TableEntity entity = new TableEntity("partitionKey", "rowKey")
+                .addProperty("DocumentId", docId)
+                .addProperty("DocumentFileName", "docName")
+                .addProperty("DocumentStatus", "status")
+                .addProperty("Reason", "reason");
+        when(mockTableService.getFirstDocumentMatching(docId, docId)).thenReturn(entity);
 
-        service.upsertDocument("docId", "status", "reason");
+        service.upsertDocument(docId, "status", "reason");
 
         verify(mockTableService).upsertIntoTable(any(TableEntity.class));
     }
