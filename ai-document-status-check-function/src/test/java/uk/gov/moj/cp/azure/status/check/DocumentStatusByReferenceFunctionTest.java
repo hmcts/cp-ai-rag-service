@@ -65,7 +65,7 @@ public class DocumentStatusByReferenceFunctionTest {
         when(outcome.getDocumentName()).thenReturn("file.pdf");
         when(outcome.getStatus()).thenReturn("INGESTION_SUCCESS");
         when(outcome.getTimestamp()).thenReturn("2024-01-01T10:00:00Z");
-        when(outcome.getReason()).thenReturn(null);
+        when(outcome.getReason()).thenReturn("success");
         when(documentIngestionOutcomeTableService.getDocumentById(documentId)).thenReturn(outcome);
 
         final HttpResponseMessage result = function.run(request, documentId, context);

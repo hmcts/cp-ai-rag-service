@@ -93,7 +93,7 @@ public class DocumentBlobTriggerFunction {
         final String blobUrl = format("%s/%s/%s", blobStorageEndpoint, containerName, blobName);
         final String currentTimestamp = Instant.now().toString();
 
-        return new QueueIngestionMetadata(documentId, documentName, metadata, blobUrl, currentTimestamp);
+        return new QueueIngestionMetadata(documentId, documentName, metadata, blobUrl, currentTimestamp, true);
     }
 
     private static Map<String, String> flatten(final String documentId, final Map<String, String> metadataMap) {

@@ -33,6 +33,18 @@ import org.slf4j.LoggerFactory;
 public class OrchestrationIntegrationTest extends FunctionTestBase {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OrchestrationIntegrationTest.class);
+    private static final String answerGenerationPayload = """
+                {
+                  "userQuery": "Capital of UK",
+                  "queryPrompt": "Capital of UK",
+                  "metadataFilter": [
+                    {
+                      "key": "%s",
+                      "value": "%s"
+                    }
+                  ]
+                }
+            """;
 
     @Test
     @DisplayName("Upload file with metadata, check upload status, and retrieve answer for questions about the document")
@@ -53,44 +65,7 @@ public class OrchestrationIntegrationTest extends FunctionTestBase {
                         response.jsonPath().getString("status").equals("INGESTION_SUCCESS"));
         assertNotNull(documentStatusResponse);
 
-
-        String answerGenerationPayload = """
-                    {
-                      "userQuery": "Capital of UK",
-                      "queryPrompt": "Capital of UK",
-                      "metadataFilter": [
-                        {
-                          "key": "document_id",
-                          "value": "%s"
-                        }
-                      ]
-                    }
-                """.formatted(documentId1.toString());
-
-        final RequestSpecification llmQueryRequestSpecification = getRequestSpecification(ANSWER_RETRIEVAL_FUNCTION)
-                .body(answerGenerationPayload)
-                .contentType("application/json");
-
-        // Step 3 - Query synchronously against the uploaded document
-        final Response llmAnswerResponse = postRequest(llmQueryRequestSpecification, "/AnswerRetrieval",
-                response -> response.getStatusCode() == 200 &&
-                        response.jsonPath().getString("llmResponse").contains("Paris"));
-        assertNotNull(llmAnswerResponse);
-
-        // Step 4 - Query asynchronously against the uploaded document
-        final Response asyncResponse = postRequest(llmQueryRequestSpecification, "/answer-user-query-async",
-                response -> response.getStatusCode() == 200 &&
-                        !response.jsonPath().getString("transactionId").isEmpty());
-
-        final String transactionId = asyncResponse.jsonPath().getString("transactionId");
-
-        // Step 5 - Check asynchronous answer generation
-        final Response answerGenerationResponse = pollForResponse(llmQueryRequestSpecification, RestOperation.GET, "/answer-user-query-async-status/" + transactionId,
-                response -> response.getStatusCode() == 200 &&
-                        response.jsonPath().getString("llmResponse").contains("Paris")
-        );
-        assertNotNull(answerGenerationResponse);
-
+        verifyAnswerRetrievalFunction(documentId1.toString(), "document_id");
     }
 
     @Test
@@ -130,7 +105,39 @@ public class OrchestrationIntegrationTest extends FunctionTestBase {
 
         final Response documentStatusResponse = pollForResponse(documentUploadStatusRequestSpecification, RestOperation.GET, "/document-upload/" + documentReference,
                 response -> response.getStatusCode() == 200 &&
-                        response.jsonPath().getString("status").equals("AWAITING_INGESTION"));
+                        response.jsonPath().getString("status").equals("INGESTION_SUCCESS"));
         assertNotNull(documentStatusResponse);
+
+        verifyAnswerRetrievalFunction(documentReference, "document_id");
+
+        //verify answer retrieval function using documentId - new way
+        verifyAnswerRetrievalFunction(documentReference, "documentId");
+    }
+
+    private void verifyAnswerRetrievalFunction(final String documentId, final String documentIdKey) throws InterruptedException, TimeoutException {
+        final RequestSpecification llmQueryRequestSpecification = getRequestSpecification(ANSWER_RETRIEVAL_FUNCTION)
+                .body(answerGenerationPayload.formatted(documentIdKey, documentId))
+                .contentType("application/json");
+
+        // Step 3 - Query synchronously against the uploaded document
+        final Response llmAnswerResponse = postRequest(llmQueryRequestSpecification, "/AnswerRetrieval",
+                response -> response.getStatusCode() == 200 &&
+                        response.jsonPath().getString("llmResponse").contains("Paris"));
+        assertNotNull(llmAnswerResponse);
+
+        // Step 4 - Query asynchronously against the uploaded document
+        final Response asyncResponse = postRequest(llmQueryRequestSpecification, "/answer-user-query-async",
+                response -> response.getStatusCode() == 200 &&
+                        !response.jsonPath().getString("transactionId").isEmpty());
+
+        final String transactionId = asyncResponse.jsonPath().getString("transactionId");
+
+        // Step 5 - Check asynchronous answer generation
+        final Response answerGenerationResponse = pollForResponse(llmQueryRequestSpecification, RestOperation.GET, "/answer-user-query-async-status/" + transactionId,
+                response -> response.getStatusCode() == 200 &&
+                        response.jsonPath().getString("llmResponse").contains("Paris")
+        );
+
+        assertNotNull(answerGenerationResponse);
     }
 }
