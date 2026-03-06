@@ -47,7 +47,8 @@ class DocumentIngestionOrchestratorTest {
                 "Contract-Agreement.pdf",
                 Collections.singletonMap("document_type", "CONTRACT"),
                 "https://storage.blob.core.windows.net/legal/Contract-Agreement.pdf",
-                "2025-10-07T10:30:45.123456Z"
+                "2025-10-07T10:30:45.123456Z",
+                false
         );
 
         doNothing().when(documentIngestionOutcomeTableService).upsertIntoTable(anyString(), anyString(), anyString(), anyString());
@@ -68,7 +69,8 @@ class DocumentIngestionOrchestratorTest {
                 "Burglary-IDPC.pdf",
                 Collections.singletonMap("document_type", "MCC"),
                 "https://storage.blob.core.windows.net/container/Burglary-IDPC.pdf",
-                "2025-10-06T05:14:39.658828Z"
+                "2025-10-06T05:14:39.658828Z",
+                false
         );
 
         doNothing().when(documentIngestionOutcomeTableService).upsertIntoTable(anyString(), anyString(), anyString(), anyString());
@@ -89,7 +91,8 @@ class DocumentIngestionOrchestratorTest {
                 "Simple-Document.pdf",
                 Collections.emptyMap(),
                 "https://storage.blob.core.windows.net/container/Simple-Document.pdf",
-                "2025-10-07T12:00:00.000000Z"
+                "2025-10-07T12:00:00.000000Z",
+                false
         );
 
         doNothing().when(documentIngestionOutcomeTableService).upsertIntoTable(anyString(), anyString(), anyString(), anyString());
@@ -110,7 +113,8 @@ class DocumentIngestionOrchestratorTest {
                 "Legal-Contract-Agreement.pdf",
                 Collections.singletonMap("document_type", "CONTRACT"),
                 "https://storage.blob.core.windows.net/legal/Legal-Contract-Agreement.pdf",
-                "2025-10-07T15:45:30.987654Z"
+                "2025-10-07T15:45:30.987654Z",
+                false
         );
 
         doNothing().when(documentIngestionOutcomeTableService).upsertIntoTable(anyString(), anyString(), anyString(), anyString());
@@ -120,6 +124,31 @@ class DocumentIngestionOrchestratorTest {
 
         // then
         verify(documentIngestionOutcomeTableService).upsertIntoTable("Legal-Contract-Agreement.pdf",
+                "789e0123-f456-7890-abcd-ef1234567890",
+                "INGESTION_SUCCESS",
+                "Document ingestion completed successfully");
+    }
+
+    @Test
+    @DisplayName("Handle Queue Message when isDocumentIdAsRowKey true")
+    void shouldHandleQueueMessageWhenDocumentIdUsedAsRowKey() throws Exception {
+        // given
+        QueueIngestionMetadata metadata = new QueueIngestionMetadata(
+                "789e0123-f456-7890-abcd-ef1234567890",
+                "Legal-Contract-Agreement.pdf",
+                Collections.singletonMap("document_type", "CONTRACT"),
+                "https://storage.blob.core.windows.net/legal/Legal-Contract-Agreement.pdf",
+                "2025-10-07T15:45:30.987654Z",
+                true
+        );
+
+        doNothing().when(documentIngestionOutcomeTableService).upsertDocument(anyString(), anyString(), anyString());
+
+        // when
+        orchestrator.processQueueMessage(metadata);
+
+        // then
+        verify(documentIngestionOutcomeTableService).upsertDocument(
                 "789e0123-f456-7890-abcd-ef1234567890",
                 "INGESTION_SUCCESS",
                 "Document ingestion completed successfully");

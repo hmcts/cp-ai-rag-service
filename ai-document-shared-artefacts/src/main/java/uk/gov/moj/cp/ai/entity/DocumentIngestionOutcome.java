@@ -35,11 +35,13 @@ public class DocumentIngestionOutcome extends BaseTableEntity {
 
     public DocumentIngestionOutcome(final String documentId,
                                     final String documentName,
+                                    final String metadata,
                                     final String status,
                                     final String reason,
                                     final String timestamp) {
         this.documentId = documentId;
         this.documentName = documentName;
+        this.metadata = metadata;
         this.status = status;
         this.reason = reason;
         this.timestamp = timestamp;

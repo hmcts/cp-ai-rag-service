@@ -78,7 +78,7 @@ public class DocumentUploadFunction {
      *
      * @param request The HTTP request containing the query
      * @param context The execution context
-     * @return HTTP response with transactionId
+     * @return HTTP response with storageUrl & documentReference
      */
     @FunctionName("InitiateDocumentUpload")
     public HttpResponseMessage run(

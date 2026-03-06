@@ -6,4 +6,6 @@ public record QueueIngestionMetadata(String documentId,
                                      String documentName,
                                      Map<String, String> metadata,
                                      String blobUrl,
-                                     String currentTimestamp ) {}
+                                     String currentTimestamp,
+                                     boolean isDocumentIdUsedAsRowKey) {
+}

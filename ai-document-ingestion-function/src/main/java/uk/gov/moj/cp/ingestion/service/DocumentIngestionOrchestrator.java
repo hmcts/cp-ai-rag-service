@@ -73,9 +73,11 @@ public class DocumentIngestionOrchestrator {
 
         requireNonNull(queueIngestionMetadata, "Queue ingestion metadata must not be null");
 
-        String documentName = queueIngestionMetadata.documentName();
-        String documentId = queueIngestionMetadata.documentId();
-        String documentUrl = queueIngestionMetadata.blobUrl();
+        final String documentName = queueIngestionMetadata.documentName();
+        final String documentId = queueIngestionMetadata.documentId();
+        final String documentUrl = queueIngestionMetadata.blobUrl();
+        final boolean isDocumentIdAsRowKey = queueIngestionMetadata.isDocumentIdUsedAsRowKey();
+
 
         LOGGER.info("Starting document ingestion process for document: {} (ID: {})", documentName, documentId);
         // Step 1: Analyze document using Azure Document Intelligence
@@ -91,19 +93,24 @@ public class DocumentIngestionOrchestrator {
         documentStorageService.uploadChunks(Collections.unmodifiableList(chunkedEntries));
 
         // Record success
-        recordOutcome(documentName, documentId, INGESTION_SUCCESS.name(), INGESTION_SUCCESS.getReason());
+        recordOutcome(documentName, documentId, INGESTION_SUCCESS.name(), INGESTION_SUCCESS.getReason(), isDocumentIdAsRowKey);
 
         LOGGER.info("Document ingestion completed successfully for document: {} (ID: {})", documentName, documentId);
 
     }
 
 
-    private void recordOutcome(String documentName,
-                               String documentId,
-                               String status,
-                               String reason) {
+    private void recordOutcome(final String documentName,
+                               final String documentId,
+                               final String status,
+                               final String reason,
+                               boolean isDocumentIdAsRowKey) {
 
-        documentIngestionOutcomeTableService.upsertIntoTable(documentName, documentId, status, reason);
+        if (isDocumentIdAsRowKey) {
+            documentIngestionOutcomeTableService.upsertDocument(documentId, status, reason);
+        } else {
+            documentIngestionOutcomeTableService.upsertIntoTable(documentName, documentId, status, reason);
+        }
 
         LOGGER.info("event=outcome_recorded status={} documentName={} documentId={}",
                 status, documentName, documentId);

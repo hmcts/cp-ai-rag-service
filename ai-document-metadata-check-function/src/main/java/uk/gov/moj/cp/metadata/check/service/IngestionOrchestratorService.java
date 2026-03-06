@@ -108,7 +108,7 @@ public class IngestionOrchestratorService {
         final String blobUrl = String.format("%s/%s/%s", blobStorageEndpoint, containerName, blobName);
         final String currentTimestamp = Instant.now().toString();
 
-        return new QueueIngestionMetadata(documentId, blobName, metadata, blobUrl, currentTimestamp);
+        return new QueueIngestionMetadata(documentId, blobName, metadata, blobUrl, currentTimestamp, false);
     }
 
     /**
