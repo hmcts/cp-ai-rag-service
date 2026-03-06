@@ -1,6 +1,8 @@
 package uk.gov.moj.cp.ai.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static uk.gov.moj.cp.ai.util.StringUtil.escapeLuceneSpecialChars;
+import static uk.gov.moj.cp.ai.util.StringUtil.removeTrailingSlash;
 
 import org.junit.jupiter.api.Test;
 
@@ -8,84 +10,84 @@ class StringUtilTest {
 
     @Test
     void removeTrailingSlash_removesSlashWhenPresent() {
-        String value = "example/";
-        String result = StringUtil.removeTrailingSlash(value);
+        final String value = "example/";
+        final String result = removeTrailingSlash(value);
         assertEquals("example", result);
     }
 
     @Test
     void removeOnlyTrailingSlash() {
-        String value = "http://example/";
-        String result = StringUtil.removeTrailingSlash(value);
+        final String value = "http://example/";
+        final String result = removeTrailingSlash(value);
         assertEquals("http://example", result);
     }
 
     @Test
     void removeTrailingSlash_returnsSameStringWhenNoTrailingSlash() {
-        String value = "example";
-        String result = StringUtil.removeTrailingSlash(value);
+        final String value = "example";
+        final String result = removeTrailingSlash(value);
         assertEquals("example", result);
     }
 
     @Test
     void removeTrailingSlash_returnsNullWhenInputIsNull() {
-        String result = StringUtil.removeTrailingSlash(null);
+        final String result = removeTrailingSlash(null);
         assertEquals(null, result);
     }
 
     @Test
     void removeTrailingSlash_returnsEmptyStringWhenInputIsEmpty() {
-        String result = StringUtil.removeTrailingSlash("");
+        final String result = removeTrailingSlash("");
         assertEquals("", result);
     }
 
     @Test
     void removeTrailingSlash_handlesStringWithOnlySlash() {
-        String value = "/";
-        String result = StringUtil.removeTrailingSlash(value);
+        final String value = "/";
+        final String result = removeTrailingSlash(value);
         assertEquals("", result);
     }
 
     @Test
     void escapeLuceneSpecialChars_returnsEmptyStringWhenInputIsNull() {
-        String result = StringUtil.escapeLuceneSpecialChars(null);
+        final String result = escapeLuceneSpecialChars(null);
         assertEquals("", result);
     }
 
     @Test
     void escapeLuceneSpecialChars_returnsEmptyStringWhenInputIsEmpty() {
-        String result = StringUtil.escapeLuceneSpecialChars("");
+        final String result = escapeLuceneSpecialChars("");
         assertEquals("", result);
     }
 
     @Test
     void escapeLuceneSpecialChars_escapesAllReservedCharacters() {
-        String input = "\"`<>#%(){}|\\^~[];/? :@=+-*&";
-        String expected = "\\\"\\`\\<\\>\\#\\%\\(\\)\\{\\}\\|\\\\\\^\\~\\[\\]\\;\\/\\? \\:\\@\\=\\+\\-\\*\\&";
-        String result = StringUtil.escapeLuceneSpecialChars(input);
+        final String input = "\"`<>#%(){}|\\^~[];/? :@=+-*&";
+        final String expected = "\\\"\\`\\<\\>\\#\\%\\(\\)\\{\\}\\|\\\\\\^\\~\\[\\]\\;\\/\\? \\:\\@\\=\\+\\-\\*\\&";
+        final String result = escapeLuceneSpecialChars(input);
         assertEquals(expected, result);
     }
 
     @Test
     void escapeLuceneSpecialChars_escapesBackslashOnlyOnce() {
-        String input = "\\";
-        String expected = "\\\\";
-        String result = StringUtil.escapeLuceneSpecialChars(input);
+        final String input = "\\";
+        final String expected = "\\\\";
+        final String result = escapeLuceneSpecialChars(input);
         assertEquals(expected, result);
     }
 
     @Test
     void escapeLuceneSpecialChars_leavesUnreservedCharactersUnchanged() {
-        String input = "abc123";
-        String result = StringUtil.escapeLuceneSpecialChars(input);
+        final String input = "abc123";
+        final String result = escapeLuceneSpecialChars(input);
         assertEquals("abc123", result);
     }
 
     @Test
     void escapeLuceneSpecialChars_escapesMixedContent() {
-        String input = "abc/def:ghi";
-        String expected = "abc\\/def\\:ghi";
-        String result = StringUtil.escapeLuceneSpecialChars(input);
+        final String input = "abc/def:ghi";
+        final String expected = "abc\\/def\\:ghi";
+        final String result = escapeLuceneSpecialChars(input);
         assertEquals(expected, result);
     }
 }

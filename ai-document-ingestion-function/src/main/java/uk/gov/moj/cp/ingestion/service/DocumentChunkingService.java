@@ -83,7 +83,7 @@ public class DocumentChunkingService {
                 String chunkContent = segment.text().trim();
 
                 if (isValidChunk(chunkContent)) {
-                    ChunkedEntry chunk = createChunkedEntry(pageIndex, chunkContent, queueMetadata, config, i);
+                    ChunkedEntry chunk = createChunkedEntry(pageIndex, chunkContent, queueMetadata, i);
                     pageChunks.add(chunk);
 
                     LOGGER.info("Created chunk {} for page {} with {} characters",
@@ -117,7 +117,6 @@ public class DocumentChunkingService {
     private ChunkedEntry createChunkedEntry(int pageIndex,
                                             String chunkContent,
                                             QueueIngestionMetadata queueMetadata,
-                                            ChunkingConfig config,
                                             int chunkIndex) {
 
         // Convert metadata to KeyValuePair list

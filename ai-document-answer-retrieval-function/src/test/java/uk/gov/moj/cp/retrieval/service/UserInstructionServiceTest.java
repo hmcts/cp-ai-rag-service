@@ -7,12 +7,12 @@ import org.junit.jupiter.api.Test;
 class UserInstructionServiceTest {
 
     private final UserInstructionService userInstructionService = new UserInstructionService();
+    private final String userQuery = "What is the legal status?";
+    private final String formattedChunks = "<RETRIEVED_DOCUMENTS>\n...</RETRIEVED_DOCUMENTS>";
 
     @Test
     void buildUserInstruction_ReturnsFormattedString_WhenAllInputsProvided() {
-        String userQuery = "What is the legal status?";
         String userQueryPrompt = "Provide a detailed answer.";
-        String formattedChunks = "<RETRIEVED_DOCUMENTS>\n...</RETRIEVED_DOCUMENTS>";
         String result = userInstructionService.buildUserInstruction(userQuery, userQueryPrompt, formattedChunks);
         String expected = """
                 --- SOURCE DOCUMENTS ---
@@ -30,9 +30,7 @@ class UserInstructionServiceTest {
 
     @Test
     void buildUserInstruction_HandlesNullUserQueryPrompt() {
-        String userQuery = "What is the legal status?";
         String userQueryPrompt = null;
-        String formattedChunks = "<RETRIEVED_DOCUMENTS>\n...</RETRIEVED_DOCUMENTS>";
         String result = userInstructionService.buildUserInstruction(userQuery, userQueryPrompt, formattedChunks);
         String expected = """
                 --- SOURCE DOCUMENTS ---
@@ -50,9 +48,7 @@ class UserInstructionServiceTest {
 
     @Test
     void buildUserInstruction_HandlesEmptyUserQueryPrompt() {
-        String userQuery = "What is the legal status?";
         String userQueryPrompt = "";
-        String formattedChunks = "<RETRIEVED_DOCUMENTS>\n...</RETRIEVED_DOCUMENTS>";
         String result = userInstructionService.buildUserInstruction(userQuery, userQueryPrompt, formattedChunks);
         String expected = """
                 --- SOURCE DOCUMENTS ---
@@ -70,7 +66,6 @@ class UserInstructionServiceTest {
 
     @Test
     void buildUserInstruction_HandlesEmptyFormattedChunks() {
-        String userQuery = "What is the legal status?";
         String userQueryPrompt = "Prompt";
         String formattedChunks = "";
         String result = userInstructionService.buildUserInstruction(userQuery, userQueryPrompt, formattedChunks);

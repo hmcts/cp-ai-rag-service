@@ -45,8 +45,6 @@ public class InitiateAnswerGenerationFunction {
 
     private final AnswerGenerationTableService answerGenerationTableService;
 
-    private static final String RESPONSE_STR = "{\"transactionId\":\"%s\"}";
-
     public InitiateAnswerGenerationFunction() {
         final String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION);
         answerGenerationTableService = new AnswerGenerationTableService(tableName);

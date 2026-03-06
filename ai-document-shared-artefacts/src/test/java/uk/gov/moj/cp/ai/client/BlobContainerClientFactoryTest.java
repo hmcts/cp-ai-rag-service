@@ -6,10 +6,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 
 import uk.gov.moj.cp.ai.client.config.ClientConfiguration;
-import uk.gov.moj.cp.ai.util.CredentialUtil;
 import uk.gov.moj.cp.ai.util.EnvVarUtil;
 
-import com.azure.core.credential.TokenCredential;
 import com.azure.core.http.HttpClient;
 import com.azure.core.http.policy.ExponentialBackoffOptions;
 import com.azure.core.http.policy.RetryOptions;

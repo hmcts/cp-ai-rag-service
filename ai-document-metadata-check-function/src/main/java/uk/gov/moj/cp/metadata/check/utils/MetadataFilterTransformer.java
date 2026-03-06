@@ -25,4 +25,8 @@ public class MetadataFilterTransformer {
         return ObjectMapperFactory.getObjectMapper().readValue(metadataMapAsString, new TypeReference<Map<String, String>>() {
         });
     }
+
+    private MetadataFilterTransformer(){
+        //util class
+    }
 }

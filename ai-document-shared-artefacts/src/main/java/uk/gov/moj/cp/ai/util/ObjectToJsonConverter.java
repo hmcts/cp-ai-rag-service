@@ -18,4 +18,8 @@ public class ObjectToJsonConverter {
             return "{}";
         }
     }
+
+    private ObjectToJsonConverter(){
+        //util class
+    }
 }
