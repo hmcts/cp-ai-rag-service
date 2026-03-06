@@ -66,9 +66,7 @@ class UserInstructionServiceTest {
 
     @Test
     void buildUserInstruction_HandlesEmptyFormattedChunks() {
-        String userQueryPrompt = "Prompt";
-        String formattedChunks = "";
-        String result = userInstructionService.buildUserInstruction(userQuery, userQueryPrompt, formattedChunks);
+        String result = userInstructionService.buildUserInstruction(userQuery, "Prompt", "");
         String expected = """
                 --- SOURCE DOCUMENTS ---
                 
