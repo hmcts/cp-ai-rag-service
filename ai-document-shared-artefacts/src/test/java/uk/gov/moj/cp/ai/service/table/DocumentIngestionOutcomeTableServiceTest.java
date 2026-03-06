@@ -101,6 +101,16 @@ class DocumentIngestionOutcomeTableServiceTest {
     }
 
     @Test
+    @DisplayName("Successfully upserts document using the documentId")
+    void successfullyUpsertsDocument() {
+        final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
+
+        service.upsertDocument("docId", "status", "reason");
+
+        verify(mockTableService).upsertIntoTable(any(TableEntity.class));
+    }
+
+    @Test
     @DisplayName("Throws exception when insert fails due to duplicate record")
     void throwsExceptionWhenInsertFailsDueToDuplicateRecord() throws DuplicateRecordException {
         final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
