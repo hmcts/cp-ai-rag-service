@@ -21,4 +21,8 @@ public class StorageTableColumns {
     public static final String TC_RESPONSE_GENERATION_TIME = "ResponseGenerationTime";
     public static final String TC_RESPONSE_GENERATION_DURATION = "ResponseGenerationDuration";
     public static final String TC_RESPONSE_GROUNDEDNESS_SCORE = "GroundednessScore";
+
+    private StorageTableColumns(){
+        //constants class
+    }
 }

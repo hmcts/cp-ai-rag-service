@@ -45,7 +45,8 @@ class DocumentIngestionFunctionTest {
                 Map.of("case_id", "b99704aa-b1b1-4d5f-bb39-47dc3f18ffa9",
                         "document_type", "MCC"),
                 "https://storage.blob.core.windows.net/documents/Burglary-IDPC.pdf",
-                Instant.now().toString()
+                Instant.now().toString(),
+                false
         );
 
         String queueMessage = new ObjectMapper().writeValueAsString(metadata);
@@ -81,7 +82,8 @@ class DocumentIngestionFunctionTest {
                 Map.of("case_id", "b99704aa-b1b1-4d5f-bb39-47dc3f18ffa9",
                         "document_type", "MCC"),
                 "https://storage.blob.core.windows.net/documents/Burglary-IDPC.pdf",
-                Instant.now().toString()
+                Instant.now().toString(),
+                false
         );
 
         String queueMessage = new ObjectMapper().writeValueAsString(metadata);

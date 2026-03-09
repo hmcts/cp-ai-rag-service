@@ -23,4 +23,8 @@ public class ChunkUtil {
             return chunk;
         }).toList();
     }
+
+    private ChunkUtil(){
+        //util class
+    }
 }
