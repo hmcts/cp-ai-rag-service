@@ -2,11 +2,11 @@ package uk.gov.moj.cp.retrieval.service;
 
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
+import static uk.gov.moj.cp.ai.util.StringUtil.unescapeContent;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.ai.util.ChunkFormatterUtility;
-import uk.gov.moj.cp.ai.util.EnvVarUtil;
 
 import java.util.List;
 
@@ -34,7 +34,7 @@ public class ResponseGenerationService {
         chunkFormatterUtility = new ChunkFormatterUtility();
         userInstructionService = new UserInstructionService();
 
-        systemPromptTemplate = getRequiredEnv("RESPONSE_GENERATION_SYSTEM_PROMPT");
+        systemPromptTemplate = unescapeContent(getRequiredEnv("RESPONSE_GENERATION_SYSTEM_PROMPT"));
     }
 
     public ResponseGenerationService(final ChatService chatService, final CitationProcessor citationProcessor, final ChunkFormatterUtility chunkFormatterUtility, final UserInstructionService userInstructionService, final String systemPromptTemplate) {

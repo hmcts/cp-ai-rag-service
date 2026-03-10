@@ -3,6 +3,7 @@ package uk.gov.moj.cp.ai.util;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static uk.gov.moj.cp.ai.util.StringUtil.escapeLuceneSpecialChars;
 import static uk.gov.moj.cp.ai.util.StringUtil.removeTrailingSlash;
+import static uk.gov.moj.cp.ai.util.StringUtil.unescapeContent;
 
 import org.junit.jupiter.api.Test;
 
@@ -89,5 +90,28 @@ class StringUtilTest {
         final String expected = "abc\\/def\\:ghi";
         final String result = escapeLuceneSpecialChars(input);
         assertEquals(expected, result);
+    }
+
+    @Test
+    void unescapeContent_returnsNullWhenInputIsNull() {
+        assertEquals(null, unescapeContent(null));
+    }
+
+    @Test
+    void unescapeContent_returnsEmptyStringWhenInputIsEmpty() {
+        assertEquals("", unescapeContent(""));
+    }
+
+    @Test
+    void unescapeContent_replacesEscapedNewlineAndQuote() {
+        String input = "Line1\\nLine2\\\"Quoted\\\"";
+        String expected = "Line1\nLine2\"Quoted\"";
+        assertEquals(expected, unescapeContent(input));
+    }
+
+    @Test
+    void unescapeContent_doesNotChangeStringWithoutEscapedCharacters() {
+        String input = "Just a normal string";
+        assertEquals(input, unescapeContent(input));
     }
 }
