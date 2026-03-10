@@ -26,7 +26,7 @@ public class ChunkFormatterUtility {
 
         for (Map.Entry<String, List<ChunkedEntry>> entriesPerDocument : entriesByDocumentId.entrySet()) {
             final String documentId = entriesPerDocument.getKey();
-            final ChunkedEntry firstChunkForDocumentId = entriesByDocumentId.values().stream().findFirst().get().get(0);
+            final ChunkedEntry firstChunkForDocumentId = entriesPerDocument.getValue().getFirst();
             String documentFileName = extractMaterialName(firstChunkForDocumentId)
                     .orElse(firstChunkForDocumentId.documentFileName());
             sb.append("<DOCUMENT DOCUMENT_ID=\"").append(documentId).append("\" DOCUMENT_FILENAME=\"").append(documentFileName).append("\">\n");
