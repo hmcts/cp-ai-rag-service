@@ -80,9 +80,9 @@ class ChunkFormatterUtilityTest {
                 .customMetadata(List.of(new KeyValuePair("material_name", "Mat2")))
                 .build();
         String result = chunkFormatterUtility.buildChunkContext(List.of(entry1, entry2, entry3));
-        assertThat(result).hasXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_ID='doc1']/DATA[1]/DOCUMENT_CONTENT[text()='Content1']");
-        assertThat(result).hasXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_ID='doc1']/DATA[2]/DOCUMENT_CONTENT[text()='Content2']");
-        assertThat(result).hasXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_ID='doc2']/DATA[1]/DOCUMENT_CONTENT[text()='Content3']");
+        assertThat(result).hasXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_FILENAME='Mat1' and @DOCUMENT_ID='doc1']/DATA[1]/DOCUMENT_CONTENT[text()='Content1']");
+        assertThat(result).hasXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_FILENAME='Mat1' and @DOCUMENT_ID='doc1']/DATA[2]/DOCUMENT_CONTENT[text()='Content2']");
+        assertThat(result).hasXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_FILENAME='Mat2' and @DOCUMENT_ID='doc2']/DATA[1]/DOCUMENT_CONTENT[text()='Content3']");
     }
 
     @Test
