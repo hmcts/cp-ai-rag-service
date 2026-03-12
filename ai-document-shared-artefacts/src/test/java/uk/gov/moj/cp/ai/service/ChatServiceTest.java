@@ -67,7 +67,7 @@ class ChatServiceTest {
 
     @Test
     @DisplayName("Returns client specific exception when OpenAI client throws exception")
-    void returnsEmptyOptionalWhenOpenAIClientThrowsException() throws ChatServiceException {
+    void returnsEmptyOptionalWhenOpenAIClientThrowsException() {
         when(openAIClientMock.getChatCompletions(eq(DEPLOYMENT_NAME), any(ChatCompletionsOptions.class)))
                 .thenThrow(new RuntimeException("Client error"));
 
