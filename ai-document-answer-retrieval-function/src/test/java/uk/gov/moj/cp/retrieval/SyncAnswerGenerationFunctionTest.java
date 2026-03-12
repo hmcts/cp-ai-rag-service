@@ -10,13 +10,16 @@ import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATED;
 import static uk.org.webcompere.modelassert.json.JsonAssertions.json;
 
+import uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus;
 import uk.gov.hmcts.cp.openapi.model.AnswerUserQueryRequest;
 import uk.gov.hmcts.cp.openapi.model.MetadataFilter;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.exception.SearchServiceException;
+import uk.gov.moj.cp.retrieval.model.LlmResponse;
 import uk.gov.moj.cp.retrieval.service.AzureAISearchService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
@@ -103,7 +106,7 @@ class SyncAnswerGenerationFunctionTest {
 
         when(mockEmbedDataService.getEmbedding("query")).thenReturn(mockEmbeddings);
         when(mockSearchService.search(eq("query"), eq(mockEmbeddings), eq(convertToKeyValuePair(metadataFilter)))).thenReturn(mockSearchDocuments);
-        when(mockResponseGenerationService.generateResponse("query", mockSearchDocuments, "prompt")).thenReturn("generated response");
+        when(mockResponseGenerationService.generateResponse("query", mockSearchDocuments, "prompt")).thenReturn(new LlmResponse("raw response", "generated response", ANSWER_GENERATED));
         when(mockRequest.getBody()).thenReturn(payload);
         mockHttpResponse(OK);
 

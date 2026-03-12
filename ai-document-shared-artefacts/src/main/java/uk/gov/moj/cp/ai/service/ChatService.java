@@ -1,5 +1,8 @@
 package uk.gov.moj.cp.ai.service;
 
+import static java.lang.Integer.parseInt;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.LLM_MODEL_RESPONSE_MAX_TOKENS;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
@@ -31,11 +34,13 @@ public class ChatService {
 
     private final OpenAIClient openAIClient;
 
-    private static final int MAX_TOKENS = 4000;
+    private static final String MAX_TOKENS = "1000";
     private static final double TEMPERATURE = 0.0;
     private static final double TOP_P = 0.0;
 
     private final String deploymentName;
+
+    private final int maxTokens;
 
     public ChatService(final String endpoint, final String deploymentName) {
 
@@ -45,11 +50,14 @@ public class ChatService {
         this.openAIClient = OpenAIClientFactory.getInstance(endpoint);
         this.deploymentName = deploymentName;
 
+        maxTokens = getRequiredEnvAsInteger(LLM_MODEL_RESPONSE_MAX_TOKENS, MAX_TOKENS);
+
     }
 
     protected ChatService(final OpenAIClient openAIClient, final String deploymentName) {
         this.deploymentName = deploymentName;
         this.openAIClient = openAIClient;
+        maxTokens = parseInt(MAX_TOKENS);
         LOGGER.info("Returning initialized Azure OpenAI client for chat with Managed Identity.");
     }
 
@@ -57,7 +65,7 @@ public class ChatService {
         final List<ChatRequestMessage> chatMessages = getChatMessages(systemInstruction, userInstruction);
 
         ChatCompletionsOptions chatCompletionsOptions = new ChatCompletionsOptions(chatMessages)
-                .setMaxTokens(MAX_TOKENS) // Keep the response concise
+                .setMaxTokens(maxTokens) // Keep the response concise
                 .setTemperature(TEMPERATURE) // Low temperature for deterministic scoring
                 .setTopP(TOP_P);
 
@@ -128,7 +136,7 @@ public class ChatService {
     }
 
     private String ensureRawJsonAsConvertingPayloadToObject(final String llmResponse) {
-        if(llmResponse.contains("```")){
+        if (llmResponse.contains("```")) {
             LOGGER.info("LLM response contains \"```\" and will require sanitising");
         }
 

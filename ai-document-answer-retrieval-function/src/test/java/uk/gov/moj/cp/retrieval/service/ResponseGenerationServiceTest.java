@@ -8,11 +8,16 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.openMocks;
+import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATED;
+import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATION_FAILED;
+import static uk.gov.moj.cp.retrieval.service.ResponseGenerationService.LLM_RESPONSE_FAILURE_TO_GENERATE;
+import static uk.gov.moj.cp.retrieval.service.ResponseGenerationService.LLM_RESPONSE_NO_DATA_AVAILABLE;
 
 import uk.gov.moj.cp.ai.exception.ChatServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.ai.util.ChunkFormatterUtility;
+import uk.gov.moj.cp.retrieval.model.LlmResponse;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +43,7 @@ class ResponseGenerationServiceTest {
 
     private ResponseGenerationService responseGenerationService;
 
-    final String mockProcessedResponse = "Some random processed response";
+    final String mockFormattedLlmResponse = "Some random processed response";
     final String mockFormattedChunk = "Some random formatted chunk entry";
     final String mockUserInstructions = "Some random generated user instructions";
     final String mockSystemPromptTemplate = "Some random prompt template";
@@ -53,8 +58,10 @@ class ResponseGenerationServiceTest {
     void generateResponse_ReturnsTrimmedAndCitationFormattedResponse_WhenChatServiceReturnsValidResponse() throws ChatServiceException {
         final String userQuery = "What is the legal implication?";
         final String userQueryPrompt = "Provide detailed legal advice.";
+        final String mockRawLlmResponse = "Valid AI Response [1]] " +
+                "and even more response with faulty citation [2]";
 
-        List<ChunkedEntry> chunkedEntries = new ArrayList<>();
+        final List<ChunkedEntry> chunkedEntries = new ArrayList<>();
         chunkedEntries.add(ChunkedEntry.builder()
                 .id("id1")
                 .chunk("Chunk 1")
@@ -64,19 +71,18 @@ class ResponseGenerationServiceTest {
                 .build());
 
 
-        String mockResponse = "Valid AI Response [1]] " +
-                "and even more response with faulty citation [2]";
-
-        when(citationProcessor.processAndFormatCitations(mockResponse)).thenReturn(mockProcessedResponse);
+        when(citationProcessor.processAndFormatCitations(mockRawLlmResponse)).thenReturn(mockFormattedLlmResponse);
         when(chunkFormatterUtility.buildChunkContext(chunkedEntries)).thenReturn(mockFormattedChunk);
         when(userInstructionService.buildUserInstruction(userQuery, userQueryPrompt, mockFormattedChunk)).thenReturn(mockUserInstructions);
         when(mockChatService.callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class)))
-                .thenReturn(Optional.of(mockResponse));
+                .thenReturn(Optional.of(mockRawLlmResponse));
 
-        String result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
+        final LlmResponse result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
 
-        assertEquals(mockProcessedResponse, result);
-        verify(citationProcessor).processAndFormatCitations(mockResponse);
+        assertEquals(mockFormattedLlmResponse, result.formattedLlmResponse());
+        assertEquals(mockRawLlmResponse, result.rawLlmResponse());
+        assertEquals(ANSWER_GENERATED, result.status());
+        verify(citationProcessor).processAndFormatCitations(mockRawLlmResponse);
         verify(chunkFormatterUtility).buildChunkContext(chunkedEntries);
         verify(userInstructionService).buildUserInstruction(userQuery, userQueryPrompt, mockFormattedChunk);
         verify(mockChatService).callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class));
@@ -84,9 +90,9 @@ class ResponseGenerationServiceTest {
 
     @Test
     void generateResponse_ReturnsNoResponseMessage_WhenChatServiceReturnsEmpty() throws ChatServiceException {
-        String userQuery = "What is the legal implication?";
-        String userQueryPrompt = "Provide detailed legal advice.";
-        List<ChunkedEntry> chunkedEntries = List.of(
+        final String userQuery = "What is the legal implication?";
+        final String userQueryPrompt = "Provide detailed legal advice.";
+        final List<ChunkedEntry> chunkedEntries = List.of(
                 ChunkedEntry.builder()
                         .id("id1")
                         .chunk("Chunk 1")
@@ -101,9 +107,11 @@ class ResponseGenerationServiceTest {
         when(mockChatService.callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class)))
                 .thenReturn(Optional.empty());
 
-        String result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
+        final LlmResponse result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
 
-        assertEquals("No response generated by the service.", result);
+        assertEquals(LLM_RESPONSE_FAILURE_TO_GENERATE, result.rawLlmResponse());
+        assertEquals(LLM_RESPONSE_FAILURE_TO_GENERATE, result.formattedLlmResponse());
+        assertEquals(ANSWER_GENERATION_FAILED, result.status());
 
         verify(mockChatService).callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class));
         verify(citationProcessor, never()).processAndFormatCitations(any());
@@ -113,9 +121,9 @@ class ResponseGenerationServiceTest {
 
     @Test
     void generateResponse_ReturnsErrorMessage_WhenChatServiceThrowsException() throws ChatServiceException {
-        String userQuery = "What is the legal implication?";
-        String userQueryPrompt = "Provide detailed legal advice.";
-        List<ChunkedEntry> chunkedEntries = List.of(
+        final String userQuery = "What is the legal implication?";
+        final String userQueryPrompt = "Provide detailed legal advice.";
+        final List<ChunkedEntry> chunkedEntries = List.of(
                 ChunkedEntry.builder()
                         .id("id1")
                         .chunk("Chunk 1")
@@ -130,9 +138,12 @@ class ResponseGenerationServiceTest {
         when(mockChatService.callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class)))
                 .thenThrow(new RuntimeException("Service error"));
 
-        String result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
+        final LlmResponse result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
 
-        assertEquals("An error occurred while generating the response.", result);
+        assertEquals(LLM_RESPONSE_FAILURE_TO_GENERATE, result.rawLlmResponse());
+        assertEquals(LLM_RESPONSE_FAILURE_TO_GENERATE, result.formattedLlmResponse());
+        assertEquals(ANSWER_GENERATION_FAILED, result.status());
+
         verify(mockChatService).callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class));
         verify(citationProcessor, never()).processAndFormatCitations(any());
         verify(chunkFormatterUtility).buildChunkContext(chunkedEntries);
@@ -143,13 +154,16 @@ class ResponseGenerationServiceTest {
     void generateResponse_ReturnsDefaultContextMessage_WhenChunkedEntriesAreNullOrEmpty() throws ChatServiceException {
         final String userQuery = "What is the legal implication?";
         final String userQueryPrompt = "Provide detailed legal advice.";
-        final String sampleResponse = "No response generated by the service.";
 
-        String resultWithNullEntries = responseGenerationService.generateResponse(userQuery, null, userQueryPrompt);
-        assertEquals(sampleResponse, resultWithNullEntries);
+        LlmResponse result = responseGenerationService.generateResponse(userQuery, null, userQueryPrompt);
+        assertEquals(LLM_RESPONSE_NO_DATA_AVAILABLE, result.rawLlmResponse());
+        assertEquals(LLM_RESPONSE_NO_DATA_AVAILABLE, result.formattedLlmResponse());
+        assertEquals(ANSWER_GENERATED, result.status());
 
-        String resultWithEmptyEntries = responseGenerationService.generateResponse(userQuery, List.of(), userQueryPrompt);
-        assertEquals(sampleResponse, resultWithEmptyEntries);
+        result = responseGenerationService.generateResponse(userQuery, List.of(), userQueryPrompt);
+        assertEquals(LLM_RESPONSE_NO_DATA_AVAILABLE, result.rawLlmResponse());
+        assertEquals(LLM_RESPONSE_NO_DATA_AVAILABLE, result.formattedLlmResponse());
+        assertEquals(ANSWER_GENERATED, result.status());
 
         verify(mockChatService, never()).callModel(anyString(), eq(userQuery), eq(String.class));
     }
