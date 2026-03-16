@@ -62,7 +62,10 @@ public class BlobClientService {
         final OffsetDateTime expiry = start.plusMinutes(urlExpiryMinutes);
         final UserDelegationKey key = serviceClient.getUserDelegationKey(start, expiry);
 
-        final BlobSasPermission permissions = new BlobSasPermission().setCreatePermission(true);
+        final BlobSasPermission permissions = new BlobSasPermission()
+                .setReadPermission(true)
+                .setWritePermission(false)
+                .setCreatePermission(true);
 
         final BlobServiceSasSignatureValues sasValues = new BlobServiceSasSignatureValues(expiry, permissions)
                 .setStartTime(start)
