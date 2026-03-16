@@ -6,18 +6,21 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNotNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATED;
+import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATION_FAILED;
 import static uk.gov.moj.cp.retrieval.AnswerGenerationFunction.LLM_INPUT_CHUNKS;
 import static uk.org.webcompere.modelassert.json.JsonAssertions.json;
 
 import uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
-import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
+import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
+import uk.gov.moj.cp.retrieval.model.LlmResponse;
 import uk.gov.moj.cp.retrieval.service.AzureAISearchService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
@@ -142,7 +145,7 @@ class AnswerGenerationFunctionTest {
 
         when(mockResponseGenerationService.generateResponse(
                 "query", chunkedEntries, "prompt"))
-                .thenReturn("generated response");
+                .thenReturn(new LlmResponse("raw response", "generated response", ANSWER_GENERATED));
 
         function.run(queueMessage, mockScoringOutputBinding);
 
@@ -163,6 +166,75 @@ class AnswerGenerationFunctionTest {
                 argThat(
                         json().at("/userQuery").isText("query")
                                 .at("/llmResponse").isText("generated response")
+                                .at("/queryPrompt").isText("prompt")
+                                .at("/chunkedEntries").isArray()
+                                .at("/transactionId").isText(transactionId.toString())
+                                .toArgumentMatcher()
+                )
+        );
+
+        verify(mockScoringOutputBinding).setValue(
+                argThat(
+                        json().at("/filename")
+                                .matches("^llm-answer-with-chunks-" + transactionId + ".json$")
+                                .toArgumentMatcher()
+                )
+        );
+    }
+
+    @Test
+    void run_DoesNotGenerateAnswer_WhenValidPayloadProvided() throws Exception {
+        UUID transactionId = randomUUID();
+
+        AnswerGenerationQueuePayload payload =
+                new AnswerGenerationQueuePayload(
+                        transactionId,
+                        "query",
+                        "prompt",
+                        List.of(new KeyValuePair("key", "value"))
+                );
+
+        String queueMessage = objectMapper.writeValueAsString(payload);
+
+        List<Float> embeddings = List.of(1.0f, 2.0f);
+        List<ChunkedEntry> chunkedEntries =
+                List.of(ChunkedEntry.builder()
+                        .id("1")
+                        .chunk("Sample content")
+                        .documentFileName("doc.pdf")
+                        .pageNumber(1)
+                        .documentId("doc1")
+                        .build());
+
+        when(mockEmbedDataService.getEmbedding("query"))
+                .thenReturn(embeddings);
+
+        when(mockSearchService.search("query", embeddings, payload.metadataFilter()))
+                .thenReturn(chunkedEntries);
+
+        when(mockResponseGenerationService.generateResponse(
+                "query", chunkedEntries, "prompt"))
+                .thenReturn(new LlmResponse("raw error", "raw formatted error", ANSWER_GENERATION_FAILED));
+
+        function.run(queueMessage, mockScoringOutputBinding);
+
+        verify(mockAnswerGenerationTableService).upsertIntoTable(
+                eq(transactionId.toString()),
+                eq("query"),
+                eq("prompt"),
+                eq(format(LLM_INPUT_CHUNKS, transactionId)),
+                eq("raw formatted error"),
+                eq(ANSWER_GENERATION_FAILED),
+                isNotNull(),
+                any(OffsetDateTime.class),
+                any(Long.class)
+        );
+
+        verify(mockBlobPersistenceService).saveBlob(
+                anyString(),
+                argThat(
+                        json().at("/userQuery").isText("query")
+                                .at("/llmResponse").isText("raw formatted error")
                                 .at("/queryPrompt").isText("prompt")
                                 .at("/chunkedEntries").isArray()
                                 .at("/transactionId").isText(transactionId.toString())

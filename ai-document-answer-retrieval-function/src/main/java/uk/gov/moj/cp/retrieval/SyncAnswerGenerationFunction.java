@@ -22,6 +22,7 @@ import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.model.ScoringPayload;
 import uk.gov.moj.cp.ai.model.ScoringQueuePayload;
+import uk.gov.moj.cp.retrieval.model.LlmResponse;
 import uk.gov.moj.cp.retrieval.service.AzureAISearchService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
@@ -103,11 +104,11 @@ public class SyncAnswerGenerationFunction {
 
             final List<ChunkedEntry> chunkedEntries = searchService.search(userQuery, queryEmbeddings, metadataFilters);
 
-            final String llmResponse = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
+            final LlmResponse llmResponse = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
 
             LOGGER.info("Answer retrieval processing completed successfully for query: {}", userQuery);
 
-            final UserQueryAnswerReturnedSuccessfullySynchronously queryResponse = new UserQueryAnswerReturnedSuccessfullySynchronously(userQuery, llmResponse, userQueryPrompt, transformChunkEntries(chunkedEntries));
+            final UserQueryAnswerReturnedSuccessfullySynchronously queryResponse = new UserQueryAnswerReturnedSuccessfullySynchronously(userQuery, llmResponse.formattedLlmResponse(), userQueryPrompt, transformChunkEntries(chunkedEntries));
 
             final String responseAsString = convert(queryResponse);
 
@@ -117,7 +118,7 @@ public class SyncAnswerGenerationFunction {
                     getObjectMapper().writeValueAsString(
                             new ScoringPayload(
                                     userQuery,
-                                    llmResponse,
+                                    llmResponse.formattedLlmResponse(),
                                     userQueryPrompt,
                                     chunkedEntries,
                                     null

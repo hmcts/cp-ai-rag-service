@@ -12,8 +12,8 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWE
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
-import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
+import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
@@ -22,6 +22,7 @@ import uk.gov.moj.cp.ai.model.ScoringPayload;
 import uk.gov.moj.cp.ai.model.ScoringQueuePayload;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
+import uk.gov.moj.cp.retrieval.model.LlmResponse;
 import uk.gov.moj.cp.retrieval.service.AzureAISearchService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
@@ -123,7 +124,7 @@ public class AnswerGenerationFunction {
 
             final List<Float> embeddings = embedDataService.getEmbedding(payload.userQuery());
             final List<ChunkedEntry> chunkedEntries = searchService.search(payload.userQuery(), embeddings, payload.metadataFilter());
-            final String llmResponse = responseGenerationService.generateResponse(payload.userQuery(), chunkedEntries, payload.queryPrompt());
+            final LlmResponse llmResponse = responseGenerationService.generateResponse(payload.userQuery(), chunkedEntries, payload.queryPrompt());
 
             final String inputChunksFilename = saveInputChunksToTheBlobContainer(transactionId, chunkedEntries);
 
@@ -134,16 +135,16 @@ public class AnswerGenerationFunction {
                     payload.userQuery(),
                     payload.queryPrompt(),
                     inputChunksFilename,
-                    llmResponse,
-                    AnswerGenerationStatus.ANSWER_GENERATED,
-                    null,
+                    llmResponse.formattedLlmResponse(),
+                    llmResponse.status(),
+                    llmResponse.status() == AnswerGenerationStatus.ANSWER_GENERATION_FAILED ? "Error generating response" : null,
                     OffsetDateTime.now(),
                     durationMs
             );
 
             // Persist blob + scoring queue
             final String filename = saveLlmResponseToTheBlobContainer(transactionId, payload.userQuery(), payload.queryPrompt(),
-                    llmResponse, chunkedEntries);
+                    llmResponse.formattedLlmResponse(), chunkedEntries);
             scoringMessage.setValue(getObjectMapper().writeValueAsString(new ScoringQueuePayload(filename)));
 
             LOGGER.info("Answer generation completed for transactionId={} in {} ms", transactionId, durationMs);

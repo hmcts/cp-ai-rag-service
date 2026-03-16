@@ -25,6 +25,16 @@ public class StringUtil {
         return value;
     }
 
+    public static String unescapeContent(String content) {
+        if (isNullOrEmpty(content)) {
+            return content;
+        }
+
+        return content
+                .replace("\\n", "\n")
+                .replace("\\\"", "\"");
+    }
+
     /**
      * Escapes all Lucene reserved characters in a string by preceding them with a backslash. This
      * is necessary when using QueryType.FULL and the user's input is intended as a literal search
