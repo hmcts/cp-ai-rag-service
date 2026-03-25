@@ -61,8 +61,8 @@ class AzureAISearchServiceTest {
     @Test
     @DisplayName("Throws exception when userQuery is null or empty")
     void throwsExceptionWhenUserQueryIsNullOrEmpty() {
-        List<Float> vector = Arrays.asList(1.0f, 2.0f);
-        List<KeyValuePair> filters = List.of(new KeyValuePair("k", "v"));
+        final List<Float> vector = Arrays.asList(1.0f, 2.0f);
+        final List<KeyValuePair> filters = List.of(new KeyValuePair("k", "v"));
         assertThrows(IllegalArgumentException.class, () -> service.search(null, vector, filters));
         assertThrows(IllegalArgumentException.class, () -> service.search("", vector, filters));
     }
@@ -70,7 +70,7 @@ class AzureAISearchServiceTest {
     @Test
     @DisplayName("Throws exception when vectorizedUserQuery is null or empty")
     void throwsExceptionWhenVectorizedUserQueryIsNullOrEmpty() {
-        List<KeyValuePair> filters = List.of(new KeyValuePair("k", "v"));
+        final List<KeyValuePair> filters = List.of(new KeyValuePair("k", "v"));
         assertThrows(IllegalArgumentException.class, () -> service.search("query", null, filters));
         assertThrows(IllegalArgumentException.class, () -> service.search("query", Collections.emptyList(), filters));
     }
@@ -78,7 +78,7 @@ class AzureAISearchServiceTest {
     @Test
     @DisplayName("Throws exception when metadataFilters is null or empty")
     void throwsExceptionWhenMetadataFiltersIsNullOrEmpty() {
-        List<Float> vector = Arrays.asList(1.0f, 2.0f);
+        final List<Float> vector = Arrays.asList(1.0f, 2.0f);
         assertThrows(IllegalArgumentException.class, () -> service.search("query", vector, null));
         assertThrows(IllegalArgumentException.class, () -> service.search("query", vector, Collections.emptyList()));
     }
@@ -87,15 +87,15 @@ class AzureAISearchServiceTest {
     @DisplayName("Returns deduplicated results from search")
     void returnsDeduplicatedResultsFromSearch() throws SearchServiceException {
         final String userQuery = "query";
-        List<Float> vector = Arrays.asList(1.0f, 2.0f);
-        List<KeyValuePair> filters = List.of(new KeyValuePair("k", "v"));
-        SearchPagedIterable mockPagedIterable = mock(SearchPagedIterable.class);
-        SearchResult mockResult = mock(SearchResult.class);
+        final List<Float> vector = Arrays.asList(1.0f, 2.0f);
+        final List<KeyValuePair> filters = List.of(new KeyValuePair("k", "v"));
+        final SearchPagedIterable mockPagedIterable = mock(SearchPagedIterable.class);
+        final SearchResult mockResult = mock(SearchResult.class);
         when(mockPagedIterable.iterator()).thenReturn(Arrays.asList(mockResult).iterator());
-        ChunkedEntry entry = ChunkedEntry.builder().id("id").build();
+        final ChunkedEntry entry = ChunkedEntry.builder().id("id").build();
         when(mockResult.getDocument(ChunkedEntry.class)).thenReturn(entry);
         when(mockSearchClient.search(anyString(), any(SearchOptions.class), any())).thenReturn(mockPagedIterable);
-        List<ChunkedEntry> result = service.search(userQuery, vector, filters);
+        final List<ChunkedEntry> result = service.search(userQuery, vector, filters);
         when(mockDeduplicationService.performSemanticDeduplication(anyList())).thenReturn(List.of(entry));
         assertEquals(1, result.size());
         assertEquals("id", result.get(0).id());
@@ -104,8 +104,8 @@ class AzureAISearchServiceTest {
     @Test
     @DisplayName("Throws SearchServiceException on search client failure")
     void throwsSearchServiceExceptionOnSearchClientFailure() {
-        List<Float> vector = Arrays.asList(1.0f, 2.0f);
-        List<KeyValuePair> filters = List.of(new KeyValuePair("k", "v"));
+        final List<Float> vector = Arrays.asList(1.0f, 2.0f);
+        final List<KeyValuePair> filters = List.of(new KeyValuePair("k", "v"));
         when(mockSearchClient.search(anyString(), any(SearchOptions.class), any())).thenThrow(new RuntimeException("fail"));
         assertThrows(SearchServiceException.class, () -> service.search("query", vector, filters));
     }
@@ -120,7 +120,7 @@ class AzureAISearchServiceTest {
     @Test
     @DisplayName("generateFilterExpression returns correct filter string for single filter")
     void generateFilterExpressionReturnsCorrectStringForSingleFilter() {
-        List<KeyValuePair> filters = List.of(new KeyValuePair("foo", "bar"));
+        final List<KeyValuePair> filters = List.of(new KeyValuePair("foo", "bar"));
         final String result = service.generateFilterExpression(filters);
         assertTrue(result.contains("customMetadata/any(m: m/key eq 'foo' and m/value eq 'bar')"));
     }
@@ -129,7 +129,7 @@ class AzureAISearchServiceTest {
     @DisplayName("generateFilterExpression joins multiple filters with and")
     void generateFilterExpressionJoinsMultipleFiltersWithAnd() throws Exception {
 
-        List<KeyValuePair> filters = Arrays.asList(
+        final List<KeyValuePair> filters = Arrays.asList(
                 new KeyValuePair("foo", "bar"),
                 new KeyValuePair("baz", "qux")
         );
@@ -144,13 +144,13 @@ class AzureAISearchServiceTest {
     @DisplayName("getColumnsToRetrieve returns correct columns based on deduplication flag")
     void getColumnsToRetrieveReturnsCorrectColumns() {
         // Deduplication enabled
-        AzureAISearchService serviceWithDedup = new AzureAISearchService("endpoint", "index", true);
-        String[] columnsWithDedup = serviceWithDedup.getColumnsToRetrieve();
+        final AzureAISearchService serviceWithDedup = new AzureAISearchService("endpoint", "index", true);
+        final String[] columnsWithDedup = serviceWithDedup.getColumnsToRetrieve();
         assertTrue(List.of(columnsWithDedup).contains(IndexConstants.CHUNK_VECTOR));
 
         // Deduplication disabled
-        AzureAISearchService serviceWithoutDedup = new AzureAISearchService("endpoint", "index", false);
-        String[] columnsWithoutDedup = serviceWithoutDedup.getColumnsToRetrieve();
+        final AzureAISearchService serviceWithoutDedup = new AzureAISearchService("endpoint", "index", false);
+        final String[] columnsWithoutDedup = serviceWithoutDedup.getColumnsToRetrieve();
         assertFalse(List.of(columnsWithoutDedup).contains(IndexConstants.CHUNK_VECTOR));
     }
 

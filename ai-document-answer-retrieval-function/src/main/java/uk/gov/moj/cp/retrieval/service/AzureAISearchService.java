@@ -67,9 +67,9 @@ public class AzureAISearchService {
     }
 
     public List<ChunkedEntry> search(
-            String userQuery,
-            List<Float> vectorizedUserQuery,
-            List<KeyValuePair> metadataFilters) throws SearchServiceException {
+            final String userQuery,
+            final List<Float> vectorizedUserQuery,
+            final List<KeyValuePair> metadataFilters) throws SearchServiceException {
 
         if (isNullOrEmpty(userQuery) || null == vectorizedUserQuery || vectorizedUserQuery.isEmpty() || null == metadataFilters || metadataFilters.isEmpty()) {
             throw new IllegalArgumentException("Search Query or Metadata Filters are null or empty");
@@ -82,16 +82,16 @@ public class AzureAISearchService {
 
 
         // 2. Define VectorQuery for semantic search
-        VectorizedQuery vectorizedQuery = new VectorizedQuery(
+        final VectorizedQuery vectorizedQuery = new VectorizedQuery(
                 vectorizedUserQuery.stream().collect(ArrayList::new, ArrayList::add, ArrayList::addAll)
         )
                 .setKNearestNeighborsCount(nearestNeighborsCount) // Number of nearest neighbors to retrieve
                 .setFields(IndexConstants.CHUNK_VECTOR);
 
-        VectorSearchOptions vectorSearchOptions = new VectorSearchOptions().setQueries(List.of(vectorizedQuery));
+        final VectorSearchOptions vectorSearchOptions = new VectorSearchOptions().setQueries(List.of(vectorizedQuery));
 
         // 3. Define SearchOptions
-        SearchOptions searchOptions = new SearchOptions()
+        final SearchOptions searchOptions = new SearchOptions()
                 .setFilter(filterExpression) // Apply the OData filter
                 .setVectorSearchOptions(vectorSearchOptions) // Add the vector query
                 .setQueryType(QueryType.FULL) // Use SEMANTIC for hybrid search with semantic ranking
@@ -102,10 +102,10 @@ public class AzureAISearchService {
         // 4. Execute the search
         try {
             final String escapedUserQuery = escapeLuceneSpecialChars(userQuery);
-            SearchPagedIterable searchResults = searchClient.search(escapedUserQuery, searchOptions, Context.NONE);
+            final SearchPagedIterable searchResults = searchClient.search(escapedUserQuery, searchOptions, Context.NONE);
 
-            List<ChunkedEntry> chunkedEntries = new ArrayList<>();
-            for (SearchResult result : searchResults) {
+            final List<ChunkedEntry> chunkedEntries = new ArrayList<>();
+            for (final SearchResult result : searchResults) {
                 // Get the full document map for each chunk
                 ChunkedEntry chunkedEntry = result.getDocument(ChunkedEntry.class);
                 chunkedEntries.add(chunkedEntry);
@@ -121,7 +121,7 @@ public class AzureAISearchService {
     }
 
     String generateFilterExpression(final List<KeyValuePair> metadataFilters) {
-        StringBuilder filterBuilder = new StringBuilder();
+        final StringBuilder filterBuilder = new StringBuilder();
 
         if (metadataFilters != null && !metadataFilters.isEmpty()) {
             for (KeyValuePair pair : metadataFilters) {
@@ -140,7 +140,7 @@ public class AzureAISearchService {
 
 
     String[] getColumnsToRetrieve() {
-        List<String> selectedColumns = new ArrayList<>(List.of(
+        final List<String> selectedColumns = new ArrayList<>(List.of(
                 IndexConstants.ID,
                 IndexConstants.CHUNK,
                 IndexConstants.DOCUMENT_FILE_NAME,

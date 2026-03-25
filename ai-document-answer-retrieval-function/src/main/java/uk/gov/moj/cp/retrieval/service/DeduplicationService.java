@@ -32,14 +32,14 @@ public class DeduplicationService {
         this.enableDeduplication = enableDeduplication;
     }
 
-    public List<ChunkedEntry> performSemanticDeduplication(List<ChunkedEntry> entries) {
+    public List<ChunkedEntry> performSemanticDeduplication(final List<ChunkedEntry> entries) {
         if (!enableDeduplication) {
             return entries;
         }
 
-        List<ChunkedEntry> uniqueEntries = new ArrayList<>();
-        for (ChunkedEntry incoming : entries) {
-            boolean isDuplicate = uniqueEntries.stream()
+        final List<ChunkedEntry> uniqueEntries = new ArrayList<>();
+        for (final ChunkedEntry incoming : entries) {
+            final boolean isDuplicate = uniqueEntries.stream()
                     .anyMatch(existing -> calculateCosineSimilarity(
                             incoming.chunkVector(), existing.chunkVector()) >= threshold);
             if (!isDuplicate) {
@@ -50,7 +50,17 @@ public class DeduplicationService {
         return uniqueEntries;
     }
 
-    private double calculateCosineSimilarity(List<Float> vecA, List<Float> vecB) {
+    /**
+     * See https://help.openai.com/en/articles/6824809-embeddings-faq
+     * <p>
+     * Mathematical Impact: OpenAI embeddings are normalized to length 1 and because the vectors are
+     * unit-length, Cosine similarity can be computed slightly faster using just a dot product.
+     *
+     * @param vecA
+     * @param vecB
+     * @return
+     */
+    private double calculateCosineSimilarity(final List<Float> vecA, final List<Float> vecB) {
         if (vecA == null || vecB == null || vecA.size() != vecB.size()) {
             return 0.0;
         }
