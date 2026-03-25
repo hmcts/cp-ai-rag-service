@@ -22,9 +22,12 @@
     "AZURE_SEARCH_SERVICE_INDEX_NAME": "<azure-ai-search-index-name>",
     "SEARCH_NEAREST_NEIGHBOURS_COUNT": "20",
     "SEARCH_TOP_RESULTS_COUNT": "10",
+    "SEARCH_RESULTS_ENABLE_DEDUPLICATION": true,
+    "SEARCH_RESULTS_SEMANTIC_DEDUPLICATION_THRESHOLD": "0.95",
 
     "AZURE_OPENAI_ENDPOINT": "<azure-openai-endpoint>",
     "AZURE_OPENAI_CHAT_DEPLOYMENT_NAME": "<azure-openai-chat-deployment-name>",
+    "LLM_MODEL_RESPONSE_MAX_TOKENS": "4000",
 
     "STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING": "answer-scoring-queue",
     "STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION": "answer-generation-queue",

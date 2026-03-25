@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.ai.util;
 
+import static java.util.stream.Collectors.groupingBy;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
@@ -8,7 +9,6 @@ import uk.gov.moj.cp.ai.model.KeyValuePair;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 public class ChunkFormatterUtility {
 
@@ -18,11 +18,10 @@ public class ChunkFormatterUtility {
             return ("<RETRIEVED_DOCUMENTS></RETRIEVED_DOCUMENTS>");
         }
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("<RETRIEVED_DOCUMENTS>\n");
+        StringBuilder sb = new StringBuilder("<RETRIEVED_DOCUMENTS>\n");
 
         Map<String, List<ChunkedEntry>> entriesByDocumentId = chunkedEntries.stream()
-                .collect(Collectors.groupingBy(ChunkedEntry::documentId));
+                .collect(groupingBy(ChunkedEntry::documentId));
 
         for (Map.Entry<String, List<ChunkedEntry>> entriesPerDocument : entriesByDocumentId.entrySet()) {
             final String documentId = entriesPerDocument.getKey();
@@ -31,10 +30,11 @@ public class ChunkFormatterUtility {
                     .orElse(firstChunkForDocumentId.documentFileName());
             sb.append("<DOCUMENT DOCUMENT_ID=\"").append(documentId).append("\" DOCUMENT_FILENAME=\"").append(documentFileName).append("\">\n");
             for (ChunkedEntry entry : entriesPerDocument.getValue()) {
+                final String pageNumber = null != entry.pageNumber() ? entry.pageNumber().toString() : "";
 
-                sb.append("<DATA>\n");
+                sb.append("<DATA CHUNK_ID=\"").append(entry.id()).append("\">\n"); // Gives the LLM a unique anchor
+                sb.append("<PAGE_NUMBER>").append(pageNumber).append("</PAGE_NUMBER>\n");
                 sb.append("<DOCUMENT_CONTENT>").append(entry.chunk()).append("</DOCUMENT_CONTENT>\n");
-                sb.append("<PAGE_NUMBER>").append(null != entry.pageNumber() ? entry.pageNumber() : "").append("</PAGE_NUMBER>\n");
                 sb.append("</DATA>\n");
             }
             sb.append("</DOCUMENT>\n");

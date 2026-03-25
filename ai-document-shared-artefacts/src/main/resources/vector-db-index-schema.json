@@ -30,7 +30,7 @@
       "type": "Collection(Edm.Single)",
       "searchable": true,
       "filterable": false,
-      "retrievable": false,
+      "retrievable": true,
       "stored": true,
       "sortable": false,
       "facetable": false,
