@@ -12,10 +12,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static uk.gov.moj.cp.ingestion.service.DocumentStorageService.CUSTOM_METADATA_KEY;
-import static uk.gov.moj.cp.ingestion.service.DocumentStorageService.FALSE_VALUE;
-import static uk.gov.moj.cp.ingestion.service.DocumentStorageService.ID_KEY;
-import static uk.gov.moj.cp.ingestion.service.DocumentStorageService.IS_ACTIVE_KEY;
+import static uk.gov.moj.cp.ai.index.IndexConstants.CUSTOM_METADATA;
+import static uk.gov.moj.cp.ai.index.IndexConstants.FALSE_VALUE;
+import static uk.gov.moj.cp.ai.index.IndexConstants.ID;
+import static uk.gov.moj.cp.ai.index.IndexConstants.IS_ACTIVE;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 
@@ -99,12 +99,12 @@ class DocumentStorageServiceTest {
 
         List<String> ids = List.of("doc1", "doc2");
         final SearchDocument doc1 = new SearchDocument();
-        doc1.put(ID_KEY, "doc1");
-        doc1.put(CUSTOM_METADATA_KEY, new HashMap<>(Map.of("is_active", "true")));
+        doc1.put(ID, "doc1");
+        doc1.put(CUSTOM_METADATA, new HashMap<>(Map.of("is_active", "true")));
 
         final SearchDocument doc2 = new SearchDocument();
-        doc2.put(ID_KEY, "doc2");
-        doc2.put(CUSTOM_METADATA_KEY, new HashMap<>());
+        doc2.put(ID, "doc2");
+        doc2.put(CUSTOM_METADATA, new HashMap<>());
 
         final SearchResult result1 = mock(SearchResult.class);
         final SearchResult result2 = mock(SearchResult.class);
@@ -129,8 +129,8 @@ class DocumentStorageServiceTest {
         assertThat(updatedDocs.size(), is(2));
 
         for (SearchDocument doc : updatedDocs) {
-            Map<String, String> metadata = (Map<String, String>) doc.get(CUSTOM_METADATA_KEY);
-            assertThat(metadata.get(IS_ACTIVE_KEY), is(FALSE_VALUE));
+            Map<String, String> metadata = (Map<String, String>) doc.get(CUSTOM_METADATA);
+            assertThat(metadata.get(IS_ACTIVE), is(FALSE_VALUE));
         }
     }
 
@@ -166,7 +166,7 @@ class DocumentStorageServiceTest {
 
         final List<String> ids = List.of("doc1");
         final SearchDocument doc = new SearchDocument();
-        doc.put(ID_KEY, "doc1");
+        doc.put(ID, "doc1");
         // no metadata
 
         final SearchResult result = mock(SearchResult.class);
@@ -183,8 +183,8 @@ class DocumentStorageServiceTest {
         final ArgumentCaptor<List<SearchDocument>> captor = ArgumentCaptor.forClass(List.class);
         verify(searchClient).mergeDocuments(captor.capture());
 
-        final Map<String, String> metadata = (Map<String, String>) captor.getValue().get(0).get(CUSTOM_METADATA_KEY);
-        assertThat(metadata.get(IS_ACTIVE_KEY), is(FALSE_VALUE));
+        final Map<String, String> metadata = (Map<String, String>) captor.getValue().get(0).get(CUSTOM_METADATA);
+        assertThat(metadata.get(IS_ACTIVE), is(FALSE_VALUE));
     }
 
     @Test

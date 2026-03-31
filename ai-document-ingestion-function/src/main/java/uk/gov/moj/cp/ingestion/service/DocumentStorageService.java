@@ -9,7 +9,9 @@ import static uk.gov.moj.cp.ai.index.IndexConstants.CUSTOM_METADATA;
 import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_FILE_NAME;
 import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_FILE_URL;
 import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_ID;
+import static uk.gov.moj.cp.ai.index.IndexConstants.FALSE_VALUE;
 import static uk.gov.moj.cp.ai.index.IndexConstants.ID;
+import static uk.gov.moj.cp.ai.index.IndexConstants.IS_ACTIVE;
 import static uk.gov.moj.cp.ai.index.IndexConstants.PAGE_NUMBER;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
@@ -37,11 +39,6 @@ public class DocumentStorageService {
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentStorageService.class);
     private final SearchClient searchClient;
     private final String indexName;
-
-    static final String CUSTOM_METADATA_KEY = "customMetadata";
-    static final String IS_ACTIVE_KEY = "is_active";
-    static final String ID_KEY = "id";
-    static final String FALSE_VALUE = "false";
 
     public static final int VECTOR_DIMENSIONS = 3072;
 
@@ -119,10 +116,10 @@ public class DocumentStorageService {
         for (SearchResult result : searchResults) {
             final SearchDocument searchDocument = result.getDocument(SearchDocument.class);
 
-            final Map<String, String> customMetadata = searchDocument.containsKey(CUSTOM_METADATA_KEY)
-                    ? (Map<String, String>) searchDocument.get(CUSTOM_METADATA_KEY)
+            final Map<String, String> customMetadata = searchDocument.containsKey(CUSTOM_METADATA)
+                    ? (Map<String, String>) searchDocument.get(CUSTOM_METADATA)
                     : new HashMap<>();
-            customMetadata.put(IS_ACTIVE_KEY, FALSE_VALUE);
+            customMetadata.put(IS_ACTIVE, FALSE_VALUE);
             allUpdates.add(getSearchDocument(searchDocument, customMetadata));
         }
 
@@ -138,15 +135,15 @@ public class DocumentStorageService {
 
         final SearchOptions options = new SearchOptions()
                 .setFilter(filter)
-                .setSelect(format("%s, %s", ID_KEY, CUSTOM_METADATA_KEY));
+                .setSelect(format("%s, %s", ID, CUSTOM_METADATA));
 
         return searchClient.search("*", options, Context.NONE);
     }
 
     private static SearchDocument getSearchDocument(final SearchDocument doc, final Map<String, String> metadata) {
         final SearchDocument updateDoc = new SearchDocument();
-        updateDoc.put(ID_KEY, doc.get(ID_KEY));
-        updateDoc.put(CUSTOM_METADATA_KEY, metadata);
+        updateDoc.put(ID, doc.get(ID));
+        updateDoc.put(CUSTOM_METADATA, metadata);
         return updateDoc;
     }
 

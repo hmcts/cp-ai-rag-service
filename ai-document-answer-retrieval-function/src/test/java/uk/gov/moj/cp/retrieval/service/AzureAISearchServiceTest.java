@@ -1,8 +1,9 @@
 package uk.gov.moj.cp.retrieval.service;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.Is.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -111,10 +112,10 @@ class AzureAISearchServiceTest {
     }
 
     @Test
-    @DisplayName("generateFilterExpression returns null for empty filters")
-    void generateFilterExpressionReturnsNullForEmptyFilters() {
-        assertNull(service.generateFilterExpression(Collections.emptyList()));
-        assertNull(service.generateFilterExpression(null));
+    @DisplayName("generateFilterExpression returns isActive != false for empty filters")
+    void generateFilterExpressionReturnsIsActiveNeFalseForEmptyFilters() {
+        assertThat(service.generateFilterExpression(Collections.emptyList()), is("customMetadata/any(m: m/key eq 'is_active' and m/value ne 'false')"));
+        assertThat(service.generateFilterExpression(null), is("customMetadata/any(m: m/key eq 'is_active' and m/value ne 'false')"));
     }
 
     @Test
