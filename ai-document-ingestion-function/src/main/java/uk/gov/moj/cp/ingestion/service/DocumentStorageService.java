@@ -1,5 +1,7 @@
 package uk.gov.moj.cp.ingestion.service;
 
+import static java.lang.String.format;
+import static java.util.Objects.isNull;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK_INDEX;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK_VECTOR;
@@ -14,13 +16,19 @@ import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import uk.gov.moj.cp.ai.client.AISearchClientFactory;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
-import uk.gov.moj.cp.ingestion.exception.DocumentUploadException;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+import com.azure.core.util.Context;
 import com.azure.search.documents.SearchClient;
 import com.azure.search.documents.SearchDocument;
+import com.azure.search.documents.models.SearchOptions;
+import com.azure.search.documents.models.SearchResult;
+import com.azure.search.documents.util.SearchPagedIterable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +37,12 @@ public class DocumentStorageService {
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentStorageService.class);
     private final SearchClient searchClient;
     private final String indexName;
+
+    static final String CUSTOM_METADATA_KEY = "customMetadata";
+    static final String IS_ACTIVE_KEY = "is_active";
+    static final String ID_KEY = "id";
+    static final String FALSE_VALUE = "false";
+
     public static final int VECTOR_DIMENSIONS = 3072;
 
     public DocumentStorageService(String endpoint, String indexName) {
@@ -43,6 +57,14 @@ public class DocumentStorageService {
         this.searchClient = AISearchClientFactory.getInstance(endpoint, indexName);
 
         LOGGER.info("Initialized Azure AI Search client with managed identity.");
+    }
+
+    public DocumentStorageService(final SearchClient searchClient) {
+        if (isNull(searchClient)) {
+            throw new IllegalArgumentException("Document Storage searchClient cannot be null");
+        }
+        this.indexName = searchClient.getIndexName();
+        this.searchClient = searchClient;
     }
 
     public void uploadChunks(List<ChunkedEntry> chunks) throws DocumentProcessingException {
@@ -87,4 +109,45 @@ public class DocumentStorageService {
             throw new DocumentProcessingException(errorMessage, e);
         }
     }
+
+    @SuppressWarnings("unchecked")
+    public void markDocumentsInActive(final List<String> supersededDocuments) {
+        final List<SearchDocument> allUpdates = new ArrayList<>();
+
+        final SearchPagedIterable searchResults = getSearchResults(supersededDocuments);
+
+        for (SearchResult result : searchResults) {
+            final SearchDocument searchDocument = result.getDocument(SearchDocument.class);
+
+            final Map<String, String> customMetadata = searchDocument.containsKey(CUSTOM_METADATA_KEY)
+                    ? (Map<String, String>) searchDocument.get(CUSTOM_METADATA_KEY)
+                    : new HashMap<>();
+            customMetadata.put(IS_ACTIVE_KEY, FALSE_VALUE);
+            allUpdates.add(getSearchDocument(searchDocument, customMetadata));
+        }
+
+        if (!allUpdates.isEmpty()) {
+            searchClient.mergeDocuments(allUpdates);
+        }
+    }
+
+    private SearchPagedIterable getSearchResults(final List<String> supersededDocuments) {
+        final String filter = supersededDocuments.stream()
+                .map(id -> String.format("documentId eq '%s'", id))
+                .collect(Collectors.joining(" or "));
+
+        final SearchOptions options = new SearchOptions()
+                .setFilter(filter)
+                .setSelect(format("%s, %s", ID_KEY, CUSTOM_METADATA_KEY));
+
+        return searchClient.search("*", options, Context.NONE);
+    }
+
+    private static SearchDocument getSearchDocument(final SearchDocument doc, final Map<String, String> metadata) {
+        final SearchDocument updateDoc = new SearchDocument();
+        updateDoc.put(ID_KEY, doc.get(ID_KEY));
+        updateDoc.put(CUSTOM_METADATA_KEY, metadata);
+        return updateDoc;
+    }
+
 }

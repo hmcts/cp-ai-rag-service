@@ -14,6 +14,7 @@ import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_FILE_NAME;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_ID;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_METADATA;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_STATUS;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_SUPERSEDED_DOCUMENTS;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_REASON;
 import static uk.gov.moj.cp.ai.util.RowKeyUtil.generateKeyForRowAndPartition;
 
@@ -63,7 +64,7 @@ class DocumentIngestionOutcomeTableServiceTest {
     void successfullyInsertsDocumentOutcomeWithDocumentIdAsKey() throws DuplicateRecordException {
         final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
 
-        service.insert("docId", "docName", "metadata","status", "reason");
+        service.insert("docId", "docName", "metadata","doc1,doc2","status", "reason");
 
         final ArgumentCaptor<TableEntity> tableEntityCaptor = ArgumentCaptor.forClass(TableEntity.class);
         verify(mockTableService).insertIntoTable(tableEntityCaptor.capture());
@@ -74,6 +75,7 @@ class DocumentIngestionOutcomeTableServiceTest {
         assertThat(actualTableEntity.getProperty(TC_DOCUMENT_ID)).isEqualTo("docId");
         assertThat(actualTableEntity.getProperty(TC_DOCUMENT_FILE_NAME)).isEqualTo("docName");
         assertThat(actualTableEntity.getProperty(TC_DOCUMENT_METADATA)).isEqualTo("metadata");
+        assertThat(actualTableEntity.getProperty(TC_DOCUMENT_SUPERSEDED_DOCUMENTS)).isEqualTo("doc1,doc2");
         assertThat(actualTableEntity.getProperty(TC_DOCUMENT_STATUS)).isEqualTo("status");
         assertThat(actualTableEntity.getProperty(TC_REASON)).isEqualTo("reason");
     }

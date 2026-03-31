@@ -4,6 +4,7 @@ import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_FILE_NAME;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_ID;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_METADATA;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_STATUS;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_SUPERSEDED_DOCUMENTS;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_REASON;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_TIMESTAMP;
 
@@ -19,6 +20,9 @@ public class DocumentIngestionOutcome extends BaseTableEntity {
 
     @JsonProperty(TC_DOCUMENT_METADATA)
     private String metadata;
+
+    @JsonProperty(TC_DOCUMENT_SUPERSEDED_DOCUMENTS)
+    private String supersededDocuments;
 
     @JsonProperty(TC_DOCUMENT_STATUS)
     private String status;
@@ -36,12 +40,14 @@ public class DocumentIngestionOutcome extends BaseTableEntity {
     public DocumentIngestionOutcome(final String documentId,
                                     final String documentName,
                                     final String metadata,
+                                    final String supersededDocuments,
                                     final String status,
                                     final String reason,
                                     final String timestamp) {
         this.documentId = documentId;
         this.documentName = documentName;
         this.metadata = metadata;
+        this.supersededDocuments = supersededDocuments;
         this.status = status;
         this.reason = reason;
         this.timestamp = timestamp;
@@ -69,6 +75,14 @@ public class DocumentIngestionOutcome extends BaseTableEntity {
 
     public void setMetadata(final String metadata) {
         this.metadata = metadata;
+    }
+
+    public String getSupersededDocuments() {
+        return supersededDocuments;
+    }
+
+    public void setSupersededDocuments(final String supersededDocuments) {
+        this.supersededDocuments = supersededDocuments;
     }
 
     public String getStatus() {

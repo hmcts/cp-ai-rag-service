@@ -4,10 +4,13 @@ import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTI
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.joining;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
+import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.validation.RequestValidator.validate;
 import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.SAS_STORAGE_URL_EXPIRY_MINUTES;
 import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.UPLOAD_FILE_EXTENSION;
@@ -19,10 +22,14 @@ import uk.gov.hmcts.cp.openapi.model.FileStorageLocationReturnedSuccessfully;
 import uk.gov.hmcts.cp.openapi.model.RequestErrored;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.service.BlobClientService;
+import uk.gov.moj.cp.ai.util.StringUtil;
 import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
 import uk.gov.moj.cp.metadata.check.utils.DocumentBlobNameResolver;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
@@ -96,17 +103,25 @@ public class DocumentUploadFunction {
 
             final String documentId = documentUploadRequest.getDocumentId();
             final String documentName = documentUploadRequest.getDocumentName();
-            LOGGER.info("Initiating document upload for the documentId: {} documentName: {}", documentId, documentName);
+            final String supersededDocuments = Optional.ofNullable(documentUploadRequest.getOverwrites())
+                    .orElse(emptyList())
+                    .stream()
+                    .filter(id -> !isNullOrEmpty(id))
+                    .collect(joining(","));
+
+            LOGGER.info("Initiating document upload for the documentId: {} documentName: {} supersededDocuments: {}", documentId, documentName, supersededDocuments);
 
             if (documentUploadService.isDocumentAlreadyProcessed(documentId)) {
                 final String errorMessage = "An upload request has already been initiated for documentId: " + documentId;
                 return generateResponse(request, HttpStatus.BAD_REQUEST, convert(new RequestErrored(errorMessage)));
             }
 
+            //mark superseded documents as inActive
+
             final String blobName = documentBlobNameResolver.getBlobName(documentId, uploadFileExtension);
             final String storageSasUrl = blobClientService.getSasUrl(blobName, urlExpiryMinutes);
 
-            documentUploadService.addDocumentAwaitingUpload(documentId, documentName, listToMap(documentUploadRequest.getMetadataFilter()));
+            documentUploadService.addDocumentAwaitingUpload(documentId, documentName, listToMap(documentUploadRequest.getMetadataFilter()), supersededDocuments);
 
             LOGGER.info("Successfully initiated document upload for the documentId: {} documentName: {}", documentId, documentName);
             final FileStorageLocationReturnedSuccessfully fileStorageLocationReturnedSuccessfully = new FileStorageLocationReturnedSuccessfully(storageSasUrl, documentId);
