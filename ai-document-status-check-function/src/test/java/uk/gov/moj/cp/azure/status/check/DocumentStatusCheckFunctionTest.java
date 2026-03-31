@@ -17,6 +17,7 @@ import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
 import uk.gov.moj.cp.ai.util.ObjectMapperFactory;
 
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -58,7 +59,7 @@ class DocumentStatusCheckFunctionTest {
     @Test
     void returnsOkResponseWhenDocumentIsFound() throws EntityRetrievalException, JsonProcessingException {
         String documentName = "test-document";
-        final String statusTimestamp = now().toString();
+        final String statusTimestamp = now(ZoneId.of("UTC")).toString();
         DocumentIngestionOutcome outcome = new DocumentIngestionOutcome("123", documentName, "{\"k1\":\"v1\"}", INGESTION_SUCCESS.name(), "No issues", statusTimestamp);
         when(documentIngestionOutcomeTableService.getFirstDocumentMatching(documentName)).thenReturn(outcome);
 
