@@ -41,7 +41,8 @@ public class AzureAISearchService {
     private final int topResultsCount;
 
     private final boolean enableDeduplication;
-    private final String IS_ACTIVE_FILTER = format("%s/any(m: m/key eq 'is_active' and m/value ne 'false')", CUSTOM_METADATA);
+    private final String IS_ACTIVE_FILTER = format("(not %s/any(m: m/key eq 'is_active') or %s/any(m: m/key eq 'is_active' and m/value ne 'false'))",
+            CUSTOM_METADATA, CUSTOM_METADATA);
 
     public AzureAISearchService() {
         this(getRequiredEnv(AZURE_SEARCH_SERVICE_ENDPOINT),

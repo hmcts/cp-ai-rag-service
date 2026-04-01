@@ -114,8 +114,8 @@ class AzureAISearchServiceTest {
     @Test
     @DisplayName("generateFilterExpression returns isActive != false for empty filters")
     void generateFilterExpressionReturnsIsActiveNeFalseForEmptyFilters() {
-        assertThat(service.generateFilterExpression(Collections.emptyList()), is("customMetadata/any(m: m/key eq 'is_active' and m/value ne 'false')"));
-        assertThat(service.generateFilterExpression(null), is("customMetadata/any(m: m/key eq 'is_active' and m/value ne 'false')"));
+        assertThat(service.generateFilterExpression(Collections.emptyList()), is("(not customMetadata/any(m: m/key eq 'is_active') or customMetadata/any(m: m/key eq 'is_active' and m/value ne 'false'))"));
+        assertThat(service.generateFilterExpression(null), is("(not customMetadata/any(m: m/key eq 'is_active') or customMetadata/any(m: m/key eq 'is_active' and m/value ne 'false'))"));
     }
 
     @Test

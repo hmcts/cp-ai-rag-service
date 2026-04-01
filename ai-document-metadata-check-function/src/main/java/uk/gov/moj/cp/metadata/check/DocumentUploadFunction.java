@@ -116,8 +116,6 @@ public class DocumentUploadFunction {
                 return generateResponse(request, HttpStatus.BAD_REQUEST, convert(new RequestErrored(errorMessage)));
             }
 
-            //mark superseded documents as inActive
-
             final String blobName = documentBlobNameResolver.getBlobName(documentId, uploadFileExtension);
             final String storageSasUrl = blobClientService.getSasUrl(blobName, urlExpiryMinutes);
 
