@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.ingestion.service;
 
+import static dev.langchain4j.internal.Utils.randomUUID;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -19,6 +20,7 @@ import static uk.gov.moj.cp.ai.index.IndexConstants.IS_ACTIVE;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -97,14 +99,19 @@ class DocumentStorageServiceTest {
         when(searchClient.getIndexName()).thenReturn("test-index");
         final DocumentStorageService documentStorageService = new DocumentStorageService(searchClient);
 
-        List<String> ids = List.of("doc1", "doc2");
+        final List<String> ids = List.of("doc1", "doc2");
         final SearchDocument doc1 = new SearchDocument();
         doc1.put(ID, "doc1");
-        doc1.put(CUSTOM_METADATA, new HashMap<>(Map.of("is_active", "true")));
+        final Map<String, String> map1 = new HashMap<>();
+        map1.put("key", "case_id");
+        map1.put("value", randomUUID());
+        final List<Map<String, String>> metadataList = new ArrayList<>();
+        metadataList.add(map1);
+        doc1.put(CUSTOM_METADATA, metadataList);
 
         final SearchDocument doc2 = new SearchDocument();
         doc2.put(ID, "doc2");
-        doc2.put(CUSTOM_METADATA, new HashMap<>());
+        doc2.put(CUSTOM_METADATA, new ArrayList<>());
 
         final SearchResult result1 = mock(SearchResult.class);
         final SearchResult result2 = mock(SearchResult.class);
@@ -129,8 +136,9 @@ class DocumentStorageServiceTest {
         assertThat(updatedDocs.size(), is(2));
 
         for (SearchDocument doc : updatedDocs) {
-            Map<String, String> metadata = (Map<String, String>) doc.get(CUSTOM_METADATA);
-            assertThat(metadata.get(IS_ACTIVE), is(FALSE_VALUE));
+            List<Map<String, String>> metadata = (List<Map<String, String>>) doc.get(CUSTOM_METADATA);
+            assertThat(metadata.stream().filter(mt -> mt.containsValue(IS_ACTIVE)).findFirst().get().get("key"), is(IS_ACTIVE));
+            assertThat(metadata.stream().filter(mt -> mt.containsValue(IS_ACTIVE)).findFirst().get().get("value"), is(FALSE_VALUE));
         }
     }
 
@@ -183,8 +191,9 @@ class DocumentStorageServiceTest {
         final ArgumentCaptor<List<SearchDocument>> captor = ArgumentCaptor.forClass(List.class);
         verify(searchClient).mergeDocuments(captor.capture());
 
-        final Map<String, String> metadata = (Map<String, String>) captor.getValue().get(0).get(CUSTOM_METADATA);
-        assertThat(metadata.get(IS_ACTIVE), is(FALSE_VALUE));
+        final List<Map<String, String>> metadata = (List<Map<String, String>>) captor.getValue().get(0).get(CUSTOM_METADATA);
+        assertThat(metadata.stream().filter(mt -> mt.containsValue(IS_ACTIVE)).findFirst().get().get("key"), is(IS_ACTIVE));
+        assertThat(metadata.stream().filter(mt -> mt.containsValue(IS_ACTIVE)).findFirst().get().get("value"), is(FALSE_VALUE));
     }
 
     @Test
@@ -208,8 +217,8 @@ class DocumentStorageServiceTest {
         // then
         final String filter = optionsCaptor.getValue().getFilter();
 
-        assertThat(filter.contains("documentId eq 'doc1'"), is(true));
-        assertThat(filter.contains("documentId eq 'doc2'"), is(true));
+        assertThat(filter.contains("customMetadata/any(m: m/key eq 'documentId' and m/value eq 'doc1'"), is(true));
+        assertThat(filter.contains("customMetadata/any(m: m/key eq 'documentId' and m/value eq 'doc2'"), is(true));
         assertThat(filter.contains("or"), is(true));
     }
 }

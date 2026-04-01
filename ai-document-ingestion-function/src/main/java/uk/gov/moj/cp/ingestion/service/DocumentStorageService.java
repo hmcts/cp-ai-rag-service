@@ -2,6 +2,7 @@ package uk.gov.moj.cp.ingestion.service;
 
 import static java.lang.String.format;
 import static java.util.Objects.isNull;
+import static java.util.stream.Collectors.joining;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK_INDEX;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK_VECTOR;
@@ -23,7 +24,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import com.azure.core.util.Context;
 import com.azure.search.documents.SearchClient;
@@ -116,10 +116,14 @@ public class DocumentStorageService {
         for (SearchResult result : searchResults) {
             final SearchDocument searchDocument = result.getDocument(SearchDocument.class);
 
-            final Map<String, String> customMetadata = searchDocument.containsKey(CUSTOM_METADATA)
-                    ? (Map<String, String>) searchDocument.get(CUSTOM_METADATA)
-                    : new HashMap<>();
-            customMetadata.put(IS_ACTIVE, FALSE_VALUE);
+            final List<Map<String, String>> customMetadata = searchDocument.containsKey(CUSTOM_METADATA)
+                    ? (List<Map<String, String>>) searchDocument.get(CUSTOM_METADATA)
+                    : new ArrayList<>();
+            Map<String, String> isActiveKeyValue = new HashMap<>();
+            isActiveKeyValue.put("key", IS_ACTIVE);
+            isActiveKeyValue.put("value", FALSE_VALUE);
+            customMetadata.add(isActiveKeyValue);
+
             allUpdates.add(getSearchDocument(searchDocument, customMetadata));
         }
 
@@ -130,8 +134,10 @@ public class DocumentStorageService {
 
     private SearchPagedIterable getSearchResults(final List<String> supersededDocuments) {
         final String filter = supersededDocuments.stream()
-                .map(id -> String.format("documentId eq '%s'", id))
-                .collect(Collectors.joining(" or "));
+                .map(id -> format("%s/any(m: m/key eq '%s' and m/value eq '%s')", CUSTOM_METADATA, DOCUMENT_ID, id))
+                .collect(joining(" or "));
+
+        LOGGER.info("Find search results matching filter criteria: {}", filter);
 
         final SearchOptions options = new SearchOptions()
                 .setFilter(filter)
@@ -140,7 +146,7 @@ public class DocumentStorageService {
         return searchClient.search("*", options, Context.NONE);
     }
 
-    private static SearchDocument getSearchDocument(final SearchDocument doc, final Map<String, String> metadata) {
+    private static SearchDocument getSearchDocument(final SearchDocument doc, final List<Map<String, String>> metadata) {
         final SearchDocument updateDoc = new SearchDocument();
         updateDoc.put(ID, doc.get(ID));
         updateDoc.put(CUSTOM_METADATA, metadata);

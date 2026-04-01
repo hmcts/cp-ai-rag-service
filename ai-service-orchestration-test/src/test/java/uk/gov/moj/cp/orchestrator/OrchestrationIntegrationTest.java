@@ -15,6 +15,7 @@ import uk.gov.hmcts.cp.openapi.model.FileStorageLocationReturnedSuccessfully;
 import uk.gov.hmcts.cp.openapi.model.MetadataFilter;
 import uk.gov.moj.cp.orchestrator.util.RestOperation;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
@@ -78,20 +79,12 @@ public class OrchestrationIntegrationTest extends FunctionTestBase {
         final String documentName = "test-doc-capital.pdf";
 
         // Step 2 - Submit document metadata and get SAS URL for upload
-        DocumentUploadRequest documentUploadRequest = new DocumentUploadRequest()
+        final DocumentUploadRequest documentUploadRequest = new DocumentUploadRequest()
                 .documentId(documentId.toString())
                 .documentName(documentName)
                 .addMetadataFilterItem(new MetadataFilter("caseId", caseId.toString()));
 
-        final RequestSpecification metadataSubmissionRequestSpecification = getRequestSpecification(DOCUMENT_METADATA_CHECK_FUNCTION)
-                .body(documentUploadRequest)
-                .contentType("application/json");
-
-
-        final Response metadataSubmissionResponse = postRequest(metadataSubmissionRequestSpecification, "/document-upload",
-                response -> response.getStatusCode() == 200);
-        assertNotNull(metadataSubmissionResponse);
-        FileStorageLocationReturnedSuccessfully fileStorageLocationReturnedSuccessfully = getObjectMapper().readValue(metadataSubmissionResponse.body().jsonPath().prettyPrint(), FileStorageLocationReturnedSuccessfully.class);
+        final FileStorageLocationReturnedSuccessfully fileStorageLocationReturnedSuccessfully = initiateDocumentUpload(documentUploadRequest);
         final String documentReference = fileStorageLocationReturnedSuccessfully.getDocumentReference();
         final String uploadUrl = fileStorageLocationReturnedSuccessfully.getStorageUrl();
         LOGGER.info("Received document reference {} and upload URL {}", documentReference, uploadUrl);
@@ -100,6 +93,70 @@ public class OrchestrationIntegrationTest extends FunctionTestBase {
         LOGGER.info("Successfully uploaded file with reference {} and to URL {}", documentReference, uploadUrl);
 
         //check document upload status
+        checkDocumentIngestionSuccessful(documentReference);
+
+        //verify answer retrieval function using document_id
+        verifyAnswerRetrievalFunction(documentReference, "document_id");
+
+        //verify answer retrieval function using documentId - new way
+        verifyAnswerRetrievalFunction(documentReference, "documentId");
+    }
+
+    @Test
+    @DisplayName("Supersede old version of the document using overwrites, upload file using generated SAS URL, check upload status, and retrieve answer")
+    void testSupersedeOldVersionOfTheDocument() throws JsonProcessingException, InterruptedException, TimeoutException {
+
+        // Step 1 - submit document metadata
+        final UUID documentIdV1 = randomUUID();
+        final UUID caseId = randomUUID();
+        final String documentName = "test-doc-capital.pdf";
+
+        // Step 2 - Submit document metadata and get SAS URL for upload
+        final DocumentUploadRequest documentUploadRequest = new DocumentUploadRequest()
+                .documentId(documentIdV1.toString())
+                .documentName(documentName)
+                .addMetadataFilterItem(new MetadataFilter("caseId", caseId.toString()));
+
+        final FileStorageLocationReturnedSuccessfully fileStorageLocationV1 = initiateDocumentUpload(documentUploadRequest);
+        final String documentReference = fileStorageLocationV1.getDocumentReference();
+        final String uploadUrl = fileStorageLocationV1.getStorageUrl();
+        uploadFile(uploadUrl, documentName);
+
+        //check document upload status
+        checkDocumentIngestionSuccessful(documentReference);
+        //verify answer retrieval function using documentIdV1
+        verifyAnswerRetrievalFunction(documentReference, "documentId");
+
+        LOGGER.info("Version1 :: Successfully generated answers for version1 of the documentId {}", documentIdV1);
+
+        final UUID documentIdV2 = randomUUID();
+        final DocumentUploadRequest documentUploadRequestV2 = new DocumentUploadRequest()
+                .documentId(documentIdV2.toString())
+                .overwrites(List.of(documentIdV1.toString()))
+                .documentName(documentName)
+                .addMetadataFilterItem(new MetadataFilter("caseId", caseId.toString()));
+
+        final FileStorageLocationReturnedSuccessfully fileStorageLocationV2 = initiateDocumentUpload(documentUploadRequestV2);
+        LOGGER.info("Version2 :: Received document reference {} and upload URL {}", fileStorageLocationV2.getDocumentReference(), fileStorageLocationV2.getStorageUrl());
+        uploadFile(fileStorageLocationV2.getStorageUrl(), documentName);
+
+        //check document upload status
+        checkDocumentIngestionSuccessful(fileStorageLocationV2.getDocumentReference());
+        //verify answer retrieval function using documentId
+        verifyAnswerRetrievalFunction(fileStorageLocationV2.getDocumentReference(), "documentId");
+    }
+
+    private FileStorageLocationReturnedSuccessfully initiateDocumentUpload(final DocumentUploadRequest documentUploadRequest) throws JsonProcessingException {
+        final RequestSpecification metadataSubmissionRequestSpecification = getRequestSpecification(DOCUMENT_METADATA_CHECK_FUNCTION)
+                .body(documentUploadRequest)
+                .contentType("application/json");
+        final Response metadataSubmissionResponse = postRequest(metadataSubmissionRequestSpecification, "/document-upload",
+                response -> response.getStatusCode() == 200);
+        assertNotNull(metadataSubmissionResponse);
+        return getObjectMapper().readValue(metadataSubmissionResponse.body().jsonPath().prettyPrint(), FileStorageLocationReturnedSuccessfully.class);
+    }
+
+    private void checkDocumentIngestionSuccessful(final String documentReference) throws InterruptedException, TimeoutException {
         final RequestSpecification documentUploadStatusRequestSpecification = getRequestSpecification(DOCUMENT_STATUS_CHECK_FUNCTION)
                 .contentType("application/json");
 
@@ -107,11 +164,6 @@ public class OrchestrationIntegrationTest extends FunctionTestBase {
                 response -> response.getStatusCode() == 200 &&
                         response.jsonPath().getString("status").equals("INGESTION_SUCCESS"));
         assertNotNull(documentStatusResponse);
-
-        verifyAnswerRetrievalFunction(documentReference, "document_id");
-
-        //verify answer retrieval function using documentId - new way
-        verifyAnswerRetrievalFunction(documentReference, "documentId");
     }
 
     private void verifyAnswerRetrievalFunction(final String documentId, final String documentIdKey) throws InterruptedException, TimeoutException {
