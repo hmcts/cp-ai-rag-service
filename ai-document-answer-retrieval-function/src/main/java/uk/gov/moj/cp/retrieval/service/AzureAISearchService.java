@@ -1,8 +1,10 @@
 package uk.gov.moj.cp.retrieval.service;
 
 import static java.lang.Boolean.parseBoolean;
+import static java.lang.String.format;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_INDEX_NAME;
+import static uk.gov.moj.cp.ai.index.IndexConstants.CUSTOM_METADATA;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 import static uk.gov.moj.cp.ai.util.StringUtil.escapeLuceneSpecialChars;
@@ -39,6 +41,8 @@ public class AzureAISearchService {
     private final int topResultsCount;
 
     private final boolean enableDeduplication;
+    private final String IS_ACTIVE_FILTER = format("(not %s/any(m: m/key eq 'is_active') or %s/any(m: m/key eq 'is_active' and m/value ne 'false'))",
+            CUSTOM_METADATA, CUSTOM_METADATA);
 
     public AzureAISearchService() {
         this(getRequiredEnv(AZURE_SEARCH_SERVICE_ENDPOINT),
@@ -132,10 +136,18 @@ public class AzureAISearchService {
                 }
                 // Use 'any' operator for Collection(Edm.ComplexType)
                 // This filters for any item in the 'customMetadata' collection where 'key' equals 'key' AND 'value' equals 'value'
-                filterBuilder.append(String.format("%s/any(m: m/key eq '%s' and m/value eq '%s')", IndexConstants.CUSTOM_METADATA, key, value));
+                filterBuilder.append(format("%s/any(m: m/key eq '%s' and m/value eq '%s')", CUSTOM_METADATA, key, value));
             }
         }
-        return !filterBuilder.isEmpty() ? filterBuilder.toString() : null;
+
+        if (!filterBuilder.isEmpty()) {
+            filterBuilder.append(" and ");
+        }
+
+        // Add is_active != 'false'
+        filterBuilder.append(IS_ACTIVE_FILTER);
+
+        return filterBuilder.toString();
     }
 
 
@@ -147,7 +159,7 @@ public class AzureAISearchService {
                 IndexConstants.DOCUMENT_ID,
                 IndexConstants.PAGE_NUMBER,
                 IndexConstants.DOCUMENT_FILE_URL,
-                IndexConstants.CUSTOM_METADATA
+                CUSTOM_METADATA
         ));
 
         // Conditionally add the vector column

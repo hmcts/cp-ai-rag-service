@@ -22,6 +22,7 @@ import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
 import uk.gov.moj.cp.metadata.check.utils.DocumentBlobNameResolver;
 
 import java.util.List;
+import java.util.UUID;
 
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpRequestMessage;
@@ -92,7 +93,7 @@ public class DocumentUploadFunctionTest {
 
         assertThat(response, is(result));
         verify(blobClientService, never()).getSasUrl(any(), anyInt());
-        verify(documentUploadService, never()).addDocumentAwaitingUpload(anyString(), anyString(), anyMap());
+        verify(documentUploadService, never()).addDocumentAwaitingUpload(anyString(), anyString(), anyMap(), anyString());
     }
 
     @Test
@@ -108,7 +109,28 @@ public class DocumentUploadFunctionTest {
         final HttpResponseMessage result = function.run(request, context);
 
         assertThat(response, is(result));
-        verify(documentUploadService).addDocumentAwaitingUpload(body.getDocumentId(), body.getDocumentName(), listToMap(body.getMetadataFilter()));
+        verify(documentUploadService).addDocumentAwaitingUpload(body.getDocumentId(), body.getDocumentName(), listToMap(body.getMetadataFilter()), "");
+    }
+
+    @Test
+    void shouldReturn200_whenRequestIsValid_andHasOverwrites() throws DuplicateRecordException {
+
+        final UUID doc1 = randomUUID();
+        final UUID doc2 = randomUUID();
+        final DocumentUploadRequest body = validRequest();
+        body.setOverwrites(List.of(doc1.toString(), doc2.toString()));
+
+        when(request.getBody()).thenReturn(body);
+        when(documentUploadService.isDocumentAlreadyProcessed(body.getDocumentId())).thenReturn(false);
+        when(documentBlobNameResolver.getBlobName(any(String.class), any(String.class))).thenReturn("blobName");
+        when(blobClientService.getSasUrl(any(String.class), anyInt())).thenReturn("http://sas-url");
+        mockResponseBuilder(HttpStatus.OK);
+
+        final HttpResponseMessage result = function.run(request, context);
+
+        assertThat(response, is(result));
+        verify(documentUploadService).addDocumentAwaitingUpload(body.getDocumentId(), body.getDocumentName(),
+                listToMap(body.getMetadataFilter()), String.format("%s,%s", doc1, doc2));
     }
 
     @Test
@@ -122,7 +144,7 @@ public class DocumentUploadFunctionTest {
 
         mockResponseBuilder(HttpStatus.BAD_REQUEST);
         doThrow(new DuplicateRecordException("Duplicate record error!"))
-                .when(documentUploadService).addDocumentAwaitingUpload(body.getDocumentId(), body.getDocumentName(), listToMap(body.getMetadataFilter()));
+                .when(documentUploadService).addDocumentAwaitingUpload(body.getDocumentId(), body.getDocumentName(), listToMap(body.getMetadataFilter()), "");
 
         final HttpResponseMessage result = function.run(request, context);
 
