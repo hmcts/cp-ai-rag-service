@@ -53,9 +53,10 @@ public class DocumentUploadService {
     /**
      * A new document record is added to the table storage with status AWAITING_UPLOAD.
      */
-    public void addDocumentAwaitingUpload(final String documentId, final String documentName, final Map<String, String> metadataMap) throws DuplicateRecordException {
+    public void addDocumentAwaitingUpload(final String documentId, final String documentName, final Map<String, String> metadataMap,
+                                          final String supersededDocuments) throws DuplicateRecordException {
         final String metadataString = convert(metadataMap);
-        documentIngestionOutcomeTableService.insert(documentId, documentName, metadataString, AWAITING_UPLOAD.name(), AWAITING_UPLOAD_REASON);
+        documentIngestionOutcomeTableService.insert(documentId, documentName, metadataString, supersededDocuments, AWAITING_UPLOAD.name(), AWAITING_UPLOAD_REASON);
     }
 
     /**

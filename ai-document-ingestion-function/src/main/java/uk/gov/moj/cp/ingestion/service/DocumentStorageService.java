@@ -1,5 +1,8 @@
 package uk.gov.moj.cp.ingestion.service;
 
+import static java.lang.String.format;
+import static java.util.Objects.isNull;
+import static java.util.stream.Collectors.joining;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK_INDEX;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK_VECTOR;
@@ -7,20 +10,27 @@ import static uk.gov.moj.cp.ai.index.IndexConstants.CUSTOM_METADATA;
 import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_FILE_NAME;
 import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_FILE_URL;
 import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_ID;
+import static uk.gov.moj.cp.ai.index.IndexConstants.FALSE_VALUE;
 import static uk.gov.moj.cp.ai.index.IndexConstants.ID;
+import static uk.gov.moj.cp.ai.index.IndexConstants.IS_ACTIVE;
 import static uk.gov.moj.cp.ai.index.IndexConstants.PAGE_NUMBER;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.client.AISearchClientFactory;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
-import uk.gov.moj.cp.ingestion.exception.DocumentUploadException;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import com.azure.core.util.Context;
 import com.azure.search.documents.SearchClient;
 import com.azure.search.documents.SearchDocument;
+import com.azure.search.documents.models.SearchOptions;
+import com.azure.search.documents.models.SearchResult;
+import com.azure.search.documents.util.SearchPagedIterable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +39,7 @@ public class DocumentStorageService {
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentStorageService.class);
     private final SearchClient searchClient;
     private final String indexName;
+
     public static final int VECTOR_DIMENSIONS = 3072;
 
     public DocumentStorageService(String endpoint, String indexName) {
@@ -43,6 +54,14 @@ public class DocumentStorageService {
         this.searchClient = AISearchClientFactory.getInstance(endpoint, indexName);
 
         LOGGER.info("Initialized Azure AI Search client with managed identity.");
+    }
+
+    public DocumentStorageService(final SearchClient searchClient) {
+        if (isNull(searchClient)) {
+            throw new IllegalArgumentException("Document Storage searchClient cannot be null");
+        }
+        this.indexName = searchClient.getIndexName();
+        this.searchClient = searchClient;
     }
 
     public void uploadChunks(List<ChunkedEntry> chunks) throws DocumentProcessingException {
@@ -87,4 +106,51 @@ public class DocumentStorageService {
             throw new DocumentProcessingException(errorMessage, e);
         }
     }
+
+    @SuppressWarnings("unchecked")
+    public void markDocumentsInActive(final List<String> supersededDocuments) {
+        final List<SearchDocument> allUpdates = new ArrayList<>();
+
+        final SearchPagedIterable searchResults = getSearchResults(supersededDocuments);
+
+        for (SearchResult result : searchResults) {
+            final SearchDocument searchDocument = result.getDocument(SearchDocument.class);
+
+            final List<Map<String, String>> customMetadata = searchDocument.containsKey(CUSTOM_METADATA)
+                    ? (List<Map<String, String>>) searchDocument.get(CUSTOM_METADATA)
+                    : new ArrayList<>();
+            Map<String, String> isActiveKeyValue = new HashMap<>();
+            isActiveKeyValue.put("key", IS_ACTIVE);
+            isActiveKeyValue.put("value", FALSE_VALUE);
+            customMetadata.add(isActiveKeyValue);
+
+            allUpdates.add(getSearchDocument(searchDocument, customMetadata));
+        }
+
+        if (!allUpdates.isEmpty()) {
+            searchClient.mergeDocuments(allUpdates);
+        }
+    }
+
+    private SearchPagedIterable getSearchResults(final List<String> supersededDocuments) {
+        final String filter = supersededDocuments.stream()
+                .map(id -> format("%s/any(m: m/key eq '%s' and m/value eq '%s')", CUSTOM_METADATA, DOCUMENT_ID, id))
+                .collect(joining(" or "));
+
+        LOGGER.info("Find search results matching filter criteria: {}", filter);
+
+        final SearchOptions options = new SearchOptions()
+                .setFilter(filter)
+                .setSelect(format("%s, %s", ID, CUSTOM_METADATA));
+
+        return searchClient.search("*", options, Context.NONE);
+    }
+
+    private static SearchDocument getSearchDocument(final SearchDocument doc, final List<Map<String, String>> metadata) {
+        final SearchDocument updateDoc = new SearchDocument();
+        updateDoc.put(ID, doc.get(ID));
+        updateDoc.put(CUSTOM_METADATA, metadata);
+        return updateDoc;
+    }
+
 }

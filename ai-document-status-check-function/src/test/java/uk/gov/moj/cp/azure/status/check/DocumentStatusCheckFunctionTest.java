@@ -15,7 +15,6 @@ import uk.gov.hmcts.cp.openapi.model.DocumentStatusNotAvailable;
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
-import uk.gov.moj.cp.ai.util.ObjectMapperFactory;
 
 import java.time.ZoneId;
 import java.util.HashMap;
@@ -60,7 +59,7 @@ class DocumentStatusCheckFunctionTest {
     void returnsOkResponseWhenDocumentIsFound() throws EntityRetrievalException, JsonProcessingException {
         String documentName = "test-document";
         final String statusTimestamp = now(ZoneId.of("UTC")).toString();
-        DocumentIngestionOutcome outcome = new DocumentIngestionOutcome("123", documentName, "{\"k1\":\"v1\"}", INGESTION_SUCCESS.name(), "No issues", statusTimestamp);
+        DocumentIngestionOutcome outcome = new DocumentIngestionOutcome("123", documentName, "{\"k1\":\"v1\"}", "doc-1,doc-2", INGESTION_SUCCESS.name(), "No issues", statusTimestamp);
         when(documentIngestionOutcomeTableService.getFirstDocumentMatching(documentName)).thenReturn(outcome);
 
         Map<String, String> queryParams = new HashMap<>();

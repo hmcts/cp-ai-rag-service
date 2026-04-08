@@ -1,18 +1,23 @@
 package uk.gov.moj.cp.ingestion.service;
 
 
+import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_INDEX_NAME;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
 import static uk.gov.moj.cp.ai.model.DocumentStatus.INGESTION_SUCCESS;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
+import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
+import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
+import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -92,11 +97,30 @@ public class DocumentIngestionOrchestrator {
         // Step 4: Store chunks in Azure Search
         documentStorageService.uploadChunks(Collections.unmodifiableList(chunkedEntries));
 
-        // Record success
+        // Step 5: Mark superseded documents in active
+        markSupersededDocumentsInActive(documentId);
+
+        // Step 6: Record success
         recordOutcome(documentName, documentId, INGESTION_SUCCESS.name(), INGESTION_SUCCESS.getReason(), isDocumentIdAsRowKey);
 
         LOGGER.info("Document ingestion completed successfully for document: {} (ID: {})", documentName, documentId);
 
+    }
+
+    private void markSupersededDocumentsInActive(final String documentId) {
+        try {
+            final DocumentIngestionOutcome document = documentIngestionOutcomeTableService.getDocumentById(documentId);
+            if (nonNull(document) && !isNullOrEmpty(document.getSupersededDocuments())) {
+                final List<String> supersededDocs = Arrays.stream(document.getSupersededDocuments().split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .toList();
+                documentStorageService.markDocumentsInActive(supersededDocs);
+            }
+        } catch (EntityRetrievalException e) {
+            LOGGER.error("Failed to get document with Id: {}, superseded documents this document may have are not marked inactive in Search Index", documentId);
+            throw new RuntimeException(e);
+        }
     }
 
 

@@ -16,4 +16,8 @@ public class IndexConstants {
     public static final String CHUNK_INDEX = "chunkIndex";
     public static final String DOCUMENT_FILE_URL = "documentFileUrl";
     public static final String CUSTOM_METADATA = "customMetadata";
+
+    public static final String IS_ACTIVE = "is_active";
+    public static final String FALSE_VALUE = "false";
+
 }

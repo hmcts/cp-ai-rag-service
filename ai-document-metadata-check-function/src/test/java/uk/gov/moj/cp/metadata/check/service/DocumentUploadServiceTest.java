@@ -80,10 +80,11 @@ public class DocumentUploadServiceTest {
         final String documentId = "doc-123";
         final String documentName = "TestDoc";
         final Map<String, String> metadataMap = Map.of("k1", "v1");
+        final String supersededDocuments = "doc1,doc2";
 
-        documentUploadService.addDocumentAwaitingUpload(documentId, documentName, metadataMap);
+        documentUploadService.addDocumentAwaitingUpload(documentId, documentName, metadataMap, supersededDocuments);
 
-        verify(tableService).insert(eq(documentId), eq(documentName), eq("{\"k1\":\"v1\"}"), eq(AWAITING_UPLOAD.name()), eq(AWAITING_UPLOAD_REASON));
+        verify(tableService).insert(eq(documentId), eq(documentName), eq("{\"k1\":\"v1\"}"), eq(supersededDocuments), eq(AWAITING_UPLOAD.name()), eq(AWAITING_UPLOAD_REASON));
     }
 
     @Test
@@ -91,11 +92,12 @@ public class DocumentUploadServiceTest {
         final String documentId = "doc-123";
         final String documentName = "TestDoc";
         final Map<String, String> metadataMap = Map.of("k1", "v1");
+        final String supersededDocuments = "doc1,doc2";
 
-        doThrow(new DuplicateRecordException("duplicate")).when(tableService).insert(any(), any(), any(), any(), any());
+        doThrow(new DuplicateRecordException("duplicate")).when(tableService).insert(any(), any(), any(), any(), any(), any());
 
-        assertThrows(DuplicateRecordException.class, () -> documentUploadService.addDocumentAwaitingUpload(documentId, documentName, metadataMap));
+        assertThrows(DuplicateRecordException.class, () -> documentUploadService.addDocumentAwaitingUpload(documentId, documentName, metadataMap, supersededDocuments));
 
-        verify(tableService).insert(eq(documentId), eq(documentName), anyString(), anyString(), anyString());
+        verify(tableService).insert(eq(documentId), eq(documentName), anyString(), anyString(),anyString(), anyString());
     }
 }
