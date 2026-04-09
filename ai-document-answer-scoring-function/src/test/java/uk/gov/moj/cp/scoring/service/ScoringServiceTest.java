@@ -109,7 +109,7 @@ class ScoringServiceTest {
                 () -> scoringService.evaluateGroundedness(dummyLlmResponse, dummyUserQuery, dummyQueryPrompt, chunkedEntriesMock)
         );
 
-        assertEquals("Error calling Judge LLM for evaluation", ex.getMessage());
+        assertEquals("Error calling Judge LLM for evaluation: Chat service error", ex.getMessage());
         assertNotNull(ex.getCause());
     }
 }
