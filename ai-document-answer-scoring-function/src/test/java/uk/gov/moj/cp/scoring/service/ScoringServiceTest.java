@@ -1,11 +1,14 @@
 package uk.gov.moj.cp.scoring.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.when;
 import static uk.gov.moj.cp.scoring.service.ScoringService.JUDGE_LLM_SYSTEM_INSTRUCTIONS;
 
 import uk.gov.moj.cp.ai.exception.ChatServiceException;
+import uk.gov.moj.cp.ai.exception.ScoringServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.ai.util.ChunkFormatterUtility;
@@ -85,7 +88,7 @@ class ScoringServiceTest {
         when(chunkFormatterUtilityMock.buildChunkContext(chunkedEntriesMock)).thenReturn(mockFormattedChunks);
         when(scoringInstructionServiceMock.buildUserInstruction(dummyUserQuery, dummyQueryPrompt, mockFormattedChunks, dummyLlmResponse)).thenReturn(mockUserInstructions);
         when(chatServiceMock.callModel(eq(JUDGE_LLM_SYSTEM_INSTRUCTIONS), eq(mockUserInstructions), eq(ModelScore.class)))
-                .thenReturn(null);
+                .thenReturn(Optional.ofNullable(null));
 
         ModelScore result = scoringService.evaluateGroundedness(dummyLlmResponse, dummyUserQuery, dummyQueryPrompt, chunkedEntriesMock);
 
@@ -94,16 +97,19 @@ class ScoringServiceTest {
     }
 
     @Test
-    @DisplayName("Logs error and returns default score when chat service throws exception")
-    void logsErrorAndReturnsDefaultScoreWhenChatServiceThrowsException() throws ChatServiceException {
+    @DisplayName("Logs error and throws ScoringServiceException when chat service throws exception")
+    void logsErrorAndThrowsScoringServiceExceptionWhenChatServiceThrowsException() throws ChatServiceException {
         when(chunkFormatterUtilityMock.buildChunkContext(chunkedEntriesMock)).thenReturn(mockFormattedChunks);
         when(scoringInstructionServiceMock.buildUserInstruction(dummyUserQuery, dummyQueryPrompt, mockFormattedChunks, dummyLlmResponse)).thenReturn(mockUserInstructions);
         when(chatServiceMock.callModel(eq(JUDGE_LLM_SYSTEM_INSTRUCTIONS), eq(mockUserInstructions), eq(ModelScore.class)))
                 .thenThrow(new RuntimeException("Chat service error"));
 
-        ModelScore result = scoringService.evaluateGroundedness(dummyLlmResponse, dummyUserQuery, dummyQueryPrompt, chunkedEntriesMock);
+        final ScoringServiceException ex = assertThrows(
+                ScoringServiceException.class,
+                () -> scoringService.evaluateGroundedness(dummyLlmResponse, dummyUserQuery, dummyQueryPrompt, chunkedEntriesMock)
+        );
 
-        assertEquals(BigDecimal.ZERO, result.groundednessScore());
-        assertEquals("Error generating score", result.reasoning());
+        assertEquals("Error calling Judge LLM for evaluation", ex.getMessage());
+        assertNotNull(ex.getCause());
     }
 }

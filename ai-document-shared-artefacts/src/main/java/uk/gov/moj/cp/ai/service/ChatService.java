@@ -96,7 +96,7 @@ public class ChatService {
                 final String sanitisedResponse = ensureRawJsonAsConvertingPayloadToObject(jsonResponse);
                 responseModel = getObjectMapper().readValue(sanitisedResponse, responseClass);
             }
-            return Optional.of(responseModel);
+            return Optional.ofNullable(responseModel);
         } catch (JsonProcessingException e) {
             throw new ChatServiceException("Error calling LLM for evaluation", e);
         }
