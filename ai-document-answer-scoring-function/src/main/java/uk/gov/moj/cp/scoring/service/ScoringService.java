@@ -74,7 +74,6 @@ public class ScoringService {
             return chatService.callModel(JUDGE_LLM_SYSTEM_INSTRUCTIONS, userInstruction, ModelScore.class)
                     .orElse(new ModelScore(BigDecimal.ZERO, "Error generating score"));
         } catch (Exception e) {
-            LOGGER.error("Error calling Judge LLM for evaluation", e);
             throw new ScoringServiceException(format("Error calling Judge LLM for evaluation: %s", e.getMessage()), e);
         }
     }
