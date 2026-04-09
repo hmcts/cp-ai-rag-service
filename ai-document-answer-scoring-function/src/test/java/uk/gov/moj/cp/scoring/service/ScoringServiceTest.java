@@ -110,6 +110,6 @@ class ScoringServiceTest {
         );
 
         assertEquals("Error calling Judge LLM for evaluation: Chat service error", ex.getMessage());
-        assertNotNull(ex.getCause());
+        assertNotNull(ex.getFormattedMessage());
     }
 }

@@ -5,4 +5,8 @@ public class ScoringServiceException extends RuntimeException {
     public ScoringServiceException(final String message, final Exception e) {
         super(message, e);
     }
+
+    public String getFormattedMessage() {
+        return getMessage();
+    }
 }
