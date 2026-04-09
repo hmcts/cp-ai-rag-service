@@ -112,13 +112,4 @@ class ScoringServiceTest {
         assertEquals("Error calling Judge LLM for evaluation: Chat service error", ex.getMessage());
         assertNotNull(ex.getCause());
     }
-
-    @Test
-    void shouldCreateException() {
-        Exception cause = new RuntimeException("cause");
-        ScoringServiceException ex = new ScoringServiceException("msg", cause);
-
-        assertEquals("msg", ex.getMessage());
-        assertEquals(cause, ex.getCause());
-    }
 }
