@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 public class OrchestrationIntegrationTest extends FunctionTestBase {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OrchestrationIntegrationTest.class);
-    private static final String answerGenerationPayload = """
+    private static final String ANSWER_GENERATION_PAYLOAD = """
                 {
                   "userQuery": "Capital of UK",
                   "queryPrompt": "Capital of UK",
@@ -168,7 +168,7 @@ public class OrchestrationIntegrationTest extends FunctionTestBase {
 
     private void verifyAnswerRetrievalFunction(final String documentId, final String documentIdKey) throws InterruptedException, TimeoutException {
         final RequestSpecification llmQueryRequestSpecification = getRequestSpecification(ANSWER_RETRIEVAL_FUNCTION)
-                .body(answerGenerationPayload.formatted(documentIdKey, documentId))
+                .body(ANSWER_GENERATION_PAYLOAD.formatted(documentIdKey, documentId))
                 .contentType("application/json");
 
         // Step 3 - Query synchronously against the uploaded document

@@ -1,6 +1,9 @@
 package uk.gov.moj.cp.scoring.service;
 
+import static java.lang.String.format;
+
 import uk.gov.moj.cp.ai.coverage.Generated;
+import uk.gov.moj.cp.ai.exception.ScoringServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.ai.util.ChunkFormatterUtility;
@@ -71,8 +74,7 @@ public class ScoringService {
             return chatService.callModel(JUDGE_LLM_SYSTEM_INSTRUCTIONS, userInstruction, ModelScore.class)
                     .orElse(new ModelScore(BigDecimal.ZERO, "Error generating score"));
         } catch (Exception e) {
-            LOGGER.error("Error calling Judge LLM for evaluation", e);
-            return new ModelScore(BigDecimal.ZERO, "Error generating score");
+            throw new ScoringServiceException(format("Error calling Judge LLM for evaluation: %s", e.getMessage()), e);
         }
     }
 }
