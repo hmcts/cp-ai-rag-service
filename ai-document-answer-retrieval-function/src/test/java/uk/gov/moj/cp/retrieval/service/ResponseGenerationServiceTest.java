@@ -1,9 +1,13 @@
 package uk.gov.moj.cp.retrieval.service;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.Is.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,6 +18,7 @@ import static uk.gov.moj.cp.retrieval.service.ResponseGenerationService.LLM_RESP
 import static uk.gov.moj.cp.retrieval.service.ResponseGenerationService.LLM_RESPONSE_NO_DATA_AVAILABLE;
 
 import uk.gov.moj.cp.ai.exception.ChatServiceException;
+import uk.gov.moj.cp.ai.exception.ResponseGenerationServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.ai.util.ChunkFormatterUtility;
@@ -23,6 +28,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import com.azure.core.exception.HttpResponseException;
+import com.azure.core.http.HttpResponse;
+import org.hamcrest.core.Is;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -120,7 +128,7 @@ class ResponseGenerationServiceTest {
     }
 
     @Test
-    void generateResponse_ReturnsErrorMessage_WhenChatServiceThrowsException() throws ChatServiceException {
+    void generateResponse_ReturnsErrorMessage_WhenChatServiceThrowsChatServiceException() throws ChatServiceException {
         final String userQuery = "What is the legal implication?";
         final String userQueryPrompt = "Provide detailed legal advice.";
         final List<ChunkedEntry> chunkedEntries = List.of(
@@ -136,7 +144,7 @@ class ResponseGenerationServiceTest {
         when(chunkFormatterUtility.buildChunkContext(chunkedEntries)).thenReturn(mockFormattedChunk);
         when(userInstructionService.buildUserInstruction(userQuery, userQueryPrompt, mockFormattedChunk)).thenReturn(mockUserInstructions);
         when(mockChatService.callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class)))
-                .thenThrow(new RuntimeException("Service error"));
+                .thenThrow(new ChatServiceException("Service error"));
 
         final LlmResponse result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
 
@@ -148,6 +156,34 @@ class ResponseGenerationServiceTest {
         verify(citationProcessor, never()).processAndFormatCitations(any());
         verify(chunkFormatterUtility).buildChunkContext(chunkedEntries);
         verify(userInstructionService).buildUserInstruction(userQuery, userQueryPrompt, mockFormattedChunk);
+    }
+
+    @Test
+    void generateResponse_ThrowsResponseGenerationServiceException_WhenChatServiceThrowsNonChatServiceException() throws ChatServiceException {
+        final String userQuery = "What is the legal implication?";
+        final String userQueryPrompt = "Provide detailed legal advice.";
+        final List<ChunkedEntry> chunkedEntries = List.of(
+                ChunkedEntry.builder()
+                        .id("id1")
+                        .chunk("Chunk 1")
+                        .documentFileName("file name 1")
+                        .pageNumber(1)
+                        .documentId("doc id")
+                        .build()
+        );
+
+        when(chunkFormatterUtility.buildChunkContext(chunkedEntries)).thenReturn(mockFormattedChunk);
+        when(userInstructionService.buildUserInstruction(userQuery, userQueryPrompt, mockFormattedChunk)).thenReturn(mockUserInstructions);
+        when(mockChatService.callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class)))
+                .thenThrow(new HttpResponseException("Service error", mock(HttpResponse.class)));
+
+        ResponseGenerationServiceException ex = assertThrows(
+                ResponseGenerationServiceException.class,
+                () -> responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt)
+        );
+
+        assertThat(ex.getMessage().contains(userQuery), is(true));
+        assertThat(ex.getCause() instanceof HttpResponseException, is(true));
     }
 
     @Test

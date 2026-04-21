@@ -1,11 +1,14 @@
 package uk.gov.moj.cp.retrieval.service;
 
+import static java.lang.String.format;
 import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATED;
 import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATION_FAILED;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.util.StringUtil.unescapeContent;
 
+import uk.gov.moj.cp.ai.exception.ChatServiceException;
+import uk.gov.moj.cp.ai.exception.ResponseGenerationServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.ai.util.ChunkFormatterUtility;
@@ -77,8 +80,11 @@ public class ResponseGenerationService {
                         return new LlmResponse(LLM_RESPONSE_FAILURE_TO_GENERATE, LLM_RESPONSE_FAILURE_TO_GENERATE, ANSWER_GENERATION_FAILED);
                     });
         } catch (Exception e) {
-            LOGGER.error("Error generating response for user query: {}", userQuery, e);
-            return new LlmResponse(LLM_RESPONSE_FAILURE_TO_GENERATE, LLM_RESPONSE_FAILURE_TO_GENERATE, ANSWER_GENERATION_FAILED);
+            if (e instanceof ChatServiceException) {
+                LOGGER.error("Error generating response for user query: {}", userQuery, e);
+                return new LlmResponse(LLM_RESPONSE_FAILURE_TO_GENERATE, LLM_RESPONSE_FAILURE_TO_GENERATE, ANSWER_GENERATION_FAILED);
+            }
+            throw new ResponseGenerationServiceException(format("Error generating response for user query: %s", userQuery), e);
         }
     }
 }
