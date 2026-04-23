@@ -11,6 +11,7 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWE
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
@@ -33,7 +34,9 @@ import java.util.List;
 import java.util.UUID;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.OutputBinding;
+import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.QueueOutput;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
@@ -96,9 +99,12 @@ public class AnswerGenerationFunction {
                     name = "scoringMessage",
                     queueName = "%" + STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING + "%",
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING
-            ) final OutputBinding<String> scoringMessage
+            ) final OutputBinding<String> scoringMessage,
+            @BindingName("DequeueCount") long dequeueCount,
+            final ExecutionContext context
     ) {
 
+        final int maxDequeueCount = getRequiredEnvAsInteger("AzureFunctionsJobHost__extensions__queues__maxDequeueCount", "3");
         long startTime = currentTimeMillis();
         AnswerGenerationQueuePayload payload = null;
 
@@ -149,22 +155,26 @@ public class AnswerGenerationFunction {
 
             LOGGER.info("Answer generation completed for transactionId={} in {} ms", transactionId, durationMs);
         } catch (Exception e) {
-            final long durationMs = currentTimeMillis() - startTime;
+            if (dequeueCount == maxDequeueCount) {
+                final long durationMs = currentTimeMillis() - startTime;
+                LOGGER.error("Answer generation failed", e);
 
-            LOGGER.error("Answer generation failed", e);
-
-            if (nonNull(payload) && nonNull(payload.transactionId())) {
-                answerGenerationTableService.upsertIntoTable(
-                        payload.transactionId().toString(),
-                        payload.userQuery(),
-                        payload.queryPrompt(),
-                        null,
-                        null,
-                        AnswerGenerationStatus.ANSWER_GENERATION_FAILED,
-                        e.getMessage(),
-                        OffsetDateTime.now(),
-                        durationMs
-                );
+                if (nonNull(payload) && nonNull(payload.transactionId())) {
+                    answerGenerationTableService.upsertIntoTable(
+                            payload.transactionId().toString(),
+                            payload.userQuery(),
+                            payload.queryPrompt(),
+                            null,
+                            null,
+                            AnswerGenerationStatus.ANSWER_GENERATION_FAILED,
+                            e.getMessage(),
+                            OffsetDateTime.now(),
+                            durationMs
+                    );
+                }
+            } else {
+                final UUID trnId = nonNull(payload) ? payload.transactionId() : null;
+                throw new RuntimeException(format("Retrying AnswerGeneration for transactionId='%s'", trnId), e);
             }
         }
     }

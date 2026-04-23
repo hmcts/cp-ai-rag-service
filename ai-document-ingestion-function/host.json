@@ -5,7 +5,8 @@
       "maxPollingInterval": "00:00:10",
       "batchSize": 1,
       "newBatchThreshold": 1,
-      "maxDequeueCount": 3
+      "maxDequeueCount": 3,
+      "visibilityTimeout": "00:05:00"
     }
   },
   "logging": {
