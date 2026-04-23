@@ -89,6 +89,20 @@ class AnswerGenerationFunctionTest {
     }
 
     @Test
+    void run_DoesNothing_WhenQueueMessageIsEmpty() {
+        final RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                function.run("", mockScoringOutputBinding, 2, context));
+
+        assertThat(exception.getMessage(), is("Retrying AnswerGeneration for transactionId='null'"));
+
+        verify(mockEmbedDataService, never()).getEmbedding(anyString());
+        verify(mockScoringOutputBinding, never()).setValue(anyString());
+        verify(mockAnswerGenerationTableService, never()).upsertIntoTable(
+                anyString(), any(), any(), any(), any(), any(), any(), any(), any()
+        );
+    }
+
+    @Test
     void run_DoesNothing_WhenPayloadIsInvalid() throws Exception {
         AnswerGenerationQueuePayload payload =
                 new AnswerGenerationQueuePayload(
