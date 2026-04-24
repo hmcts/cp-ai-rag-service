@@ -126,6 +126,7 @@ public class DocumentIngestionOrchestrator {
 
         } catch (Exception e) {
             LOGGER.error("Error processing queue message: {}, document outcome cannot be updated.", queueMessage, e);
+            //do not throw the exception to avoid any further retries
         }
     }
 
