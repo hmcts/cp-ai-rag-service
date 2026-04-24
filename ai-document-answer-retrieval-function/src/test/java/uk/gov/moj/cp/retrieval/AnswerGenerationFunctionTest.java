@@ -2,6 +2,9 @@ package uk.gov.moj.cp.retrieval;
 
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.Is.is;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -31,6 +34,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.OutputBinding;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,6 +67,9 @@ class AnswerGenerationFunctionTest {
     @Mock
     private OutputBinding<String> mockScoringOutputBinding;
 
+    @Mock
+    private ExecutionContext context;
+
     private AnswerGenerationFunction function;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -83,7 +90,10 @@ class AnswerGenerationFunctionTest {
 
     @Test
     void run_DoesNothing_WhenQueueMessageIsEmpty() {
-        function.run("", mockScoringOutputBinding);
+        final RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                function.run("", mockScoringOutputBinding, 2, context));
+
+        assertThat(exception.getMessage(), is("Retrying AnswerGeneration for transactionId='null'"));
 
         verify(mockEmbedDataService, never()).getEmbedding(anyString());
         verify(mockScoringOutputBinding, never()).setValue(anyString());
@@ -104,7 +114,7 @@ class AnswerGenerationFunctionTest {
 
         String queueMessage = objectMapper.writeValueAsString(payload);
 
-        function.run(queueMessage, mockScoringOutputBinding);
+        function.run(queueMessage, mockScoringOutputBinding, 1, context);
 
         verify(mockEmbedDataService, never()).getEmbedding(anyString());
         verify(mockScoringOutputBinding, never()).setValue(anyString());
@@ -147,7 +157,7 @@ class AnswerGenerationFunctionTest {
                 "query", chunkedEntries, "prompt"))
                 .thenReturn(new LlmResponse("raw response", "generated response", ANSWER_GENERATED));
 
-        function.run(queueMessage, mockScoringOutputBinding);
+        function.run(queueMessage, mockScoringOutputBinding, 1, context);
 
         verify(mockAnswerGenerationTableService).upsertIntoTable(
                 eq(transactionId.toString()),
@@ -216,7 +226,7 @@ class AnswerGenerationFunctionTest {
                 "query", chunkedEntries, "prompt"))
                 .thenReturn(new LlmResponse("raw error", "raw formatted error", ANSWER_GENERATION_FAILED));
 
-        function.run(queueMessage, mockScoringOutputBinding);
+        function.run(queueMessage, mockScoringOutputBinding, 1, context);
 
         verify(mockAnswerGenerationTableService).upsertIntoTable(
                 eq(transactionId.toString()),
@@ -252,7 +262,7 @@ class AnswerGenerationFunctionTest {
     }
 
     @Test
-    void run_UpdatesTableWithFailure_WhenExceptionOccurs() throws Exception {
+    void run_UpdatesTableWithFailure_WhenExceptionOccurs_andQueueLevelRetriesExhausted() throws Exception {
         UUID transactionId = randomUUID();
 
         AnswerGenerationQueuePayload payload =
@@ -268,7 +278,7 @@ class AnswerGenerationFunctionTest {
         when(mockEmbedDataService.getEmbedding("query"))
                 .thenThrow(new RuntimeException("Embedding failure"));
 
-        function.run(queueMessage, mockScoringOutputBinding);
+        function.run(queueMessage, mockScoringOutputBinding, 3, context);
 
         verify(mockAnswerGenerationTableService).upsertIntoTable(
                 eq(transactionId.toString()),
@@ -284,5 +294,27 @@ class AnswerGenerationFunctionTest {
 
         verify(mockScoringOutputBinding, never()).setValue(anyString());
         verify(mockBlobPersistenceService, never()).saveBlob(anyString(), anyString());
+    }
+
+    @Test
+    void run_throwsRuntimeException_whenExceptionOccurs_andQueueLevelRetriesPending() throws Exception {
+        UUID transactionId = randomUUID();
+
+        AnswerGenerationQueuePayload payload =
+                new AnswerGenerationQueuePayload(
+                        transactionId,
+                        "query",
+                        "prompt",
+                        List.of(new KeyValuePair("key", "value"))
+                );
+
+        String queueMessage = objectMapper.writeValueAsString(payload);
+
+        when(mockEmbedDataService.getEmbedding("query")).thenThrow(new RuntimeException("Embedding failure"));
+
+        final RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                function.run(queueMessage, mockScoringOutputBinding, 2, context));
+
+        assertThat(exception.getMessage(), is("Retrying AnswerGeneration for transactionId='" + transactionId + "'"));
     }
 }

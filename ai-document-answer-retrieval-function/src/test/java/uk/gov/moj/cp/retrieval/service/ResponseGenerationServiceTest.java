@@ -1,9 +1,13 @@
 package uk.gov.moj.cp.retrieval.service;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.Is.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -23,6 +27,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import com.azure.core.exception.HttpResponseException;
+import com.azure.core.http.HttpResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -120,7 +126,7 @@ class ResponseGenerationServiceTest {
     }
 
     @Test
-    void generateResponse_ReturnsErrorMessage_WhenChatServiceThrowsException() throws ChatServiceException {
+    void generateResponse_propagatesException_WhenChatServiceThrowsChatServiceException() throws ChatServiceException {
         final String userQuery = "What is the legal implication?";
         final String userQueryPrompt = "Provide detailed legal advice.";
         final List<ChunkedEntry> chunkedEntries = List.of(
@@ -136,18 +142,41 @@ class ResponseGenerationServiceTest {
         when(chunkFormatterUtility.buildChunkContext(chunkedEntries)).thenReturn(mockFormattedChunk);
         when(userInstructionService.buildUserInstruction(userQuery, userQueryPrompt, mockFormattedChunk)).thenReturn(mockUserInstructions);
         when(mockChatService.callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class)))
-                .thenThrow(new RuntimeException("Service error"));
+                .thenThrow(new ChatServiceException("Invalid json response error"));
 
-        final LlmResponse result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
+        final ChatServiceException ex = assertThrows(
+                ChatServiceException.class,
+                () -> responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt)
+        );
 
-        assertEquals(LLM_RESPONSE_FAILURE_TO_GENERATE, result.rawLlmResponse());
-        assertEquals(LLM_RESPONSE_FAILURE_TO_GENERATE, result.formattedLlmResponse());
-        assertEquals(ANSWER_GENERATION_FAILED, result.status());
+        assertThat(ex.getMessage(), is("Invalid json response error"));
+    }
 
-        verify(mockChatService).callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class));
-        verify(citationProcessor, never()).processAndFormatCitations(any());
-        verify(chunkFormatterUtility).buildChunkContext(chunkedEntries);
-        verify(userInstructionService).buildUserInstruction(userQuery, userQueryPrompt, mockFormattedChunk);
+    @Test
+    void generateResponse_ThrowsException_WhenChatServiceThrowsChatServiceException() throws ChatServiceException {
+        final String userQuery = "What is the legal implication?";
+        final String userQueryPrompt = "Provide detailed legal advice.";
+        final List<ChunkedEntry> chunkedEntries = List.of(
+                ChunkedEntry.builder()
+                        .id("id1")
+                        .chunk("Chunk 1")
+                        .documentFileName("file name 1")
+                        .pageNumber(1)
+                        .documentId("doc id")
+                        .build()
+        );
+
+        when(chunkFormatterUtility.buildChunkContext(chunkedEntries)).thenReturn(mockFormattedChunk);
+        when(userInstructionService.buildUserInstruction(userQuery, userQueryPrompt, mockFormattedChunk)).thenReturn(mockUserInstructions);
+        when(mockChatService.callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class)))
+                .thenThrow(new HttpResponseException("Service error", mock(HttpResponse.class)));
+
+        final HttpResponseException ex = assertThrows(
+                HttpResponseException.class,
+                () -> responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt)
+        );
+
+        assertThat(ex.getMessage(), is("Service error"));
     }
 
     @Test

@@ -16,6 +16,7 @@ import static uk.org.webcompere.modelassert.json.JsonAssertions.json;
 import uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus;
 import uk.gov.hmcts.cp.openapi.model.AnswerUserQueryRequest;
 import uk.gov.hmcts.cp.openapi.model.MetadataFilter;
+import uk.gov.moj.cp.ai.exception.ChatServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.exception.SearchServiceException;
@@ -90,7 +91,7 @@ class SyncAnswerGenerationFunctionTest {
     }
 
     @Test
-    void run_ReturnsOk_WhenValidRequestIsProvided() throws SearchServiceException {
+    void run_ReturnsOk_WhenValidRequestIsProvided() throws SearchServiceException, ChatServiceException {
         final List<MetadataFilter> metadataFilter = List.of(new MetadataFilter("key", "value"));
         AnswerUserQueryRequest payload = new AnswerUserQueryRequest("query", "prompt", metadataFilter);
 
