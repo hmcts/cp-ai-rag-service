@@ -125,9 +125,9 @@ class AnswerGenerationFunctionTest {
 
     @Test
     void run_GeneratesAnswer_WhenValidPayloadProvided() throws Exception {
-        UUID transactionId = randomUUID();
+        final UUID transactionId = randomUUID();
 
-        AnswerGenerationQueuePayload payload =
+        final AnswerGenerationQueuePayload payload =
                 new AnswerGenerationQueuePayload(
                         transactionId,
                         "query",
@@ -135,10 +135,10 @@ class AnswerGenerationFunctionTest {
                         List.of(new KeyValuePair("key", "value"))
                 );
 
-        String queueMessage = objectMapper.writeValueAsString(payload);
+        final String queueMessage = objectMapper.writeValueAsString(payload);
 
-        List<Float> embeddings = List.of(1.0f, 2.0f);
-        List<ChunkedEntry> chunkedEntries =
+        final List<Float> embeddings = List.of(1.0f, 2.0f);
+        final List<ChunkedEntry> chunkedEntries =
                 List.of(ChunkedEntry.builder()
                         .id("1")
                         .chunk("Sample content")
@@ -194,9 +194,9 @@ class AnswerGenerationFunctionTest {
 
     @Test
     void run_DoesNotGenerateAnswer_WhenValidPayloadProvided() throws Exception {
-        UUID transactionId = randomUUID();
+        final UUID transactionId = randomUUID();
 
-        AnswerGenerationQueuePayload payload =
+        final AnswerGenerationQueuePayload payload =
                 new AnswerGenerationQueuePayload(
                         transactionId,
                         "query",
@@ -204,10 +204,10 @@ class AnswerGenerationFunctionTest {
                         List.of(new KeyValuePair("key", "value"))
                 );
 
-        String queueMessage = objectMapper.writeValueAsString(payload);
+        final String queueMessage = objectMapper.writeValueAsString(payload);
 
-        List<Float> embeddings = List.of(1.0f, 2.0f);
-        List<ChunkedEntry> chunkedEntries =
+        final List<Float> embeddings = List.of(1.0f, 2.0f);
+        final List<ChunkedEntry> chunkedEntries =
                 List.of(ChunkedEntry.builder()
                         .id("1")
                         .chunk("Sample content")
@@ -263,9 +263,9 @@ class AnswerGenerationFunctionTest {
 
     @Test
     void run_UpdatesTableWithFailure_WhenExceptionOccurs_andQueueLevelRetriesExhausted() throws Exception {
-        UUID transactionId = randomUUID();
+        final UUID transactionId = randomUUID();
 
-        AnswerGenerationQueuePayload payload =
+        final AnswerGenerationQueuePayload payload =
                 new AnswerGenerationQueuePayload(
                         transactionId,
                         "query",
@@ -273,7 +273,7 @@ class AnswerGenerationFunctionTest {
                         List.of(new KeyValuePair("key", "value"))
                 );
 
-        String queueMessage = objectMapper.writeValueAsString(payload);
+        final String queueMessage = objectMapper.writeValueAsString(payload);
 
         when(mockEmbedDataService.getEmbedding("query"))
                 .thenThrow(new RuntimeException("Embedding failure"));
@@ -298,9 +298,9 @@ class AnswerGenerationFunctionTest {
 
     @Test
     void run_throwsRuntimeException_whenExceptionOccurs_andQueueLevelRetriesPending() throws Exception {
-        UUID transactionId = randomUUID();
+        final UUID transactionId = randomUUID();
 
-        AnswerGenerationQueuePayload payload =
+        final AnswerGenerationQueuePayload payload =
                 new AnswerGenerationQueuePayload(
                         transactionId,
                         "query",
@@ -308,7 +308,7 @@ class AnswerGenerationFunctionTest {
                         List.of(new KeyValuePair("key", "value"))
                 );
 
-        String queueMessage = objectMapper.writeValueAsString(payload);
+        final String queueMessage = objectMapper.writeValueAsString(payload);
 
         when(mockEmbedDataService.getEmbedding("query")).thenThrow(new RuntimeException("Embedding failure"));
 

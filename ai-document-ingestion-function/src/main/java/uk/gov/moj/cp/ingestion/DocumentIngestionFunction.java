@@ -2,6 +2,7 @@ package uk.gov.moj.cp.ingestion;
 
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
@@ -10,6 +11,7 @@ import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 import uk.gov.moj.cp.ingestion.service.DocumentIngestionOrchestrator;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
 import org.slf4j.Logger;
@@ -37,9 +39,12 @@ public class DocumentIngestionFunction {
                     name = "queueMessage",
                     queueName = "%" + STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION + "%",
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING
-            ) String queueMessage) throws DocumentProcessingException {
+            ) String queueMessage,
+            @BindingName("DequeueCount") long dequeueCount
+    ) throws DocumentProcessingException {
 
         LOGGER.info("Document ingestion function triggered ");
+        final int maxDequeueCount = getRequiredEnvAsInteger("AzureFunctionsJobHost__extensions__queues__maxDequeueCount", "3");
 
         try {
             if (isNullOrEmpty(queueMessage)) {
@@ -47,7 +52,7 @@ public class DocumentIngestionFunction {
                 return;
             }
 
-            QueueIngestionMetadata queueIngestionMetadata =
+            final QueueIngestionMetadata queueIngestionMetadata =
                     getObjectMapper().readValue(queueMessage, QueueIngestionMetadata.class);
 
 
@@ -59,8 +64,12 @@ public class DocumentIngestionFunction {
             documentIngestionOrchestrator.processQueueMessage(queueIngestionMetadata);
 
         } catch (DocumentProcessingException documentProcessingException) {
-            // Re-throw to trigger Azure Function retry mechanism
-            throw new DocumentProcessingException("Error processing queueMessage", documentProcessingException);
+            if (dequeueCount == maxDequeueCount) {
+                documentIngestionOrchestrator.processQueueMessageFailed(queueMessage);
+            } else {
+                // Re-throw to trigger Azure Function retry mechanism
+                throw new DocumentProcessingException("Error processing queueMessage", documentProcessingException);
+            }
         } catch (JsonProcessingException e) {
             LOGGER.error("Failed to deserialize queue message: {}", queueMessage, e);
         }
