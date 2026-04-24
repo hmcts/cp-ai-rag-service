@@ -104,7 +104,10 @@ public class AnswerGenerationFunction {
             final ExecutionContext context
     ) {
 
+        //defaultValue of maxDequeueCount should match the value in host.json
         final int maxDequeueCount = getRequiredEnvAsInteger("AzureFunctionsJobHost__extensions__queues__maxDequeueCount", "3");
+        LOGGER.info("Event attempt count {} of {}", dequeueCount, maxDequeueCount);
+
         long startTime = currentTimeMillis();
         AnswerGenerationQueuePayload payload = null;
 
