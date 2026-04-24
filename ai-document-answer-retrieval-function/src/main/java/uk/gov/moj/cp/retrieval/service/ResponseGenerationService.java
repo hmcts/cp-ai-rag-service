@@ -1,6 +1,5 @@
 package uk.gov.moj.cp.retrieval.service;
 
-import static java.lang.String.format;
 import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATED;
 import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATION_FAILED;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
@@ -8,7 +7,6 @@ import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.util.StringUtil.unescapeContent;
 
 import uk.gov.moj.cp.ai.exception.ChatServiceException;
-import uk.gov.moj.cp.ai.exception.ResponseGenerationServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.ai.util.ChunkFormatterUtility;
@@ -54,7 +52,8 @@ public class ResponseGenerationService {
         this.systemPromptTemplate = systemPromptTemplate;
     }
 
-    public LlmResponse generateResponse(final String userQuery, final List<ChunkedEntry> chunkedEntries, final String userQueryPrompt) {
+    public LlmResponse generateResponse(final String userQuery, final List<ChunkedEntry> chunkedEntries,
+                                        final String userQueryPrompt) throws ChatServiceException {
         if (null == chunkedEntries || chunkedEntries.isEmpty()) {
             LOGGER.warn("No matching data from search database retrieved for query: {}", userQuery);
             return new LlmResponse(LLM_RESPONSE_NO_DATA_AVAILABLE, LLM_RESPONSE_NO_DATA_AVAILABLE, ANSWER_GENERATED);
@@ -67,24 +66,16 @@ public class ResponseGenerationService {
 
         final String userInstruction = userInstructionService.buildUserInstruction(userQuery, userQueryPrompt, formattedChunks);
 
-        try {
-            return chatService.callModel(systemPromptTemplate, userInstruction, String.class)
-                    .filter(rawLlmResponse -> !isNullOrEmpty(rawLlmResponse))
-                    .map(rawLlmResponse -> {
-                        String trimmedResponse = citationProcessor.processAndFormatCitations(rawLlmResponse);
-                        LOGGER.info("LLM Raw Response length = {}", trimmedResponse.length());
-                        return new LlmResponse(rawLlmResponse, trimmedResponse, ANSWER_GENERATED);
-                    })
-                    .orElseGet(() -> {
-                        LOGGER.warn("LLM returned no response.");
-                        return new LlmResponse(LLM_RESPONSE_FAILURE_TO_GENERATE, LLM_RESPONSE_FAILURE_TO_GENERATE, ANSWER_GENERATION_FAILED);
-                    });
-        } catch (Exception e) {
-            if (e instanceof ChatServiceException) {
-                LOGGER.error("Error generating response for user query: {}", userQuery, e);
-                return new LlmResponse(LLM_RESPONSE_FAILURE_TO_GENERATE, LLM_RESPONSE_FAILURE_TO_GENERATE, ANSWER_GENERATION_FAILED);
-            }
-            throw new ResponseGenerationServiceException(format("Error generating response for user query: %s", userQuery), e);
-        }
+        return chatService.callModel(systemPromptTemplate, userInstruction, String.class)
+                .filter(rawLlmResponse -> !isNullOrEmpty(rawLlmResponse))
+                .map(rawLlmResponse -> {
+                    String trimmedResponse = citationProcessor.processAndFormatCitations(rawLlmResponse);
+                    LOGGER.info("LLM Raw Response length = {}", trimmedResponse.length());
+                    return new LlmResponse(rawLlmResponse, trimmedResponse, ANSWER_GENERATED);
+                })
+                .orElseGet(() -> {
+                    LOGGER.warn("LLM returned no response.");
+                    return new LlmResponse(LLM_RESPONSE_FAILURE_TO_GENERATE, LLM_RESPONSE_FAILURE_TO_GENERATE, ANSWER_GENERATION_FAILED);
+                });
     }
 }

@@ -159,27 +159,30 @@ public class AnswerGenerationFunction {
             LOGGER.info("Answer generation completed for transactionId={} in {} ms", transactionId, durationMs);
         } catch (Exception e) {
             if (dequeueCount == maxDequeueCount) {
-                final long durationMs = currentTimeMillis() - startTime;
                 LOGGER.error("Answer generation failed", e);
-
+                final long durationMs = currentTimeMillis() - startTime;
                 if (nonNull(payload) && nonNull(payload.transactionId())) {
-                    answerGenerationTableService.upsertIntoTable(
-                            payload.transactionId().toString(),
-                            payload.userQuery(),
-                            payload.queryPrompt(),
-                            null,
-                            null,
-                            AnswerGenerationStatus.ANSWER_GENERATION_FAILED,
-                            e.getMessage(),
-                            OffsetDateTime.now(),
-                            durationMs
-                    );
+                    recordAnswerGenerationFailed(payload, e.getMessage(), durationMs);
                 }
             } else {
                 final UUID trnId = nonNull(payload) ? payload.transactionId() : null;
                 throw new RuntimeException(format("Retrying AnswerGeneration for transactionId='%s'", trnId), e);
             }
         }
+    }
+
+    private void recordAnswerGenerationFailed(final AnswerGenerationQueuePayload payload, final String errorMessage, final long durationMs) {
+        answerGenerationTableService.upsertIntoTable(
+                payload.transactionId().toString(),
+                payload.userQuery(),
+                payload.queryPrompt(),
+                null,
+                null,
+                AnswerGenerationStatus.ANSWER_GENERATION_FAILED,
+                errorMessage,
+                OffsetDateTime.now(),
+                durationMs
+        );
     }
 
     private String saveLlmResponseToTheBlobContainer(final UUID transactionId, final String userQuery, final String queryPrompt,
