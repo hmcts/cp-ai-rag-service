@@ -11,6 +11,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
@@ -235,6 +236,18 @@ class DocumentIngestionOrchestratorTest {
                 "123e4567-e89b-12d3-a456-426614174000",
                 "INGESTION_FAILED",
                 "Document ingestion failed during processing");
+    }
+
+    @Test
+    @DisplayName("Handle Queue Message processing fail and queueMessage is empty")
+    void shouldHandleQueueMessageProcessingFailWhenQueueMessageIsEmpty() throws Exception {
+        final String queueMessage = "";
+
+        // when
+        orchestrator.processQueueMessageFailed(queueMessage);
+
+        // then
+        verifyNoInteractions(documentIngestionOutcomeTableService);
     }
 
     @Test
