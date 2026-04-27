@@ -6,7 +6,6 @@ import static org.hamcrest.core.Is.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -161,7 +160,7 @@ class DocumentIngestionOrchestratorTest {
         final DocumentIngestionOutcome documentIngestionOutcome = mock(DocumentIngestionOutcome.class);
         when(documentIngestionOutcome.getSupersededDocuments()).thenReturn("67d6aeac-c533-41aa-9824-cc4ef7a346ef,569fefd2-d032-4c01-be59-b9045de5f43a");
         when(documentIngestionOutcomeTableService.getDocumentById(documentId)).thenReturn(documentIngestionOutcome);
-        doNothing().when(documentIngestionOutcomeTableService).upsertDocument(eq("789e0123-f456-7890-abcd-ef1234567890"), eq("INGESTION_SUCCESS"), eq("Document ingestion completed successfully"));
+        doNothing().when(documentIngestionOutcomeTableService).upsertDocument("789e0123-f456-7890-abcd-ef1234567890", "INGESTION_SUCCESS", "Document ingestion completed successfully");
 
         // when
         orchestrator.processQueueMessage(metadata);

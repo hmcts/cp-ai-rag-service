@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.ingestion;
 
+import static java.util.Objects.nonNull;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
@@ -51,9 +52,9 @@ public class DocumentIngestionFunction {
             LOGGER.error("Invalid queue queueMessage received: {}", queueMessage);
             return;
         }
-        try {
-            final QueueIngestionMetadata queueIngestionMetadata =
-                    getObjectMapper().readValue(queueMessage, QueueIngestionMetadata.class);
+
+        final QueueIngestionMetadata queueIngestionMetadata = toQueueIngestionMetadata(queueMessage);
+        if (nonNull(queueIngestionMetadata)) {
             try {
                 LOGGER.info("Parsed ingestion metadata - ID: {}, Name: {}, Blob URL: {}",
                         queueIngestionMetadata.documentId(),
@@ -70,8 +71,15 @@ public class DocumentIngestionFunction {
                     throw new DocumentProcessingException("Error processing queueMessage", documentProcessingException);
                 }
             }
+        }
+    }
+
+    private QueueIngestionMetadata toQueueIngestionMetadata(final String queueMessage) {
+        try {
+            return getObjectMapper().readValue(queueMessage, QueueIngestionMetadata.class);
         } catch (JsonProcessingException e) {
             LOGGER.error("Failed to deserialize queue message: {}", queueMessage, e);
         }
+        return null;
     }
 }
