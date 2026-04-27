@@ -122,13 +122,14 @@ class DocumentIngestionFunctionTest {
     void shouldUpdatedDocumentIngestionFailedWhenThrowsDocumentProcessingExceptionAndRetryAttemptsExhausted() throws Exception {
         // given
         final String queueMessage = "{\"documentId\":\"123e4567-e89b-12d3-a456-426614174000\",\"documentName\":\"customer-contract.pdf\",\"isDocumentIdUsedAsRowKey\":true}";
+
         final DocumentProcessingException orchestratorException = new DocumentProcessingException("Orchestrator failed");
         doThrow(orchestratorException).when(documentIngestionOrchestrator).processQueueMessage(any());
 
         // when & then
         documentIngestionFunction.run(queueMessage, 3);
 
-        verify(documentIngestionOrchestrator).processQueueMessageFailed(queueMessage);
+        verify(documentIngestionOrchestrator).processQueueMessageFailed(any(QueueIngestionMetadata.class));
     }
 
     @Test

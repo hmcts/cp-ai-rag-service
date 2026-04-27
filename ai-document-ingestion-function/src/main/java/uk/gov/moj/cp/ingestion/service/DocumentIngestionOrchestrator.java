@@ -9,7 +9,6 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUM
 import static uk.gov.moj.cp.ai.model.DocumentStatus.INGESTION_FAILED;
 import static uk.gov.moj.cp.ai.model.DocumentStatus.INGESTION_SUCCESS;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
-import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
@@ -99,8 +98,8 @@ public class DocumentIngestionOrchestrator {
         // Step 4: Store chunks in Azure Search
         documentStorageService.uploadChunks(Collections.unmodifiableList(chunkedEntries));
 
-        // Step 5: Mark superseded documents inActive
-        markSupersededDocumentsInActive(documentId);
+        // Step 5: Mark superseded documents inactive
+        markSupersededDocumentsInactive(documentId);
 
         // Step 6: Record success
         recordOutcome(documentName, documentId, INGESTION_SUCCESS.name(), INGESTION_SUCCESS.getReason(), isDocumentIdAsRowKey);
@@ -109,15 +108,8 @@ public class DocumentIngestionOrchestrator {
 
     }
 
-    public void processQueueMessageFailed(final String queueMessage) {
-
-        if (isNullOrEmpty(queueMessage)) {
-            LOGGER.error("Invalid queue queueMessage received: {}, document outcome cannot be updated.", queueMessage);
-            return;
-        }
-
+    public void processQueueMessageFailed(final QueueIngestionMetadata queueIngestionMetadata) {
         try {
-            final QueueIngestionMetadata queueIngestionMetadata = getObjectMapper().readValue(queueMessage, QueueIngestionMetadata.class);
             final String documentName = queueIngestionMetadata.documentName();
             final String documentId = queueIngestionMetadata.documentId();
             final boolean isDocumentIdAsRowKey = queueIngestionMetadata.isDocumentIdUsedAsRowKey();
@@ -125,12 +117,13 @@ public class DocumentIngestionOrchestrator {
             recordOutcome(documentName, documentId, INGESTION_FAILED.name(), INGESTION_FAILED.getReason(), isDocumentIdAsRowKey);
 
         } catch (Exception e) {
-            LOGGER.error("Error processing queue message: {}, document outcome cannot be updated.", queueMessage, e);
+            LOGGER.error("Error processing queue message for the documentId: {} and documentName: {}, document outcome cannot be updated.",
+                    queueIngestionMetadata.documentId(), queueIngestionMetadata.documentName(), e);
             //do not throw the exception to avoid any further retries
         }
     }
 
-    private void markSupersededDocumentsInActive(final String documentId) throws DocumentProcessingException {
+    private void markSupersededDocumentsInactive(final String documentId) throws DocumentProcessingException {
         try {
             final DocumentIngestionOutcome document = documentIngestionOutcomeTableService.getDocumentById(documentId);
             if (nonNull(document) && !isNullOrEmpty(document.getSupersededDocuments())) {
@@ -141,7 +134,7 @@ public class DocumentIngestionOrchestrator {
                 documentStorageService.markDocumentsInActive(supersededDocs);
             }
         } catch (EntityRetrievalException e) {
-            final String message = String.format("Failed to get document with Id: '%s', superseded documents this document may have are not marked inactive in Search Index", documentId);
+            final String message = String.format("Unable to mark documents as Inactive in search index which were to be superseded by document with ID: %s", documentId);
             throw new DocumentProcessingException(message, e);
         }
     }

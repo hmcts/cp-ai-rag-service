@@ -44,31 +44,31 @@ public class DocumentIngestionFunction {
     ) throws DocumentProcessingException {
 
         LOGGER.info("Document ingestion function triggered ");
+        //defaultValue of maxDequeueCount should match the value in host.json
         final int maxDequeueCount = getRequiredEnvAsInteger("AzureFunctionsJobHost__extensions__queues__maxDequeueCount", "3");
 
+        if (isNullOrEmpty(queueMessage)) {
+            LOGGER.error("Invalid queue queueMessage received: {}", queueMessage);
+            return;
+        }
         try {
-            if (isNullOrEmpty(queueMessage)) {
-                LOGGER.error("Invalid queue queueMessage received: {}", queueMessage);
-                return;
-            }
-
             final QueueIngestionMetadata queueIngestionMetadata =
                     getObjectMapper().readValue(queueMessage, QueueIngestionMetadata.class);
+            try {
+                LOGGER.info("Parsed ingestion metadata - ID: {}, Name: {}, Blob URL: {}",
+                        queueIngestionMetadata.documentId(),
+                        queueIngestionMetadata.documentName(),
+                        queueIngestionMetadata.blobUrl());
 
+                documentIngestionOrchestrator.processQueueMessage(queueIngestionMetadata);
 
-            LOGGER.info("Parsed ingestion metadata - ID: {}, Name: {}, Blob URL: {}",
-                    queueIngestionMetadata.documentId(),
-                    queueIngestionMetadata.documentName(),
-                    queueIngestionMetadata.blobUrl());
-
-            documentIngestionOrchestrator.processQueueMessage(queueIngestionMetadata);
-
-        } catch (DocumentProcessingException documentProcessingException) {
-            if (dequeueCount == maxDequeueCount) {
-                documentIngestionOrchestrator.processQueueMessageFailed(queueMessage);
-            } else {
-                // Re-throw to trigger Azure Function retry mechanism
-                throw new DocumentProcessingException("Error processing queueMessage", documentProcessingException);
+            } catch (DocumentProcessingException documentProcessingException) {
+                if (dequeueCount == maxDequeueCount) {
+                    documentIngestionOrchestrator.processQueueMessageFailed(queueIngestionMetadata);
+                } else {
+                    // Re-throw to trigger Azure Function retry mechanism
+                    throw new DocumentProcessingException("Error processing queueMessage", documentProcessingException);
+                }
             }
         } catch (JsonProcessingException e) {
             LOGGER.error("Failed to deserialize queue message: {}", queueMessage, e);

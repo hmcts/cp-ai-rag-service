@@ -6,12 +6,12 @@ import static org.hamcrest.core.Is.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
@@ -20,7 +20,9 @@ import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 
+import java.time.Instant;
 import java.util.Collections;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -156,10 +158,10 @@ class DocumentIngestionOrchestratorTest {
                 true
         );
 
-        final DocumentIngestionOutcome documentINgestionOutcome = mock(DocumentIngestionOutcome.class);
-        when(documentINgestionOutcome.getSupersededDocuments()).thenReturn("67d6aeac-c533-41aa-9824-cc4ef7a346ef,569fefd2-d032-4c01-be59-b9045de5f43a");
-        when(documentIngestionOutcomeTableService.getDocumentById(documentId)).thenReturn(documentINgestionOutcome);
-        doNothing().when(documentIngestionOutcomeTableService).upsertDocument(anyString(), anyString(), anyString());
+        final DocumentIngestionOutcome documentIngestionOutcome = mock(DocumentIngestionOutcome.class);
+        when(documentIngestionOutcome.getSupersededDocuments()).thenReturn("67d6aeac-c533-41aa-9824-cc4ef7a346ef,569fefd2-d032-4c01-be59-b9045de5f43a");
+        when(documentIngestionOutcomeTableService.getDocumentById(documentId)).thenReturn(documentIngestionOutcome);
+        doNothing().when(documentIngestionOutcomeTableService).upsertDocument(eq("789e0123-f456-7890-abcd-ef1234567890"), eq("INGESTION_SUCCESS"), eq("Document ingestion completed successfully"));
 
         // when
         orchestrator.processQueueMessage(metadata);
@@ -173,7 +175,7 @@ class DocumentIngestionOrchestratorTest {
     }
 
     @Test
-    @DisplayName("Document has previous versions and mark superseded document inActive failed")
+    @DisplayName("Document has previous versions and mark superseded document inactive failed")
     void shouldThrowExceptionWhenFailedToMarkSupersededDocumentInactive() throws Exception {
         // given
         final String documentId = "789e0123-f456-7890-abcd-ef1234567890";
@@ -193,7 +195,7 @@ class DocumentIngestionOrchestratorTest {
         final DocumentProcessingException ex = assertThrows(
                 DocumentProcessingException.class, () -> orchestrator.processQueueMessage(metadata));
 
-        assertThat(ex.getMessage().contains("superseded documents this document may have are not marked inactive in Search Index"), is(true));
+        assertThat(ex.getMessage().contains("Unable to mark documents as Inactive in search index which were to be superseded by document with ID: " + documentId), is(true));
         verify(documentIngestionOutcomeTableService, times(0)).upsertDocument(anyString(), anyString(), anyString());
     }
 
@@ -226,10 +228,19 @@ class DocumentIngestionOrchestratorTest {
     @Test
     @DisplayName("Handle Queue Message processing fail and isDocumentIdAsRowKey true")
     void shouldHandleQueueMessageProcessingFailWhenDocumentIdUsedAsRowKey() throws Exception {
-        final String queueMessage = "{\"documentId\":\"123e4567-e89b-12d3-a456-426614174000\",\"documentName\":\"customer-contract.pdf\",\"isDocumentIdUsedAsRowKey\":true}";
+        //given
+        final QueueIngestionMetadata metadata = new QueueIngestionMetadata(
+                "123e4567-e89b-12d3-a456-426614174000",
+                "Burglary-IDPC.pdf",
+                Map.of("case_id", "b99704aa-b1b1-4d5f-bb39-47dc3f18ffa9",
+                        "document_type", "MCC"),
+                "https://storage.blob.core.windows.net/documents/Burglary-IDPC.pdf",
+                Instant.now().toString(),
+                true
+        );
 
         // when
-        orchestrator.processQueueMessageFailed(queueMessage);
+        orchestrator.processQueueMessageFailed(metadata);
 
         // then
         verify(documentIngestionOutcomeTableService).upsertDocument(
@@ -239,24 +250,21 @@ class DocumentIngestionOrchestratorTest {
     }
 
     @Test
-    @DisplayName("Handle Queue Message processing fail and queueMessage is empty")
-    void shouldHandleQueueMessageProcessingFailWhenQueueMessageIsEmpty() throws Exception {
-        final String queueMessage = "";
-
-        // when
-        orchestrator.processQueueMessageFailed(queueMessage);
-
-        // then
-        verifyNoInteractions(documentIngestionOutcomeTableService);
-    }
-
-    @Test
     @DisplayName("Handle Queue Message processing failed and fail to update the table")
     void shouldHandleQueueMessageProcessingFailedAndFailToUpdateTable() {
-        final String queueMessage = "{\"documentId\":\"123e4567-e89b-12d3-a456-426614174000\",\"documentName\":\"customer-contract.pdf\",\"isDocumentIdUsedAsRowKey\":true}";
+        final QueueIngestionMetadata metadata = new QueueIngestionMetadata(
+                "123e4567-e89b-12d3-a456-426614174000",
+                "Burglary-IDPC.pdf",
+                Map.of("case_id", "b99704aa-b1b1-4d5f-bb39-47dc3f18ffa9",
+                        "document_type", "MCC"),
+                "https://storage.blob.core.windows.net/documents/Burglary-IDPC.pdf",
+                Instant.now().toString(),
+                true
+        );
+
         doThrow(new RuntimeException("DB write error!"))
                 .when(documentIngestionOutcomeTableService).upsertDocument(any(), any(), any());
 
-        orchestrator.processQueueMessageFailed(queueMessage);
+        orchestrator.processQueueMessageFailed(metadata);
     }
 }
