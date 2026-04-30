@@ -121,7 +121,7 @@ public class DocumentBlobTriggerFunction {
         return result;
     }
 
-    private static int getDocumentUploadSizeLimitBytes() {
+    private int getDocumentUploadSizeLimitBytes() {
         return getRequiredEnvAsInteger(MAX_DOCUMENT_UPLOAD_BLOB_SIZE_MIB, "80") * 1024 * 1024;
     }
 }
