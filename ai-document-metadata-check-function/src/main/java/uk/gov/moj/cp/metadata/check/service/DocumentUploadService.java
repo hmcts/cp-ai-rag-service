@@ -1,8 +1,10 @@
 package uk.gov.moj.cp.metadata.check.service;
 
+import static java.lang.String.format;
 import static java.util.Objects.nonNull;
 import static uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatus.AWAITING_INGESTION;
 import static uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatus.AWAITING_UPLOAD;
+import static uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatus.FILE_SIZE_OVER_LIMIT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
@@ -25,6 +27,7 @@ public class DocumentUploadService {
 
     static final String AWAITING_UPLOAD_REASON = "Upload initiated, document awaiting upload";
     static final String AWAITING_INGESTION_REASON = "Upload complete, document awaiting ingestion";
+    static final String FILE_SIZE_OVER_LIMIT_REASON = "Document Uploaded with size=%d is over the configured size limit=%d";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentUploadService.class);
     private final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService;
@@ -75,5 +78,13 @@ public class DocumentUploadService {
         } catch (EntityRetrievalException e) {
             throw new DataRetrievalException("Unable to check status of document in table storage", e);
         }
+    }
+
+    /**
+     * upsert the document record in the table storage with status FILE_SIZE_OVER_LIMIT and reason to include blobSize and maxFileSizeLimit.
+     */
+    public void updateDocumentFileSizeOverLimit(final String documentId, final long documentSize, final long maxFileSizeLimit) {
+        documentIngestionOutcomeTableService.upsertDocument(documentId, FILE_SIZE_OVER_LIMIT.name(),
+                format(FILE_SIZE_OVER_LIMIT_REASON, documentSize, maxFileSizeLimit));
     }
 }
