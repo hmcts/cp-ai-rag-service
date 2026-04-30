@@ -11,6 +11,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatus.AWAITING_UPLOAD;
+import static uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatus.FILE_SIZE_OVER_LIMIT;
 import static uk.gov.moj.cp.metadata.check.service.DocumentUploadService.AWAITING_UPLOAD_REASON;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
@@ -85,6 +86,17 @@ public class DocumentUploadServiceTest {
         documentUploadService.addDocumentAwaitingUpload(documentId, documentName, metadataMap, supersededDocuments);
 
         verify(tableService).insert(eq(documentId), eq(documentName), eq("{\"k1\":\"v1\"}"), eq(supersededDocuments), eq(AWAITING_UPLOAD.name()), eq(AWAITING_UPLOAD_REASON));
+    }
+
+    @Test
+    void shouldCallUpsert_whenDocumentSizeExceedConfiguredSizeLimit() throws Exception {
+        final String documentId = "doc-123";
+        final long documentSize = 1500L;
+        final long maxFileSize = 1200L;
+
+        documentUploadService.updateDocumentFileSizeOverLimit(documentId, documentSize, maxFileSize);
+
+        verify(tableService).upsertDocument(documentId, FILE_SIZE_OVER_LIMIT.name(), "Document Uploaded with size=1500 is over the configured size limit=1200");
     }
 
     @Test

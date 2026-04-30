@@ -64,7 +64,7 @@ public class BlobClientService {
 
         final BlobSasPermission permissions = new BlobSasPermission()
                 .setReadPermission(true)
-                .setWritePermission(false)
+                .setWritePermission(true)
                 .setCreatePermission(true);
 
         final BlobServiceSasSignatureValues sasValues = new BlobServiceSasSignatureValues(expiry, permissions)

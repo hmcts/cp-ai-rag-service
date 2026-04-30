@@ -4,9 +4,11 @@ import static java.lang.String.format;
 import static java.util.Objects.nonNull;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.MAX_DOCUMENT_UPLOAD_BLOB_SIZE_MIB;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
 import static uk.gov.moj.cp.ai.util.StringUtil.removeTrailingSlash;
 import static uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer.stringToMap;
@@ -39,9 +41,11 @@ public class DocumentBlobTriggerFunction {
     private final BlobClientService blobClientService;
     private final DocumentUploadService documentUploadService;
     private final DocumentBlobNameResolver documentBlobNameResolver;
+    private final long maxDocumentUploadSize;
 
     public DocumentBlobTriggerFunction() {
         final String documentContainerName = getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD);
+        maxDocumentUploadSize = getDocumentUploadSizeLimitBytes();
         this.blobClientService = new BlobClientService(documentContainerName);
         this.documentUploadService = new DocumentUploadService();
         this.documentBlobNameResolver = new DocumentBlobNameResolver();
@@ -50,6 +54,7 @@ public class DocumentBlobTriggerFunction {
     DocumentBlobTriggerFunction(final BlobClientService blobClientService,
                                 final DocumentUploadService documentUploadService,
                                 final DocumentBlobNameResolver documentBlobNameResolver) {
+        maxDocumentUploadSize = getDocumentUploadSizeLimitBytes();
         this.blobClientService = blobClientService;
         this.documentUploadService = documentUploadService;
         this.documentBlobNameResolver = documentBlobNameResolver;
@@ -74,7 +79,14 @@ public class DocumentBlobTriggerFunction {
 
             final String documentId = documentBlobNameResolver.getDocumentId(blobName);
             final DocumentIngestionOutcome document = documentUploadService.getDocument(documentId);
-            documentUploadService.updateDocumentAwaitingIngestion(document.getDocumentId());
+
+            final long blobSize = blobClientService.getBlobClient(blobName).getProperties().getBlobSize();
+            LOGGER.info("Document blob size={} for blobName:{}", blobSize, blobName);
+            if (blobSize < maxDocumentUploadSize) {
+                documentUploadService.updateDocumentAwaitingIngestion(document.getDocumentId());
+            } else {
+                documentUploadService.updateDocumentFileSizeOverLimit(document.getDocumentId(), blobSize, maxDocumentUploadSize);
+            }
 
             final Map<String, String> metadataMap = stringToMap(document.getMetadata());
             final QueueIngestionMetadata queueIngestionMetadata = createQueueMessage(blobName, document.getDocumentName(), flatten(documentId, metadataMap));
@@ -107,5 +119,9 @@ public class DocumentBlobTriggerFunction {
             result.putAll(metadataMap);
         }
         return result;
+    }
+
+    private static int getDocumentUploadSizeLimitBytes() {
+        return getRequiredEnvAsInteger(MAX_DOCUMENT_UPLOAD_BLOB_SIZE_MIB, "80") * 1024 * 1024;
     }
 }

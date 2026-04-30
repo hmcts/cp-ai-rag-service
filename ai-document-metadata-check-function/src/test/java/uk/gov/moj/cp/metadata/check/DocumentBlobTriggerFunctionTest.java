@@ -25,6 +25,8 @@ import uk.gov.moj.cp.ai.util.EnvVarUtil;
 import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
 import uk.gov.moj.cp.metadata.check.utils.DocumentBlobNameResolver;
 
+import com.azure.storage.blob.BlobClient;
+import com.azure.storage.blob.models.BlobProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.microsoft.azure.functions.OutputBinding;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +44,7 @@ class DocumentBlobTriggerFunctionTest {
     private OutputBinding<String> outputBinding;
     private DocumentBlobNameResolver documentBlobNameResolver;
     private DocumentBlobTriggerFunction function;
+    private BlobProperties blobProperties;
 
     @BeforeEach
     void setUp() {
@@ -50,6 +53,12 @@ class DocumentBlobTriggerFunctionTest {
         outputBinding = mock(OutputBinding.class);
         documentBlobNameResolver = mock(DocumentBlobNameResolver.class);
         function = new DocumentBlobTriggerFunction(blobClientService, documentUploadService, documentBlobNameResolver);
+
+        final BlobClient blobClient = mock(BlobClient.class);
+        blobProperties = mock(BlobProperties.class);
+        when(blobClientService.getBlobClient(blobName)).thenReturn(blobClient);
+        when(blobClient.getProperties()).thenReturn(blobProperties);
+        when(blobProperties.getBlobSize()).thenReturn(10L * 1024 * 1024);
     }
 
     @Test
@@ -97,6 +106,42 @@ class DocumentBlobTriggerFunctionTest {
             assertThat(queueIngestionMetadata.metadata().get("version"), is("1.0"));
             assertThat(queueIngestionMetadata.blobUrl(), is("http://blob.web.com/doc-upload/123_20260226.json"));
             assertThat(parse(queueIngestionMetadata.currentTimestamp()).isBefore(now()), is(true));
+        }
+    }
+
+    @Test
+    void shouldProcessAndPublishMessage_whenBlobSizeExceedTheConfiguredLimit() throws JsonProcessingException {
+        try (MockedStatic<EnvVarUtil> mockedEnvVarUtil = mockStatic(EnvVarUtil.class)) {
+            mockedEnvVarUtil.when(() -> getRequiredEnv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT)).thenReturn("http://blob.web.com/");
+            mockedEnvVarUtil.when(() -> getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD)).thenReturn("doc-upload");
+
+            when(documentBlobNameResolver.getDocumentId(blobName)).thenReturn(documentId);
+            when(blobClientService.isBlobAvailable(blobName)).thenReturn(true);
+
+            DocumentIngestionOutcome document = mock(DocumentIngestionOutcome.class);
+            when(document.getDocumentId()).thenReturn(documentId);
+            when(document.getDocumentName()).thenReturn("doc.json");
+            when(document.getMetadata()).thenReturn("{\"version\":\"1.0\"}");
+            when(documentUploadService.getDocument(documentId)).thenReturn(document);
+
+            final long maxSizeLimit = 80L * 1024 * 1024;
+            final long documentSize = 81L * 1024 * 1024;
+            when(blobProperties.getBlobSize()).thenReturn(documentSize);
+
+            function.run(new byte[]{}, blobName, outputBinding);
+
+            verify(documentUploadService).getDocument(documentId);
+            verify(documentUploadService).updateDocumentFileSizeOverLimit(documentId, documentSize, maxSizeLimit);
+
+            final ArgumentCaptor<String> queueMessageCaptor = ArgumentCaptor.forClass(String.class);
+            verify(outputBinding).setValue(queueMessageCaptor.capture());
+            final QueueIngestionMetadata queueIngestionMetadata = getObjectMapper()
+                    .readValue(queueMessageCaptor.getValue(), QueueIngestionMetadata.class);
+
+            //assert metadata
+            assertThat(queueIngestionMetadata.documentName(), is("doc.json"));
+            assertThat(queueIngestionMetadata.documentId(), is("123"));
+            assertThat(queueIngestionMetadata.blobUrl(), is("http://blob.web.com/doc-upload/123_20260226.json"));
         }
     }
 
