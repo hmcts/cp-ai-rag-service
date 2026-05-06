@@ -5,47 +5,67 @@ This service processes documents through ingestion, retrieval, and scoring workf
 
 ## Architecture
 
-This mono-repo contains four independently deployable Azure Functions:
+This mono-repo contains five independently deployable Azure Functions, a shared library, and an integration test module:
 
-### 1. AI Document Metadata Check Function
-- **Purpose**: Validates document metadata when a new blob is uploaded and enqueues for processing
-- **Module**: `ai-document-metadata-check-function`
+### Functions
 
-### 2. AI Document Ingestion Function
-- **Purpose**: Orchestrates document preprocessing, chunking, embedding generation, and vector database storage
-- **Module**: `ai-document-ingestion-function`
+| Module | Purpose |
+|--------|---------|
+| `ai-document-metadata-check-function` | Issues SAS upload URLs via HTTP `POST /document-upload`; blob triggers then validate metadata and enqueue files for ingestion |
+| `ai-document-ingestion-function` | Orchestrates document preprocessing, chunking, embedding generation, and vector storage |
+| `ai-document-answer-retrieval-function` | Processes client queries, performs retrieval/grounding, and generates answer summaries |
+| `ai-document-answer-scoring-function` | Scores generated responses and records telemetry in Azure Monitor |
+| `ai-document-status-check-function` | HTTP GET endpoints to look up document ingestion status by reference |
 
-### 3. AI Document Answer Retrieval Function
-- **Purpose**: Processes client queries, performs retrieval/grounding, and generates answer summaries
-- **Module**: `ai-document-answer-retrieval-function`
+### Supporting Modules
 
-### 4. AI Document Answer Scoring Function
-- **Purpose**: Scores generated responses and records telemetry in Azure Monitor
-- **Module**: `ai-document-answer-scoring-function`
+| Module | Purpose |
+|--------|---------|
+| `ai-document-shared-artefacts` | Shared utilities, models (including OpenAPI-generated), entity classes, and Azure service clients |
+| `ai-service-orchestration-test` | Integration tests using REST Assured, Testcontainers, and Awaitility |
+
+## Architecture & Data Flow
+
+### Document Ingestion Pipeline
+
+The metadata-check module supports two upload entry flows; both converge on the document-ingestion queue and the same downstream worker.
+
+**Flow A — HTTP-initiated SAS upload** (preferred, two-step):
+1. Caller calls `DocumentUploadFunction` (`POST /document-upload`, `@FunctionName("InitiateDocumentUpload")`) with a `DocumentUploadRequest` (documentId, documentName, metadata, overwrites). The function validates the request, rejects duplicates, records an "awaiting upload" row in Table Storage, and returns a write-only SAS URL (issued by `BlobClientService` against the document-upload container) together with the documentId.
+2. Caller PUTs the file bytes directly to the returned SAS URL.
+3. The blob landing in the upload container fires `DocumentBlobTriggerFunction` (`@FunctionName("DocumentUploadCheck")`), which checks the file size, updates the Table Storage row, and enqueues an ingestion message.
+
+**Flow B — direct blob drop** (file arrives in the primary upload container via an out-of-band mechanism):
+1. `BlobTriggerFunction` (`@FunctionName("DocumentMetadataCheck")`) fires; `IngestionOrchestratorService` validates metadata against Table Storage and enqueues an ingestion message on success.
+
+**Downstream (shared by both flows):**
+- `DocumentIngestionFunction` (ingestion-function, queue-triggered) consumes the queue and runs `DocumentIngestionOrchestrator`:
+  - Azure Document Intelligence extracts text content
+  - Content is chunked by `DocumentChunkingService` (uses LangChain4J's recursive `DocumentSplitter`)
+  - Embeddings generated via Azure OpenAI
+  - Chunks + embeddings stored in Azure AI Search index
+
+### Query & Answer Generation Pipeline
+
+The answer-retrieval module exposes two HTTP invocation modes plus the queue-triggered async worker.
+
+**Synchronous** — single HTTP round-trip:
+- `SyncAnswerGenerationFunction` (`POST` `AnswerRetrieval`) — embeds the query (`EmbedDataService`), retrieves chunks (`AzureAISearchService`), calls Azure OpenAI via `ResponseGenerationService`/`ChatService`, and returns the generated answer in the HTTP response. Also enqueues a scoring message to the answer-scoring queue.
+
+**Asynchronous** — request/poll across three functions:
+1. `InitiateAnswerGenerationFunction` (`POST /answer-user-query-async`) validates the request, writes a pending row to Table Storage, enqueues a payload to the answer-generation queue, and returns a `transactionId`.
+2. `AnswerGenerationFunction` (queue-triggered) consumes the message, runs the same embed → search → LLM flow, persists the result payload to Blob Storage, updates Table Storage status, and enqueues a scoring message.
+3. `GetAnswerGenerationResultFunction` (`GET /answer-user-query-async-status/{transactionId}`) is the polling endpoint clients call to retrieve the generated answer once ready.
+
+### Scoring
+- `AnswerScoringFunction` evaluates answer groundedness via `ScoringService`
+- `PublishScoreService` records metrics to Azure Monitor
 
 ## Prerequisites
 
-- Java 17 or higher
-- Maven 3.6 or higher
-- Azure CLI (for deployment)
+- Java 21
+- Maven 3.3.9 or higher
 - Azure Functions Core Tools (for local development)
-
-## Security Guidelines
-
-**IMPORTANT**: This repository is public and must not contain any secrets or sensitive information.
-
-### Configuration Management
-- All sensitive configuration is managed through environment variables or Azure Key Vault
-- Sample configuration files (`local.settings.sample.json`) are provided with placeholder values
-- Never commit `local.settings.json` files with real values
-- Use Azure Key Vault for production secrets
-
-### Files Excluded from Git
-The following files and patterns are excluded from version control:
-- `local.settings.json` (contains real secrets)
-- `target/` directories (build artifacts)
-- `*.key`, `*.pem`, `*.p12`, `*.pfx` (certificate files)
-- `.env` files (environment-specific secrets)
 
 ## Local Development Setup
 
@@ -62,15 +82,17 @@ The following files and patterns are excluded from version control:
    cp ai-document-ingestion-function/Azure/local.settings.sample.json ai-document-ingestion-function/Azure/local.settings.json
    cp ai-document-answer-retrieval-function/Azure/local.settings.sample.json ai-document-answer-retrieval-function/Azure/local.settings.json
    cp ai-document-answer-scoring-function/Azure/local.settings.sample.json ai-document-answer-scoring-function/Azure/local.settings.json
+   cp ai-document-status-check-function/Azure/local.settings.sample.json ai-document-status-check-function/Azure/local.settings.json
    ```
 
 3. **Configure your local settings**
-   Edit each `local.settings.json` file and replace placeholder values with your actual Azure service credentials:
+Edit each `local.settings.json` file and replace placeholder values with your actual Azure service credentials:
     - Azure Storage connection strings
     - Azure Search endpoint and API key
     - Azure OpenAI endpoint, API key, and deployment name
     - Application Insights instrumentation key
     - Azure Monitor connection string
+   
 
 4. **Build the project**
    ```bash
@@ -105,121 +127,25 @@ mvn clean package
 
 ## Deployment
 
-Each function can be deployed independently using environment-specific naming:
+Functions are deployed via Azure Pipelines (see `azure-pipelines.yaml`). Each function is deployed independently to its target environment.
 
-```bash
-# Deploy a specific function to development environment
-cd ai-document-metadata-check-function
-mvn azure-functions:deploy -DazureEnv=dev
-
-# Deploy to staging environment
-mvn azure-functions:deploy -DazureEnv=stg
-
-# Deploy to production environment
-mvn azure-functions:deploy -DazureEnv=prod
-```
-
-### Deployment Order
-
-Since all functions share the same resource group and app service plan, deploy them in this order:
-
-1. **First Function** (creates resource group and app service plan):
-   ```bash
-   cd ai-document-metadata-check-function
-   mvn azure-functions:deploy -DazureEnv=dev
-   ```
-
-2. **Subsequent Functions** (use existing resources):
-   ```bash
-   cd ai-document-ingestion-function
-   mvn azure-functions:deploy -DazureEnv=dev
-   
-   cd ai-document-answer-retrieval-function
-   mvn azure-functions:deploy -DazureEnv=dev
-   
-   cd ai-document-answer-scoring-function
-   mvn azure-functions:deploy -DazureEnv=dev
-   ```
-
-### Naming Convention
-
-All Azure Functions follow a consistent naming pattern:
-- **Function App Name**: `fa-{azureEnv}-ai-document-{function-name}`
-- **Resource Group**: `RG-{azureEnv}-CPAIRAGSERVICE` (shared across all functions)
-- **App Service Plan**: `ASP-{azureEnv}-CPAIRAGSERVICE` (shared across all functions)
-
-Where `{azureEnv}` is the environment (dev, stg, prod) and `{function-name}` is:
-- `metadata-check` - Document metadata validation
-- `ingestion` - Document processing orchestration
-- `answer-retrieval` - Query processing and retrieval
-- `answer-scoring` - Response scoring and telemetry
-
-**Examples:**
-- Development: `fa-dev-ai-document-metadata-check`
-- Staging: `fa-stg-ai-document-ingestion`
-- Production: `fa-prod-ai-document-answer-retrieval`
-
-**Important**: All functions in the same environment share the same resource group and app service plan. This means:
-- Only one function needs to create the resource group and app service plan
-- Subsequent function deployments will use the existing shared resources
-- This reduces costs and simplifies resource management
-
-### Environment-Specific Configuration
-
-Each environment should have its own configuration:
-
-1. **Development Environment** (`-DazureEnv=dev`):
-    - Function App: `fa-dev-ai-document-{function-name}`
-    - Resource Group: `RG-dev-CPAIRAGSERVICE`
-    - Lower cost tier for development
-
-2. **Staging Environment** (`-DazureEnv=stg`):
-    - Function App: `fa-stg-ai-document-{function-name}`
-    - Resource Group: `RG-stg-CPAIRAGSERVICE`
-    - Production-like configuration for testing
-
-3. **Production Environment** (`-DazureEnv=prod`):
-    - Function App: `fa-prod-ai-document-{function-name}`
-    - Resource Group: `RG-prod-CPAIRAGSERVICE`
-    - High availability and performance configuration
+All functions in the same environment share the same resource group.
 
 ### Required Azure Resources
 
-Before deployment, ensure you have the following Azure resources for each environment:
-- Azure Storage Account (for blob storage, tables and queues)
-- Azure Search Service
+Before deployment, ensure the following Azure resources exist for the target environment:
+- Azure Storage Account (blob storage, tables, and queues)
+- Azure AI Search Service
 - Azure OpenAI Service
-- Application Insights
-- Azure Monitor (for telemetry)
+- Azure Document Intelligence
+- Application Insights / Azure Monitor
 
 ## Configuration Reference
 
-### Environment Variables
+Each function requires specific environment variables. Refer to each function's `local.settings.sample.json` for the full list. Common variables across all functions:
 
-Each function requires specific configuration values:
-
-#### Common Variables
-- `AzureWebJobsStorage`: Azure Storage connection string for Functions runtime
-- `FUNCTIONS_WORKER_RUNTIME`: Set to "java"
-- `FUNCTIONS_EXTENSION_VERSION`: Set to "~4"
-- `APPINSIGHTS_INSTRUMENTATIONKEY`: Application Insights instrumentation key
-
-#### Function-Specific Variables
-
-Refer to each function's `local.settings.sample.json` for detailed configuration requirements.
-
-## Development Guidelines
-
-1. **Code Organization**: Each function is a separate Maven module with its own dependencies
-2. **Common Code**: Shared utilities and models are in the `libs/common` module
-3. **Testing**: Each module includes unit tests in the `src/test/java` directory
-4. **Configuration**: Use the `ConfigurationUtil` class for accessing configuration values
-5. **Logging**: Use SLF4J for logging throughout the application
-
-## Contributing
-
-1. Ensure all tests pass before submitting changes
-2. Never commit secrets or sensitive configuration
-3. Update documentation for any new configuration requirements
-4. Follow the existing code structure and naming convention
+- `AzureWebJobsStorage` — Azure Storage connection string for the Functions runtime
+- `FUNCTIONS_WORKER_RUNTIME` — set to `java`
+- `FUNCTIONS_EXTENSION_VERSION` — set to `~4`
+- `APPINSIGHTS_INSTRUMENTATIONKEY` — Application Insights instrumentation key
 
