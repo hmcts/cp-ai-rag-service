@@ -36,7 +36,7 @@ public class ChatService {
 
     private static final String MAX_TOKENS = "1000";
     private static final double TEMPERATURE = 0.0;
-    private static final double TOP_P = 0.0;
+    private static final double TOP_P = 0.9;
 
     private final String deploymentName;
 
