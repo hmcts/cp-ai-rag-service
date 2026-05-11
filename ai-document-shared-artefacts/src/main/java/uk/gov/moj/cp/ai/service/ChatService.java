@@ -68,7 +68,7 @@ public class ChatService {
                 //.setMaxTokens(maxTokens) // Keep the response concise
                 .setMaxCompletionTokens(maxTokens) // added param for new gpt 5.1 service
                 .setTemperature(TEMPERATURE) // Low temperature for deterministic scoring
-                .setTopP(TOP_P);
+                .setTopP(TOP_P);// updated value for new gpt 5.1 service
 
         try {
             final ChatCompletions chatCompletions = openAIClient.getChatCompletions(deploymentName, chatCompletionsOptions);
