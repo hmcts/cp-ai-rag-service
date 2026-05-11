@@ -65,7 +65,8 @@ public class ChatService {
         final List<ChatRequestMessage> chatMessages = getChatMessages(systemInstruction, userInstruction);
 
         ChatCompletionsOptions chatCompletionsOptions = new ChatCompletionsOptions(chatMessages)
-                .setMaxTokens(maxTokens) // Keep the response concise
+                //.setMaxTokens(maxTokens) // Keep the response concise
+                .setMaxCompletionTokens(maxTokens) // added for new gpt 5.1 service
                 .setTemperature(TEMPERATURE) // Low temperature for deterministic scoring
                 .setTopP(TOP_P);
 
