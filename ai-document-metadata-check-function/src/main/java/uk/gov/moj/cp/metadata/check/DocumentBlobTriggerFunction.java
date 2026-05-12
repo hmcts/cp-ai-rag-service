@@ -86,6 +86,8 @@ public class DocumentBlobTriggerFunction {
                 documentUploadService.updateDocumentAwaitingIngestion(document.getDocumentId());
             } else {
                 documentUploadService.updateDocumentFileSizeOverLimit(document.getDocumentId(), blobSize, maxDocumentUploadSize);
+                LOGGER.info("Document NOT Published for Ingestion - blobName:{} with blobSize={} has exceeded maxDocumentUploadSize={}", blobName, blobSize, maxDocumentUploadSize);
+                return;
             }
 
             final Map<String, String> metadataMap = stringToMap(document.getMetadata());

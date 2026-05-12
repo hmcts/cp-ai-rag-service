@@ -110,7 +110,7 @@ class DocumentBlobTriggerFunctionTest {
     }
 
     @Test
-    void shouldProcessAndPublishMessage_whenBlobSizeExceedTheConfiguredLimit() throws JsonProcessingException {
+    void shouldProcessAndNotPublishMessage_whenBlobSizeExceedTheConfiguredLimit() throws JsonProcessingException {
         try (MockedStatic<EnvVarUtil> mockedEnvVarUtil = mockStatic(EnvVarUtil.class)) {
             mockedEnvVarUtil.when(() -> getRequiredEnv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT)).thenReturn("http://blob.web.com/");
             mockedEnvVarUtil.when(() -> getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD)).thenReturn("doc-upload");
@@ -132,16 +132,7 @@ class DocumentBlobTriggerFunctionTest {
 
             verify(documentUploadService).getDocument(documentId);
             verify(documentUploadService).updateDocumentFileSizeOverLimit(documentId, documentSize, maxSizeLimit);
-
-            final ArgumentCaptor<String> queueMessageCaptor = ArgumentCaptor.forClass(String.class);
-            verify(outputBinding).setValue(queueMessageCaptor.capture());
-            final QueueIngestionMetadata queueIngestionMetadata = getObjectMapper()
-                    .readValue(queueMessageCaptor.getValue(), QueueIngestionMetadata.class);
-
-            //assert metadata
-            assertThat(queueIngestionMetadata.documentName(), is("doc.json"));
-            assertThat(queueIngestionMetadata.documentId(), is("123"));
-            assertThat(queueIngestionMetadata.blobUrl(), is("http://blob.web.com/doc-upload/123_20260226.json"));
+            verifyNoInteractions(outputBinding);
         }
     }
 
