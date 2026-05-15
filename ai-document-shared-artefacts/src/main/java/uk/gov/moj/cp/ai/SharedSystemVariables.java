@@ -28,6 +28,7 @@ public class SharedSystemVariables {
 
     public static final String LLM_MODEL_RESPONSE_MAX_TOKENS = "LLM_MODEL_RESPONSE_MAX_TOKENS";
     public static final String MAX_DOCUMENT_UPLOAD_BLOB_SIZE_MIB = "MAX_DOCUMENT_UPLOAD_BLOB_SIZE_MIB";
+    public static final String LLM_MODEL_PARAMETER_TOP_P = "LLM_MODEL_PARAMETER_TOP_P";
 
     private SharedSystemVariables() {
         // Prevent instantiation

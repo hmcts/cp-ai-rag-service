@@ -30,4 +30,15 @@ public class EnvVarUtil {
             throw new IllegalArgumentException("Required environment variable or supplied default value does not parse as integer value: " + key);
         }
     }
+
+    public static double getRequiredEnvAsDouble(final String key, final String defaultValue) {
+        try {
+            String value = getRequiredEnv(key, defaultValue);
+            return Double.parseDouble(value);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                    "Required environment variable or supplied default value does not parse as double value: " + key
+            );
+        }
+    }
 }
