@@ -1,7 +1,9 @@
 package uk.gov.moj.cp.ai.service;
 
 import static java.lang.Integer.parseInt;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.LLM_MODEL_PARAMETER_TOP_P;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.LLM_MODEL_RESPONSE_MAX_TOKENS;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsDouble;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
@@ -36,11 +38,12 @@ public class ChatService {
 
     private static final String MAX_TOKENS = "1000";
     private static final double TEMPERATURE = 0.0;
-    private static final double TOP_P = 0.9;
+    private static final String TOP_P = "0.1";
 
     private final String deploymentName;
 
     private final int maxTokens;
+    private final double topPValue;
 
     public ChatService(final String endpoint, final String deploymentName) {
 
@@ -51,13 +54,14 @@ public class ChatService {
         this.deploymentName = deploymentName;
 
         maxTokens = getRequiredEnvAsInteger(LLM_MODEL_RESPONSE_MAX_TOKENS, MAX_TOKENS);
-
+        topPValue = getRequiredEnvAsDouble(LLM_MODEL_PARAMETER_TOP_P,TOP_P);
     }
 
     protected ChatService(final OpenAIClient openAIClient, final String deploymentName) {
         this.deploymentName = deploymentName;
         this.openAIClient = openAIClient;
         maxTokens = parseInt(MAX_TOKENS);
+        topPValue = Double.parseDouble(TOP_P);
         LOGGER.info("Returning initialized Azure OpenAI client for chat with Managed Identity.");
     }
 
@@ -68,7 +72,7 @@ public class ChatService {
                 //.setMaxTokens(maxTokens) // Keep the response concise
                 .setMaxCompletionTokens(maxTokens) // added param for new gpt 5.1 service
                 .setTemperature(TEMPERATURE) // Low temperature for deterministic scoring
-                .setTopP(TOP_P);// updated value for new gpt 5.1 service
+                .setTopP(topPValue);// updated value for new gpt 5.1 service
 
         try {
             final ChatCompletions chatCompletions = openAIClient.getChatCompletions(deploymentName, chatCompletionsOptions);
