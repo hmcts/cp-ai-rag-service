@@ -62,3 +62,6 @@ buildContexts.sh
 lightning-jenkins.properties
 **/.DS_Store
 */local.settings.json
+
+dev/
+.claude/
