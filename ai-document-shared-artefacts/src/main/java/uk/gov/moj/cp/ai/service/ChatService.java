@@ -36,7 +36,7 @@ public class ChatService {
 
     private static final String MAX_TOKENS = "1000";
     private static final double TEMPERATURE = 0.0;
-    private static final double TOP_P = 0.9;
+    private static final double TOP_P = 0.0;
 
     private final String deploymentName;
 
@@ -64,11 +64,21 @@ public class ChatService {
     public <T> Optional<T> callModel(final String systemInstruction, final String userInstruction, Class<T> responseClass) throws ChatServiceException {
         final List<ChatRequestMessage> chatMessages = getChatMessages(systemInstruction, userInstruction);
 
+        // GPT-5 / o-series reasoning models reject the legacy `max_tokens` parameter and require
+        // `max_completion_tokens`. They also reject sampling parameters (temperature/top_p) other
+        // than the default (1.0). Detect by deployment name and configure compatibly. Older
+        // models (GPT-4o, GPT-4-turbo) accept max_completion_tokens too, so we use it
+        // unconditionally to keep one code path.
+        final boolean isReasoningModel = isReasoningModel(deploymentName);
+
         ChatCompletionsOptions chatCompletionsOptions = new ChatCompletionsOptions(chatMessages)
-                //.setMaxTokens(maxTokens) // Keep the response concise
-                .setMaxCompletionTokens(maxTokens) // added param for new gpt 5.1 service
-                .setTemperature(TEMPERATURE) // Low temperature for deterministic scoring
-                .setTopP(TOP_P);// updated value for new gpt 5.1 service
+                .setMaxCompletionTokens(maxTokens);
+
+        if (!isReasoningModel) {
+            chatCompletionsOptions
+                    .setTemperature(TEMPERATURE) // Low temperature for deterministic scoring
+                    .setTopP(TOP_P);
+        }
 
         try {
             final ChatCompletions chatCompletions = openAIClient.getChatCompletions(deploymentName, chatCompletionsOptions);
@@ -108,6 +118,20 @@ public class ChatService {
                 new ChatRequestSystemMessage(systemInstruction),
                 new ChatRequestUserMessage(userInstruction)
         );
+    }
+
+    /**
+     * GPT-5 family and o-series (o1, o3, o4-mini, etc.) are "reasoning models" that reject the
+     * legacy {@code max_tokens} parameter and any non-default sampling parameters
+     * (temperature/top_p must be 1.0 or omitted). Detect by deployment name prefix.
+     */
+    private boolean isReasoningModel(final String deploymentName) {
+        if (deploymentName == null) {
+            return false;
+        }
+        final String d = deploymentName.toLowerCase();
+        return d.startsWith("gpt-5") || d.startsWith("gpt5")
+                || d.startsWith("o1") || d.startsWith("o3") || d.startsWith("o4");
     }
 
     private String generateExplanationForEmptyResponse(final ChatChoice chatChoice, final ChatCompletions chatCompletions, final CompletionsFinishReason finishReason) {
