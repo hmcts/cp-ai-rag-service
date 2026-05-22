@@ -2,6 +2,7 @@ package uk.gov.moj.cp.ai.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static uk.gov.moj.cp.ai.util.StringUtil.escapeLuceneSpecialChars;
+import static uk.gov.moj.cp.ai.util.StringUtil.escapeODataStringLiteral;
 import static uk.gov.moj.cp.ai.util.StringUtil.removeTrailingSlash;
 import static uk.gov.moj.cp.ai.util.StringUtil.unescapeContent;
 
@@ -113,5 +114,60 @@ class StringUtilTest {
     void unescapeContent_doesNotChangeStringWithoutEscapedCharacters() {
         String input = "Just a normal string";
         assertEquals(input, unescapeContent(input));
+    }
+
+    @Test
+    void escapeODataStringLiteral_returnsEmptyStringWhenInputIsNull() {
+        assertEquals("", escapeODataStringLiteral(null));
+    }
+
+    @Test
+    void escapeODataStringLiteral_returnsEmptyStringWhenInputIsEmpty() {
+        assertEquals("", escapeODataStringLiteral(""));
+    }
+
+    @Test
+    void escapeODataStringLiteral_leavesUnreservedCharactersUnchanged() {
+        assertEquals("foo bar 123", escapeODataStringLiteral("foo bar 123"));
+    }
+
+    @Test
+    void escapeODataStringLiteral_doublesSingleQuoteInTheMiddle() {
+        assertEquals("Alice''s car", escapeODataStringLiteral("Alice's car"));
+    }
+
+    @Test
+    void escapeODataStringLiteral_doublesSingleQuoteAtStart() {
+        assertEquals("''foo", escapeODataStringLiteral("'foo"));
+    }
+
+    @Test
+    void escapeODataStringLiteral_doublesSingleQuoteAtEnd() {
+        assertEquals("foo''", escapeODataStringLiteral("foo'"));
+    }
+
+    @Test
+    void escapeODataStringLiteral_doublesMultipleSingleQuotes() {
+        assertEquals("O''Brien''s", escapeODataStringLiteral("O'Brien's"));
+    }
+
+    @Test
+    void escapeODataStringLiteral_doublesAdjacentSingleQuotes() {
+        // Documents that re-escape always doubles; the helper is intentionally NOT idempotent.
+        // Input contains two literal single quotes; expected output contains four.
+        assertEquals("a''''b", escapeODataStringLiteral("a''b"));
+    }
+
+    @Test
+    void escapeODataStringLiteral_doesNotTouchODataKeywords() {
+        // Keywords inside a quoted literal are inert; the doubling alone neutralises injection.
+        assertEquals("or 1 eq 1", escapeODataStringLiteral("or 1 eq 1"));
+    }
+
+    @Test
+    void escapeODataStringLiteral_doesNotEscapeLuceneSpecialCharacters() {
+        // Sanity check: this helper is NOT an alias for escapeLuceneSpecialChars.
+        final String input = "\"`<>#%(){}|\\^~[];/?:@=+-*&";
+        assertEquals(input, escapeODataStringLiteral(input));
     }
 }

@@ -103,6 +103,36 @@ public class OrchestrationIntegrationTest extends FunctionTestBase {
     }
 
     @Test
+    @DisplayName("Apostrophe in metadata filter value survives the OData filter round-trip")
+    void testApostropheInMetadataFilterValue() throws JsonProcessingException, InterruptedException, TimeoutException {
+        // Pre-fix: an apostrophe in the metadata filter value terminates the OData string literal
+        // early; Azure AI Search returns HTTP 400 and the answer-retrieval call fails with 5xx
+        // (SearchServiceException). Post-fix: doubled-quote escaping produces a valid filter and
+        // the document is retrieved successfully.
+
+        final UUID documentId = randomUUID();
+        final String documentName = "test-doc-capital.pdf";
+        // Apostrophe + UUID disambiguates per-run while staying under the OpenAPI 40-char limit
+        // on MetadataFilter.value (an "O'" prefix + UUID = 38 chars).
+        final String caseNameWithApostrophe = "O'" + randomUUID();
+
+        final DocumentUploadRequest documentUploadRequest = new DocumentUploadRequest()
+                .documentId(documentId.toString())
+                .documentName(documentName)
+                .addMetadataFilterItem(new MetadataFilter("caseName", caseNameWithApostrophe));
+
+        final FileStorageLocationReturnedSuccessfully fileStorageLocation = initiateDocumentUpload(documentUploadRequest);
+        final String documentReference = fileStorageLocation.getDocumentReference();
+        uploadFile(fileStorageLocation.getStorageUrl(), documentName);
+
+        checkDocumentIngestionSuccessful(documentReference);
+
+        // Query using the apostrophe-bearing metadata value as the filter — this is the path
+        // that exercises the live Azure OData parser through the escape logic.
+        verifyAnswerRetrievalFunction(caseNameWithApostrophe, "caseName");
+    }
+
+    @Test
     @DisplayName("Supersede old version of the document using overwrites, upload file using generated SAS URL, check upload status, and retrieve answer")
     void testSupersedeOldVersionOfTheDocument() throws JsonProcessingException, InterruptedException, TimeoutException {
 

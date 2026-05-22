@@ -140,6 +140,83 @@ class AzureAISearchServiceTest {
         assertTrue(result.contains("customMetadata/any(m: m/key eq 'baz' and m/value eq 'qux')"));
     }
 
+    private static final String IS_ACTIVE_FILTER_LITERAL =
+            "(not customMetadata/any(m: m/key eq 'is_active') or customMetadata/any(m: m/key eq 'is_active' and m/value ne 'false'))";
+
+    @Test
+    @DisplayName("generateFilterExpression escapes single quote in value")
+    void generateFilterExpression_escapesSingleQuoteInValue() {
+        final List<KeyValuePair> filters = List.of(new KeyValuePair("caseName", "Crown v O'Brien"));
+        final String result = service.generateFilterExpression(filters);
+        assertTrue(result.contains("customMetadata/any(m: m/key eq 'caseName' and m/value eq 'Crown v O''Brien')"));
+    }
+
+    @Test
+    @DisplayName("generateFilterExpression escapes single quote in key")
+    void generateFilterExpression_escapesSingleQuoteInKey() {
+        final List<KeyValuePair> filters = List.of(new KeyValuePair("o'key", "v"));
+        final String result = service.generateFilterExpression(filters);
+        assertTrue(result.contains("customMetadata/any(m: m/key eq 'o''key' and m/value eq 'v')"));
+    }
+
+    @Test
+    @DisplayName("generateFilterExpression neutralises OData injection in value")
+    void generateFilterExpression_neutralisesODataInjectionPayloadInValue() {
+        // Pre-fix: this payload would close the literal early and inject `or 'a' eq 'a'`,
+        // making the any() predicate vacuously true for every chunk -> filter bypass.
+        // Post-fix: doubled quotes demote the entire payload to an inert string literal.
+        final List<KeyValuePair> filters = List.of(new KeyValuePair("k", "x' or 'a' eq 'a"));
+        final String result = service.generateFilterExpression(filters);
+        assertTrue(result.contains("customMetadata/any(m: m/key eq 'k' and m/value eq 'x'' or ''a'' eq ''a')"));
+    }
+
+    @Test
+    @DisplayName("generateFilterExpression neutralises is_active bypass payload")
+    void generateFilterExpression_neutralisesIsActiveBypassPayload() {
+        // Pre-fix: an injected top-level `or` could lift the user clause outside the and-joined
+        // IS_ACTIVE_FILTER guard (since `and` binds tighter than `or`), surfacing soft-deleted
+        // documents. Post-fix: the entire payload is contained inside one string literal.
+        final List<KeyValuePair> filters = List.of(new KeyValuePair("k", "x') or (true"));
+        final String result = service.generateFilterExpression(filters);
+        assertTrue(result.contains("m/value eq 'x'') or (true'"));
+        // The security-trimming guard must remain the outermost and-joined trailing clause.
+        assertTrue(result.endsWith(" and " + IS_ACTIVE_FILTER_LITERAL),
+                "IS_ACTIVE_FILTER must remain the trailing and-joined clause; was: " + result);
+    }
+
+    @Test
+    @DisplayName("generateFilterExpression handles empty string value")
+    void generateFilterExpression_handlesEmptyStringValue() {
+        final List<KeyValuePair> filters = List.of(new KeyValuePair("k", ""));
+        final String result = service.generateFilterExpression(filters);
+        assertTrue(result.contains("customMetadata/any(m: m/key eq 'k' and m/value eq '')"));
+    }
+
+    @Test
+    @DisplayName("generateFilterExpression preserves is_active trailer with escaped pair")
+    void generateFilterExpression_preservesIsActiveTrailerWithEscapedPair() {
+        final List<KeyValuePair> filters = List.of(new KeyValuePair("caseName", "O'Brien"));
+        final String result = service.generateFilterExpression(filters);
+        assertThat(result, is(
+                "customMetadata/any(m: m/key eq 'caseName' and m/value eq 'O''Brien')"
+                        + " and "
+                        + IS_ACTIVE_FILTER_LITERAL));
+    }
+
+    @Test
+    @DisplayName("generateFilterExpression applies escape to every pair when mixed")
+    void generateFilterExpression_appliesEscapeToEveryPairWhenMixed() {
+        final List<KeyValuePair> filters = Arrays.asList(
+                new KeyValuePair("plain", "value"),
+                new KeyValuePair("caseName", "O'Brien")
+        );
+        final String result = service.generateFilterExpression(filters);
+        assertTrue(result.contains("customMetadata/any(m: m/key eq 'plain' and m/value eq 'value')"));
+        assertTrue(result.contains("customMetadata/any(m: m/key eq 'caseName' and m/value eq 'O''Brien')"));
+        assertTrue(result.contains(" and "));
+        assertTrue(result.endsWith(" and " + IS_ACTIVE_FILTER_LITERAL));
+    }
+
     // Unit test for getColumnsToRetrieve
     @Test
     @DisplayName("getColumnsToRetrieve returns correct columns based on deduplication flag")
