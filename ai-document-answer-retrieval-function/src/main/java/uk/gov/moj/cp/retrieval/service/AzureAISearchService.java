@@ -8,6 +8,7 @@ import static uk.gov.moj.cp.ai.index.IndexConstants.CUSTOM_METADATA;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 import static uk.gov.moj.cp.ai.util.StringUtil.escapeLuceneSpecialChars;
+import static uk.gov.moj.cp.ai.util.StringUtil.escapeODataStringLiteral;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.retrieval.service.DeduplicationService.SEARCH_RESULTS_ENABLE_DEDUPLICATION;
 
@@ -134,9 +135,14 @@ public class AzureAISearchService {
                 if (!filterBuilder.isEmpty()) {
                     filterBuilder.append(" and ");
                 }
-                // Use 'any' operator for Collection(Edm.ComplexType)
-                // This filters for any item in the 'customMetadata' collection where 'key' equals 'key' AND 'value' equals 'value'
-                filterBuilder.append(format("%s/any(m: m/key eq '%s' and m/value eq '%s')", CUSTOM_METADATA, key, value));
+                // Use 'any' operator for Collection(Edm.ComplexType).
+                // Both key and value are escaped per the OData v4 string-literal grammar
+                // (single quote -> two single quotes) to prevent filter breakage on legitimate
+                // apostrophes and OData injection via untrusted caller input.
+                filterBuilder.append(format("%s/any(m: m/key eq '%s' and m/value eq '%s')",
+                        CUSTOM_METADATA,
+                        escapeODataStringLiteral(key),
+                        escapeODataStringLiteral(value)));
             }
         }
 

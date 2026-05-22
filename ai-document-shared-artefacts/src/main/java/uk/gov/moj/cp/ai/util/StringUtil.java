@@ -45,6 +45,25 @@ public class StringUtil {
      * @param userQuery The raw query string provided by the user.
      * @return The escaped query string.
      */
+    /**
+     * Escapes embedded single quotes in a value destined for an OData string literal by doubling
+     * them, per the OData v4 grammar rule {@code string_literal ::= "'"([^'] | "''")*"'"}. Must be
+     * applied to any caller-supplied value before interpolation into an OData {@code $filter}
+     * expression, otherwise apostrophes break the parse and unescaped input enables filter-bypass
+     * injection (including bypass of security-trimming filters).
+     * <p>
+     * See <a href="https://learn.microsoft.com/en-us/azure/search/query-odata-filter-orderby-syntax">info</a>
+     *
+     * @param value The raw value to be embedded between single quotes in an OData string literal.
+     * @return The escaped value with all single quotes doubled.
+     */
+    public static String escapeODataStringLiteral(final String value) {
+        if (value == null || value.isEmpty()) {
+            return "";
+        }
+        return value.replace("'", "''");
+    }
+
     public static String escapeLuceneSpecialChars(final String userQuery) {
         if (userQuery == null || userQuery.isEmpty()) {
             return "";
