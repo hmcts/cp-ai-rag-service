@@ -1,0 +1,178 @@
+package uk.gov.moj.cp.ai.service;
+
+import static java.lang.Integer.parseInt;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.LLM_MODEL_RESPONSE_MAX_TOKENS;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
+import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
+import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
+import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
+
+import uk.gov.moj.cp.ai.client.AzureOpenAiClientFactory;
+import uk.gov.moj.cp.ai.exception.ChatServiceException;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Optional;
+
+import com.azure.ai.openai.OpenAIClient;
+import com.azure.ai.openai.models.ChatChoice;
+import com.azure.ai.openai.models.ChatCompletions;
+import com.azure.ai.openai.models.ChatCompletionsOptions;
+import com.azure.ai.openai.models.ChatRequestMessage;
+import com.azure.ai.openai.models.ChatRequestSystemMessage;
+import com.azure.ai.openai.models.ChatRequestUserMessage;
+import com.azure.ai.openai.models.CompletionsFinishReason;
+import com.azure.ai.openai.models.ContentFilterResultsForChoice;
+import com.azure.ai.openai.models.ContentFilterResultsForPrompt;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class AzureChatService implements ChatService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AzureChatService.class);
+
+    private final OpenAIClient openAIClient;
+
+    private static final String MAX_TOKENS = "1000";
+    private static final double TEMPERATURE = 0.0;
+    private static final double TOP_P = 0.0;
+
+    private final String deploymentName;
+
+    private final int maxTokens;
+
+    public AzureChatService(final String endpoint, final String deploymentName) {
+
+        validateNullOrEmpty(endpoint, "Endpoint environment variable must be set.");
+        validateNullOrEmpty(deploymentName, "Deployment name environment variable must be set.");
+
+        this.openAIClient = AzureOpenAiClientFactory.getInstance(endpoint);
+        this.deploymentName = deploymentName;
+
+        maxTokens = getRequiredEnvAsInteger(LLM_MODEL_RESPONSE_MAX_TOKENS, MAX_TOKENS);
+
+    }
+
+    protected AzureChatService(final OpenAIClient openAIClient, final String deploymentName) {
+        this.deploymentName = deploymentName;
+        this.openAIClient = openAIClient;
+        maxTokens = parseInt(MAX_TOKENS);
+        LOGGER.info("Returning initialized Azure OpenAI client for chat with Managed Identity.");
+    }
+
+    @Override
+    public <T> Optional<T> callModel(final String systemInstruction, final String userInstruction, Class<T> responseClass) throws ChatServiceException {
+        final List<ChatRequestMessage> chatMessages = getChatMessages(systemInstruction, userInstruction);
+
+        // GPT-5 / o-series reasoning models reject the legacy `max_tokens` parameter and require
+        // `max_completion_tokens`. They also reject sampling parameters (temperature/top_p) other
+        // than the default (1.0). Detect by deployment name and configure compatibly. Older
+        // models (GPT-4o, GPT-4-turbo) accept max_completion_tokens too, so we use it
+        // unconditionally to keep one code path.
+        final boolean isReasoningModel = isReasoningModel(deploymentName);
+
+        ChatCompletionsOptions chatCompletionsOptions = new ChatCompletionsOptions(chatMessages)
+                .setMaxCompletionTokens(maxTokens);
+
+        if (!isReasoningModel) {
+            chatCompletionsOptions
+                    .setTemperature(TEMPERATURE) // Low temperature for deterministic scoring
+                    .setTopP(TOP_P);
+        }
+
+        try {
+            final ChatCompletions chatCompletions = openAIClient.getChatCompletions(deploymentName, chatCompletionsOptions);
+            final ChatChoice chatChoice = chatCompletions.getChoices().get(0);
+            final String jsonResponse = chatChoice.getMessage().getContent();
+            final CompletionsFinishReason finishReason = chatChoice.getFinishReason();
+
+            final String resultExplanation = generateExplanationForEmptyResponse(chatChoice, chatCompletions, finishReason);
+
+            if (isNullOrEmpty(jsonResponse)) {
+                throw new ChatServiceException("LLM produced an empty response.  See explanation below \n" + resultExplanation);
+            } else {
+                LOGGER.info("Received response from LLM. Finish reason: {}", finishReason);
+                if (CompletionsFinishReason.CONTENT_FILTERED.equals(finishReason)) {
+                    LOGGER.warn("LLM produced filtered response.  See details \n{}", resultExplanation);
+                } else if (CompletionsFinishReason.TOKEN_LIMIT_REACHED.equals(finishReason)) {
+                    LOGGER.warn("LLM produced incomplete response as token limit was reached.  See details \n{}", resultExplanation);
+                } else {
+                    LOGGER.info("LLM produced complete response.  See details \n{}", resultExplanation);
+                }
+            }
+            final T responseModel;
+            if (responseClass == String.class) {
+                responseModel = responseClass.cast(jsonResponse);
+            } else {
+                final String sanitisedResponse = ensureRawJsonAsConvertingPayloadToObject(jsonResponse);
+                responseModel = getObjectMapper().readValue(sanitisedResponse, responseClass);
+            }
+            return Optional.ofNullable(responseModel);
+        } catch (JsonProcessingException e) {
+            throw new ChatServiceException("Error calling LLM for evaluation", e);
+        }
+    }
+
+    private List<ChatRequestMessage> getChatMessages(final String systemInstruction, final String userInstruction) {
+        return List.of(
+                new ChatRequestSystemMessage(systemInstruction),
+                new ChatRequestUserMessage(userInstruction)
+        );
+    }
+
+    /**
+     * GPT-5 family and o-series (o1, o3, o4-mini, etc.) are "reasoning models" that reject the
+     * legacy {@code max_tokens} parameter and any non-default sampling parameters
+     * (temperature/top_p must be 1.0 or omitted). Detect by deployment name prefix.
+     */
+    private boolean isReasoningModel(final String deploymentName) {
+        if (deploymentName == null) {
+            return false;
+        }
+        final String d = deploymentName.toLowerCase();
+        return d.startsWith("gpt-5") || d.startsWith("gpt5")
+                || d.startsWith("o1") || d.startsWith("o3") || d.startsWith("o4");
+    }
+
+    private String generateExplanationForEmptyResponse(final ChatChoice chatChoice, final ChatCompletions chatCompletions, final CompletionsFinishReason finishReason) {
+        final StringBuilder resultExplanation = new StringBuilder("Finish reason: ").append(finishReason);
+
+        if (CompletionsFinishReason.CONTENT_FILTERED.equals(finishReason)) {
+            try {
+                for (ContentFilterResultsForPrompt promptResult : chatCompletions.getPromptFilterResults()) {
+                    if (promptResult.getContentFilterResults() != null && LOGGER.isWarnEnabled()) {
+                        final String promptContentFilterString = promptResult.getContentFilterResults().toJsonString();
+                        resultExplanation.append("\n").append("--- PROMPT FILTERING STATUS (Input) ---\n").append(promptContentFilterString);
+                    }
+                }
+
+                ContentFilterResultsForChoice completionResult = chatChoice.getContentFilterResults();
+                if (completionResult != null && LOGGER.isWarnEnabled()) {
+                    final String completionResultFilterString = completionResult.toJsonString();
+                    resultExplanation.append("\n").append("--- RESPONSE FILTERING STATUS (Output) ---\n").append(completionResultFilterString);
+                }
+
+            } catch (final IOException e) {
+                return resultExplanation.toString();
+            }
+        }
+
+        return resultExplanation.toString();
+    }
+
+    private String ensureRawJsonAsConvertingPayloadToObject(final String llmResponse) {
+        if (llmResponse.contains("```")) {
+            LOGGER.info("LLM response contains \"```\" and will require sanitising");
+        }
+
+        int firstBrace = llmResponse.indexOf("{");
+        int lastBrace = llmResponse.lastIndexOf("}");
+
+        if (firstBrace >= 0 && lastBrace > firstBrace) {
+            return llmResponse.substring(firstBrace, lastBrace + 1);
+        }
+        return llmResponse; // Fallback to original if no braces found
+    }
+
+}

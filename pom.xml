@@ -29,6 +29,7 @@
         <azure.functions.java.library.version>3.2.3</azure.functions.java.library.version>
         <plugins.maven.jgitflow.version>1.0-m5.1</plugins.maven.jgitflow.version>
         <azure.openai.version>1.0.0-beta.16</azure.openai.version>
+        <openai-java.version>4.38.0</openai-java.version>
         <junit-jupiter-engine.version>6.0.2</junit-jupiter-engine.version>
         <mockito-junit-jupiter.version>5.21.0</mockito-junit-jupiter.version>
         <assertj-core.version>3.27.7</assertj-core.version>
@@ -133,6 +134,12 @@
                 <groupId>com.azure</groupId>
                 <artifactId>azure-ai-openai</artifactId>
                 <version>${azure.openai.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.openai</groupId>
+                <artifactId>openai-java</artifactId>
+                <version>${openai-java.version}</version>
             </dependency>
 
             <dependency>

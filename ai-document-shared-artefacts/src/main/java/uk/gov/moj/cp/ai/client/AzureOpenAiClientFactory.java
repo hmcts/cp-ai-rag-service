@@ -13,14 +13,14 @@ import com.azure.core.credential.TokenCredential;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OpenAIClientFactory {
+public class AzureOpenAiClientFactory {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(OpenAIClientFactory.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AzureOpenAiClientFactory.class);
 
     private static final ConcurrentHashMap<String, OpenAIClient> OPENAI_CLIENT_CACHE = new ConcurrentHashMap<>();
     private static final TokenCredential SHARED_CREDENTIAL = getCredentialInstance();
 
-    private OpenAIClientFactory() {
+    private AzureOpenAiClientFactory() {
     }
 
     public static OpenAIClient getInstance(final String endpoint) {
@@ -30,7 +30,7 @@ public class OpenAIClientFactory {
         return OPENAI_CLIENT_CACHE.computeIfAbsent(
                 endpoint,
                 key -> {
-                    LOGGER.info("Creating new Open AI client for: {}", key);
+                    LOGGER.info("Creating new Azure Open AI client for: {}", key);
 
                     // CRITICAL: The client is built here using the single, shared credential.
                     return new OpenAIClientBuilder()

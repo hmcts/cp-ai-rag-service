@@ -6,6 +6,7 @@ import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.util.StringUtil.unescapeContent;
 
+import uk.gov.moj.cp.ai.client.ChatServiceFactory;
 import uk.gov.moj.cp.ai.exception.ChatServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.service.ChatService;
@@ -35,8 +36,7 @@ public class ResponseGenerationService {
         String endpoint = getRequiredEnv("AZURE_OPENAI_ENDPOINT");
         String deploymentName = getRequiredEnv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME");
 
-        // Using managed identity - pass null for API key to enable managed  identity
-        chatService = new ChatService(endpoint, deploymentName);
+        chatService = ChatServiceFactory.getInstance(endpoint, deploymentName);
         citationProcessor = new CitationProcessor();
         chunkFormatterUtility = new ChunkFormatterUtility();
         userInstructionService = new UserInstructionService();

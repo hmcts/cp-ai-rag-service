@@ -27,11 +27,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
-class ChatServiceTest {
+class AzureChatServiceTest {
 
     private static final String DEPLOYMENT_NAME = "deploymentName";
     private OpenAIClient openAIClientMock;
-    private ChatService chatService;
+    private AzureChatService chatService;
 
     @Test
     @DisplayName("Returns parsed response when valid input is provided")
@@ -78,11 +78,11 @@ class ChatServiceTest {
     @DisplayName("Throws exception when endpoint is null or empty")
     void throwsExceptionWhenEndpointIsNullOrEmpty() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> new ChatService((String) null, DEPLOYMENT_NAME));
+                () -> new AzureChatService((String) null, DEPLOYMENT_NAME));
         assertEquals("Endpoint environment variable must be set.", exception.getMessage());
 
         exception = assertThrows(IllegalArgumentException.class,
-                () -> new ChatService("", DEPLOYMENT_NAME));
+                () -> new AzureChatService("", DEPLOYMENT_NAME));
         assertEquals("Endpoint environment variable must be set.", exception.getMessage());
     }
 
@@ -90,11 +90,11 @@ class ChatServiceTest {
     @DisplayName("Throws exception when deployment name is null or empty")
     void throwsExceptionWhenDeploymentNameIsNullOrEmpty() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> new ChatService("endpoint", null));
+                () -> new AzureChatService("endpoint", null));
         assertEquals("Deployment name environment variable must be set.", exception.getMessage());
 
         exception = assertThrows(IllegalArgumentException.class,
-                () -> new ChatService("endpoint", ""));
+                () -> new AzureChatService("endpoint", ""));
         assertEquals("Deployment name environment variable must be set.", exception.getMessage());
     }
 
@@ -163,9 +163,9 @@ class ChatServiceTest {
     }
 
     private void initChatServiceWithMockClient(final String deploymentName) throws NoSuchFieldException, IllegalAccessException {
-        chatService = new ChatService("endpoint", deploymentName);
+        chatService = new AzureChatService("endpoint", deploymentName);
         openAIClientMock = mock(OpenAIClient.class);
-        final Field clientField = ChatService.class.getDeclaredField("openAIClient");
+        final Field clientField = AzureChatService.class.getDeclaredField("openAIClient");
         clientField.setAccessible(true);
         clientField.set(chatService, openAIClientMock);
     }
