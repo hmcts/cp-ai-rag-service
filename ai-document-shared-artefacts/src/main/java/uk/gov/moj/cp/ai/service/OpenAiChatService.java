@@ -3,6 +3,8 @@ package uk.gov.moj.cp.ai.service;
 import static java.lang.Integer.parseInt;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.LLM_MODEL_RESPONSE_MAX_TOKENS;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.LLM_MODEL_RESPONSE_VERBOSITY;
+import static uk.gov.moj.cp.ai.util.ChatModelUtil.ensureRawJsonAsConvertingPayloadToObject;
+import static uk.gov.moj.cp.ai.util.ChatModelUtil.isReasoningModel;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
@@ -11,7 +13,6 @@ import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
 import uk.gov.moj.cp.ai.client.OpenAiClientFactory;
 import uk.gov.moj.cp.ai.exception.ChatServiceException;
-import uk.gov.moj.cp.ai.util.EnvVarUtil;
 
 import java.util.Optional;
 
@@ -63,7 +64,7 @@ public class OpenAiChatService implements ChatService {
     public <T> Optional<T> callModel(final String systemInstruction, final String userInstruction, Class<T> responseClass) throws ChatServiceException {
         // GPT-5 / o-series reasoning models reject sampling parameters (temperature/top_p) other
         // than the default. Detect by deployment name and configure compatibly.
-        final boolean isReasoningModel = isReasoningModel(deploymentName);
+        final boolean reasoningModel = isReasoningModel(deploymentName);
 
         final ResponseCreateParams.Builder paramsBuilder = ResponseCreateParams.builder()
                 .model(deploymentName)
@@ -71,18 +72,15 @@ public class OpenAiChatService implements ChatService {
                 .input(userInstruction)
                 .maxOutputTokens((long) maxTokens);
 
-        if (!isReasoningModel) {
+        if (!reasoningModel) {
             paramsBuilder.temperature(TEMPERATURE).topP(TOP_P);
         }
 
         // verbosity is honored on the Responses API for GPT-5 reasoning models; silently ignored
-        // by other models. Only attach the text config when explicitly configured via env var so
-        // requests against non-GPT-5 deployments stay unchanged.
-        if (verbosity != null) {
-            paramsBuilder.text(ResponseTextConfig.builder()
-                    .verbosity(ResponseTextConfig.Verbosity.of(verbosity))
-                    .build());
-        }
+        // by other models. This allows users to configure more detailed response status information for troubleshooting without affecting non-reasoning models.
+        paramsBuilder.text(ResponseTextConfig.builder()
+                .verbosity(ResponseTextConfig.Verbosity.of(verbosity))
+                .build());
 
         try {
             final Response response = openAIClient.responses().create(paramsBuilder.build());
@@ -109,7 +107,7 @@ public class OpenAiChatService implements ChatService {
                 responseModel = getObjectMapper().readValue(sanitisedResponse, responseClass);
             }
             return Optional.ofNullable(responseModel);
-        } catch (JsonProcessingException e) {
+        } catch (final JsonProcessingException e) {
             throw new ChatServiceException("Error calling LLM for evaluation", e);
         }
     }
@@ -124,28 +122,5 @@ public class OpenAiChatService implements ChatService {
             });
         }
         return text.toString();
-    }
-
-    private boolean isReasoningModel(final String deploymentName) {
-        if (deploymentName == null) {
-            return false;
-        }
-        final String d = deploymentName.toLowerCase();
-        return d.startsWith("gpt-5") || d.startsWith("gpt5")
-                || d.startsWith("o1") || d.startsWith("o3") || d.startsWith("o4");
-    }
-
-    private String ensureRawJsonAsConvertingPayloadToObject(final String llmResponse) {
-        if (llmResponse.contains("```")) {
-            LOGGER.info("LLM response contains \"```\" and will require sanitising");
-        }
-
-        int firstBrace = llmResponse.indexOf("{");
-        int lastBrace = llmResponse.lastIndexOf("}");
-
-        if (firstBrace >= 0 && lastBrace > firstBrace) {
-            return llmResponse.substring(firstBrace, lastBrace + 1);
-        }
-        return llmResponse;
     }
 }

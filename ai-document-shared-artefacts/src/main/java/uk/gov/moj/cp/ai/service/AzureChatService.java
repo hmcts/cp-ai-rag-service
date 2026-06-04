@@ -2,6 +2,8 @@ package uk.gov.moj.cp.ai.service;
 
 import static java.lang.Integer.parseInt;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.LLM_MODEL_RESPONSE_MAX_TOKENS;
+import static uk.gov.moj.cp.ai.util.ChatModelUtil.ensureRawJsonAsConvertingPayloadToObject;
+import static uk.gov.moj.cp.ai.util.ChatModelUtil.isReasoningModel;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
@@ -70,12 +72,12 @@ public class AzureChatService implements ChatService {
         // than the default (1.0). Detect by deployment name and configure compatibly. Older
         // models (GPT-4o, GPT-4-turbo) accept max_completion_tokens too, so we use it
         // unconditionally to keep one code path.
-        final boolean isReasoningModel = isReasoningModel(deploymentName);
+        final boolean reasoningModel = isReasoningModel(deploymentName);
 
         ChatCompletionsOptions chatCompletionsOptions = new ChatCompletionsOptions(chatMessages)
                 .setMaxCompletionTokens(maxTokens);
 
-        if (!isReasoningModel) {
+        if (!reasoningModel) {
             chatCompletionsOptions
                     .setTemperature(TEMPERATURE) // Low temperature for deterministic scoring
                     .setTopP(TOP_P);
@@ -121,20 +123,6 @@ public class AzureChatService implements ChatService {
         );
     }
 
-    /**
-     * GPT-5 family and o-series (o1, o3, o4-mini, etc.) are "reasoning models" that reject the
-     * legacy {@code max_tokens} parameter and any non-default sampling parameters
-     * (temperature/top_p must be 1.0 or omitted). Detect by deployment name prefix.
-     */
-    private boolean isReasoningModel(final String deploymentName) {
-        if (deploymentName == null) {
-            return false;
-        }
-        final String d = deploymentName.toLowerCase();
-        return d.startsWith("gpt-5") || d.startsWith("gpt5")
-                || d.startsWith("o1") || d.startsWith("o3") || d.startsWith("o4");
-    }
-
     private String generateExplanationForEmptyResponse(final ChatChoice chatChoice, final ChatCompletions chatCompletions, final CompletionsFinishReason finishReason) {
         final StringBuilder resultExplanation = new StringBuilder("Finish reason: ").append(finishReason);
 
@@ -159,20 +147,6 @@ public class AzureChatService implements ChatService {
         }
 
         return resultExplanation.toString();
-    }
-
-    private String ensureRawJsonAsConvertingPayloadToObject(final String llmResponse) {
-        if (llmResponse.contains("```")) {
-            LOGGER.info("LLM response contains \"```\" and will require sanitising");
-        }
-
-        int firstBrace = llmResponse.indexOf("{");
-        int lastBrace = llmResponse.lastIndexOf("}");
-
-        if (firstBrace >= 0 && lastBrace > firstBrace) {
-            return llmResponse.substring(firstBrace, lastBrace + 1);
-        }
-        return llmResponse; // Fallback to original if no braces found
     }
 
 }

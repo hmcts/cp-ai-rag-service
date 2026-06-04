@@ -16,34 +16,34 @@ class OpenAiClientFactoryTest {
 
     @Test
     void getInstanceCreatesNewClientWhenNotInCache() {
-        OpenAIClient client = OpenAiClientFactory.getInstance(ENDPOINT);
+        final OpenAIClient client = OpenAiClientFactory.getInstance(ENDPOINT);
         assertNotNull(client);
     }
 
     @Test
     void getInstanceReturnsCachedClientForSameEndpoint() {
-        OpenAIClient firstClient = OpenAiClientFactory.getInstance(ENDPOINT);
-        OpenAIClient secondClient = OpenAiClientFactory.getInstance(ENDPOINT);
+        final OpenAIClient firstClient = OpenAiClientFactory.getInstance(ENDPOINT);
+        final OpenAIClient secondClient = OpenAiClientFactory.getInstance(ENDPOINT);
         assertSame(firstClient, secondClient);
     }
 
     @Test
     void getInstanceReturnsNewClientForDifferentEndpoints() {
-        OpenAIClient firstClient = OpenAiClientFactory.getInstance(ENDPOINT);
-        OpenAIClient secondClient = OpenAiClientFactory.getInstance(DIFFERENT_ENDPOINT);
+        final OpenAIClient firstClient = OpenAiClientFactory.getInstance(ENDPOINT);
+        final OpenAIClient secondClient = OpenAiClientFactory.getInstance(DIFFERENT_ENDPOINT);
         assertNotSame(firstClient, secondClient);
     }
 
     @Test
     void getInstanceThrowsExceptionForNullEndpoint() {
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+        final IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> OpenAiClientFactory.getInstance(null));
         assertEquals("Endpoint environment variable must be set.", exception.getMessage());
     }
 
     @Test
     void getInstanceThrowsExceptionForEmptyEndpoint() {
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+        final IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> OpenAiClientFactory.getInstance(""));
         assertEquals("Endpoint environment variable must be set.", exception.getMessage());
     }
