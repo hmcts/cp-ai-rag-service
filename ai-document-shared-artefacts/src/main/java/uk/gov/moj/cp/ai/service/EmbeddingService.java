@@ -2,7 +2,7 @@ package uk.gov.moj.cp.ai.service;
 
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
-import uk.gov.moj.cp.ai.client.OpenAIClientFactory;
+import uk.gov.moj.cp.ai.client.AzureOpenAiClientFactory;
 import uk.gov.moj.cp.ai.exception.EmbeddingServiceException;
 
 import java.util.List;
@@ -27,7 +27,7 @@ public class EmbeddingService {
         validateNullOrEmpty(deploymentName, "Deployment name environment variable for embedding service must be set.");
         LOGGER.info("Connecting to embedding service endpoint '{}' and deployment '{}'", endpoint, deploymentName);
 
-        this.openAIClient = OpenAIClientFactory.getInstance(endpoint);
+        this.openAIClient = AzureOpenAiClientFactory.getInstance(endpoint);
         this.embeddingDeploymentName = deploymentName;
     }
 

@@ -5,6 +5,7 @@ import static java.lang.String.format;
 import uk.gov.moj.cp.ai.coverage.Generated;
 import uk.gov.moj.cp.ai.exception.ScoringServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
+import uk.gov.moj.cp.ai.client.ChatServiceFactory;
 import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.ai.util.ChunkFormatterUtility;
 import uk.gov.moj.cp.scoring.model.ModelScore;
@@ -44,7 +45,7 @@ public class ScoringService {
     public ScoringService() {
         String judgeModelEndpoint = System.getenv("AZURE_JUDGE_OPENAI_ENDPOINT");
         String judgeChatDeploymentName = System.getenv("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME");
-        chatService = new ChatService(judgeModelEndpoint, judgeChatDeploymentName);
+        chatService = ChatServiceFactory.getInstance(judgeModelEndpoint, judgeChatDeploymentName);
         chunkFormatterUtility = new ChunkFormatterUtility();
         scoringInstructionService = new ScoringInstructionService();
     }

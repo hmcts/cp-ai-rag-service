@@ -20,6 +20,12 @@
             <artifactId>azure-ai-openai</artifactId>
         </dependency>
 
+        <!-- Official OpenAI Java SDK (used by OpenAiChatService) -->
+        <dependency>
+            <groupId>com.openai</groupId>
+            <artifactId>openai-java</artifactId>
+        </dependency>
+
         <!-- Azure Identity (for Managed Identity or Azure AD authentication) -->
         <dependency>
             <groupId>com.azure</groupId>

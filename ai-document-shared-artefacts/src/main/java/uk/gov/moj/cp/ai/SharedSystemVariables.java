@@ -27,6 +27,8 @@ public class SharedSystemVariables {
     public static final String AZURE_SEARCH_SERVICE_INDEX_NAME = "AZURE_SEARCH_SERVICE_INDEX_NAME";
 
     public static final String LLM_MODEL_RESPONSE_MAX_TOKENS = "LLM_MODEL_RESPONSE_MAX_TOKENS";
+    public static final String LLM_MODEL_RESPONSE_VERBOSITY = "LLM_MODEL_RESPONSE_VERBOSITY";
+    public static final String LLM_CHAT_SERVICE_PROVIDER = "LLM_CHAT_SERVICE_PROVIDER";
     public static final String MAX_DOCUMENT_UPLOAD_BLOB_SIZE_MIB = "MAX_DOCUMENT_UPLOAD_BLOB_SIZE_MIB";
 
     private SharedSystemVariables() {
