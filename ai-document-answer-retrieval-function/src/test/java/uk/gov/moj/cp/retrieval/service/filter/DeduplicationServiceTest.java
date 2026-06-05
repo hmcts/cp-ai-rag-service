@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.retrieval.service;
+package uk.gov.moj.cp.retrieval.service.filter;
 
 import static java.util.Collections.emptyList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
