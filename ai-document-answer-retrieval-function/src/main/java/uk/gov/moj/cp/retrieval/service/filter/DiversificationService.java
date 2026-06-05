@@ -68,53 +68,71 @@ public class DiversificationService {
         if (!enableMmr) {
             return candidates;
         }
-        if (queryVector == null || queryVector.isEmpty() || candidates == null || candidates.isEmpty()) {
+        if (isNullOrEmpty(queryVector) || isNullOrEmpty(candidates)) {
             LOGGER.warn("MMR enabled but query vector or candidates are null/empty; returning candidates unchanged");
             return candidates;
         }
 
         final int targetCount = Math.min(finalCount, candidates.size());
-
-        // Precompute relevance(query, candidate) once. IdentityHashMap avoids hashing the large
-        // chunkVector lists that ChunkedEntry's record equals/hashCode would otherwise traverse.
-        final Map<ChunkedEntry, Double> relevanceByCandidate = new IdentityHashMap<>();
-        for (final ChunkedEntry candidate : candidates) {
-            relevanceByCandidate.put(candidate, cosineSimilarity(queryVector, candidate.chunkVector()));
-        }
+        final Map<ChunkedEntry, Double> relevanceByCandidate = relevanceByCandidate(queryVector, candidates);
 
         final List<ChunkedEntry> remaining = new ArrayList<>(candidates);
         final List<ChunkedEntry> selected = new ArrayList<>(targetCount);
 
         while (selected.size() < targetCount && !remaining.isEmpty()) {
-            ChunkedEntry best = null;
-            double bestScore = -Double.MAX_VALUE;
-
-            for (final ChunkedEntry candidate : remaining) {
-                final double relevance = relevanceByCandidate.get(candidate);
-                final double score;
-                if (selected.isEmpty()) {
-                    score = relevance;
-                } else {
-                    double maxSimToSelected = -Double.MAX_VALUE;
-                    for (final ChunkedEntry chosen : selected) {
-                        final double sim = cosineSimilarity(candidate.chunkVector(), chosen.chunkVector());
-                        if (sim > maxSimToSelected) {
-                            maxSimToSelected = sim;
-                        }
-                    }
-                    score = lambda * relevance - (1 - lambda) * maxSimToSelected;
-                }
-                if (score > bestScore) {
-                    bestScore = score;
-                    best = candidate;
-                }
-            }
-
+            final ChunkedEntry best = selectBest(remaining, selected, relevanceByCandidate);
             selected.add(best);
             remaining.remove(best);
         }
 
         LOGGER.info("MMR diversification (lambda={}) reduced {} candidates to {} chunks", lambda, candidates.size(), selected.size());
         return selected;
+    }
+
+    /**
+     * Precomputes relevance(query, candidate) once per candidate. An {@link IdentityHashMap} avoids hashing
+     * the large {@code chunkVector} lists that {@link ChunkedEntry}'s record equals/hashCode would traverse.
+     */
+    private Map<ChunkedEntry, Double> relevanceByCandidate(final List<Float> queryVector, final List<ChunkedEntry> candidates) {
+        final Map<ChunkedEntry, Double> relevanceByCandidate = new IdentityHashMap<>();
+        for (final ChunkedEntry candidate : candidates) {
+            relevanceByCandidate.put(candidate, cosineSimilarity(queryVector, candidate.chunkVector()));
+        }
+        return relevanceByCandidate;
+    }
+
+    /** Returns the remaining candidate with the highest MMR score against the already-selected set. */
+    private ChunkedEntry selectBest(final List<ChunkedEntry> remaining, final List<ChunkedEntry> selected,
+                                    final Map<ChunkedEntry, Double> relevanceByCandidate) {
+        ChunkedEntry best = null;
+        double bestScore = -Double.MAX_VALUE;
+        for (final ChunkedEntry candidate : remaining) {
+            final double score = mmrScore(candidate, selected, relevanceByCandidate.get(candidate));
+            if (score > bestScore) {
+                bestScore = score;
+                best = candidate;
+            }
+        }
+        return best;
+    }
+
+    /** {@code lambda * relevance - (1 - lambda) * maxSimilarityToSelected}; pure relevance for the first pick. */
+    private double mmrScore(final ChunkedEntry candidate, final List<ChunkedEntry> selected, final double relevance) {
+        if (selected.isEmpty()) {
+            return relevance;
+        }
+        return lambda * relevance - (1 - lambda) * maxSimilarityToSelected(candidate, selected);
+    }
+
+    private double maxSimilarityToSelected(final ChunkedEntry candidate, final List<ChunkedEntry> selected) {
+        double maxSimilarity = -Double.MAX_VALUE;
+        for (final ChunkedEntry chosen : selected) {
+            maxSimilarity = Math.max(maxSimilarity, cosineSimilarity(candidate.chunkVector(), chosen.chunkVector()));
+        }
+        return maxSimilarity;
+    }
+
+    private static boolean isNullOrEmpty(final List<?> list) {
+        return list == null || list.isEmpty();
     }
 }
