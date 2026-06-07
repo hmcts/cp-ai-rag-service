@@ -40,6 +40,10 @@ Key environment variables required across functions:
 - `STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION` — queue name for ingestion messages
 - `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT` — for document content extraction
 - `AZURE_SEARCH_SERVICE_ENDPOINT` + `AZURE_SEARCH_SERVICE_INDEX_NAME` — AI Search
+- Retrieval tuning (answer-retrieval function): `SEARCH_NEAREST_NEIGHBOURS_COUNT` / `SEARCH_TOP_RESULTS_COUNT` size the over-fetched candidate pool. The post-retrieval pipeline (`AzureAISearchService.search`) runs containment dedup → semantic dedup → MMR:
+  - `SEARCH_RESULTS_ENABLE_CONTAINMENT_DEDUP` toggles information-safe containment dedup (`ContentContainmentService`) — drops a chunk only when its content is already covered by a higher-ranked chunk, so cross-file duplicate copies collapse while a "copy + extra crucial info" superset is preserved. `SEARCH_CONTAINMENT_SHINGLE_SIZE` (word n-gram size, default 3) and `SEARCH_CONTAINMENT_THRESHOLD` (coverage fraction to drop, default 0.95) tune it.
+  - `SEARCH_RESULTS_ENABLE_MMR` toggles MMR diversification (`DiversificationService`); `SEARCH_MMR_LAMBDA` (0..1, lower = more diverse) and `SEARCH_MMR_FINAL_COUNT` (chunks sent to the LLM — must be < the candidate pool) tune it.
+  - `SEARCH_RESULTS_ENABLE_DEDUPLICATION` / `SEARCH_RESULTS_SEMANTIC_DEDUPLICATION_THRESHOLD` drive the older cosine semantic-dedup path, off by default (not information-safe — can drop a near-duplicate that carries unique content).
 - `AZURE_EMBEDDING_SERVICE_ENDPOINT` + `AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME`
 - `LLM_MODEL_RESPONSE_MAX_TOKENS`, HTTP/retry config (`AZURE_CLIENT_MAX_RETRIES`, etc.)
 
@@ -89,6 +93,30 @@ The answer-retrieval module exposes two HTTP invocation modes plus the queue-tri
 1. `InitiateAnswerGenerationFunction` (`POST /answer-user-query-async`) validates the request, writes a pending row to `STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION`, enqueues a payload to `STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION`, and returns a `transactionId`.
 2. `AnswerGenerationFunction` (queue-triggered on `STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION`) runs the same embed → search → LLM flow, persists the result payload to Blob Storage, updates Table Storage status, and enqueues a scoring message.
 3. `GetAnswerGenerationResultFunction` (`GET /answer-user-query-async-status/{transactionId}`) is the polling endpoint that returns the generated answer once ready.
+
+### Retrieval Refinement Pipeline (post-retrieval, in `AzureAISearchService.search`)
+
+Both invocation modes share the same retrieval path. `AzureAISearchService` over-fetches a candidate pool (vector + keyword), then runs three **independently toggled** stages, in order, before chunks reach the LLM. Azure AI Search has no server-side dedup/diversity operator, so this is done client-side. The search service is deliberately **agnostic of the toggles** — it always selects the `chunkVector` column and each stage owns its own enable flag and config:
+
+1. `ContentContainmentService` — **information-safe** dedup. Drops a chunk only when (nearly) all of its content already appears in a higher-ranked retained chunk, via asymmetric word n-gram *containment*. Collapses duplicate passages that legitimately live in different files (so they cannot be deduplicated at ingestion, where per-file provenance/filtering must be preserved) while **never discarding a chunk that carries unique information** (a "copy + extra crucial sentence" superset survives).
+2. `DeduplicationService` — coarser, symmetric cosine-similarity dedup. **Off by default**: it can drop a near-duplicate that actually carries unique content, so it is superseded by containment dedup. See its class Javadoc.
+3. `DiversificationService` — MMR (Maximal Marginal Relevance). Selects a relevance-vs-diversity balanced subset and truncates to the final chunk count sent to the LLM, cutting token usage.
+
+Cross-file duplication only surfaces when a query's metadata filter spans multiple files; with a single-file filter there is little for these stages to collapse. The env vars that tune this pipeline, and how they interact, are documented in the "Key environment variables" section above and in `ai-document-answer-retrieval-function/Azure/local.settings.sample.json`.
+
+#### Sizing the count variables (must hold)
+
+The three count variables form a chain and must satisfy:
+
+```
+SEARCH_NEAREST_NEIGHBOURS_COUNT  ≥  SEARCH_TOP_RESULTS_COUNT  >  SEARCH_MMR_FINAL_COUNT
+        (vector recall)                 (candidate pool)            (chunks to the LLM)
+```
+
+- **kNN ≥ pool:** `SEARCH_NEAREST_NEIGHBOURS_COUNT` is how many candidates the vector subquery returns. If the pool is larger than kNN, the vector side cannot fill it and the surplus falls back to keyword matches — so keep kNN at least the pool size.
+- **pool > final (with headroom):** `SEARCH_TOP_RESULTS_COUNT` is the candidate pool the refinement stages shrink; MMR truncates it to `SEARCH_MMR_FINAL_COUNT`. If the pool is not larger than the final count, MMR has nothing to diversify over and below-cut unique chunks never enter. Because containment/semantic dedup may remove chunks before MMR, leave real headroom (not `+1`).
+
+Default sizing — kNN `50` ≥ pool `50` > final `15` — satisfies this. If you raise the pool, raise kNN with it; if you raise the final count, raise the pool above it.
 
 ### Scoring
 - `AnswerScoringFunction` evaluates answer groundedness via `ScoringService`

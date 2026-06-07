@@ -1,6 +1,5 @@
 package uk.gov.moj.cp.retrieval.service;
 
-import static java.lang.Boolean.parseBoolean;
 import static java.lang.String.format;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_INDEX_NAME;
@@ -10,13 +9,15 @@ import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 import static uk.gov.moj.cp.ai.util.StringUtil.escapeLuceneSpecialChars;
 import static uk.gov.moj.cp.ai.util.StringUtil.escapeODataStringLiteral;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
-import static uk.gov.moj.cp.retrieval.service.DeduplicationService.SEARCH_RESULTS_ENABLE_DEDUPLICATION;
 
 import uk.gov.moj.cp.ai.client.AISearchClientFactory;
 import uk.gov.moj.cp.ai.index.IndexConstants;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.exception.SearchServiceException;
+import uk.gov.moj.cp.retrieval.service.filter.ContentContainmentService;
+import uk.gov.moj.cp.retrieval.service.filter.DeduplicationService;
+import uk.gov.moj.cp.retrieval.service.filter.DiversificationService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,22 +37,22 @@ public class AzureAISearchService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AzureAISearchService.class);
     private final SearchClient searchClient;
+    private final ContentContainmentService contentContainmentService;
     private final DeduplicationService deduplicationService;
+    private final DiversificationService diversificationService;
 
     private final int nearestNeighborsCount;
     private final int topResultsCount;
 
-    private final boolean enableDeduplication;
     private final String IS_ACTIVE_FILTER = format("(not %s/any(m: m/key eq 'is_active') or %s/any(m: m/key eq 'is_active' and m/value ne 'false'))",
             CUSTOM_METADATA, CUSTOM_METADATA);
 
     public AzureAISearchService() {
         this(getRequiredEnv(AZURE_SEARCH_SERVICE_ENDPOINT),
-                getRequiredEnv(AZURE_SEARCH_SERVICE_INDEX_NAME),
-                parseBoolean(getRequiredEnv(SEARCH_RESULTS_ENABLE_DEDUPLICATION, "false")));
+                getRequiredEnv(AZURE_SEARCH_SERVICE_INDEX_NAME));
     }
 
-    public AzureAISearchService(final String endpoint, final String searchIndexName, final boolean enableDeduplication) {
+    public AzureAISearchService(final String endpoint, final String searchIndexName) {
 
         if (isNullOrEmpty(endpoint) || isNullOrEmpty(searchIndexName)) {
             throw new IllegalArgumentException("Azure AI Search endpoint and index name must be set as environment variables.");
@@ -60,12 +61,12 @@ public class AzureAISearchService {
         nearestNeighborsCount = getRequiredEnvAsInteger("SEARCH_NEAREST_NEIGHBOURS_COUNT", "50");
         topResultsCount = getRequiredEnvAsInteger("SEARCH_TOP_RESULTS_COUNT", "50");
 
-        this.enableDeduplication = enableDeduplication;
-
         LOGGER.info("Search parameters set as - Nearest Neighbors: {}, Top Results: {}", nearestNeighborsCount, topResultsCount);
 
         this.searchClient = AISearchClientFactory.getInstance(endpoint, searchIndexName);
+        this.contentContainmentService = new ContentContainmentService();
         this.deduplicationService = new DeduplicationService();
+        this.diversificationService = new DiversificationService();
 
         LOGGER.info("Initialized Azure AI Search client with managed identity.");
 
@@ -117,7 +118,11 @@ public class AzureAISearchService {
             }
             LOGGER.info("Successfully retrieved {}  documents from Azure AI Search.", chunkedEntries.size());
 
-            return deduplicationService.performSemanticDeduplication(chunkedEntries);
+            // Pipeline: information-safe containment dedup first, then (optional) semantic dedup,
+            // then MMR as a final relevance-vs-diversity / token-budget pass.
+            final List<ChunkedEntry> containmentDedupedEntries = contentContainmentService.deduplicateByContainment(chunkedEntries);
+            final List<ChunkedEntry> dedupedEntries = deduplicationService.performSemanticDeduplication(containmentDedupedEntries);
+            return diversificationService.diversify(vectorizedUserQuery, dedupedEntries);
 
         } catch (Exception e) {
             // Implement retry logic here if needed
@@ -158,23 +163,19 @@ public class AzureAISearchService {
 
 
     String[] getColumnsToRetrieve() {
-        final List<String> selectedColumns = new ArrayList<>(List.of(
+        // The chunk vector is always retrieved; whether it is used for cosine comparisons is decided
+        // by the downstream services (DeduplicationService / DiversificationService) based on their
+        // own toggles. This search service stays agnostic of those toggles.
+        return new String[]{
                 IndexConstants.ID,
                 IndexConstants.CHUNK,
                 IndexConstants.DOCUMENT_FILE_NAME,
                 IndexConstants.DOCUMENT_ID,
                 IndexConstants.PAGE_NUMBER,
                 IndexConstants.DOCUMENT_FILE_URL,
-                CUSTOM_METADATA
-        ));
-
-        // Conditionally add the vector column
-        if (enableDeduplication) {
-            selectedColumns.add(IndexConstants.CHUNK_VECTOR);
-        }
-
-        // Convert back to Array for the Azure SDK
-        return selectedColumns.toArray(new String[0]);
+                CUSTOM_METADATA,
+                IndexConstants.CHUNK_VECTOR
+        };
     }
 
 }

@@ -1,8 +1,9 @@
-package uk.gov.moj.cp.retrieval.service;
+package uk.gov.moj.cp.retrieval.service.filter;
 
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Double.parseDouble;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
+import static uk.gov.moj.cp.ai.util.VectorSimilarityUtil.cosineSimilarity;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 
@@ -12,6 +13,18 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Semantic deduplication of retrieved chunks based on embedding similarity.
+ * <p>
+ * Runs at retrieval time and, in ranked order, drops any chunk whose {@code chunkVector} is at least
+ * {@code SEARCH_RESULTS_SEMANTIC_DEDUPLICATION_THRESHOLD} cosine-similar to a chunk already kept,
+ * retaining the highest-ranked representative of each near-duplicate group. Gated by
+ * {@code SEARCH_RESULTS_ENABLE_DEDUPLICATION} (off by default).
+ * <p>
+ * Note: this is a symmetric similarity test, so it can discard a near-duplicate that actually carries
+ * unique information. For information-safe collapsing use {@link ContentContainmentService}; this path
+ * is retained as a coarse, optional similarity filter.
+ */
 public class DeduplicationService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DeduplicationService.class);
@@ -40,7 +53,7 @@ public class DeduplicationService {
         final List<ChunkedEntry> uniqueEntries = new ArrayList<>();
         for (final ChunkedEntry incoming : entries) {
             final boolean isDuplicate = uniqueEntries.stream()
-                    .anyMatch(existing -> calculateCosineSimilarity(
+                    .anyMatch(existing -> cosineSimilarity(
                             incoming.chunkVector(), existing.chunkVector()) >= threshold);
             if (!isDuplicate) {
                 uniqueEntries.add(incoming);
@@ -48,28 +61,5 @@ public class DeduplicationService {
         }
         LOGGER.info("After filtering with threshold '{}', {} chunk entries remains", threshold, uniqueEntries.size());
         return uniqueEntries;
-    }
-
-    /**
-     * See https://help.openai.com/en/articles/6824809-embeddings-faq
-     * <p>
-     * Mathematical Impact: OpenAI embeddings are normalized to length 1 and because the vectors are
-     * unit-length, Cosine similarity can be computed slightly faster using just a dot product.
-     *
-     * @param vecA
-     * @param vecB
-     * @return
-     */
-    private double calculateCosineSimilarity(final List<Float> vecA, final List<Float> vecB) {
-        if (vecA == null || vecB == null || vecA.size() != vecB.size()) {
-            return 0.0;
-        }
-
-        double dotProduct = 0.0;
-        for (int i = 0; i < vecA.size(); i++) {
-            dotProduct += vecA.get(i) * vecB.get(i);
-        }
-
-        return dotProduct;
     }
 }

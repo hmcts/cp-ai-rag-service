@@ -3,7 +3,6 @@ package uk.gov.moj.cp.retrieval.service;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -18,6 +17,7 @@ import uk.gov.moj.cp.ai.index.IndexConstants;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.exception.SearchServiceException;
+import uk.gov.moj.cp.retrieval.service.filter.DeduplicationService;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,7 +49,7 @@ class AzureAISearchServiceTest {
         mockDeduplicationService = mock(DeduplicationService.class);
         clientFactoryMockedStatic = mockStatic(AISearchClientFactory.class);
         clientFactoryMockedStatic.when(() -> AISearchClientFactory.getInstance(anyString(), anyString())).thenReturn(mockSearchClient);
-        service = new AzureAISearchService(endpoint, indexName, true);
+        service = new AzureAISearchService(endpoint, indexName);
     }
 
     @AfterEach
@@ -219,17 +219,14 @@ class AzureAISearchServiceTest {
 
     // Unit test for getColumnsToRetrieve
     @Test
-    @DisplayName("getColumnsToRetrieve returns correct columns based on deduplication flag")
-    void getColumnsToRetrieveReturnsCorrectColumns() {
-        // Deduplication enabled
-        final AzureAISearchService serviceWithDedup = new AzureAISearchService("endpoint", "index", true);
-        final String[] columnsWithDedup = serviceWithDedup.getColumnsToRetrieve();
-        assertTrue(List.of(columnsWithDedup).contains(IndexConstants.CHUNK_VECTOR));
-
-        // Deduplication disabled
-        final AzureAISearchService serviceWithoutDedup = new AzureAISearchService("endpoint", "index", false);
-        final String[] columnsWithoutDedup = serviceWithoutDedup.getColumnsToRetrieve();
-        assertFalse(List.of(columnsWithoutDedup).contains(IndexConstants.CHUNK_VECTOR));
+    @DisplayName("getColumnsToRetrieve always includes the chunk vector column")
+    void getColumnsToRetrieveAlwaysIncludesVector() {
+        // The search service is agnostic of the dedup/MMR toggles; the vector is always fetched and
+        // the downstream services decide whether to use it.
+        final List<String> columns = List.of(service.getColumnsToRetrieve());
+        assertTrue(columns.contains(IndexConstants.CHUNK_VECTOR));
+        assertTrue(columns.contains(IndexConstants.CHUNK));
+        assertTrue(columns.contains(IndexConstants.ID));
     }
 
 }
