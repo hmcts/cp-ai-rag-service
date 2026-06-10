@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>uk.gov.moj.cp.azure.ragservice</groupId>
+        <artifactId>cp-ai-rag-service</artifactId>
+        <version>17.0.81-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>ai-document-migration-tool</artifactId>
+    <packaging>jar</packaging>
+    <name>AI Document Migration Tool</name>
+    <description>One-off, resumable index-to-index migration tool for rebuilding the Azure AI Search index with a new schema. Not deployed.</description>
+
+    <properties>
+        <exec.maven.plugin.version>3.1.0</exec.maven.plugin.version>
+        <migration.mainClass>uk.gov.moj.cp.migration.IndexMigrationTool</migration.mainClass>
+    </properties>
+
+    <dependencies>
+        <!-- Shared models, clients and utilities (AISearchClientFactory, CredentialUtil, ClientConfiguration, ChunkedEntry, IndexConstants, StringUtil) -->
+        <dependency>
+            <groupId>uk.gov.moj.cp.azure.ragservice</groupId>
+            <artifactId>ai-document-shared-artefacts</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Search data-plane + index-management clients (SearchClient, SearchIndexingBufferedSender,
+             SearchIndexClient, SearchIndex). Version managed by azure-sdk-bom. -->
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-search-documents</artifactId>
+        </dependency>
+
+        <!-- Test (junit + mockito inherited project-wide; assertj is managed-only, so declare it here) -->
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>${exec.maven.plugin.version}</version>
+                <configuration>
+                    <mainClass>${migration.mainClass}</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

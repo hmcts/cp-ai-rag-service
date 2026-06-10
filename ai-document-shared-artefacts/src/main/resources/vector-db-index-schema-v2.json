@@ -1,0 +1,173 @@
+{
+  "name": "ai-rag-service-index",
+  "fields": [
+    {
+      "name": "id",
+      "type": "Edm.String",
+      "searchable": false,
+      "filterable": true,
+      "retrievable": true,
+      "stored": true,
+      "sortable": true,
+      "facetable": false,
+      "key": true
+    },
+    {
+      "name": "chunk",
+      "type": "Edm.String",
+      "searchable": true,
+      "filterable": false,
+      "retrievable": true,
+      "stored": true,
+      "sortable": false,
+      "facetable": false,
+      "key": false,
+      "synonymMaps": []
+    },
+    {
+      "name": "chunkVector",
+      "type": "Collection(Edm.Single)",
+      "searchable": true,
+      "filterable": false,
+      "retrievable": true,
+      "stored": true,
+      "sortable": false,
+      "facetable": false,
+      "key": false,
+      "dimensions": 3072,
+      "vectorSearchProfile": "default-vector-profile"
+    },
+    {
+      "name": "documentFileName",
+      "type": "Edm.String",
+      "searchable": false,
+      "filterable": false,
+      "retrievable": true,
+      "stored": true,
+      "sortable": false,
+      "facetable": false,
+      "key": false
+    },
+    {
+      "name": "documentId",
+      "type": "Edm.String",
+      "searchable": false,
+      "filterable": true,
+      "retrievable": true,
+      "stored": true,
+      "sortable": false,
+      "facetable": false,
+      "key": false
+    },
+    {
+      "name": "pageNumber",
+      "type": "Edm.Int32",
+      "searchable": false,
+      "filterable": false,
+      "retrievable": true,
+      "stored": true,
+      "sortable": false,
+      "facetable": false,
+      "key": false
+    },
+    {
+      "name": "chunkIndex",
+      "type": "Edm.Int32",
+      "searchable": false,
+      "filterable": false,
+      "retrievable": true,
+      "stored": true,
+      "sortable": false,
+      "facetable": false,
+      "key": false
+    },
+    {
+      "name": "documentFileUrl",
+      "type": "Edm.String",
+      "searchable": false,
+      "filterable": false,
+      "retrievable": true,
+      "stored": true,
+      "sortable": false,
+      "facetable": false,
+      "key": false
+    },
+    {
+      "name": "customMetadata",
+      "type": "Collection(Edm.ComplexType)",
+      "fields": [
+        {
+          "name": "key",
+          "type": "Edm.String",
+          "searchable": false,
+          "filterable": true,
+          "retrievable": true,
+          "stored": true,
+          "sortable": false,
+          "facetable": false,
+          "key": false
+        },
+        {
+          "name": "value",
+          "type": "Edm.String",
+          "searchable": false,
+          "filterable": true,
+          "retrievable": true,
+          "stored": true,
+          "sortable": false,
+          "facetable": false,
+          "key": false
+        }
+      ]
+    }
+  ],
+  "scoringProfiles": [],
+  "suggesters": [],
+  "analyzers": [],
+  "normalizers": [],
+  "tokenizers": [],
+  "tokenFilters": [],
+  "charFilters": [],
+  "similarity": {
+    "@odata.type": "#Microsoft.Azure.Search.BM25Similarity"
+  },
+  "semantic": {
+    "configurations": [
+      {
+        "name": "default-semantic-config",
+        "flightingOptIn": false,
+        "rankingOrder": "BoostedRerankerScore",
+        "prioritizedFields": {
+          "prioritizedContentFields": [
+            {
+              "fieldName": "chunk"
+            }
+          ],
+          "prioritizedKeywordsFields": []
+        }
+      }
+    ]
+  },
+  "vectorSearch": {
+    "algorithms": [
+      {
+        "name": "hnsw-config",
+        "kind": "hnsw",
+        "hnswParameters": {
+          "metric": "cosine",
+          "m": 4,
+          "efConstruction": 400,
+          "efSearch": 500
+        }
+      }
+    ],
+    "profiles": [
+      {
+        "name": "default-vector-profile",
+        "algorithm": "hnsw-config"
+      }
+    ],
+    "vectorizers": [],
+    "compressions": []
+  }
+}
