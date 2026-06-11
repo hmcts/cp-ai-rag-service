@@ -12,21 +12,16 @@ import org.junit.jupiter.api.Test;
  * must tolerate. Each test pins one specific LLM output shape so a future
  * change to {@link CitationProcessor} cannot silently regress it.
  *
- * <p>The drift modes are documented in {@code docs/prompt-evaluation-report.md}
- * and were the root cause of citation rendering succeeding only ~1 in 10 times
- * in production.
  */
 class CitationProcessorDriftTest {
 
-    private final CitationProcessor citationProcessor = new CitationProcessor();
-
     private static final String CITATION_FORMATTED =
             "::(Source: [case.pdf], Pages 7|7|documentId=abc-123)";
-
     private static final String CITATION_JSON_BLOCK =
             "<FACT_MAP_JSON>[{\"citationId\":\"1\",\"documentFilename\":\"case.pdf\","
                     + "\"pageNumbers\":\"7\",\"individualPageNumbers\":\"7\","
                     + "\"documentId\":\"abc-123\"}]</FACT_MAP_JSON>";
+    private final CitationProcessor citationProcessor = new CitationProcessor();
 
     @Test
     @DisplayName("Drift 1: [1 p.7] page-suffix drift is still substituted")
