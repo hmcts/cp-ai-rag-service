@@ -18,6 +18,9 @@ public class ClientConfiguration {
     private static final String DEFAULT_RESPONSE_TIMEOUT_IN_SECONDS = "180";
     private static final String DEFAULT_CONNECT_TIMEOUT_IN_SECONDS = "10";
     private static final String DEFAULT_READ_TIMEOUT_IN_SECONDS = "60";
+    // Defaults to 60s to match Netty's own default write timeout — backwards compatible. Lower it via
+    // HTTP_CLIENT_WRITE_TIMEOUT_IN_SECONDS to bound a stalled outbound upload (large-write) sooner.
+    private static final String DEFAULT_WRITE_TIMEOUT_IN_SECONDS = "60";
 
     private static final String DEFAULT_MAX_RETRIES = "3";
     private static final String DEFAULT_BASE_DELAY_IN_SECONDS = "1";
@@ -46,15 +49,18 @@ public class ClientConfiguration {
         final int responseTimeoutInSeconds = getRequiredEnvAsInteger("HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS", DEFAULT_RESPONSE_TIMEOUT_IN_SECONDS);
         final int connectTimeoutInSeconds = getRequiredEnvAsInteger("HTTP_CLIENT_CONNECT_TIMEOUT_IN_SECONDS", DEFAULT_CONNECT_TIMEOUT_IN_SECONDS);
         final int readTimeoutInSeconds = getRequiredEnvAsInteger("HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS", DEFAULT_READ_TIMEOUT_IN_SECONDS);
+        final int writeTimeoutInSeconds = getRequiredEnvAsInteger("HTTP_CLIENT_WRITE_TIMEOUT_IN_SECONDS", DEFAULT_WRITE_TIMEOUT_IN_SECONDS);
 
-        LOGGER.info("Creating Netty HTTP client with responseTimeoutInSeconds: {}, connectTimeoutInSeconds: {}, readTimeoutInSeconds: {}",
-                responseTimeoutInSeconds, connectTimeoutInSeconds, readTimeoutInSeconds);
+        LOGGER.info("Creating Netty HTTP client with responseTimeoutInSeconds: {}, connectTimeoutInSeconds: {}, "
+                        + "readTimeoutInSeconds: {}, writeTimeoutInSeconds: {}",
+                responseTimeoutInSeconds, connectTimeoutInSeconds, readTimeoutInSeconds, writeTimeoutInSeconds);
 
         // Configure the Netty HTTP client with custom timeouts.  Azure SDK uses this as default
         return new NettyAsyncHttpClientBuilder()
                 .responseTimeout(Duration.ofSeconds(responseTimeoutInSeconds))
                 .connectTimeout(Duration.ofSeconds(connectTimeoutInSeconds))
                 .readTimeout(Duration.ofSeconds(readTimeoutInSeconds))
+                .writeTimeout(Duration.ofSeconds(writeTimeoutInSeconds))
                 .build();
     }
 }
