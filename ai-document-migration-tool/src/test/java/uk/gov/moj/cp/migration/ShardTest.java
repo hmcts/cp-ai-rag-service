@@ -45,6 +45,14 @@ class ShardTest {
     }
 
     @Test
+    void planIgnoresAndWarnsAboutAResumeCursorWhenShardingAcrossMultipleWorkers() {
+        // workers > 1 + a non-empty cursor exercises the "startAfterId ignored" warn branch.
+        assertThat(Shard.plan(8, "some-cursor"))
+                .hasSize(16)
+                .allSatisfy(shard -> assertThat(shard.startCursor()).isNull());
+    }
+
+    @Test
     void planPartitionsTheUuidKeySpaceIntoSixteenContiguousHexShardsForMultipleWorkers() {
         final List<Shard> shards = Shard.plan(8, null);
 

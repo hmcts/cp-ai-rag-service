@@ -1,13 +1,17 @@
 package uk.gov.moj.cp.migration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 
@@ -16,6 +20,8 @@ import java.util.List;
 
 import com.azure.search.documents.SearchClient;
 import com.azure.search.documents.SearchIndexingBufferedSender;
+import com.azure.search.documents.models.SearchResult;
+import com.azure.search.documents.util.SearchPagedIterable;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
@@ -104,6 +110,51 @@ class IndexCopierTest {
 
         assertThat(submitted).isZero();
         verifyNoInteractions(sender);
+    }
+
+    @Test
+    void readPageAppliesTheShardFilterAndMapsResultsToChunkedEntries() {
+        final SearchClient source = mock(SearchClient.class);
+        final SearchResult r1 = mock(SearchResult.class);
+        final SearchResult r2 = mock(SearchResult.class);
+        final ChunkedEntry c1 = chunk("id-a");
+        final ChunkedEntry c2 = chunk("id-b");
+        when(r1.getDocument(ChunkedEntry.class)).thenReturn(c1);
+        when(r2.getDocument(ChunkedEntry.class)).thenReturn(c2);
+        final SearchPagedIterable results = mock(SearchPagedIterable.class);
+        when(results.iterator()).thenReturn(List.of(r1, r2).iterator());
+        when(source.search(any(), any(), any())).thenReturn(results);
+
+        final List<ChunkedEntry> page =
+                new IndexCopier(source, mockSender(), 500, 1, 0).readPage(new Shard("a", "b", null), "a5");
+
+        assertThat(page).containsExactly(c1, c2);
+        verify(source).search(eq("*"), any(), any()); // shard-bounded keyset query issued
+    }
+
+    @Test
+    void copyAllDocumentsAbortsAndCancelsWorkersWhenAShardFails() {
+        final IndexCopier copier = spy(new IndexCopier(mock(SearchClient.class), mockSender(), 2, 1, 0));
+        doThrow(new RuntimeException("read boom")).when(copier).readPage(any(), any());
+
+        assertThatThrownBy(() -> copier.copyAllDocuments(null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("worker failed");
+    }
+
+    @Test
+    void copyAllDocumentsCountsAlreadyProcessedDocsWhenResumingASingleWorkerRun() {
+        final SearchClient source = mock(SearchClient.class);
+        final SearchPagedIterable countResult = mock(SearchPagedIterable.class);
+        when(countResult.getTotalCount()).thenReturn(42L);
+        when(source.search(any(), any(), any())).thenReturn(countResult);
+        final IndexCopier copier = spy(new IndexCopier(source, mockSender(), 2, 1, 0));
+        doReturn(List.of()).when(copier).readPage(any(), any()); // nothing left to copy from the cursor
+
+        final long submitted = copier.copyAllDocuments("cursor-x");
+
+        assertThat(submitted).isZero();
+        verify(source).search(any(), any(), any()); // resume count query executed (countProcessedBefore)
     }
 
     @SuppressWarnings("unchecked")

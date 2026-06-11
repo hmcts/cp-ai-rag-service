@@ -119,44 +119,16 @@ final class IndexCopier {
         final String label = shard.label();
         String lastId = shard.startCursor();
 
-        while (true) {
-            if (limited() && submitted.get() >= maxRecords) {
-                break; // global record cap already reached by another shard
-            }
+        while (!capReachedGlobally()) {
             final List<ChunkedEntry> page = readPage(shard, lastId);
             if (page.isEmpty()) {
                 break;
             }
-            final List<ChunkedEntry> valid = page.stream().filter(IndexCopier::hasValidVector).toList();
-            final long pageSkipped = page.size() - (long) valid.size();
-            if (pageSkipped > 0) {
-                skipped.addAndGet(pageSkipped);
-                LOGGER.warn("[shard {}] skipped {} chunk(s) with a missing/wrong-size vector (expected {} dims).",
-                        label, pageSkipped, VECTOR_DIMENSIONS);
-            }
-            boolean capReached = false;
-            if (!valid.isEmpty()) {
-                final long take = claim(valid.size()); // bumps submitted; trims to the remaining cap when limited
-                if (take > 0) {
-                    final List<ChunkedEntry> toSend = take == valid.size() ? valid : valid.subList(0, (int) take);
-                    // Plain (async, non-fatal) flush: the sender batches, splits 16 MB, retries 429/503, and
-                    // routes per-doc errors to onActionError — a transient flush error must not abort the run.
-                    sender.addUploadActions(toSend);
-                }
-                capReached = take < valid.size();
-            }
+            final boolean capHit = uploadPage(page, label);
             lastId = page.get(page.size() - 1).id(); // advance by the raw page's last id (filtered rows kept in order)
+            logProgress(label, lastId);
 
-            final long processedThisRun = submitted.get() + skipped.get();
-            final long processedOverall = baseProcessed + processedThisRun;
-            final long remaining = Math.max(0, total - processedOverall);
-            LOGGER.info("[shard {}] Read to cursor id={}; {} submitted, {} skipped so far. "
-                            + "Est. time remaining: {} ({}/{} processed).",
-                    label, lastId, submitted.get(), skipped.get(),
-                    formatEta(processedThisRun, remaining, System.nanoTime() - startNanos),
-                    processedOverall, total);
-
-            if (capReached) {
+            if (capHit) {
                 LOGGER.info("[shard {}] record cap of {} reached; stopping.", label, maxRecords);
                 break;
             }
@@ -164,6 +136,49 @@ final class IndexCopier {
                 break; // last (partial) page for this shard
             }
         }
+    }
+
+    /** True once the global record cap has been reached (by this or another shard). */
+    private boolean capReachedGlobally() {
+        return limited() && submitted.get() >= maxRecords;
+    }
+
+    /**
+     * Filters a page to valid-vector chunks, records skips, claims budget, and streams the claimed slice to
+     * the shared sender. Returns {@code true} if the global cap was hit mid-page (i.e. the page was trimmed).
+     */
+    private boolean uploadPage(final List<ChunkedEntry> page, final String label) {
+        final List<ChunkedEntry> valid = page.stream().filter(IndexCopier::hasValidVector).toList();
+        recordSkips(page.size() - (long) valid.size(), label);
+        if (valid.isEmpty()) {
+            return false;
+        }
+        final long take = claim(valid.size()); // bumps submitted; trims to the remaining cap when limited
+        if (take > 0) {
+            // Plain (async, non-fatal) flush: the sender batches, splits 16 MB, retries 429/503, and routes
+            // per-doc errors to onActionError — a transient flush error must not abort the run.
+            sender.addUploadActions(take == valid.size() ? valid : valid.subList(0, (int) take));
+        }
+        return take < valid.size();
+    }
+
+    private void recordSkips(final long pageSkipped, final String label) {
+        if (pageSkipped > 0) {
+            skipped.addAndGet(pageSkipped);
+            LOGGER.warn("[shard {}] skipped {} chunk(s) with a missing/wrong-size vector (expected {} dims).",
+                    label, pageSkipped, VECTOR_DIMENSIONS);
+        }
+    }
+
+    private void logProgress(final String label, final String lastId) {
+        final long processedThisRun = submitted.get() + skipped.get();
+        final long processedOverall = baseProcessed + processedThisRun;
+        final long remaining = Math.max(0, total - processedOverall);
+        LOGGER.info("[shard {}] Read to cursor id={}; {} submitted, {} skipped so far. "
+                        + "Est. time remaining: {} ({}/{} processed).",
+                label, lastId, submitted.get(), skipped.get(),
+                formatEta(processedThisRun, remaining, System.nanoTime() - startNanos),
+                processedOverall, total);
     }
 
     /**

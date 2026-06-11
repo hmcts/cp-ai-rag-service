@@ -1,12 +1,18 @@
 package uk.gov.moj.cp.migration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import uk.gov.moj.cp.ai.model.ChunkedEntry;
+
+import java.util.concurrent.atomic.AtomicLong;
+
 import com.azure.search.documents.SearchClient;
+import com.azure.search.documents.SearchIndexingBufferedSender;
 import com.azure.search.documents.indexes.SearchIndexClient;
 import com.azure.search.documents.indexes.models.SearchIndex;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -63,6 +69,29 @@ class SearchIndexAdminTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("source=100")
                 .hasMessageContaining("target=99");
+    }
+
+    @Test
+    void logCutoverCommandRendersForEndpointsWithAndWithoutATrailingSlash() {
+        // Exercises both arms of the trailing-slash trim; output is a log line, so we just assert it runs.
+        assertThatCode(() -> {
+            SearchIndexAdmin.logCutoverCommand("https://svc.search.windows.net/", "the-alias", "target-v2");
+            SearchIndexAdmin.logCutoverCommand("https://svc.search.windows.net", "the-alias", "target-v2");
+        }).doesNotThrowAnyException();
+    }
+
+    @Test
+    void indexClientIsBuiltForTheEndpoint() {
+        assertThat(SearchIndexAdmin.indexClient("https://svc.search.windows.net")).isNotNull();
+    }
+
+    @Test
+    void bufferedSenderIsBuiltAndClosesCleanly() {
+        final SearchIndexingBufferedSender<ChunkedEntry> sender = SearchIndexAdmin.bufferedSender(
+                "https://svc.search.windows.net", "idx", 500, new AtomicLong(), new AtomicLong());
+
+        assertThat(sender).isNotNull();
+        sender.close(); // empty buffer -> no network; just tears down the auto-flush scheduler
     }
 
     private static SearchIndexClient indexClientWithCounts(final long sourceCount, final long targetCount) {

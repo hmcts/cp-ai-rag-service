@@ -1,0 +1,113 @@
+package uk.gov.moj.cp.migration;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import uk.gov.moj.cp.ai.client.AISearchClientFactory;
+import uk.gov.moj.cp.ai.model.ChunkedEntry;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.azure.search.documents.SearchClient;
+import com.azure.search.documents.SearchIndexingBufferedSender;
+import com.azure.search.documents.indexes.SearchIndexClient;
+import org.junit.jupiter.api.Test;
+import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
+
+/**
+ * Unit tests for the {@code main} wiring — argument parsing and which collaborators are invoked — with all
+ * Azure-touching collaborators (the static {@link SearchIndexAdmin}/{@link AISearchClientFactory} factories
+ * and the constructed {@link IndexCopier}) mocked. No live service is contacted.
+ */
+class IndexMigrationToolTest {
+
+    private static final String ENDPOINT = "https://svc.search.windows.net";
+
+    @Test
+    void mainRejectsTooFewArguments() {
+        assertThatThrownBy(() -> IndexMigrationTool.main(new String[]{"a", "b", "c", "d"}))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Usage:");
+    }
+
+    @Test
+    void fullCopyRunWiresClientsRunsTheCopyThenVerifiesCountsAndPrintsCutover() throws Exception {
+        final SearchIndexClient indexClient = mock(SearchIndexClient.class);
+        final SearchClient sourceClient = mock(SearchClient.class);
+        final SearchIndexingBufferedSender<ChunkedEntry> sender = senderMock();
+        final List<List<Object>> copierCtorArgs = new ArrayList<>();
+
+        try (MockedStatic<SearchIndexAdmin> admin = mockStatic(SearchIndexAdmin.class);
+             MockedStatic<AISearchClientFactory> factory = mockStatic(AISearchClientFactory.class);
+             MockedConstruction<IndexCopier> copier = mockConstruction(IndexCopier.class, (m, ctx) -> {
+                 copierCtorArgs.add(new ArrayList<>(ctx.arguments()));
+                 when(m.copyAllDocuments(any())).thenReturn(1234L);
+             })) {
+
+            admin.when(() -> SearchIndexAdmin.indexClient(any())).thenReturn(indexClient);
+            admin.when(() -> SearchIndexAdmin.bufferedSender(any(), any(), anyInt(), any(), any())).thenReturn(sender);
+            factory.when(() -> AISearchClientFactory.getInstance(any(), any())).thenReturn(sourceClient);
+
+            IndexMigrationTool.main(new String[]{ENDPOINT, "src-index", "tgt-index", "the-alias", "/schema.json"});
+
+            // Index created from the schema, source client resolved, copy run on a single constructed copier.
+            admin.verify(() -> SearchIndexAdmin.indexClient(ENDPOINT));
+            admin.verify(() -> SearchIndexAdmin.createTargetIndex(indexClient, "tgt-index", "/schema.json"));
+            factory.verify(() -> AISearchClientFactory.getInstance(ENDPOINT, "src-index"));
+            assertThat(copier.constructed()).hasSize(1);
+            // Defaults applied: pageSize=500, workers=8, maxRecords=0; startAfterId=null.
+            assertThat(copierCtorArgs.get(0)).containsExactly(sourceClient, sender, 500, 8, 0L);
+            verify(copier.constructed().get(0)).copyAllDocuments(null);
+            verify(sender).close();
+            // Full copy -> verify counts and print the cutover command.
+            admin.verify(() -> SearchIndexAdmin.verifyCounts(indexClient, "src-index", "tgt-index", 0L));
+            admin.verify(() -> SearchIndexAdmin.logCutoverCommand(ENDPOINT, "the-alias", "tgt-index"));
+        }
+    }
+
+    @Test
+    void sampleCopyRunParsesWorkersMaxRecordsAndCursorAndSkipsVerificationAndCutover() throws Exception {
+        final SearchClient sourceClient = mock(SearchClient.class);
+        final SearchIndexingBufferedSender<ChunkedEntry> sender = senderMock();
+        final List<List<Object>> copierCtorArgs = new ArrayList<>();
+
+        try (MockedStatic<SearchIndexAdmin> admin = mockStatic(SearchIndexAdmin.class);
+             MockedStatic<AISearchClientFactory> factory = mockStatic(AISearchClientFactory.class);
+             MockedConstruction<IndexCopier> copier = mockConstruction(IndexCopier.class, (m, ctx) -> {
+                 copierCtorArgs.add(new ArrayList<>(ctx.arguments()));
+                 when(m.copyAllDocuments(any())).thenReturn(20000L);
+             })) {
+
+            admin.when(() -> SearchIndexAdmin.indexClient(any())).thenReturn(mock(SearchIndexClient.class));
+            admin.when(() -> SearchIndexAdmin.bufferedSender(any(), any(), anyInt(), any(), any())).thenReturn(sender);
+            factory.when(() -> AISearchClientFactory.getInstance(any(), any())).thenReturn(sourceClient);
+
+            IndexMigrationTool.main(new String[]{
+                    ENDPOINT, "src-index", "tgt-index", "the-alias", "/schema.json", "4", "20000", "cursor-9"});
+
+            // workers=4 and maxRecords=20000 parsed onto the copier; startAfterId="cursor-9" passed to the copy.
+            assertThat(copierCtorArgs.get(0)).containsExactly(sourceClient, sender, 500, 4, 20000L);
+            verify(copier.constructed().get(0)).copyAllDocuments("cursor-9");
+            verify(sender).close();
+            // Sample run -> NO count verification and NO cutover command.
+            admin.verify(() -> SearchIndexAdmin.verifyCounts(any(), any(), any(), anyLong()), never());
+            admin.verify(() -> SearchIndexAdmin.logCutoverCommand(any(), any(), any()), never());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static SearchIndexingBufferedSender<ChunkedEntry> senderMock() {
+        return mock(SearchIndexingBufferedSender.class);
+    }
+}
