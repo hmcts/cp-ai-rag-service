@@ -10,84 +10,262 @@ import static uk.gov.moj.cp.retrieval.model.CitationKeys.PAGE_NUMBERS;
 
 import uk.gov.moj.cp.ai.util.StringUtil;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Post-processes raw LLM output into the user-visible citation format.
+ *
+ * <p>Extracts the {@code <FACT_MAP_JSON>} payload, substitutes the inline
+ * {@code [N]} placeholders with the human-readable source string, and applies a
+ * series of tolerance rules covering the LLM output drift modes observed in
+ * production with GPT-4o and GPT-4.1.
+ *
+ * <p>Tolerance rules implemented:
+ * <ul>
+ *   <li>Uses the <strong>last</strong> {@code <FACT_MAP_JSON>} block rather
+ *       than the first, so an echoed example tag at the start of the response
+ *       does not cause the parser to discard the real answer body.</li>
+ *   <li>Preserves prose on both sides of the citation tag, so responses where
+ *       the model emits the JSON first or in the middle still render.</li>
+ *   <li>Matches the placeholder against a tolerant regex covering common LLM
+ *       drift forms: {@code [N]}, {@code [N p.X]}, {@code [N, p.X]},
+ *       {@code [N:X]}, {@code [^N]}, {@code [Source N]}, {@code [doc N]},
+ *       {@code [Citation N]}, {@code [Ref N]} (label case-insensitive).</li>
+ *   <li>Expands comma- or semicolon-joined IDs such as {@code [1, 2]} into the
+ *       canonical {@code [1][2]} form before substitution.</li>
+ *   <li>Strips markdown {@code ```json} code fences a model may wrap around
+ *       the JSON payload.</li>
+ *   <li>Accepts opening/closing tags emitted in any letter case and with
+ *       whitespace inside the angle brackets.</li>
+ *   <li>Strips the catastrophic counter-loop pathology (output flooded with
+ *       {@code [1][2]...[N]} markers) once it exceeds a configurable
+ *       threshold, so users never see thousands of unresolved brackets.</li>
+ * </ul>
+ */
 public class CitationProcessor {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CitationProcessor.class);
 
-    // Regex pattern to safely extract the JSON payload contained between the unique tags.
-    // Pattern.DOTALL allows the dot (.) to match newlines within the JSON content.
-    private static final Pattern JSON_TAG_PATTERN =
-            Pattern.compile("<" + FACT_MAP_ATTRIBUTE_KEY + ">(.*?)</" + FACT_MAP_ATTRIBUTE_KEY + ">", Pattern.DOTALL);
+    /** Matches the LLM citation block, case-insensitive and whitespace-tolerant in the tag. */
+    private static final Pattern JSON_TAG_PATTERN = Pattern.compile(
+            "<\\s*" + FACT_MAP_ATTRIBUTE_KEY + "\\s*>(.*?)<\\s*/\\s*" + FACT_MAP_ATTRIBUTE_KEY + "\\s*>",
+            Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+
+    /** Markdown code fences a model may wrap around the JSON payload. Stripped before parsing. */
+    private static final Pattern CODE_FENCE_OPEN =
+            Pattern.compile("\\A\\s*```(?:json|JSON)?\\s*", Pattern.DOTALL);
+    private static final Pattern CODE_FENCE_CLOSE =
+            Pattern.compile("\\s*```\\s*\\z", Pattern.DOTALL);
+
+    /** Matches comma- or semicolon-joined citation IDs in a single bracket, e.g. {@code [1, 2]}. */
+    private static final Pattern JOINED_IDS_PATTERN =
+            Pattern.compile("\\[(\\d+(?:\\s*[,;]\\s*\\d+)+)\\]");
+
+    /** Splitter for the joined-id pattern groups; matches "comma or semicolon optionally surrounded by whitespace". */
+    private static final Pattern JOINED_IDS_SEPARATOR = Pattern.compile("\\s*[,;]\\s*");
+
+    /** Matches any bare {@code [N]} integer-in-brackets. Used to detect counter-loop pathology. */
+    private static final Pattern BARE_BRACKET_INT = Pattern.compile("\\[\\d+\\]");
+
+    /** Above this many surviving {@code [N]} markers, the output is treated as catastrophic. */
+    private static final int CATASTROPHIC_BRACKET_THRESHOLD = 100;
+
+    /** Placeholder regex template; the {@code %s} is substituted with the citation id. */
+    private static final String PLACEHOLDER_REGEX_TEMPLATE =
+            "(?i)\\[\\^?(?:(?:Source|doc|Citation|Ref)[\\s:]+)?\\s*%s(?:[\\s,;:][^\\[\\]]*)?\\]";
+
+    /** The user-visible citation format. */
+    private static final String CITATION_FORMAT = "::(Source: [%s], Pages %s|%s|documentId=%s)";
+
+    private static final String UNKNOWN_FILE = "UNKNOWN_FILE";
+    private static final String UNKNOWN_ID = "UNKNOWN_ID";
+    private static final String NOT_AVAILABLE = "N/A";
 
     private final ObjectMapper objectMapper = getObjectMapper();
 
     /**
      * Executes the post-processing pipeline: extracts structured citations and substitutes
-     * numerical placeholders in the answer text with the fully compliant citation string.
+     * the inline numerical placeholders with the fully formatted citation string.
      *
-     * @param rawLlmOutput The raw text output containing the narrative and the embedded JSON.
-     * @return The clean, DAC/NFT compliant, and fully cited response text.
+     * @param rawLlmOutput the raw text output containing the narrative and the embedded JSON
+     * @return the clean, fully cited response text, or an empty string if the input is empty
      */
     public String processAndFormatCitations(final String rawLlmOutput) {
         if (StringUtil.isNullOrEmpty(rawLlmOutput)) {
             return "";
         }
 
-        // 1. Extract the JSON payload and the raw narrative text.
-        final Matcher matcher = JSON_TAG_PATTERN.matcher(rawLlmOutput);
-
-        if (!matcher.find()) {
-            // If the JSON tag is missing, return the raw output and warn.
-            LOGGER.warn("Raw data output missing required <FACT_MAP_JSON> tags. Cannot verify or format citations.");
-            return rawLlmOutput.trim();
+        final TagLocation lastTag = findLastJsonTag(rawLlmOutput);
+        if (lastTag == null) {
+            LOGGER.warn("Raw output missing required <{}> tags; cannot format citations.", FACT_MAP_ATTRIBUTE_KEY);
+            return stripRunawayBracketsIfCatastrophic(rawLlmOutput).trim();
         }
 
-        // Text is everything before the JSON tag (the narrative answer)
-        String answerText = rawLlmOutput.substring(0, matcher.start()).trim();
-        // JSON is the content captured within the tags (Group 1)
-        final String jsonPayload = matcher.group(1).trim();
+        final String answerBeforeTag = rawLlmOutput.substring(0, lastTag.start);
+        final String answerAfterTag = rawLlmOutput.substring(lastTag.end);
+        String answerText = normaliseJoinedIds((answerBeforeTag + " " + answerAfterTag).trim());
+
+        final String jsonPayload = stripCodeFences(lastTag.payload).trim();
 
         try {
-            // 2. Parse the JSON payload into a list of structured citation maps
-            List<Map<String, String>> citations = objectMapper.readValue(jsonPayload, new TypeReference<>() {
-            });
-
-            // 3. Iterate through structured citations and perform substitutions
-            for (Map<String, String> citation : citations) {
-
-                String citationIdStr = citation.get(CITATION_ID);
-
-                // Construct the GUARANTEED EXACT SYNTAX required for compliance
-                String formattedCitation = String.format(
-                        "::(Source: [%s], Pages %s|%s|documentId=%s)",
-                        citation.getOrDefault(DOCUMENT_FILE_NAME, "UNKNOWN_FILE"),
-                        citation.getOrDefault(PAGE_NUMBERS, "N/A"), // The page range (e.g., 10-12,14,20)
-                        citation.getOrDefault(INDIVIDUAL_PAGE_NUMBERS, "N/A"), // Repeated for the individual page list placeholder
-                        citation.getOrDefault(DOCUMENT_ID, "UNKNOWN_ID")
-                );
-
-                // Find the placeholder (e.g., "[1]") and replace it in the answer text.
-                // We escape the brackets because they are special characters in Regex.
-                String placeholderRegex = "\\[" + citationIdStr + "\\]";
-                answerText = answerText.replaceAll(placeholderRegex, formattedCitation);
+            final List<Map<String, Object>> citations =
+                    objectMapper.readValue(jsonPayload, new TypeReference<>() { });
+            for (final Map<String, Object> citation : citations) {
+                answerText = substituteCitation(answerText, citation);
             }
-
-            // 4. Perform final cleanup of any residual whitespace or trailing markers
-            return answerText.trim();
-
+            return stripRunawayBracketsIfCatastrophic(answerText).trim();
         } catch (final Exception e) {
-            LOGGER.warn("Failed to parse citation JSON or substitute placeholders. Returning raw text.", e);
+            LOGGER.warn("Failed to parse citation JSON or substitute placeholders; returning narrative without citations.", e);
             return answerText;
         }
     }
+
+    private static TagLocation findLastJsonTag(final String rawLlmOutput) {
+        final Matcher matcher = JSON_TAG_PATTERN.matcher(rawLlmOutput);
+        TagLocation last = null;
+        while (matcher.find()) {
+            last = new TagLocation(matcher.start(), matcher.end(), matcher.group(1));
+        }
+        return last;
+    }
+
+    private static String normaliseJoinedIds(final String text) {
+        return JOINED_IDS_PATTERN.matcher(text).replaceAll(match -> {
+            final String[] ids = JOINED_IDS_SEPARATOR.split(match.group(1));
+            final StringBuilder out = new StringBuilder(ids.length * 4);
+            for (final String id : ids) {
+                out.append('[').append(id).append(']');
+            }
+            return Matcher.quoteReplacement(out.toString());
+        });
+    }
+
+    private static String stripCodeFences(final String payload) {
+        final String afterOpen = CODE_FENCE_OPEN.matcher(payload).replaceFirst("");
+        return CODE_FENCE_CLOSE.matcher(afterOpen).replaceFirst("");
+    }
+
+    private static String substituteCitation(final String answerText, final Map<String, Object> citation) {
+        final String citationIdStr = stringifyJsonValue(citation.get(CITATION_ID));
+        if (StringUtil.isNullOrEmpty(citationIdStr)) {
+            return answerText;
+        }
+
+        final String individual = stringifyJsonValue(citation.getOrDefault(INDIVIDUAL_PAGE_NUMBERS, NOT_AVAILABLE));
+        final String compressed = resolveCompressedPages(citation, individual);
+
+        final String formatted = String.format(
+                CITATION_FORMAT,
+                stringifyJsonValue(citation.getOrDefault(DOCUMENT_FILE_NAME, UNKNOWN_FILE)),
+                compressed,
+                individual,
+                stringifyJsonValue(citation.getOrDefault(DOCUMENT_ID, UNKNOWN_ID))
+        );
+
+        final String placeholderRegex = String.format(PLACEHOLDER_REGEX_TEMPLATE, Pattern.quote(citationIdStr));
+        return answerText.replaceAll(placeholderRegex, Matcher.quoteReplacement(formatted));
+    }
+
+    /**
+     * Returns the compressed page range string. Honours the LLM-provided
+     * {@code pageNumbers} field when present and non-empty; otherwise derives
+     * it from {@code individualPageNumbers}.
+     */
+    private static String resolveCompressedPages(final Map<String, Object> citation, final String individual) {
+        final String provided = stringifyJsonValue(citation.get(PAGE_NUMBERS));
+        if (!StringUtil.isNullOrEmpty(provided) && !NOT_AVAILABLE.equals(provided)) {
+            return provided;
+        }
+        return compressPageRange(individual);
+    }
+
+    private static String stringifyJsonValue(final Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof final List<?> list) {
+            return list.stream().map(String::valueOf).collect(Collectors.joining(","));
+        }
+        return String.valueOf(value);
+    }
+
+    private static String stripRunawayBracketsIfCatastrophic(final String text) {
+        final long count = BARE_BRACKET_INT.matcher(text).results().count();
+        if (count > CATASTROPHIC_BRACKET_THRESHOLD) {
+            LOGGER.warn("Catastrophic citation pathology: {} inline [N] markers; stripping.", count);
+            return BARE_BRACKET_INT.matcher(text).replaceAll("");
+        }
+        return text;
+    }
+
+    /**
+     * Compresses a comma-separated list of integer pages to a hyphenated range
+     * form, e.g. {@code "1,2,3,5,6"} becomes {@code "1-3,5,6"}. Non-numeric
+     * input is returned unchanged so Roman-numeral or front-matter pages from
+     * the source document are preserved verbatim.
+     *
+     * @param individualPageNumbers the comma-separated input
+     * @return the compressed range string, or {@link #NOT_AVAILABLE} when empty
+     */
+    static String compressPageRange(final String individualPageNumbers) {
+        if (StringUtil.isNullOrEmpty(individualPageNumbers) || NOT_AVAILABLE.equals(individualPageNumbers)) {
+            return NOT_AVAILABLE;
+        }
+
+        final List<Integer> pages = new ArrayList<>();
+        for (final String token : individualPageNumbers.split(",")) {
+            final String trimmed = token.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            try {
+                pages.add(Integer.parseInt(trimmed));
+            } catch (final NumberFormatException e) {
+                return individualPageNumbers;
+            }
+        }
+        if (pages.isEmpty()) {
+            return NOT_AVAILABLE;
+        }
+
+        final StringBuilder out = new StringBuilder();
+        int rangeStart = pages.get(0);
+        int prev = rangeStart;
+        for (int i = 1; i < pages.size(); i++) {
+            final int curr = pages.get(i);
+            if (curr != prev + 1) {
+                appendRange(out, rangeStart, prev);
+                rangeStart = curr;
+            }
+            prev = curr;
+        }
+        appendRange(out, rangeStart, prev);
+        return out.toString();
+    }
+
+    private static void appendRange(final StringBuilder out, final int start, final int end) {
+        if (out.length() > 0) {
+            out.append(',');
+        }
+        if (start == end) {
+            out.append(start);
+        } else if (end == start + 1) {
+            out.append(start).append(',').append(end);
+        } else {
+            out.append(start).append('-').append(end);
+        }
+    }
+
+    /** Internal record capturing the position and payload of a matched {@code <FACT_MAP_JSON>} tag. */
+    private record TagLocation(int start, int end, String payload) { }
 }
