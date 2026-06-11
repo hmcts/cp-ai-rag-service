@@ -65,3 +65,6 @@ lightning-jenkins.properties
 
 dev/
 .claude/
+
+**/*.env
+

@@ -131,6 +131,43 @@ with no application change. Re-runs are safe — uploads are idempotent upserts 
 
 ---
 
+## Running as a container
+
+For running in Azure (e.g. an in-region Container Apps Job) or any clean host, the module ships a
+`Dockerfile`. It is **runtime-only**: build the runnable artifacts on a host that can reach the Maven
+repositories, then package them into a lean `eclipse-temurin:21-jre` image (no Azure CLI, no secrets).
+
+The build produces a thin jar plus a `lib/` of dependency jars (via `maven-jar-plugin` +
+`maven-dependency-plugin`) rather than a shaded uber-jar — keeping each dependency separate preserves its
+`META-INF/services`, so the Azure SDK's `ServiceLoader`-based HTTP-client and credential discovery works
+with no service-file merging.
+
+```bash
+# 1. build artifacts on the host, then the image (build context = this module dir)
+mvn -pl ai-document-migration-tool -am -DskipTests package
+docker build -f ai-document-migration-tool/Dockerfile -t ai-index-migration:1 ai-document-migration-tool
+
+# 2. run — args are the same positional args as the mvn invocation above
+docker run --rm --env-file sp.env ai-index-migration:1 \
+  https://my-svc.search.windows.net ai-rag-service-index ai-rag-service-index-v2 \
+  ai-rag-service-index-alias /vector-db-index-schema-v2.json 8 20000
+```
+
+**Credentials.** The image carries none; `DefaultAzureCredential` resolves them at runtime, so the *same
+image* works everywhere:
+- **Locally** — supply a service principal via env vars (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`,
+  `AZURE_CLIENT_SECRET`), e.g. a git-ignored `sp.env` passed with `--env-file`. Use bare `KEY=value` lines
+  (Docker does **not** strip quotes/spaces). The SP needs the same two roles listed in
+  [Prerequisites](#prerequisites).
+- **In Azure** — attach a managed identity to the Job; the credential chain picks it up with no env vars.
+
+The image is network-clean but the search service may be private — if requests hang after auth succeeds,
+it's DNS, not credentials. Probe with
+`docker run --rm --entrypoint getent ai-index-migration:1 hosts <svc>.search.windows.net`; if it doesn't
+resolve, add `--dns`/`--add-host` (or run where the private DNS zone is reachable).
+
+---
+
 ## Upload modes & tuning
 
 The copy is network-bound; tune for **throughput** or **memory** depending on the host.
