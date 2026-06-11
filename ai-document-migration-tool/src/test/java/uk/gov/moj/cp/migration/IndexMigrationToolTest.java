@@ -17,6 +17,7 @@ import uk.gov.moj.cp.ai.model.ChunkedEntry;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.azure.search.documents.SearchClient;
 import com.azure.search.documents.SearchIndexingBufferedSender;
@@ -66,8 +67,11 @@ class IndexMigrationToolTest {
             admin.verify(() -> SearchIndexAdmin.createTargetIndex(indexClient, "tgt-index", "/schema.json"));
             factory.verify(() -> AISearchClientFactory.getInstance(ENDPOINT, "src-index"));
             assertThat(copier.constructed()).hasSize(1);
-            // Defaults applied: pageSize=500, workers=8, maxRecords=0; startAfterId=null.
-            assertThat(copierCtorArgs.get(0)).containsExactly(sourceClient, sender, 500, 8, 0L);
+            // Defaults applied: pageSize=500, workers=8, maxRecords=0; startAfterId=null; default async uploader.
+            final List<Object> ctorArgs = copierCtorArgs.get(0);
+            assertThat(ctorArgs.get(0)).isSameAs(sourceClient);
+            assertThat(ctorArgs.get(1)).isInstanceOf(BufferedSenderUploader.class);
+            assertThat(ctorArgs.subList(2, 5)).containsExactly(IndexMigrationTool.DEFAULT_PAGE_SIZE, 8, 0L);
             verify(copier.constructed().get(0)).copyAllDocuments(null);
             verify(sender).close();
             // Full copy -> verify counts and print the cutover command.
@@ -97,12 +101,31 @@ class IndexMigrationToolTest {
                     ENDPOINT, "src-index", "tgt-index", "the-alias", "/schema.json", "4", "20000", "cursor-9"});
 
             // workers=4 and maxRecords=20000 parsed onto the copier; startAfterId="cursor-9" passed to the copy.
-            assertThat(copierCtorArgs.get(0)).containsExactly(sourceClient, sender, 500, 4, 20000L);
+            final List<Object> ctorArgs = copierCtorArgs.get(0);
+            assertThat(ctorArgs.get(0)).isSameAs(sourceClient);
+            assertThat(ctorArgs.subList(2, 5)).containsExactly(IndexMigrationTool.DEFAULT_PAGE_SIZE, 4, 20000L);
             verify(copier.constructed().get(0)).copyAllDocuments("cursor-9");
             verify(sender).close();
             // Sample run -> NO count verification and NO cutover command.
             admin.verify(() -> SearchIndexAdmin.verifyCounts(any(), any(), any(), anyLong()), never());
             admin.verify(() -> SearchIndexAdmin.logCutoverCommand(any(), any(), any()), never());
+        }
+    }
+
+    @Test
+    void uploaderSelectsSyncForSyncModeAndAsyncOtherwise() {
+        try (MockedStatic<AISearchClientFactory> factory = mockStatic(AISearchClientFactory.class);
+             MockedStatic<SearchIndexAdmin> admin = mockStatic(SearchIndexAdmin.class)) {
+
+            factory.when(() -> AISearchClientFactory.getInstance(any(), any())).thenReturn(mock(SearchClient.class));
+            admin.when(() -> SearchIndexAdmin.bufferedSender(any(), any(), anyInt(), any(), any())).thenReturn(senderMock());
+
+            assertThat(IndexMigrationTool.uploader("sync", "e", "t", 250, new AtomicLong(), new AtomicLong()))
+                    .isInstanceOf(SyncUploader.class);
+            assertThat(IndexMigrationTool.uploader("ASYNC", "e", "t", 250, new AtomicLong(), new AtomicLong()))
+                    .isInstanceOf(BufferedSenderUploader.class);
+            assertThat(IndexMigrationTool.uploader(null, "e", "t", 250, new AtomicLong(), new AtomicLong()))
+                    .isInstanceOf(BufferedSenderUploader.class); // default
         }
     }
 

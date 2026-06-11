@@ -3,12 +3,10 @@ package uk.gov.moj.cp.migration;
 import static java.lang.String.format;
 
 import uk.gov.moj.cp.ai.client.AISearchClientFactory;
-import uk.gov.moj.cp.ai.model.ChunkedEntry;
 
 import java.util.concurrent.atomic.AtomicLong;
 
 import com.azure.search.documents.SearchClient;
-import com.azure.search.documents.SearchIndexingBufferedSender;
 import com.azure.search.documents.indexes.SearchIndexClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,7 +57,7 @@ public final class IndexMigrationTool {
     /** Read page size, and the buffered sender's initial batch size. A 3072-float vector serialises to
      *  ~25-35 KB of JSON, so ~500 keeps the initial batch under the 16 MB request limit; the sender
      *  auto-splits anyway if a batch is rejected with 413. */
-    static final int DEFAULT_PAGE_SIZE = 500;
+    static final int DEFAULT_PAGE_SIZE = 250;
 
     /** Default concurrent shard readers. Capped to the shard count (16) at runtime. */
     static final int DEFAULT_WORKERS = 8;
@@ -87,15 +85,15 @@ public final class IndexMigrationTool {
         final SearchClient sourceClient = AISearchClientFactory.getInstance(endpoint, sourceIndex);
         final AtomicLong succeeded = new AtomicLong();
         final AtomicLong failed = new AtomicLong();
-        final SearchIndexingBufferedSender<ChunkedEntry> sender =
-                SearchIndexAdmin.bufferedSender(endpoint, targetIndex, DEFAULT_PAGE_SIZE, succeeded, failed);
+        final DocumentUploader uploader =
+                uploader(System.getenv("MIGRATION_UPLOAD_MODE"), endpoint, targetIndex, DEFAULT_PAGE_SIZE, succeeded, failed);
 
         final long submitted;
         try {
-            submitted = new IndexCopier(sourceClient, sender, DEFAULT_PAGE_SIZE, workers, maxRecords)
+            submitted = new IndexCopier(sourceClient, uploader, DEFAULT_PAGE_SIZE, workers, maxRecords)
                     .copyAllDocuments(startAfterId);
         } finally {
-            sender.close(); // flush all buffered actions from every worker and wait for completion
+            uploader.close(); // flush/await (async) or no-op (sync)
         }
         LOGGER.info("Indexing finished — submitted={}, succeeded={}, failed={}.",
                 submitted, succeeded.get(), failed.get());
@@ -115,5 +113,21 @@ public final class IndexMigrationTool {
         SearchIndexAdmin.verifyCounts(indexClient, sourceIndex, targetIndex, succeeded.get());
         SearchIndexAdmin.logCutoverCommand(endpoint, aliasName, targetIndex);
         LOGGER.info("Migration complete. Target index '{}' is populated and verified.", targetIndex);
+    }
+
+    /**
+     * Chooses the upload strategy from {@code MIGRATION_UPLOAD_MODE}: {@code "sync"} → {@link SyncUploader}
+     * (per-page, memory-bounded — for constrained hosts); anything else (default) → {@link BufferedSenderUploader}
+     * (async buffered sender, higher throughput). Lets you switch without a rebuild and revert easily.
+     */
+    static DocumentUploader uploader(final String mode, final String endpoint, final String targetIndex,
+                                     final int batchSize, final AtomicLong succeeded, final AtomicLong failed) {
+        if ("sync".equalsIgnoreCase(mode)) {
+            LOGGER.info("Upload mode: SYNC (per-page; in-flight memory bounded to workers x pageSize).");
+            return new SyncUploader(AISearchClientFactory.getInstance(endpoint, targetIndex), succeeded, failed);
+        }
+        LOGGER.info("Upload mode: ASYNC (buffered sender).");
+        return new BufferedSenderUploader(
+                SearchIndexAdmin.bufferedSender(endpoint, targetIndex, batchSize, succeeded, failed));
     }
 }

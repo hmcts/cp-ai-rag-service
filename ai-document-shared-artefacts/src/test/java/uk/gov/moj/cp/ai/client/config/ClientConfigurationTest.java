@@ -56,6 +56,7 @@ class ClientConfigurationTest {
             mockedStatic.verify(() -> getRequiredEnvAsInteger("HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS", "180"));
             mockedStatic.verify(() -> getRequiredEnvAsInteger("HTTP_CLIENT_CONNECT_TIMEOUT_IN_SECONDS", "10"));
             mockedStatic.verify(() -> getRequiredEnvAsInteger("HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS", "60"));
+            mockedStatic.verify(() -> getRequiredEnvAsInteger("HTTP_CLIENT_WRITE_TIMEOUT_IN_SECONDS", "60"));
         }
     }
 

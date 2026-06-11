@@ -19,7 +19,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import com.azure.core.util.Context;
 import com.azure.search.documents.SearchClient;
-import com.azure.search.documents.SearchIndexingBufferedSender;
 import com.azure.search.documents.models.SearchOptions;
 import com.azure.search.documents.models.SearchResult;
 import com.azure.search.documents.util.SearchPagedIterable;
@@ -48,7 +47,7 @@ final class IndexCopier {
     private static final Duration WATCHDOG_POLL = Duration.ofSeconds(15);
 
     private final SearchClient source;
-    private final SearchIndexingBufferedSender<ChunkedEntry> sender;
+    private final DocumentUploader uploader;
     private final int pageSize;
     private final int workers;
     private final long maxRecords; // <= 0 means copy everything; otherwise a global cap (sample copy)
@@ -61,12 +60,12 @@ final class IndexCopier {
     private long startNanos;     // set before workers start -> happens-before via task submission
 
     IndexCopier(final SearchClient source,
-                final SearchIndexingBufferedSender<ChunkedEntry> sender,
+                final DocumentUploader uploader,
                 final int pageSize,
                 final int workers,
                 final long maxRecords) {
         this.source = source;
-        this.sender = sender;
+        this.uploader = uploader;
         this.pageSize = pageSize;
         this.workers = Math.max(1, workers);
         this.maxRecords = maxRecords;
@@ -155,9 +154,9 @@ final class IndexCopier {
         }
         final long take = claim(valid.size()); // bumps submitted; trims to the remaining cap when limited
         if (take > 0) {
-            // Plain (async, non-fatal) flush: the sender batches, splits 16 MB, retries 429/503, and routes
-            // per-doc errors to onActionError — a transient flush error must not abort the run.
-            sender.addUploadActions(take == valid.size() ? valid : valid.subList(0, (int) take));
+            // The uploader is either async (buffered sender) or sync (per-page, memory-bounded); either way a
+            // transient per-doc error is counted, not fatal.
+            uploader.upload(take == valid.size() ? valid : valid.subList(0, (int) take));
         }
         return take < valid.size();
     }

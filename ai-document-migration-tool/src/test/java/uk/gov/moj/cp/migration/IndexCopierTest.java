@@ -19,7 +19,6 @@ import java.util.Collections;
 import java.util.List;
 
 import com.azure.search.documents.SearchClient;
-import com.azure.search.documents.SearchIndexingBufferedSender;
 import com.azure.search.documents.models.SearchResult;
 import com.azure.search.documents.util.SearchPagedIterable;
 import org.junit.jupiter.api.Test;
@@ -42,9 +41,9 @@ class IndexCopierTest {
     }
 
     @Test
-    void copyAllDocumentsStreamsEachPageToSenderAndAdvancesCursorUntilPartialPage() {
-        final SearchIndexingBufferedSender<ChunkedEntry> sender = mockSender();
-        final IndexCopier copier = spy(new IndexCopier(mock(SearchClient.class), sender, 2, 1, 0));
+    void copyAllDocumentsUploadsEachPageAndAdvancesCursorUntilPartialPage() {
+        final DocumentUploader uploader = mock(DocumentUploader.class);
+        final IndexCopier copier = spy(new IndexCopier(mock(SearchClient.class), uploader, 2, 1, 0));
 
         final List<ChunkedEntry> page1 = List.of(chunk("id-1"), chunk("id-2")); // full page -> continue
         final List<ChunkedEntry> page2 = List.of(chunk("id-3"));                // partial page -> stop
@@ -56,18 +55,18 @@ class IndexCopierTest {
 
         // Cursor: first page starts at null, second resumes after the last id of page 1.
         final ArgumentCaptor<String> cursor = ArgumentCaptor.forClass(String.class);
-        final InOrder order = inOrder(copier, sender);
+        final InOrder order = inOrder(copier, uploader);
         order.verify(copier).readPage(any(), cursor.capture());
-        order.verify(sender).addUploadActions(page1); // plain (async, non-fatal) flush
+        order.verify(uploader).upload(page1);
         order.verify(copier).readPage(any(), cursor.capture());
-        order.verify(sender).addUploadActions(page2);
+        order.verify(uploader).upload(page2);
         assertThat(cursor.getAllValues()).containsExactly(null, "id-2");
     }
 
     @Test
     void copyAllDocumentsStopsAtTheMaxRecordsCapAndTrimsTheLastPage() {
-        final SearchIndexingBufferedSender<ChunkedEntry> sender = mockSender();
-        final IndexCopier copier = spy(new IndexCopier(mock(SearchClient.class), sender, 2, 1, 3));
+        final DocumentUploader uploader = mock(DocumentUploader.class);
+        final IndexCopier copier = spy(new IndexCopier(mock(SearchClient.class), uploader, 2, 1, 3));
 
         final ChunkedEntry c1 = chunk("id-1");
         final ChunkedEntry c2 = chunk("id-2");
@@ -78,15 +77,15 @@ class IndexCopierTest {
         final long submitted = copier.copyAllDocuments(null);
 
         assertThat(submitted).isEqualTo(3); // capped at maxRecords=3
-        verify(sender).addUploadActions(List.of(c1, c2)); // first full page
-        verify(sender).addUploadActions(List.of(c3));     // second page trimmed to the remaining budget (1)
+        verify(uploader).upload(List.of(c1, c2)); // first full page
+        verify(uploader).upload(List.of(c3));     // second page trimmed to the remaining budget (1)
     }
 
     @Test
-    void copyAllDocumentsSkipsChunksWithMissingOrWrongSizeVectorBeforeSubmitting() {
-        final SearchIndexingBufferedSender<ChunkedEntry> sender = mockSender();
+    void copyAllDocumentsSkipsChunksWithMissingOrWrongSizeVectorBeforeUploading() {
+        final DocumentUploader uploader = mock(DocumentUploader.class);
         // pageSize (5) > page (3) so the single page is "partial" and the read loop terminates after it.
-        final IndexCopier copier = spy(new IndexCopier(mock(SearchClient.class), sender, 5, 1, 0));
+        final IndexCopier copier = spy(new IndexCopier(mock(SearchClient.class), uploader, 5, 1, 0));
 
         final ChunkedEntry valid = chunk("id-1");                              // 3072-dim vector
         final ChunkedEntry wrongSize = chunkWithVector("id-2", List.of(0.0f)); // too short
@@ -96,20 +95,20 @@ class IndexCopierTest {
         final long submitted = copier.copyAllDocuments(null);
 
         assertThat(submitted).isEqualTo(1);
-        verify(sender).addUploadActions(List.of(valid)); // only the valid chunk is streamed
+        verify(uploader).upload(List.of(valid)); // only the valid chunk is uploaded
     }
 
     @Test
-    void copyAllDocumentsSubmitsNothingWhenSourceIsEmpty() {
-        final SearchIndexingBufferedSender<ChunkedEntry> sender = mockSender();
-        final IndexCopier copier = spy(new IndexCopier(mock(SearchClient.class), sender, 2, 1, 0));
+    void copyAllDocumentsUploadsNothingWhenSourceIsEmpty() {
+        final DocumentUploader uploader = mock(DocumentUploader.class);
+        final IndexCopier copier = spy(new IndexCopier(mock(SearchClient.class), uploader, 2, 1, 0));
 
         doReturn(List.of()).when(copier).readPage(any(), any());
 
         final long submitted = copier.copyAllDocuments(null);
 
         assertThat(submitted).isZero();
-        verifyNoInteractions(sender);
+        verifyNoInteractions(uploader);
     }
 
     @Test
@@ -126,7 +125,7 @@ class IndexCopierTest {
         when(source.search(any(), any(), any())).thenReturn(results);
 
         final List<ChunkedEntry> page =
-                new IndexCopier(source, mockSender(), 500, 1, 0).readPage(new Shard("a", "b", null), "a5");
+                new IndexCopier(source, mock(DocumentUploader.class), 500, 1, 0).readPage(new Shard("a", "b", null), "a5");
 
         assertThat(page).containsExactly(c1, c2);
         verify(source).search(eq("*"), any(), any()); // shard-bounded keyset query issued
@@ -134,7 +133,7 @@ class IndexCopierTest {
 
     @Test
     void copyAllDocumentsAbortsAndCancelsWorkersWhenAShardFails() {
-        final IndexCopier copier = spy(new IndexCopier(mock(SearchClient.class), mockSender(), 2, 1, 0));
+        final IndexCopier copier = spy(new IndexCopier(mock(SearchClient.class), mock(DocumentUploader.class), 2, 1, 0));
         doThrow(new RuntimeException("read boom")).when(copier).readPage(any(), any());
 
         assertThatThrownBy(() -> copier.copyAllDocuments(null))
@@ -148,18 +147,13 @@ class IndexCopierTest {
         final SearchPagedIterable countResult = mock(SearchPagedIterable.class);
         when(countResult.getTotalCount()).thenReturn(42L);
         when(source.search(any(), any(), any())).thenReturn(countResult);
-        final IndexCopier copier = spy(new IndexCopier(source, mockSender(), 2, 1, 0));
+        final IndexCopier copier = spy(new IndexCopier(source, mock(DocumentUploader.class), 2, 1, 0));
         doReturn(List.of()).when(copier).readPage(any(), any()); // nothing left to copy from the cursor
 
         final long submitted = copier.copyAllDocuments("cursor-x");
 
         assertThat(submitted).isZero();
         verify(source).search(any(), any(), any()); // resume count query executed (countProcessedBefore)
-    }
-
-    @SuppressWarnings("unchecked")
-    private static SearchIndexingBufferedSender<ChunkedEntry> mockSender() {
-        return mock(SearchIndexingBufferedSender.class);
     }
 
     private static ChunkedEntry chunk(final String id) {
