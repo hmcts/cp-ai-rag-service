@@ -1,0 +1,13 @@
+# Build context is this module directory; the image only needs the prebuilt runnable artifacts
+# (target/app jar + target/lib). Exclude sources and intermediate build output to keep the context lean.
+src/
+README.md
+Dockerfile
+target/classes/
+target/test-classes/
+target/generated-sources/
+target/generated-test-sources/
+target/maven-status/
+target/maven-archiver/
+target/*.original
+.DS_Store
