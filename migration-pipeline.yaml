@@ -10,7 +10,7 @@ variables:
   acrServiceConnectionNonLive: 'Acr_non_live_registryConnection'
   azServiceConnectionNonLive: 'ado_nonlive_service_principal'
   imageTag: '1'
-  imageName: 'ai-index-migration'
+  imageName: 'ai-rag-migration'
   # Migration tool parameters
   searchServiceUrl: 'https://search-service-ste-ai-01.search.windows.net'
   sourceIndex: 'ai-rag-service-index'
@@ -69,7 +69,7 @@ stages:
                   -e HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS=180 \
                   -e HTTP_CLIENT_CONNECT_TIMEOUT_IN_SECONDS=10 \
                   -e AZURE_CLIENT_MAX_RETRIES=3 $(nonLiveACRServer)/$(imageName):$(imageTag) \
-                  "$(searchServiceUrl)" \
+                  index "$(searchServiceUrl)" \
                   "$(sourceIndex)" \
                   "$(targetIndex)" \
                   "$(indexAlias)" \
