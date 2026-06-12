@@ -58,7 +58,7 @@ stages:
               addSpnToEnvironment: true
               inlineScript: |
                 set -euo pipefail
-                
+                set -x
                 echo "Running migration tool container..."
                 docker run --rm \
                   -e MIGRATION_UPLOAD_MODE=async \
@@ -66,7 +66,7 @@ stages:
                   -e HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS=60 \
                   -e HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS=180 \
                   -e HTTP_CLIENT_CONNECT_TIMEOUT_IN_SECONDS=10 \
-                  -e AZURE_CLIENT_MAX_RETRIES=3 \ \
+                  -e AZURE_CLIENT_MAX_RETRIES=3 \ 
                   $(nonLiveACRServer)/$(imageName):$(imageTag) \
                   "$(searchServiceUrl)" \
                   "$(sourceIndex)" \
