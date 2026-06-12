@@ -17,6 +17,8 @@ variables:
   targetIndex: 'ai-rag-service-index-v2-test'
   indexAlias: 'ai-rag-service-index-alias'
   schemaPath: '/vector-db-index-schema-v2.json'
+  batchSize: '2'
+  pageSize: '1000'
 
 pool:
   name: "MDV-ADO-AGENTS-01"
@@ -66,10 +68,11 @@ stages:
                   -e HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS=60 \
                   -e HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS=180 \
                   -e HTTP_CLIENT_CONNECT_TIMEOUT_IN_SECONDS=10 \
-                  -e AZURE_CLIENT_MAX_RETRIES=3 \ 
-                  $(nonLiveACRServer)/$(imageName):$(imageTag) \
+                  -e AZURE_CLIENT_MAX_RETRIES=3 $(nonLiveACRServer)/$(imageName):$(imageTag) \
                   "$(searchServiceUrl)" \
                   "$(sourceIndex)" \
                   "$(targetIndex)" \
                   "$(indexAlias)" \
-                  "$(schemaPath)" 
+                  "$(schemaPath)" \
+                  "$(batchSize)" \
+                  "$(pageSize)"
