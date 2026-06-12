@@ -6,19 +6,20 @@ trigger: none
 
 variables:
   nonLiveACRName: 'crmdvrepo01'
+
   nonLiveACRServer: 'crmdvrepo01.azurecr.io'
   acrServiceConnectionNonLive: 'Acr_non_live_registryConnection'
   azServiceConnectionNonLive: 'ado_nonlive_service_principal'
   imageTag: '1'
   imageName: 'ai-rag-migration'
   # Migration tool parameters
-  searchServiceUrl: 'https://search-service-ste-ai-01.search.windows.net'
+  endpoint: 'https://search-service-ste-ai-01.search.windows.net'
   sourceIndex: 'ai-rag-service-index'
   targetIndex: 'ai-rag-service-index-v2-test'
-  indexAlias: 'ai-rag-service-index-alias'
-  schemaPath: '/vector-db-index-schema-v2.json'
-  batchSize: '2'
-  pageSize: '1000'
+  aliasName: 'ai-rag-service-index-alias'
+  schemaResourcePath: '/vector-db-index-schema-v2.json'
+  workers: '4'
+  maxRecords: '0'
 
 pool:
   name: "MDV-ADO-AGENTS-01"
@@ -27,6 +28,8 @@ stages:
     displayName: AI search migration tool
     jobs:
       - job: Migrationtool
+        variables:
+          - group: airag-var
         displayName: 'Run migration tool'
         steps:
           - task: Bash@3
@@ -51,16 +54,16 @@ stages:
               containerRegistry: $(acrServiceConnectionNonLive)
               arguments: '$(nonLiveACRServer)/$(imageName):$(imageTag)'
 
-          - task: AzureCLI@2
+          - task: Bash@3
             displayName: 'Az login and run migration tool'
             inputs:
-              azureSubscription: $(azServiceConnectionNonLive)
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              addSpnToEnvironment: true
-              inlineScript: |
+              failOnStderr: false
+              targetType: 'inline'
+              script: |
+                #!/bin/bash
                 set -euo pipefail
                 set -x
+                az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) -t $(AZURE_TENANT_ID)
                 echo "Running migration tool container..."
                 docker run --rm \
                   -e MIGRATION_UPLOAD_MODE=async \
@@ -69,10 +72,10 @@ stages:
                   -e HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS=180 \
                   -e HTTP_CLIENT_CONNECT_TIMEOUT_IN_SECONDS=10 \
                   -e AZURE_CLIENT_MAX_RETRIES=3 $(nonLiveACRServer)/$(imageName):$(imageTag) \
-                  index "$(searchServiceUrl)" \
+                  index "$(endpoint)" \
                   "$(sourceIndex)" \
                   "$(targetIndex)" \
-                  "$(indexAlias)" \
-                  "$(schemaPath)" \
-                  "$(batchSize)" \
-                  "$(pageSize)"
+                  "$(aliasName)" \
+                  "$(schemaResourcePath)" \
+                  "$(workers)" \
+                  "$(maxRecords)"
