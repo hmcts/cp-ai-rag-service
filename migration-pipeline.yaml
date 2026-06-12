@@ -1,0 +1,77 @@
+name: Alfresco-Content-Services-Docker-$(Build.BuildId)
+
+pr: none
+trigger: none
+
+
+variables:
+  nonLiveACRName: 'crmdvrepo01'
+  nonLiveACRServer: 'crmdvrepo01.azurecr.io'
+  acrServiceConnectionNonLive: 'Acr_non_live_registryConnection'
+  azServiceConnectionNonLive: 'ado_nonlive_service_principal'
+  imageTag: '1'
+  imageName: 'ai-index-migration'
+  # Migration tool parameters
+  searchServiceUrl: 'https://search-service-$(env)-ai-01.search.windows.net'
+  sourceIndex: 'ai-rag-service-index'
+  targetIndex: 'ai-rag-service-index-v2'
+  indexAlias: 'ai-rag-service-index-alias'
+  schemaPath: '/vector-db-index-schema-v2.json'
+
+pool:
+  name: "MDV-ADO-AGENTS-01"
+stages:
+  - stage: Migrationtool
+    displayName: AI search migration tool
+    jobs:
+      - job: Migrationtool
+        displayName: 'Run migration tool'
+        steps:
+          - task: Bash@3
+            displayName: "Start Docker"
+            inputs:
+              targetType: 'inline'
+              script: |
+                sudo systemctl start docker
+                sleep 10
+                docker --version
+
+          - task: Docker@2
+            displayName: 'Login to Non-Live ACR'
+            inputs:
+              command: login
+              containerRegistry: $(acrServiceConnectionNonLive)
+
+          - task: Docker@2
+            displayName: 'Pull migration tool image'
+            inputs:
+              command: pull
+              containerRegistry: $(acrServiceConnectionNonLive)
+              arguments: '$(nonLiveACRServer)/$(imageName):$(imageTag)'
+
+          - task: AzureCLI@2
+            displayName: 'Az login and run migration tool'
+            inputs:
+              azureSubscription: $(azServiceConnectionNonLive)
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              addSpnToEnvironment: true
+              inlineScript: |
+                set -euo pipefail
+                az login --service-principal --username $(ARM_CLIENT_ID) --password $(ARM_CLIENT_SECRET) --tenant $(ARM_TENANT_ID)
+                echo "Running migration tool container..."
+                docker run --rm \
+                  -e MIGRATION_UPLOAD_MODE=async \
+                  -e HTTP_CLIENT_WRITE_TIMEOUT_IN_SECONDS=60 \
+                  -e HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS=60 \
+                  -e HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS=180 \
+                  -e HTTP_CLIENT_CONNECT_TIMEOUT_IN_SECONDS=10 \
+                  -e AZURE_CLIENT_MAX_RETRIES=3 \ \
+                  $(nonLiveACRServer)/$(imageName):$(imageTag) \
+                  "$(searchServiceUrl)" \
+                  "$(sourceIndex)" \
+                  "$(targetIndex)" \
+                  "$(indexAlias)" \
+                  "$(schemaPath)" \
+                  "$(batchSize)" \
+                  "$(pageSize)"
