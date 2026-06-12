@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.migration;
+package uk.gov.moj.cp.migration.index;
 
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK_INDEX;

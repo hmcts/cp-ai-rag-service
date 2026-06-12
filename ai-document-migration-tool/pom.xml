@@ -19,7 +19,7 @@
         <exec.maven.plugin.version>3.1.0</exec.maven.plugin.version>
         <maven.jar.plugin.version>3.5.0</maven.jar.plugin.version>
         <maven.dependency.plugin.version>3.7.0</maven.dependency.plugin.version>
-        <migration.mainClass>uk.gov.moj.cp.migration.IndexMigrationTool</migration.mainClass>
+        <migration.mainClass>uk.gov.moj.cp.migration.MigrationTool</migration.mainClass>
     </properties>
 
     <dependencies>
@@ -35,6 +35,13 @@
         <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-search-documents</artifactId>
+        </dependency>
+
+        <!-- Table data-plane client (TableClient, TableEntity) for the table-to-table copy tool.
+             Version managed by azure-sdk-bom; mirrors the declaration in ai-document-shared-artefacts. -->
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-data-tables</artifactId>
         </dependency>
 
         <!-- Test (junit + mockito inherited project-wide; assertj is managed-only, so declare it here) -->

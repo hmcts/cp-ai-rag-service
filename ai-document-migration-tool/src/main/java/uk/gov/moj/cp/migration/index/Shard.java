@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.migration;
+package uk.gov.moj.cp.migration.index;
 
 import static java.lang.String.format;
 import static uk.gov.moj.cp.ai.index.IndexConstants.ID;

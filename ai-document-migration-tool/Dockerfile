@@ -27,6 +27,9 @@ COPY target/ai-document-migration-tool-*.jar /app/app.jar
 
 USER appuser
 
-# Migration args are supplied at run/Job-start time:
-#   <endpoint> <sourceIndex> <targetIndex> <aliasName> <schemaResourcePath> [workers] [maxRecords] [startAfterId]
+# The entrypoint is the MigrationTool dispatcher (jar Main-Class = uk.gov.moj.cp.migration.MigrationTool).
+# It takes the tool name as its FIRST argument, then that tool's own args — there is no default tool.
+# Args are supplied at run/Job-start time, e.g.:
+#   index <endpoint> <sourceIndex> <targetIndex> <aliasName> <schemaResourcePath> [workers] [maxRecords] [startAfterId]
+#   table <sourceTable> <targetTable> [partitionKeyOverride] [maxRecords]
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "/app/app.jar"]
