@@ -1,4 +1,4 @@
-name: Alfresco-Content-Services-Docker-$(Build.BuildId)
+name: Migrationtool
 
 pr: none
 trigger: none
