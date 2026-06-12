@@ -12,9 +12,9 @@ variables:
   imageTag: '1'
   imageName: 'ai-index-migration'
   # Migration tool parameters
-  searchServiceUrl: 'https://search-service-$(env)-ai-01.search.windows.net'
+  searchServiceUrl: 'https://search-service-ste-ai-01.search.windows.net'
   sourceIndex: 'ai-rag-service-index'
-  targetIndex: 'ai-rag-service-index-v2'
+  targetIndex: 'ai-rag-service-index-v2-test'
   indexAlias: 'ai-rag-service-index-alias'
   schemaPath: '/vector-db-index-schema-v2.json'
 
@@ -58,7 +58,7 @@ stages:
               addSpnToEnvironment: true
               inlineScript: |
                 set -euo pipefail
-                az login --service-principal --username $(ARM_CLIENT_ID) --password $(ARM_CLIENT_SECRET) --tenant $(ARM_TENANT_ID)
+                
                 echo "Running migration tool container..."
                 docker run --rm \
                   -e MIGRATION_UPLOAD_MODE=async \
