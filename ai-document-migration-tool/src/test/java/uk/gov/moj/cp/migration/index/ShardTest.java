@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.migration;
+package uk.gov.moj.cp.migration.index;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

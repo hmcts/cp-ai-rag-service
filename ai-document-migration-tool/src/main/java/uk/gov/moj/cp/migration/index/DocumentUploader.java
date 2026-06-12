@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.migration;
+package uk.gov.moj.cp.migration.index;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 

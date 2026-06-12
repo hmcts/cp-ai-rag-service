@@ -1,4 +1,4 @@
-package uk.gov.moj.cp.migration;
+package uk.gov.moj.cp.migration.index;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
