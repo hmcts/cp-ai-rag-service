@@ -68,7 +68,7 @@ stages:
                 docker run --rm \
                   -e AZURE_CLIENT_ID=$(AZURE_CLIENT_ID) \
                   -e AZURE_CLIENT_SECRET=$(AZURE_CLIENT_SECRET) \
-                  -e AZURE_TENANT_ID=$(AZURE_TENANT_ID)
+                  -e AZURE_TENANT_ID=$(AZURE_TENANT_ID) \
                   -e MIGRATION_UPLOAD_MODE=async \
                   -e HTTP_CLIENT_WRITE_TIMEOUT_IN_SECONDS=60 \
                   -e HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS=60 \
