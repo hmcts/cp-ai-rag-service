@@ -72,6 +72,4 @@ stages:
                   "$(sourceIndex)" \
                   "$(targetIndex)" \
                   "$(indexAlias)" \
-                  "$(schemaPath)" \
-                  "$(batchSize)" \
-                  "$(pageSize)"
+                  "$(schemaPath)" 
