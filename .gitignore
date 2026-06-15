@@ -64,7 +64,15 @@ lightning-jenkins.properties
 */local.settings.json
 
 dev/
-.claude/
+
+# Ignore .claude by default, but track team-shared config (agents, context).
+# Order matters: the negations must come AFTER `.claude/*`.
+# Personal/local files stay ignored.
+.claude/*
+!.claude/agents/
+!.claude/context/
+.claude/settings.local.json
+.claude/worktrees/
 
 **/*.env
 

@@ -23,7 +23,7 @@ mvn verify
 # Run integration tests (skipped by default; activate the profile in ai-service-orchestration-test)
 mvn verify -P ai-rag-integration-test
 
-# Build and package for Azure Functions deployment
+# Build and package the Azure Functions
 mvn clean package -DskipTests
 
 # Run a specific Azure Function locally (from the function's directory)
@@ -49,7 +49,7 @@ Key environment variables required across functions:
 
 ## Module Structure
 
-Multi-module Maven project with five deployable Azure Functions, one shared library, and one integration-test module:
+Multi-module Maven project with five Azure Functions, one shared library, and one integration-test module:
 
 | Module | Purpose |
 |--------|---------|
@@ -59,7 +59,46 @@ Multi-module Maven project with five deployable Azure Functions, one shared libr
 | `ai-document-answer-retrieval-function` | Queue-triggered; embeds query, retrieves chunks via AI Search, generates LLM answer summary |
 | `ai-document-answer-scoring-function` | Evaluates response groundedness, publishes scores to Azure Monitor |
 | `ai-document-status-check-function` | HTTP-triggered; exposes GET endpoints to retrieve document ingestion status from Table Storage |
-| `ai-service-orchestration-test` | Integration tests (REST Assured + Testcontainers + Awaitility) — not deployed |
+| `ai-service-orchestration-test` | Integration tests (REST Assured + Testcontainers + Awaitility) — test-only module |
+
+## API Contract
+
+The HTTP API is **contract-first**. The OpenAPI 3.0.0 spec lives in a separate,
+spec-only repo — **[`hmcts/api-cp-ai-rag`](https://github.com/hmcts/api-cp-ai-rag/)** — at
+[`src/main/resources/openapi/ai-rag-service.openapi.yml`](https://github.com/hmcts/api-cp-ai-rag/blob/main/src/main/resources/openapi/ai-rag-service.openapi.yml). That spec is the source
+of truth for request/response shapes; the `uk.gov.hmcts.cp.openapi` models in
+`ai-document-shared-artefacts` are generated against it. Do **not** hand-edit the
+generated models or change an HTTP function's request/response contract without
+first updating the spec in `api-cp-ai-rag` (it is Gradle-built, Spectral-linted
+via `.spectral.yml`, and its docs are published by GitHub Actions). When changing
+an endpoint here, treat it as: update the spec repo → regenerate/realign models →
+implement.
+
+### Endpoints (per the contract)
+
+| Method & path (contract) | operationId | Request | Success | Errors | Implemented by (`@FunctionName`) |
+|---|---|---|---|---|---|
+| `POST /document-upload` | `initiate-document-upload` | `documentUploadRequest` | `200` `fileStorageLocationReturnedSuccessfully` | `400`/`500` `requestErrored` | `InitiateDocumentUpload` |
+| `GET /document-upload/{documentReference}` | `document-status-by-reference` | path `documentReference` (uuid) | `200` `documentIngestionStatusReturnedSuccessfully` | `404` `documentStatusNotAvailable` | `DocumentStatusByReference` |
+| `GET /document-status` | `document-status` | query `document-name` | `200` `documentIngestionStatusReturnedSuccessfully` | `404` `documentStatusNotAvailable` | `DocumentStatusCheck` |
+| `POST /answer-user-query` | `answer-user-query` | `answerUserQueryRequest` | `200` `userQueryAnswerReturnedSuccessfullySynchronously` | `400`/`500` `requestErrored` | `AnswerRetrieval` |
+| `POST /answer-user-query-async` | `answer-user-query-async` | `answerUserQueryRequest` | `202` `userQueryAnswerRequestAccepted` | `400`/`500` `requestErrored` | `InitiateAnswerGeneration` |
+| `GET /answer-user-query-async-status/{transactionId}` | `answer-user-query-status` | path `transactionId` (uuid), query `withChunkedEntries` (bool) | `200` `userQueryAnswerReturnedSuccessfullyAsynchronously` | `400` `requestErrored` | `GetAnswerGeneration` |
+
+### Key schemas
+- **Requests:** `documentUploadRequest` (documentId, documentName, metadataFilter[], optional overwrites[]), `answerUserQueryRequest` (userQuery, queryPrompt, metadataFilter[]).
+- **Responses:** `fileStorageLocationReturnedSuccessfully` (storageUrl + documentReference), `documentIngestionStatusReturnedSuccessfully`, `userQueryAnswerReturnedSuccessfully{Synchronously,Asynchronously}`, `userQueryAnswerRequestAccepted` (transactionId), `documentStatusNotAvailable`, `requestErrored`.
+- **Building blocks:** `uuid` (regex-constrained), `metadataFilter` (key/value, each ≤40 chars), `documentChunk` (documentId, documentName, pageNumber, chunkContent, customMetadata[]).
+- **Enums:** `documentIngestionStatus` = `INGESTION_SUCCESS` | `INGESTION_FAILED` | `METADATA_VALIDATED` | `INVALID_METADATA` | `AWAITING_UPLOAD` | `AWAITING_INGESTION` | `FILE_SIZE_OVER_LIMIT`; `answerGenerationStatus` = `ANSWER_GENERATED` | `ANSWER_GENERATION_FAILED` | `ANSWER_GENERATION_PENDING`.
+
+### Known contract ↔ implementation drift
+Two HTTP functions declare no explicit `route`, so the Functions host derives the
+route from the `@FunctionName` value rather than the contract path:
+- `AnswerRetrieval` — contract path is `POST /answer-user-query`.
+- `DocumentStatusCheck` — contract path is `GET /document-status` (query `document-name`).
+
+Add explicit `route = "..."` attributes to align these with the spec. Run the
+`api-contract-check` skill to re-verify after changes.
 
 ## Architecture & Data Flow
 
@@ -136,8 +175,35 @@ Uses JGitFlow Maven Plugin:
 - Release branches: `dev/release-*`
 - Hotfix branches: `dev/hotfix-*`
 
-## CI/CD
+## CI
 
-Azure Pipelines (`azure-pipelines.yaml`). SonarQube project key: `uk.gov.moj.cp.azure.ragservice:cp-ai-rag-service`.
+CI runs on Azure Pipelines (`azure-pipelines.yaml`), triggered automatically on PR. SonarQube project key: `uk.gov.moj.cp.azure.ragservice:cp-ai-rag-service`.
 
-Environment naming convention: `fa-{env}-ai-document-{function-name}` and `RG-{env}-CPAIRAGSERVICE` where env is `dev`, `stg`, or `prod`.
+## SDLC Orchestrator (hmcts-sdlc-orchestrator plugin) — Azure Functions adaptation
+
+The `hmcts-sdlc-orchestrator` plugin ships an 8-stage SDLC pipeline built for
+Spring Boot services on AKS. This repo is **multi-module Maven Azure Functions**,
+so the pipeline *shape* is reused but the build and runtime stages are
+overridden locally. Precedence: project `.claude/` files override same-named
+plugin files.
+
+- **Read first:** `.claude/context/azure-functions.md` — the authoritative deltas
+  (Maven not Gradle, `@FunctionName` not controllers, no actuator probes,
+  `context.getLogger()` not logback, Azure DevOps not GitHub Actions,
+  connection-strings as a tracked deviation). It supersedes the plugin's
+  `tech-stack.md`, `azure-cloud-native.md`, and `logging-standards.md`.
+- **Overridden agents** (`.claude/agents/`): `implementation`, `doc-generator`,
+  and `ci-orchestrator` — rewritten for Functions. Note `ci-orchestrator` is
+  **monitor + triage only** (read-only): CI auto-triggers on PR, so it observes
+  and triages the existing run, it never triggers a build.
+- **Out of scope locally:** CI is **never triggered from a local machine** — it runs
+  automatically on PR. The local agents therefore cover implementation, doc
+  generation, and CI triage only.
+- **Reuse from the plugin as-is:** `requirements-analyst`, `architecture-designer`,
+  `story-writer`, `test-engineer`, `research`, `test-analyzer`, `code-reviewer`
+  (skip its Spring Boot template-alignment / actuator checks), `api-contract-check`,
+  the security hooks (`block-secrets`, `block-pii`, `guard-bash`, `guard-paths`).
+- **Do NOT use:** `springboot-service-from-template`, `springboot-api-from-template`,
+  `context-scaffold`, `context-service-guide`, `helm-config-validator`,
+  `terraform-validate` — no equivalent here.
+- Pipeline artefacts still go to `docs/pipeline/` per the plugin convention.

@@ -5,7 +5,7 @@ This service processes documents through ingestion, retrieval, and scoring workf
 
 ## Architecture
 
-This mono-repo contains five independently deployable Azure Functions, a shared library, and an integration test module:
+This mono-repo contains five independent Azure Functions, a shared library, and an integration test module:
 
 ### Functions
 
@@ -130,20 +130,14 @@ mvn clean compile
 mvn test
 ```
 
-### Package for Deployment
+### Package
 ```bash
 mvn clean package
 ```
 
-## Deployment
+## Required Azure Resources
 
-Functions are deployed via Azure Pipelines (see `azure-pipelines.yaml`). Each function is deployed independently to its target environment.
-
-All functions in the same environment share the same resource group.
-
-### Required Azure Resources
-
-Before deployment, ensure the following Azure resources exist for the target environment:
+The functions depend on the following Azure resources being available in the target environment:
 - Azure Storage Account (blob storage, tables, and queues)
 - Azure AI Search Service
 - Azure OpenAI Service
