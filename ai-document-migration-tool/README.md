@@ -1,13 +1,21 @@
 # ai-document-migration-tool
 
-A one-off, resumable **index-to-index migration tool** for rebuilding the Azure AI Search index behind
-the RAG service with a corrected schema, copying all existing data across with **no re-embedding**.
+A home for one-off, **not deployed** operational migration utilities run by hand. It currently holds two:
 
-This module is **not deployed** — it is an operational utility run by hand when the search index schema
-needs to change.
+- **Index-to-index copy** (`uk.gov.moj.cp.migration.index`) — rebuilds the Azure AI Search index behind the
+  RAG service with a corrected schema, copying all existing data across with **no re-embedding**. It is the
+  bulk of this README.
+- **Table-to-table copy** (`uk.gov.moj.cp.migration.table`) — copies an Azure Storage table into a new table,
+  optionally rewriting every row's partition key (the multi-tenant migration). See
+  [Table Storage table-to-table copy](#table-storage-table-to-table-copy-multi-tenant-migration).
 
-> The specific schema changes this migration applies (and why) are documented separately in
-> **[SCHEMA_CHANGES.md](SCHEMA_CHANGES.md)**. This README focuses on how the tool works and how to run it.
+Both run through a single entry point (`uk.gov.moj.cp.migration.MigrationTool`) that takes the **tool name as
+its first argument** (`index` or `table`), followed by that tool's own arguments. There is **no default tool** —
+you always name the one you mean, so a bulk migration can never be triggered implicitly. Running it with no
+arguments (or `--help`) prints the usage for both.
+
+> The specific schema changes the index migration applies (and why) are documented separately in
+> **[SCHEMA_CHANGES.md](SCHEMA_CHANGES.md)**. This README focuses on how the tools work and how to run them.
 
 ---
 
@@ -69,29 +77,33 @@ How it applies the schema:
 
 ### Command
 
+The `index` subcommand selects this tool; everything after it is the index tool's own arguments.
+
 ```bash
 mvn -pl ai-document-migration-tool exec:java \
-  -Dexec.args="<endpoint> <sourceIndex> <targetIndex> <aliasName> <schemaResourcePath> [workers] [maxRecords] [startAfterId]"
+  -Dexec.args="index <endpoint> <sourceIndex> <targetIndex> <aliasName> <schemaResourcePath> [workers] [maxRecords] [startAfterId]"
 ```
 
 ```bash
 # Full copy, 8 concurrent shards (async, ample memory)
 mvn -pl ai-document-migration-tool exec:java \
-  -Dexec.args="https://my-svc.search.windows.net ai-rag-service-index ai-rag-service-index-v2 ai-rag-service-index-alias /vector-db-index-schema-v2.json 8"
+  -Dexec.args="index https://my-svc.search.windows.net ai-rag-service-index ai-rag-service-index-v2 ai-rag-service-index-alias /vector-db-index-schema-v2.json 8"
 
 # Sample copy of the first 20,000 records (validation) — no verification, no cutover command
 mvn -pl ai-document-migration-tool exec:java \
-  -Dexec.args="https://my-svc.search.windows.net ai-rag-service-index ai-rag-service-index-v2 ai-rag-service-index-alias /vector-db-index-schema-v2.json 8 20000"
+  -Dexec.args="index https://my-svc.search.windows.net ai-rag-service-index ai-rag-service-index-v2 ai-rag-service-index-alias /vector-db-index-schema-v2.json 8 20000"
 
 # Low-memory / constrained host: sync uploads, 4 workers, heap capped at 1 GB
 MAVEN_OPTS="-Xmx1g -XX:+UseG1GC" \
 MIGRATION_UPLOAD_MODE=sync \
 HTTP_CLIENT_WRITE_TIMEOUT_IN_SECONDS=15 HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS=10 HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS=30 \
 mvn -pl ai-document-migration-tool exec:java \
-  -Dexec.args="https://my-svc.search.windows.net ai-rag-service-index ai-rag-service-index-v2 ai-rag-service-index-alias /vector-db-index-schema-v2.json 4"
+  -Dexec.args="index https://my-svc.search.windows.net ai-rag-service-index ai-rag-service-index-v2 ai-rag-service-index-alias /vector-db-index-schema-v2.json 4"
 ```
 
 ### Arguments
+
+These are the `index` tool's arguments (they follow the `index` subcommand).
 
 | # | Argument | Required | Default | Description |
 |---|----------|----------|---------|-------------|
@@ -142,15 +154,20 @@ The build produces a thin jar plus a `lib/` of dependency jars (via `maven-jar-p
 `META-INF/services`, so the Azure SDK's `ServiceLoader`-based HTTP-client and credential discovery works
 with no service-file merging.
 
+The image `ENTRYPOINT` is `java -jar app.jar`, i.e. the `MigrationTool` dispatcher — so the container takes the
+**same arguments as the mvn invocation**: the tool name (`index` / `table`) first, then that tool's arguments.
+
 ```bash
 # 1. build artifacts on the host, then the image (build context = this module dir)
 mvn -pl ai-document-migration-tool -am -DskipTests package
-docker build -f ai-document-migration-tool/Dockerfile -t ai-index-migration:1 ai-document-migration-tool
+docker build -f ai-document-migration-tool/Dockerfile -t ai-rag-migration:1 ai-document-migration-tool
 
-# 2. run — args are the same positional args as the mvn invocation above
-docker run --rm --env-file sp.env ai-index-migration:1 \
-  https://my-svc.search.windows.net ai-rag-service-index ai-rag-service-index-v2 \
+# 2. run the index migration — note the leading "index" tool name
+docker run --rm --env-file sp.env ai-rag-migration:1 \
+  index https://my-svc.search.windows.net ai-rag-service-index ai-rag-service-index-v2 \
   ai-rag-service-index-alias /vector-db-index-schema-v2.json 8 20000
+
+# (the table tool is the same image with a leading "table" — see the table section)
 ```
 
 **Credentials.** The image carries none; `DefaultAzureCredential` resolves them at runtime, so the *same
@@ -163,7 +180,7 @@ image* works everywhere:
 
 The image is network-clean but the search service may be private — if requests hang after auth succeeds,
 it's DNS, not credentials. Probe with
-`docker run --rm --entrypoint getent ai-index-migration:1 hosts <svc>.search.windows.net`; if it doesn't
+`docker run --rm --entrypoint getent ai-rag-migration:1 hosts <svc>.search.windows.net`; if it doesn't
 resolve, add `--dns`/`--add-host` (or run where the private DNS zone is reachable).
 
 ---
@@ -215,7 +232,95 @@ Other knobs:
 
 ---
 
+## Table Storage table-to-table copy (multi-tenant migration)
+
+A separate, simpler tool (`uk.gov.moj.cp.migration.table.TableMigrationTool`) for **Azure Storage tables**. It
+copies every row from a source table into a new target table, optionally **rewriting each row's
+`PartitionKey`** to a fixed value while preserving the `RowKey` and all data columns.
+
+**Why it exists.** An Azure Table Storage `PartitionKey` is part of the entity's **immutable** primary key —
+there is no in-place update. To change it you must write a new entity under the new key. As the service goes
+multi-tenant, existing single-consumer rows (keyed today by `PartitionKey == RowKey == id`) need their
+`PartitionKey` set to a fixed consumer-id so each consumer becomes its own partition. This tool does that as a
+**copy into a new table**: it reads the source and upserts a transformed copy into the target, and **never
+mutates the source** — so a run is non-destructive (roll back by continuing to use the source), idempotent
+(re-runnable — upsert keyed by `(PartitionKey, RowKey)`), and safe to validate before cutover.
+
+It is deliberately **single-threaded**: unlike the index copier (which shards for ~340k vectors and the
+`$skip` 100k cap), these are small operational status tables and `listEntities()` transparently follows
+continuation tokens, so a sequential pass is the right altitude.
+
+### Run
+
+The `table` subcommand selects this tool; everything after it is the table tool's own arguments.
+
+```bash
+# copy every row, rewriting the partition key to a fixed consumer id
+mvn -pl ai-document-migration-tool exec:java \
+  -Dexec.args="table <sourceTable> <targetTable> <partitionKeyOverride>"
+
+# copy verbatim (keep each row's partition key), sample the first 100 rows
+#   pass "-" (or a blank) for the override slot so maxRecords stays positional
+mvn -pl ai-document-migration-tool exec:java \
+  -Dexec.args="table <sourceTable> <targetTable> - 100"
+```
+
+| Arg | Required | Meaning |
+|-----|----------|---------|
+| `sourceTable` | yes | Table to copy from (never written to). |
+| `targetTable` | yes | Table to copy into; created if absent. Must differ from `sourceTable`. |
+| `partitionKeyOverride` | no | Fixed `PartitionKey` for every copied row. Omit, or pass blank / `-`, to copy partition keys **verbatim**. |
+| `maxRecords` | no | Cap for a sample run; `0` (default) copies everything. |
+
+**Connection** is resolved from the environment by `TableClientFactory` (not from args) — the same config the
+deployed functions use:
+
+| Variable | Notes |
+|----------|-------|
+| `AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT` | Required for `MANAGED_IDENTITY`, e.g. `https://<account>.table.core.windows.net`. |
+
+In `MANAGED_IDENTITY` mode the identity needs the **Storage Table Data Contributor** role on the storage
+account. The `HTTP_CLIENT_*` / `AZURE_CLIENT_MAX_RETRIES` knobs in the table below apply here too.
+
+### Caveats
+
+- **Type fidelity.** Property values keep their EDM types on copy (`OffsetDateTime`, `Long`, `Double`,
+  `Boolean`, `UUID`, `byte[]`) because the raw objects are re-upserted as read. Decimal columns (e.g. the
+  groundedness score) are stored by the service as `Edm.Double` — there is no EDM decimal type — so they
+  round-trip as doubles. The copy performs no `toString`/re-typing.
+- **Override safety.** Under override every row lands in one partition, so the tool **fails loud** if two
+  source rows share a `RowKey` (which would otherwise silently overwrite). For the current `PartitionKey == RowKey`
+  tables this cannot happen; the guard protects any future table where they differ.
+- **Cutover sequencing.** This tool does **only the data copy**. The `consumerId` plumbing through the
+  application's read/write paths is a separate change; cut over together, and ensure the `partitionKeyOverride`
+  here exactly matches (casing/whitespace) the consumer-id the application will start using.
+
+### Running the table tool in a container
+
+The same [container image](#running-as-a-container) serves this tool — just pass the `table` subcommand and its
+arguments (the `ENTRYPOINT` is the `MigrationTool` dispatcher, so no entrypoint override is needed):
+
+```bash
+docker run --rm --env-file storage.env ai-rag-migration:1 \
+  table srcTable tgtTable my-consumer-id
+```
+
+In an Azure Container Apps Job, set the args to `["table", "srcTable", "tgtTable", "my-consumer-id"]`. Supply
+the storage connection env vars above; in `MANAGED_IDENTITY` mode the attached identity needs **Storage Table
+Data Contributor**.
+
+---
+
 ## Design / code layout
+
+The module has a single dispatcher entry point in the root `uk.gov.moj.cp.migration` package, over two domain
+sub-packages: `index` (the Search index→index tool) and `table` (the Storage table→table tool).
+
+| Class | Responsibility |
+|-------|----------------|
+| `MigrationTool` | Jar `Main-Class`: reads the tool name (`index` / `table`) as the first argument and forwards the rest to that tool; no default tool |
+
+**`index`**
 
 | Class | Responsibility |
 |-------|----------------|
@@ -226,6 +331,13 @@ Other knobs:
 | `DocumentUploader` | Upload abstraction — swap throughput for memory without touching the engine |
 | `BufferedSenderUploader` | Async path: streams into the shared buffered sender (default) |
 | `SyncUploader` | Sync path: per-page upload, bounding in-flight memory to `workers × pageSize` |
+
+**`table`**
+
+| Class | Responsibility |
+|-------|----------------|
+| `TableMigrationTool` | Entry point (`main`): parses args, resolves source/target clients via `TableClientFactory`, runs the copy |
+| `TableCopier` | The copy engine: ensures the target table, streams rows, applies the partition-key override, strips system properties, guards against RowKey collisions |
 
 ### Build & test
 
