@@ -1,0 +1,199 @@
+name: Migrationtool
+
+pr: none
+trigger: none
+
+parameters:
+  - name: env
+    displayName: "Environment"
+    type: string
+    default: "dev"
+    values:
+      - "dev"
+      - "sit"
+      - "ste"
+      - "nft"
+      - "prp"
+      - "prd"
+      - "prx"
+  - name: migrationMode
+    displayName: Migration Mode
+    type: string
+    default: index
+    values:
+      - index
+      - table
+
+  # --- Index parameters (used when runIndexMigration = true) ---
+  - name: sourceIndex
+    displayName: '[Index] Source Index'
+    type: string
+    default: 'ai-rag-service-index'
+
+  - name: targetIndex
+    displayName: '[Index] Target Index'
+    type: string
+    default: 'ai-rag-service-index-v2-test'
+
+  - name: aliasName
+    displayName: '[Index] Alias Name'
+    type: string
+    default: 'ai-rag-service-index-alias'
+
+  - name: schemaResourcePath
+    displayName: '[Index] Schema Resource Path'
+    type: string
+    default: '/vector-db-index-schema-v2.json'
+
+  - name: workers
+    displayName: '[Index] Workers'
+    type: string
+    default: '4'
+
+  - name: indexMaxRecords
+    displayName: '[Index] Max Records (0 = all)'
+    type: string
+    default: '0'
+
+  # --- Table parameters (used when runTableMigration = true) ---
+  - name: sourceTable
+    displayName: '[Table] Source Table'
+    type: string
+    default: 'documentingestionoutcomev2'
+
+  - name: targetTable
+    displayName: '[Table] Target Table'
+    type: string
+    default: 'documentingestionoutcomev3'
+
+  - name: partitionKeyOverride
+    displayName: '[Table] Partition Key Override'
+    type: string
+    default: ' '
+
+  - name: tableMaxRecords
+    displayName: '[Table] Max Records (0 = all)'
+    type: string
+    default: ' '
+
+
+variables:
+  ${{ if not(startsWith(parameters.env, 'pr')) }}:
+    acrName: 'crmdvrepo01'
+    acrServiceConnection: 'Acr_non_live_registryConnection'
+    azServiceConnection: 'ado_nonlive_service_principal'
+    agentPool: 'MDV-ADO-AGENTS-01'
+  ${{ if startsWith(parameters.env, 'pr') }}:
+    acrName: 'crmpdrepo01'
+    acrServiceConnection: 'Acr_live_registryConnection'
+    azServiceConnection: 'ado_live_service_principal'
+    agentPool: 'MPD-ADO-AGENTS-01'
+  imageTag: '1'
+  imageName: 'ai-rag-migration'
+  # Migration tool parameters
+  endpoint: 'https://search-service-${{ parameters.env }}-ai-01.search.windows.net'
+
+pool:
+  name: $(agentPool)
+stages:
+  - stage: Migrationtool
+    displayName: AI search migration tool
+    jobs:
+      - job: Migrationtool
+        displayName: 'Run migration tool for ${{ parameters.migrationMode }} on ${{ parameters.env }}'
+        steps:
+          - task: Bash@3
+            displayName: "Start Docker"
+            inputs:
+              targetType: 'inline'
+              script: |
+                sudo systemctl start docker
+                sleep 10
+                docker --version
+
+          - task: Docker@2
+            displayName: 'Login to ACR'
+            inputs:
+              command: login
+              containerRegistry: $(acrServiceConnection)
+
+          - task: Docker@2
+            displayName: 'Pull migration tool image'
+            inputs:
+              command: pull
+              containerRegistry: $(acrServiceConnection)
+              arguments: '$(acrName).azurecr.io/$(imageName):$(imageTag)'
+
+          - task: AzureCLI@2
+            displayName: 'Az login and run migration tool'
+            inputs:
+              azureSubscription: $(azServiceConnection)
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              addSpnToEnvironment: true
+              inlineScript: |
+                #!/bin/bash
+                set -euo pipefail
+                set -x
+                ARGS=(
+                  index
+                  "$(endpoint)" \
+                  "${{ parameters.sourceIndex }}"
+                  "${{ parameters.targetIndex }}"
+                  "${{ parameters.aliasName }}"
+                  "${{ parameters.schemaResourcePath }}"
+                )
+                if [[ -n "${{ parameters.workers }}" ]]; then
+                    ARGS+=("${{ parameters.workers }}")
+                fi
+                
+                if [[ -n "${{ parameters.indexMaxRecords }}" ]]; then
+                  ARGS+=("${{ parameters.indexMaxRecords }}")
+                fi
+                if [[ "${{ parameters.migrationMode }}" == "index" ]]; then
+                  echo "Running index migration..."
+                  docker run --rm \
+                    -e AZURE_CLIENT_ID=$servicePrincipalId \
+                    -e AZURE_CLIENT_SECRET=$servicePrincipalKey \
+                    -e AZURE_TENANT_ID=$tenantId \
+                    -e MIGRATION_UPLOAD_MODE=sync \
+                    -e HTTP_CLIENT_WRITE_TIMEOUT_IN_SECONDS=15 \
+                    -e HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS=10 \
+                    -e HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS=30 \
+                    -e HTTP_CLIENT_CONNECT_TIMEOUT_IN_SECONDS=10 \
+                    -e AZURE_CLIENT_MAX_RETRIES=3 \
+                    $(acrName).azurecr.io/$(imageName):$(imageTag) \
+                    "${ARGS[@]}"
+
+                elif [[ "${{ parameters.migrationMode }}" == "table" ]]; then
+                  echo "Running table migration..."
+                  if [[ "${{ parameters.env }}" == ste ]]; then
+                    storageaccount="sa${{ parameters.env }}airag"
+                  else
+                    storageaccount="sa${{ parameters.env }}01airag"
+                  fi
+                  ARGS=(
+                    table
+                    "${{ parameters.sourceTable }}"
+                    "${{ parameters.targetTable }}"
+                  )
+                  partitionKeyOverride=$(echo "${{ parameters.partitionKeyOverride }}" | xargs)
+                  tableMaxRecords=$(echo "${{ parameters.tableMaxRecords }}" | xargs)
+                  if [[ -n "$partitionKeyOverride" ]]; then
+                    ARGS+=("$partitionKeyOverride")
+                  fi
+                  
+                  if [[ -n "$tableMaxRecords" ]]; then
+                    ARGS+=("$tableMaxRecords")
+                  fi
+                  docker run --rm \
+                    -e AZURE_CLIENT_ID=$servicePrincipalId \
+                    -e AZURE_CLIENT_SECRET=$servicePrincipalKey \
+                    -e AZURE_TENANT_ID=$tenantId \
+                    -e AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT="https://$storageaccount.table.core.windows.net" \
+                    $(acrName).azurecr.io/$(imageName):$(imageTag) \
+                    "${ARGS[@]}"
+                else
+                  echo "ERROR: Unknown migration mode '${{ parameters.migrationMode }}'"
+                  exit 1
+                fi
