@@ -17,10 +17,8 @@ import org.slf4j.LoggerFactory;
  * copy-into-new-table; the source is never mutated and a run is idempotent (safe to re-run).</p>
  *
  * <p>Connection details come from the environment via {@link TableClientFactory}
- * ({@code AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE} = {@code MANAGED_IDENTITY} (default) or
- * {@code CONNECTION_STRING}; then {@code AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT} or
- * {@code AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING}), so only the table names and the override are
- * passed as arguments.</p>
+ * (managed identity against {@code AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT}), so only the table names
+ * and the override are passed as arguments.</p>
  *
  * <p>Usage:</p>
  * <pre>

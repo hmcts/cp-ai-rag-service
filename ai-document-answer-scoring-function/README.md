@@ -24,7 +24,7 @@ See the root [CLAUDE.md](../CLAUDE.md) for where this module sits in the end-to-
 
 | Env var | Purpose |
 |---|---|
-| `AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING` | Storage account connection used by the queue trigger binding |
+| `AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING` | Name of the identity-based binding used by the queue trigger (the host resolves `..._CONNECTION_STRING__accountName` and authenticates via managed identity) |
 | `AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT` | Blob storage endpoint (used by `BlobClientService`) |
 | `AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT` | Queue storage endpoint |
 | `STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING` | Name of the inbound scoring queue (default in sample: `answer-scoring-queue`) |
@@ -32,7 +32,7 @@ See the root [CLAUDE.md](../CLAUDE.md) for where this module sits in the end-to-
 | `STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS` | Blob container holding serialised `ScoringPayload` files read by `BlobService` <!-- TODO: this var is read by BlobService at construction time but is absent from local.settings.sample.json; add it to the sample file --> |
 | `AZURE_JUDGE_OPENAI_ENDPOINT` | Azure OpenAI endpoint for the Judge LLM used by `ScoringService` |
 | `AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME` | Deployment name of the Judge LLM chat model |
-| `RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING` | Application Insights connection string used by `AzureMonitorService` to export OpenTelemetry metrics |
+| `RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING` | Application Insights connection string used by `AzureMonitorService` to export OpenTelemetry metrics. **Intentionally still a connection string** (the only managed-identity exception in this repo): the Azure Monitor exporter has no separate endpoint setter, so the connection string is required as the ingestion endpoint + resource id. Switching to managed-identity (Entra ID) ingestion would need infra changes — disabling local auth on the App Insights resource and granting the function's managed identity the *Monitoring Metrics Publisher* role — so it is not a storage-style `endpoint + credential` cleanup. See `.claude/context/azure-functions.md` → "Known exception". |
 | `AZURE_CLIENT_MAX_RETRIES` | Maximum retry attempts for Azure SDK client calls |
 | `AZURE_CLIENT_BASE_DELAY_IN_SECONDS` | Base back-off delay for retries |
 | `AZURE_CLIENT_MAX_DELAY_IN_SECONDS` | Maximum back-off delay for retries |

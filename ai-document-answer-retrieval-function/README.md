@@ -36,7 +36,7 @@ The count variables must satisfy `SEARCH_NEAREST_NEIGHBOURS_COUNT >= SEARCH_TOP_
 
 | Env var | Purpose | Default |
 |---|---|---|
-| `AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING` | Storage account connection string used for queue bindings (connection attribute on `@QueueTrigger` / `@QueueOutput`) | — |
+| `AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING` | Name of the identity-based binding used for queue bindings (`connection` attribute on `@QueueTrigger` / `@QueueOutput`); the host resolves `..._CONNECTION_STRING__accountName` and authenticates via managed identity | — |
 | `AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT` | Blob Storage endpoint for `BlobPersistenceService` | — |
 | `AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT` | Queue Storage endpoint | — |
 | `AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT` | Table Storage endpoint for `AnswerGenerationTableService` | — |

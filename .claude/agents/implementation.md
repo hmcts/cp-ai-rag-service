@@ -51,7 +51,7 @@ Extract shared logic, kill duplication, match domain naming. Re-run tests after 
 
 ### Step 4 — Functions-specific standards pass (replaces the Spring Boot pass)
 - No secrets/credentials in code; never commit `local.settings.json` (only `*.sample.json`)
-- Azure access prefers `DefaultAzureCredential`; existing connection-string usage is a tracked deviation, not a defect (see overlay)
+- Azure access is managed-identity only via `DefaultAzureCredential`; do not introduce connection-string / account-key auth (see overlay)
 - Logging via `context.getLogger()` (the `ExecutionContext`) — **no** `logback.xml`, no logstash encoder, no actuator
 - No PII / full request bodies / keys in logs
 - Input validation on all trigger inputs (HTTP query/body, queue message payloads)

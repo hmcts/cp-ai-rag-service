@@ -2,7 +2,8 @@ package uk.gov.moj.cp.ai;
 
 public class SharedSystemVariables {
 
-    public static final String AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE = "AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_MODE";
+    // Identity-based binding prefix for the Functions storage triggers/outputs.
+    // The Functions host resolves the matching `__accountName` app setting and authenticates via managed identity.
     public static final String AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING = "AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING";
     public static final String AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT = "AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT";
     public static final String AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT = "AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT";

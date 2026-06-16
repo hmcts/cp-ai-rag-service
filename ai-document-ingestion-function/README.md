@@ -40,7 +40,7 @@ All values are read from app settings (or `Azure/local.settings.json` locally). 
 
 | Env var | Purpose |
 |---|---|
-| `AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING` | Storage connection string used by the `QueueTrigger` binding |
+| `AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING` | Name of the identity-based binding used by the `QueueTrigger` (the host resolves `..._CONNECTION_STRING__accountName` and authenticates via managed identity) |
 | `AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT` | Blob Storage endpoint (endpoint-based auth) |
 | `AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT` | Table Storage endpoint (endpoint-based auth) |
 | `AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT` | Queue Storage endpoint (endpoint-based auth) |

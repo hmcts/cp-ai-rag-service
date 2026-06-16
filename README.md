@@ -97,8 +97,8 @@ Cross-file duplication only appears when a query's metadata filter spans multipl
 
 3. **Configure your local settings**
 Edit each `local.settings.json` file and replace placeholder values with your actual Azure service credentials:
-    - Azure Storage connection strings
-    - Azure Search endpoint and API key
+    - Azure Storage endpoints (storage-account access is managed-identity only; `AzureWebJobsStorage` remains the Functions host runtime store)
+    - Azure Search endpoint
     - Azure OpenAI endpoint, API key, and deployment name
     - Application Insights instrumentation key
     - Azure Monitor connection string
