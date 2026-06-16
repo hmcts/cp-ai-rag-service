@@ -35,7 +35,7 @@ All variables below are read at function startup. The sample file is at `Azure/l
 | `HTTP_CLIENT_CONNECT_TIMEOUT_IN_SECONDS` | HTTP client connect timeout (default `10`) |
 | `HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS` | HTTP client read timeout (default `60`) |
 
-Cross-reference: the root CLAUDE.md "Key environment variables" section documents the storage connection string (`AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING`) used by other modules; this module does **not** use the connection string — it uses the Table Storage endpoint directly.
+Cross-reference: the root CLAUDE.md "Key environment variables" section documents the identity-based storage binding (`AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING`) used by other modules' triggers; this module has no storage triggers — it accesses Table Storage directly via the Table Storage endpoint under managed identity.
 
 ## Build & run
 

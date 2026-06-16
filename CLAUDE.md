@@ -32,11 +32,11 @@ cd ai-document-ingestion-function && mvn azure-functions:run
 
 ## Local Development Setup
 
-Each function module has an `Azure/local.settings.sample.json`. Copy it to `Azure/local.settings.json` (git-ignored) and populate with real connection strings before running locally.
+Each function module has an `Azure/local.settings.sample.json`. Copy it to `Azure/local.settings.json` (git-ignored) and populate the real endpoints/account names before running locally. Storage-account access is **managed identity only** (`DefaultAzureCredential`) — there are no storage connection strings or account keys.
 
 Key environment variables required across functions:
-- `AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING` — Azure Storage connection string
-- `AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT` / `AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT`
+- `AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT` / `AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT` — storage endpoints the SDK client factories authenticate against via managed identity
+- `AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING` — **not** a connection string: it is the name of the identity-based binding used by the Functions storage triggers/outputs (the host resolves the matching `..._CONNECTION_STRING__accountName` app setting and authenticates via managed identity)
 - `STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION` — queue name for ingestion messages
 - `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT` — for document content extraction
 - `AZURE_SEARCH_SERVICE_ENDPOINT` + `AZURE_SEARCH_SERVICE_INDEX_NAME` — AI Search

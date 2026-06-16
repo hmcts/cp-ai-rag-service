@@ -25,10 +25,10 @@ All values are supplied via app settings / `Azure/local.settings.json` (copy fro
 
 | Env var | Purpose |
 |---|---|
-| `AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING` | Storage account connection string used as the binding `connection` for all blob triggers and queue output bindings; also used by the shared `BlobContainerClientFactory` and `TableClientFactory` when not running in endpoint mode |
+| `AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING` | Name of the identity-based binding `connection` for all blob triggers and queue output bindings (the host resolves `..._CONNECTION_STRING__accountName` and authenticates via managed identity). The shared `BlobContainerClientFactory` / `TableClientFactory` authenticate separately via the `*_STORAGE_ENDPOINT` vars |
 | `AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT` | Blob service endpoint URL; used to construct the `blobUrl` field in the queued `QueueIngestionMetadata` message (both flows) |
-| `AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT` | Table service endpoint URL; used by `TableClientFactory` when connecting via endpoint (Managed Identity path) |
-| `AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT` | Queue service endpoint URL; present in `local.settings.sample.json` for completeness — not directly referenced in this module's Java code, but required by the shared client factory if queue connections use endpoint mode |
+| `AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT` | Table service endpoint URL; `TableClientFactory` authenticates against it via managed identity |
+| `AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT` | Queue service endpoint URL; present in `local.settings.sample.json` for completeness — not directly referenced in this module's Java code |
 | `STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION` | Name of the output queue; referenced in `@QueueOutput` binding expressions on `DocumentUploadCheck` and `DocumentMetadataCheck` |
 | `STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME` | Table name for document ingestion status rows; read by `DocumentUploadService` and `IngestionOrchestratorService` |
 | `STORAGE_ACCOUNT_BLOB_CONTAINER_NAME` | Blob container for the direct-drop flow (`DocumentMetadataCheck` trigger) and blob-URL construction in `IngestionOrchestratorService` |
