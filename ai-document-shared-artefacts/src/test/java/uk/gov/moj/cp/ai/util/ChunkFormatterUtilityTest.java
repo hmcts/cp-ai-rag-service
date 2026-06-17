@@ -35,8 +35,9 @@ class ChunkFormatterUtilityTest {
                 .customMetadata(List.of(new KeyValuePair("material_name", "MaterialX")))
                 .build();
         String result = chunkFormatterUtility.buildChunkContext(List.of(entry));
-        assertThat(result).hasXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_ID='doc1' and @DOCUMENT_FILENAME='MaterialX']/DATA[@CHUNK_ID='id1']/DOCUMENT_CONTENT[text()='Some content']");
-        assertThat(result).hasXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_ID='doc1' and @DOCUMENT_FILENAME='MaterialX']/DATA[@CHUNK_ID='id1']/PAGE_NUMBER[text()='5']");
+        assertThat(result).hasXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_ID='doc1' and @DOCUMENT_FILENAME='MaterialX']/DATA[1]/DOCUMENT_CONTENT[text()='Some content']");
+        assertThat(result).hasXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_ID='doc1' and @DOCUMENT_FILENAME='MaterialX']/DATA[1]/PAGE_NUMBER[text()='5']");
+        assertThat(result).doesNotHaveXPath("/RETRIEVED_DOCUMENTS/DOCUMENT/DATA/@CHUNK_ID");
     }
 
     @Test

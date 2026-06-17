@@ -4,6 +4,7 @@ import static java.lang.Integer.parseInt;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.LLM_MODEL_RESPONSE_MAX_TOKENS;
 import static uk.gov.moj.cp.ai.util.ChatModelUtil.ensureRawJsonAsConvertingPayloadToObject;
 import static uk.gov.moj.cp.ai.util.ChatModelUtil.isReasoningModel;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
@@ -24,6 +25,7 @@ import com.azure.ai.openai.models.ChatRequestMessage;
 import com.azure.ai.openai.models.ChatRequestSystemMessage;
 import com.azure.ai.openai.models.ChatRequestUserMessage;
 import com.azure.ai.openai.models.CompletionsFinishReason;
+import com.azure.ai.openai.models.ReasoningEffortValue;
 import com.azure.ai.openai.models.ContentFilterResultsForChoice;
 import com.azure.ai.openai.models.ContentFilterResultsForPrompt;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -39,6 +41,22 @@ public class AzureChatService implements ChatService {
     private static final String MAX_TOKENS = "1000";
     private static final double TEMPERATURE = 0.0;
     private static final double TOP_P = 0.0;
+
+    /**
+     * Reasoning-effort for reasoning models (gpt-5/o-series), applied via {@code reasoning_effort}.
+     * Lower effort frees completion-token budget for the answer (less truncation) and tends to
+     * yield more concise output. Configurable via the {@code LLM_REASONING_EFFORT} env var
+     * ({@code none|minimal|low|medium|high}); when unset it defaults to {@link #DEFAULT_REASONING_EFFORT}.
+     * Ignored for non-reasoning models (e.g. gpt-4o).
+     */
+    private static final String LLM_REASONING_EFFORT = "LLM_REASONING_EFFORT";
+
+    /**
+     * Default reasoning effort when {@code LLM_REASONING_EFFORT} is unset. {@code none} eliminates
+     * the reasoning-token truncation of long answers on gpt-5.1 (no measured citation-coverage loss)
+     * — see {@code ai-document-system-prompt-harness-eval}'s round-2 evaluation.
+     */
+    private static final String DEFAULT_REASONING_EFFORT = "none";
 
     private final String deploymentName;
 
@@ -77,7 +95,11 @@ public class AzureChatService implements ChatService {
         ChatCompletionsOptions chatCompletionsOptions = new ChatCompletionsOptions(chatMessages)
                 .setMaxCompletionTokens(maxTokens);
 
-        if (!reasoningModel) {
+        if (reasoningModel) {
+            final String reasoningEffort = getRequiredEnv(LLM_REASONING_EFFORT, DEFAULT_REASONING_EFFORT).trim().toLowerCase();
+            chatCompletionsOptions.setReasoningEffort(ReasoningEffortValue.fromString(reasoningEffort));
+            LOGGER.info("Applied reasoning_effort='{}' for reasoning model '{}'", reasoningEffort, deploymentName);
+        } else {
             chatCompletionsOptions
                     .setTemperature(TEMPERATURE) // Low temperature for deterministic scoring
                     .setTopP(TOP_P);

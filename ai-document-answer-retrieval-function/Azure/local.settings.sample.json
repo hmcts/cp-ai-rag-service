@@ -34,6 +34,7 @@
     "AZURE_OPENAI_ENDPOINT": "<azure-openai-endpoint>",
     "AZURE_OPENAI_CHAT_DEPLOYMENT_NAME": "<azure-openai-chat-deployment-name>",
     "LLM_MODEL_RESPONSE_MAX_TOKENS": "4000",
+    "LLM_REASONING_EFFORT": "none",
 
     "STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING": "answer-scoring-queue",
     "STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION": "answer-generation-queue",

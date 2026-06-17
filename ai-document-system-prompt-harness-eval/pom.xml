@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>uk.gov.moj.cp.azure.ragservice</groupId>
+        <artifactId>cp-ai-rag-service</artifactId>
+        <version>17.0.88-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>ai-document-system-prompt-harness-eval</artifactId>
+    <packaging>jar</packaging>
+    <name>AI Document System-Prompt Harness Eval</name>
+    <description>Offline evaluation harness for the answer-retrieval system prompt. Runs the full
+        embed → search → ChunkFormatter → ResponseGenerationService → CitationProcessor pipeline
+        for every (prompt × LLM × query) tuple across gpt-4o and gpt-5.1 and reports
+        citation-compliance, verbosity and coverage metrics. Not deployed; run on demand.
+    </description>
+
+    <properties>
+        <exec.maven.plugin.version>3.1.0</exec.maven.plugin.version>
+        <maven.jar.plugin.version>3.5.0</maven.jar.plugin.version>
+        <maven.dependency.plugin.version>3.7.0</maven.dependency.plugin.version>
+        <harness.mainClass>uk.gov.moj.cp.harness.TestHarness</harness.mainClass>
+    </properties>
+
+    <dependencies>
+        <!-- Production pipeline under evaluation: ResponseGenerationService, CitationProcessor,
+             AzureAISearchService, UserInstructionService, LlmResponse, SearchServiceException. -->
+        <dependency>
+            <groupId>uk.gov.moj.cp.azure.ragservice</groupId>
+            <artifactId>ai-document-answer-retrieval-function</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Shared clients, models and utilities used directly by the harness: ChatService,
+             ChatServiceFactory, EmbeddingService, ChunkFormatterUtility, ChunkedEntry, KeyValuePair,
+             ChatServiceException, EmbeddingServiceException. (Also a transitive dep of the above.) -->
+        <dependency>
+            <groupId>uk.gov.moj.cp.azure.ragservice</groupId>
+            <artifactId>ai-document-shared-artefacts</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- run-harness.sh invokes this: mvn -pl ai-document-system-prompt-harness-eval exec:java -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>${exec.maven.plugin.version}</version>
+                <configuration>
+                    <mainClass>${harness.mainClass}</mainClass>
+                </configuration>
+            </plugin>
+
+            <!-- Runnable thin jar + lib/ of dependencies, mirroring ai-document-migration-tool, so the
+                 harness can also be launched with `java -jar`. Flat classpath preserves each jar's
+                 META-INF/services (Azure SDK ServiceLoader discovery of Netty/JSON/credential providers). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>${maven.jar.plugin.version}</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>${harness.mainClass}</mainClass>
+                            <addClasspath>true</addClasspath>
+                            <classpathPrefix>lib/</classpathPrefix>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>${maven.dependency.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>copy-runtime-dependencies</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                            <includeScope>runtime</includeScope>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
