@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -454,9 +455,10 @@ public final class TestHarness {
     private static final Pattern JSON_CITATION_ID = Pattern.compile("\"citationId\"\\s*:\\s*(\\d+)");
     /** Captures each individualPageNumbers value, to count how many source pages the answer cites. */
     private static final Pattern INDIVIDUAL_PAGES = Pattern.compile("\"individualPageNumbers\"\\s*:\\s*\"([^\"]*)\"");
-    private static final Pattern FACT_MAP_BLOCK =
-            Pattern.compile("<\\s*FACT_MAP_JSON\\s*>(.*?)<\\s*/\\s*FACT_MAP_JSON\\s*>",
-                    Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+    /** Literal citation-block tags (the prompt mandates these exact tags). Matched case-insensitively
+     *  by index scan rather than a regex, to avoid any backtracking over the block body. */
+    private static final String FACT_MAP_OPEN = "<FACT_MAP_JSON>";
+    private static final String FACT_MAP_CLOSE = "</FACT_MAP_JSON>";
 
     /**
      * Extract citation-format compliance metrics from one LLM response. Compares:
@@ -468,12 +470,11 @@ public final class TestHarness {
         final String raw = response.rawLlmResponse() == null ? "" : response.rawLlmResponse();
         final String formatted = response.formattedLlmResponse() == null ? "" : response.formattedLlmResponse();
 
-        final Matcher blockMatcher = FACT_MAP_BLOCK.matcher(raw);
-        final boolean jsonBlockPresent = blockMatcher.find();
+        final boolean jsonBlockPresent = hasFactMapBlock(raw);
 
-        // Strip the FACT_MAP_JSON block before counting inline markers — example
+        // Strip the FACT_MAP_JSON block(s) before counting inline markers — example
         // placeholders inside the JSON should not pollute the inline-marker count.
-        final String rawWithoutJson = raw.replaceAll("(?s)<\\s*FACT_MAP_JSON\\s*>.*?<\\s*/\\s*FACT_MAP_JSON\\s*>", "");
+        final String rawWithoutJson = stripFactMapBlocks(raw);
 
         final Set<Integer> inlineIds = new TreeSet<>();
         int bareCount = 0;
@@ -522,6 +523,34 @@ public final class TestHarness {
 
         return new Compliance(bareCount, inlineIds, driftCount, jsonEntryCount, jsonIds,
                 inlineSubsetOfJson, processorSubstituted, jsonBlockPresent, proseChars, proseWords, citedPages);
+    }
+
+    /** True if {@code raw} contains a complete (open … close) FACT_MAP_JSON block, case-insensitively. */
+    private static boolean hasFactMapBlock(final String raw) {
+        final String lower = raw.toLowerCase(Locale.ROOT);
+        final int open = lower.indexOf(FACT_MAP_OPEN.toLowerCase(Locale.ROOT));
+        return open >= 0 && lower.indexOf(FACT_MAP_CLOSE.toLowerCase(Locale.ROOT), open + FACT_MAP_OPEN.length()) >= 0;
+    }
+
+    /**
+     * Returns {@code raw} with every complete FACT_MAP_JSON block removed via an index scan (no regex
+     * backtracking), so example placeholders inside the JSON don't pollute the inline-marker count.
+     */
+    private static String stripFactMapBlocks(final String raw) {
+        final String open = FACT_MAP_OPEN.toLowerCase(Locale.ROOT);
+        final String close = FACT_MAP_CLOSE.toLowerCase(Locale.ROOT);
+        final String lower = raw.toLowerCase(Locale.ROOT);
+        final StringBuilder out = new StringBuilder();
+        int from = 0;
+        while (true) {
+            final int o = lower.indexOf(open, from);
+            final int c = o < 0 ? -1 : lower.indexOf(close, o + open.length());
+            if (o < 0 || c < 0) {
+                return out.append(raw, from, raw.length()).toString();
+            }
+            out.append(raw, from, o);
+            from = c + close.length();
+        }
     }
 
     private static void printDetail(final List<RunResult> results,
