@@ -18,6 +18,8 @@ import java.util.Optional;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.openai.client.OpenAIClient;
+import com.openai.models.Reasoning;
+import com.openai.models.ReasoningEffort;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
 import com.openai.models.responses.ResponseOutputItem;
@@ -35,10 +37,30 @@ public class OpenAiChatService implements ChatService {
     private static final double TEMPERATURE = 0.0;
     private static final double TOP_P = 0.0;
 
+    /**
+     * Output verbosity for GPT-5 reasoning models, applied via the Responses API
+     * {@code text.verbosity}. Configurable via the {@code LLM_MODEL_RESPONSE_VERBOSITY} env var;
+     * allowed values: {@code low | medium | high} (default {@link #DEFAULT_VERBOSITY}). Ignored by
+     * non-reasoning models.
+     */
+    private static final String DEFAULT_VERBOSITY = "low";
+
+    /**
+     * Reasoning effort for reasoning models (gpt-5/o-series), applied via the Responses API
+     * {@code reasoning.effort}. Configurable via the {@code LLM_REASONING_EFFORT} env var; allowed
+     * values: {@code none | minimal | low | medium | high | xhigh} (default
+     * {@link #DEFAULT_REASONING_EFFORT}). Lower effort frees output-token budget (less truncation of
+     * the answer/JSON) and tends to yield more concise output. Ignored for non-reasoning models
+     * (e.g. gpt-4o). Mirrors the same control in {@link AzureChatService}.
+     */
+    private static final String LLM_REASONING_EFFORT = "LLM_REASONING_EFFORT";
+    private static final String DEFAULT_REASONING_EFFORT = "none";
+
     private final OpenAIClient openAIClient;
     private final String deploymentName;
     private final int maxTokens;
     private final String verbosity;
+    private final String reasoningEffort;
 
     public OpenAiChatService(final String endpoint, final String deploymentName) {
 
@@ -49,14 +71,16 @@ public class OpenAiChatService implements ChatService {
         this.openAIClient = OpenAiClientFactory.getInstance(endpoint);
 
         maxTokens = getRequiredEnvAsInteger(LLM_MODEL_RESPONSE_MAX_TOKENS, MAX_TOKENS);
-        verbosity = getRequiredEnv(LLM_MODEL_RESPONSE_VERBOSITY, "low");
+        verbosity = getRequiredEnv(LLM_MODEL_RESPONSE_VERBOSITY, DEFAULT_VERBOSITY);
+        reasoningEffort = getRequiredEnv(LLM_REASONING_EFFORT, DEFAULT_REASONING_EFFORT);
     }
 
     protected OpenAiChatService(final OpenAIClient openAIClient, final String deploymentName) {
         this.deploymentName = deploymentName;
         this.openAIClient = openAIClient;
         maxTokens = parseInt(MAX_TOKENS);
-        verbosity = getRequiredEnv(LLM_MODEL_RESPONSE_VERBOSITY, "low");
+        verbosity = getRequiredEnv(LLM_MODEL_RESPONSE_VERBOSITY, DEFAULT_VERBOSITY);
+        reasoningEffort = getRequiredEnv(LLM_REASONING_EFFORT, DEFAULT_REASONING_EFFORT);
         LOGGER.info("Returning initialized OpenAI client for chat.");
     }
 
@@ -72,15 +96,21 @@ public class OpenAiChatService implements ChatService {
                 .input(userInstruction)
                 .maxOutputTokens((long) maxTokens);
 
-        if (!reasoningModel) {
+        if (reasoningModel) {
+            paramsBuilder.reasoning(Reasoning.builder()
+                    .effort(ReasoningEffort.of(reasoningEffort.trim().toLowerCase()))
+                    .build());
+            // verbosity is a GPT-5 reasoning-model Responses-API control. Non-reasoning models
+            // (e.g. gpt-4o) REJECT it — `gpt-4o` returns 400 "Unsupported value: 'low' ... Supported
+            // values are: 'medium'" — so only set it for reasoning models, alongside reasoning_effort.
+            paramsBuilder.text(ResponseTextConfig.builder()
+                    .verbosity(ResponseTextConfig.Verbosity.of(verbosity))
+                    .build());
+            LOGGER.info("Applied reasoning_effort='{}', verbosity='{}' for reasoning model '{}'",
+                    reasoningEffort, verbosity, deploymentName);
+        } else {
             paramsBuilder.temperature(TEMPERATURE).topP(TOP_P);
         }
-
-        // verbosity is honored on the Responses API for GPT-5 reasoning models; silently ignored
-        // by other models. This allows users to configure more detailed response status information for troubleshooting without affecting non-reasoning models.
-        paramsBuilder.text(ResponseTextConfig.builder()
-                .verbosity(ResponseTextConfig.Verbosity.of(verbosity))
-                .build());
 
         try {
             final Response response = openAIClient.responses().create(paramsBuilder.build());

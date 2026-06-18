@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import com.openai.client.OpenAIClient;
+import com.openai.models.ReasoningEffort;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
 import com.openai.models.responses.ResponseOutputItem;
@@ -110,7 +111,7 @@ class OpenAiChatServiceTest {
     }
 
     @Test
-    @DisplayName("Reasoning-model deployments (gpt-5/o-series) omit temperature and top_p")
+    @DisplayName("Reasoning-model deployments (gpt-5/o-series) omit temperature/top_p and default reasoning_effort to none")
     void reasoningModelDeploymentOmitsSamplingParameters() throws Exception {
         assertSamplingParameters("gpt-5-mini", true);
         assertSamplingParameters("gpt5-deployment", true);
@@ -171,9 +172,15 @@ class OpenAiChatServiceTest {
         if (isReasoning) {
             assertTrue(params.temperature().isEmpty(), "reasoning model must not set temperature: " + deploymentName);
             assertTrue(params.topP().isEmpty(), "reasoning model must not set top_p: " + deploymentName);
+            assertTrue(params.reasoning().isPresent(), "reasoning model must set reasoning: " + deploymentName);
+            assertEquals(Optional.of(ReasoningEffort.NONE), params.reasoning().get().effort(),
+                    "reasoning model must default reasoning_effort to none: " + deploymentName);
+            assertTrue(params.text().isPresent(), "reasoning model must set verbosity (text config): " + deploymentName);
         } else {
             assertEquals(Optional.of(0.0), params.temperature(), "non-reasoning model must set temperature=0.0: " + deploymentName);
             assertEquals(Optional.of(0.0), params.topP(), "non-reasoning model must set top_p=0.0: " + deploymentName);
+            assertTrue(params.reasoning().isEmpty(), "non-reasoning model must not set reasoning: " + deploymentName);
+            assertTrue(params.text().isEmpty(), "non-reasoning model must NOT set verbosity (gpt-4o rejects 'low'): " + deploymentName);
         }
     }
 
