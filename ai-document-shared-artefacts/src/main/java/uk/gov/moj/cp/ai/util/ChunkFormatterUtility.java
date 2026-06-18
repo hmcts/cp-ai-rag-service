@@ -32,7 +32,10 @@ public class ChunkFormatterUtility {
             for (ChunkedEntry entry : entriesPerDocument.getValue()) {
                 final String pageNumber = null != entry.pageNumber() ? entry.pageNumber().toString() : "";
 
-                sb.append("<DATA CHUNK_ID=\"").append(entry.id()).append("\">\n"); // Gives the LLM a unique anchor
+                // CHUNK_ID intentionally omitted: nothing downstream consumes a chunk id, and exposing
+                // the per-chunk GUID led models (notably gpt-5.1) to misuse it as the documentId and to
+                // derive citationIds from its hex prefix. Citations are page-level (DOCUMENT_ID + page).
+                sb.append("<DATA>\n");
                 sb.append("<PAGE_NUMBER>").append(pageNumber).append("</PAGE_NUMBER>\n");
                 sb.append("<DOCUMENT_CONTENT>").append(entry.chunk()).append("</DOCUMENT_CONTENT>\n");
                 sb.append("</DATA>\n");

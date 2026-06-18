@@ -23,6 +23,7 @@ import com.azure.ai.openai.models.ChatCompletions;
 import com.azure.ai.openai.models.ChatCompletionsOptions;
 import com.azure.ai.openai.models.ChatResponseMessage;
 import com.azure.ai.openai.models.CompletionsFinishReason;
+import com.azure.ai.openai.models.ReasoningEffortValue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -111,7 +112,7 @@ class AzureChatServiceTest {
     }
 
     @Test
-    @DisplayName("Reasoning-model deployments (gpt-5/o-series) omit temperature and top_p")
+    @DisplayName("Reasoning-model deployments (gpt-5/o-series) omit temperature/top_p and default reasoning_effort to none")
     void reasoningModelDeploymentOmitsSamplingParameters() throws Exception {
         assertSamplingParameters("gpt-5-mini", true);
         assertSamplingParameters("gpt5-deployment", true);
@@ -121,7 +122,7 @@ class AzureChatServiceTest {
     }
 
     @Test
-    @DisplayName("Non-reasoning deployments (gpt-4 family) set temperature and top_p to 0.0")
+    @DisplayName("Non-reasoning deployments (gpt-4 family) set temperature/top_p to 0.0 and no reasoning_effort")
     void nonReasoningModelDeploymentSetsSamplingParameters() throws Exception {
         assertSamplingParameters("gpt-4o", false);
         assertSamplingParameters("gpt-4-turbo", false);
@@ -145,9 +146,12 @@ class AzureChatServiceTest {
         if (isReasoning) {
             assertNull(options.getTemperature(), "reasoning model must not set temperature: " + deploymentName);
             assertNull(options.getTopP(), "reasoning model must not set top_p: " + deploymentName);
+            assertEquals(ReasoningEffortValue.fromString("none"), options.getReasoningEffort(),
+                    "reasoning model must default reasoning_effort to none (LLM_REASONING_EFFORT unset): " + deploymentName);
         } else {
             assertEquals(0.0, options.getTemperature(), "non-reasoning model must set temperature=0.0: " + deploymentName);
             assertEquals(0.0, options.getTopP(), "non-reasoning model must set top_p=0.0: " + deploymentName);
+            assertNull(options.getReasoningEffort(), "non-reasoning model must not set reasoning_effort: " + deploymentName);
         }
     }
 

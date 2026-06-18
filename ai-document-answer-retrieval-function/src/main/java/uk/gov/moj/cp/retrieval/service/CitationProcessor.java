@@ -47,9 +47,14 @@ import org.slf4j.LoggerFactory;
  *       the JSON payload.</li>
  *   <li>Accepts opening/closing tags emitted in any letter case and with
  *       whitespace inside the angle brackets.</li>
- *   <li>Strips the catastrophic counter-loop pathology (output flooded with
- *       {@code [1][2]...[N]} markers) once it exceeds a configurable
- *       threshold, so users never see thousands of unresolved brackets.</li>
+ *   <li>Strips <em>unresolved</em> bare {@code [N]} markers — any inline
+ *       placeholder left over once substitution has run, because it had no
+ *       matching JSON entry, the {@code <FACT_MAP_JSON>} block was absent, or the
+ *       JSON failed to parse. This covers two failure modes: the GPT-4o
+ *       catastrophic counter-loop (output flooded with {@code [1][2]...[N]}) and
+ *       the GPT-5.1 reasoning-token truncation, where the response is cut off
+ *       before the closing tag so the citation block is lost entirely. In both
+ *       cases the user would otherwise see naked, meaningless brackets.</li>
  * </ul>
  */
 public class CitationProcessor {
@@ -108,7 +113,7 @@ public class CitationProcessor {
         final TagLocation lastTag = findLastJsonTag(rawLlmOutput);
         if (lastTag == null) {
             LOGGER.warn("Raw output missing required <{}> tags; cannot format citations.", FACT_MAP_ATTRIBUTE_KEY);
-            return stripRunawayBracketsIfCatastrophic(rawLlmOutput).trim();
+            return stripUnresolvedCitationMarkers(rawLlmOutput, true).trim();
         }
 
         final String answerBeforeTag = rawLlmOutput.substring(0, lastTag.start);
@@ -123,10 +128,10 @@ public class CitationProcessor {
             for (final Map<String, Object> citation : citations) {
                 answerText = substituteCitation(answerText, citation);
             }
-            return stripRunawayBracketsIfCatastrophic(answerText).trim();
+            return stripUnresolvedCitationMarkers(answerText, false).trim();
         } catch (final Exception e) {
             LOGGER.warn("Failed to parse citation JSON or substitute placeholders; returning narrative without citations.", e);
-            return answerText;
+            return stripUnresolvedCitationMarkers(answerText, true).trim();
         }
     }
 
@@ -199,13 +204,40 @@ public class CitationProcessor {
         return String.valueOf(value);
     }
 
-    private static String stripRunawayBracketsIfCatastrophic(final String text) {
-        final long count = BARE_BRACKET_INT.matcher(text).results().count();
-        if (count > CATASTROPHIC_BRACKET_THRESHOLD) {
-            LOGGER.warn("Catastrophic citation pathology: {} inline [N] markers; stripping.", count);
-            return BARE_BRACKET_INT.matcher(text).replaceAll("");
+    /**
+     * Removes inline {@code [N]} markers that could not be resolved to a citation.
+     * A marker is unresolved when there was no {@code <FACT_MAP_JSON>} block, the
+     * JSON failed to parse, or the id had no matching JSON entry — in all of which
+     * cases the bracket is meaningless to the reader and is stripped.
+     *
+     * <p>Joined forms such as {@code [1, 2]} are normalised to {@code [1][2]} first
+     * so they are caught too. The log level is the same warning in every case, but
+     * the message distinguishes the catastrophic counter-loop, the missing-block
+     * (truncation) case, and ordinary id/JSON mismatch for observability.
+     *
+     * @param text        the text to clean
+     * @param noJsonBlock {@code true} when no parseable JSON block was available
+     *                    (no-tag or parse-failure paths); {@code false} on the
+     *                    post-substitution path where any leftover marker is a
+     *                    plain inline⇄JSON id mismatch
+     */
+    private static String stripUnresolvedCitationMarkers(final String text, final boolean noJsonBlock) {
+        final String normalised = normaliseJoinedIds(text);
+        final long count = BARE_BRACKET_INT.matcher(normalised).results().count();
+        if (count == 0) {
+            return normalised;
         }
-        return text;
+        if (count > CATASTROPHIC_BRACKET_THRESHOLD) {
+            LOGGER.warn("Catastrophic citation pathology: {} unresolved [N] markers; stripping all.", count);
+        } else if (noJsonBlock) {
+            LOGGER.warn("Response carried {} inline [N] marker(s) but no usable <{}> block "
+                            + "(likely reasoning-token truncation); stripping unresolved markers.",
+                    count, FACT_MAP_ATTRIBUTE_KEY);
+        } else {
+            LOGGER.warn("{} inline [N] marker(s) had no matching JSON citation entry; stripping unresolved markers.",
+                    count);
+        }
+        return BARE_BRACKET_INT.matcher(normalised).replaceAll("");
     }
 
     /**

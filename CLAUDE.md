@@ -46,6 +46,7 @@ Key environment variables required across functions:
   - `SEARCH_RESULTS_ENABLE_DEDUPLICATION` / `SEARCH_RESULTS_SEMANTIC_DEDUPLICATION_THRESHOLD` drive the older cosine semantic-dedup path, off by default (not information-safe — can drop a near-duplicate that carries unique content).
 - `AZURE_EMBEDDING_SERVICE_ENDPOINT` + `AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME`
 - `LLM_MODEL_RESPONSE_MAX_TOKENS`, HTTP/retry config (`AZURE_CLIENT_MAX_RETRIES`, etc.)
+- `LLM_REASONING_EFFORT` — optional; applied by `AzureChatService` **only to reasoning models** (gpt-5/o-series), ignored for gpt-4o. On a reasoning deployment this shares the `max_completion_tokens` budget with the answer, so higher effort can exhaust it and return an empty `finish_reason=length` response. The evaluation (`ai-document-system-prompt-harness-eval/src/main/resources/system-prompt-evaluation-cross-model.md`) found `none` eliminates those truncations on gpt-5.1 with no measured citation-coverage loss; `AzureChatService` therefore **defaults reasoning models to `none`** when the var is unset (override with `minimal|low|medium|high`).
 
 ## Module Structure
 
@@ -60,6 +61,7 @@ Multi-module Maven project with five Azure Functions, one shared library, and on
 | `ai-document-answer-scoring-function` | Evaluates response groundedness, publishes scores to Azure Monitor |
 | `ai-document-status-check-function` | HTTP-triggered; exposes GET endpoints to retrieve document ingestion status from Table Storage |
 | `ai-service-orchestration-test` | Integration tests (REST Assured + Testcontainers + Awaitility) — test-only module |
+| `ai-document-system-prompt-harness-eval` | Offline, on-demand evaluation harness for the answer-retrieval system prompt (runs the embed→search→generate→cite pipeline across prompts × LLMs × queries, reports citation/verbosity/coverage metrics). Not deployed; config from a local `.env` via `run-harness.sh`. |
 
 ## API Contract
 

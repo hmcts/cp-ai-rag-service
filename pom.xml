@@ -19,6 +19,7 @@
         <module>ai-document-status-check-function</module>
         <module>ai-service-orchestration-test</module>
         <module>ai-document-migration-tool</module>
+        <module>ai-document-system-prompt-harness-eval</module>
     </modules>
 
     <properties>
