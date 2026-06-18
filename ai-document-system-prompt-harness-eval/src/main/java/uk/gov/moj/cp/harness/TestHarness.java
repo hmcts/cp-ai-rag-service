@@ -139,16 +139,26 @@ public final class TestHarness {
         final List<LlmConfig> llms = loadLlms();
         final List<UserQueryConfig> queries = loadUserQueriesFromJson();
 
-        final String embeddingEndpoint = requireEnv("AZURE_EMBEDDING_SERVICE_ENDPOINT");
-        final String embeddingDeployment = requireEnv("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME");
-        final String searchEndpoint = requireEnv("AZURE_SEARCH_SERVICE_ENDPOINT");
-        final String searchIndex = requireEnv("AZURE_SEARCH_SERVICE_INDEX_NAME");
+        final EmbeddingService embeddingService = new EmbeddingService(
+                requireEnv("AZURE_EMBEDDING_SERVICE_ENDPOINT"), requireEnv("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME"));
+        final AzureAISearchService searchService = new AzureAISearchService(
+                requireEnv("AZURE_SEARCH_SERVICE_ENDPOINT"), requireEnv("AZURE_SEARCH_SERVICE_INDEX_NAME"));
 
-        final EmbeddingService embeddingService = new EmbeddingService(embeddingEndpoint, embeddingDeployment);
-        final AzureAISearchService searchService = new AzureAISearchService(searchEndpoint, searchIndex);
+        final Map<String, List<ChunkedEntry>> chunksByQueryLabel = retrieveChunks(queries, embeddingService, searchService);
+        final List<RunResult> results = runMatrix(systemPrompts, llms, queries, chunksByQueryLabel);
 
-        // Retrieve chunks once per query — chunks don't depend on prompt or LLM, so
-        // re-fetching for every (prompt, LLM) would waste embedding + search calls.
+        printSummary(results);
+        printConsistency(results);
+        printDetail(results, systemPrompts, queries);
+    }
+
+    /**
+     * Retrieve chunks once per query — chunks don't depend on prompt or LLM, so re-fetching
+     * for every (prompt, LLM) would waste embedding + search calls.
+     */
+    private static Map<String, List<ChunkedEntry>> retrieveChunks(final List<UserQueryConfig> queries,
+                                                                  final EmbeddingService embeddingService,
+                                                                  final AzureAISearchService searchService) {
         final Map<String, List<ChunkedEntry>> chunksByQueryLabel = new LinkedHashMap<>();
         for (final UserQueryConfig uqc : queries) {
             try {
@@ -162,7 +172,15 @@ public final class TestHarness {
                 chunksByQueryLabel.put(uqc.label(), List.of());
             }
         }
+        return chunksByQueryLabel;
+    }
 
+    /** Runs every (iteration × prompt × LLM × query) cell and collects the results. */
+    private static List<RunResult> runMatrix(final List<SystemPromptConfig> systemPrompts,
+                                             final List<LlmConfig> llms,
+                                             final List<UserQueryConfig> queries,
+                                             final Map<String, List<ChunkedEntry>> chunksByQueryLabel)
+            throws InterruptedException {
         final List<RunResult> results = new ArrayList<>();
         for (int iter = 1; iter <= REPETITIONS; iter++) {
             Thread.sleep(Duration.ofSeconds(5).toMillis());
@@ -171,41 +189,37 @@ public final class TestHarness {
                 for (final LlmConfig lc : llms) {
                     final ResponseGenerationService svc = buildService(spc, lc);
                     for (final UserQueryConfig uqc : queries) {
-                        final List<ChunkedEntry> chunks = chunksByQueryLabel.get(uqc.label());
-                        if (chunks == null || chunks.isEmpty()) {
-                            LOGGER.info("[skip] iter={} prompt={} llm={} query={} — no chunks",
-                                    iter, spc.label(), lc.label(), uqc.label());
-                            results.add(new RunResult(spc.label(), lc.label(), uqc.label(), iter,
-                                    null, 0L, "SKIPPED: no chunks for query"));
-                            continue;
-                        }
-                        if (CALL_DELAY_SECONDS > 0) {
-                            Thread.sleep(Duration.ofSeconds(CALL_DELAY_SECONDS).toMillis());
-                        }
-                        LOGGER.info("[run] iter={} prompt={} llm={} query={}",
-                                iter, spc.label(), lc.label(), uqc.label());
-                        final long t0 = System.currentTimeMillis();
-                        try {
-                            final LlmResponse r = svc.generateResponse(uqc.userQuery(), chunks, uqc.userQueryPrompt());
-                            results.add(new RunResult(spc.label(), lc.label(), uqc.label(), iter,
-                                    r, System.currentTimeMillis() - t0, null));
-                        } catch (final Exception e) {
-                            // Includes ChatServiceException and transient transport failures
-                            // (e.g. read timeouts on long gpt-5.1 reasoning calls). Record the
-                            // cell as an ERROR and carry on rather than aborting the whole matrix.
-                            LOGGER.warn("[run] FAILED iter={} prompt={} llm={} query={}",
-                                    iter, spc.label(), lc.label(), uqc.label(), e);
-                            results.add(new RunResult(spc.label(), lc.label(), uqc.label(), iter,
-                                    null, System.currentTimeMillis() - t0, e.toString()));
-                        }
+                        results.add(runCell(svc, spc, lc, uqc, iter, chunksByQueryLabel.get(uqc.label())));
                     }
                 }
             }
         }
+        return results;
+    }
 
-        printSummary(results);
-        printConsistency(results);
-        printDetail(results, systemPrompts, queries);
+    /** Runs one (prompt × LLM × query) cell, recording an ERROR/SKIPPED result rather than aborting. */
+    private static RunResult runCell(final ResponseGenerationService svc, final SystemPromptConfig spc,
+                                     final LlmConfig lc, final UserQueryConfig uqc, final int iter,
+                                     final List<ChunkedEntry> chunks) throws InterruptedException {
+        if (chunks == null || chunks.isEmpty()) {
+            LOGGER.info("[skip] iter={} prompt={} llm={} query={} — no chunks",
+                    iter, spc.label(), lc.label(), uqc.label());
+            return new RunResult(spc.label(), lc.label(), uqc.label(), iter, null, 0L, "SKIPPED: no chunks for query");
+        }
+        if (CALL_DELAY_SECONDS > 0) {
+            Thread.sleep(Duration.ofSeconds(CALL_DELAY_SECONDS).toMillis());
+        }
+        LOGGER.info("[run] iter={} prompt={} llm={} query={}", iter, spc.label(), lc.label(), uqc.label());
+        final long t0 = System.currentTimeMillis();
+        try {
+            final LlmResponse r = svc.generateResponse(uqc.userQuery(), chunks, uqc.userQueryPrompt());
+            return new RunResult(spc.label(), lc.label(), uqc.label(), iter, r, System.currentTimeMillis() - t0, null);
+        } catch (final Exception e) {
+            // Includes ChatServiceException and transient transport failures (e.g. read timeouts on
+            // long gpt-5.1 reasoning calls). Record the cell as an ERROR and carry on.
+            LOGGER.warn("[run] FAILED iter={} prompt={} llm={} query={}", iter, spc.label(), lc.label(), uqc.label(), e);
+            return new RunResult(spc.label(), lc.label(), uqc.label(), iter, null, System.currentTimeMillis() - t0, e.toString());
+        }
     }
 
     private static ResponseGenerationService buildService(final SystemPromptConfig spc, final LlmConfig lc) {
@@ -328,34 +342,43 @@ public final class TestHarness {
                 "iter", "query", "prompt", "llm", "status", "ms", "chars", "prose", "words"));
         LOGGER.info("-".repeat(160));
         for (final RunResult r : results) {
-            final String status;
-            if (r.error() != null) {
-                status = r.error().startsWith("SKIPPED") ? "SKIPPED" : "ERROR";
-            } else {
-                status = r.response() != null ? String.valueOf(r.response().status()) : "n/a";
-            }
-            final int len = (r.response() != null && r.response().rawLlmResponse() != null)
-                    ? r.response().rawLlmResponse().length() : 0;
             final Compliance c = r.response() != null ? computeCompliance(r.response()) : null;
             LOGGER.info(String.format("%4d | %-26s | %-26s | %-22s | %6s | %6d | %6d | %6d | %6d",
                     r.iteration(),
                     truncate(r.queryLabel(), 26),
                     truncate(r.promptLabel(), 26),
                     truncate(r.llmLabel(), 22),
-                    truncate(status, 6),
+                    truncate(statusOf(r), 6),
                     r.durationMs(),
-                    len,
+                    rawLen(r),
                     c != null ? c.proseChars() : 0,
                     c != null ? c.proseWords() : 0));
         }
+    }
+
+    private static String statusOf(final RunResult r) {
+        if (r.error() != null) {
+            return r.error().startsWith("SKIPPED") ? "SKIPPED" : "ERROR";
+        }
+        return r.response() != null ? String.valueOf(r.response().status()) : "n/a";
+    }
+
+    private static int rawLen(final RunResult r) {
+        return (r.response() != null && r.response().rawLlmResponse() != null)
+                ? r.response().rawLlmResponse().length() : 0;
+    }
+
+    /** Per-(query, prompt, LLM) cell aggregate across the {@link #REPETITIONS} iterations. */
+    private record CellStats(int ok, int jsonPresent, int matched, int substituted,
+                             long proseAvg, long wordAvg, long citeAvg, long pageAvg) {
     }
 
     /** Aggregate stats per (query, prompt, LLM) cell across the {@link #REPETITIONS} iterations. */
     private static void printConsistency(final List<RunResult> results) {
         final Map<String, List<RunResult>> grouped = new LinkedHashMap<>();
         for (final RunResult r : results) {
-            final String key = r.queryLabel() + "|" + r.promptLabel() + "|" + r.llmLabel();
-            grouped.computeIfAbsent(key, k -> new ArrayList<>()).add(r);
+            grouped.computeIfAbsent(r.queryLabel() + "|" + r.promptLabel() + "|" + r.llmLabel(),
+                    k -> new ArrayList<>()).add(r);
         }
 
         LOGGER.info("");
@@ -364,51 +387,49 @@ public final class TestHarness {
                 "query", "prompt", "llm", "ok", "json", "match", "subst", "proseAvg", "wordAvg", "cites", "pages"));
         LOGGER.info("-".repeat(160));
 
-        for (final Map.Entry<String, List<RunResult>> entry : grouped.entrySet()) {
-            final List<RunResult> runs = entry.getValue();
+        for (final List<RunResult> runs : grouped.values()) {
             final RunResult first = runs.get(0);
-            int ok = 0;
-            int jsonPresent = 0;
-            int matched = 0;
-            int substituted = 0;
-            long proseSum = 0;
-            long wordSum = 0;
-            long citeSum = 0;
-            long pageSum = 0;
-            int proseN = 0;
-            for (final RunResult r : runs) {
-                if (r.error() == null && r.response() != null
-                        && "ANSWER_GENERATED".equals(String.valueOf(r.response().status()))) {
-                    ok++;
-                    final Compliance c = computeCompliance(r.response());
-                    if (c.jsonBlockPresent()) {
-                        jsonPresent++;
-                    }
-                    if (c.inlineSubsetOfJson()) {
-                        matched++;
-                    }
-                    if (c.processorSubstituted()) {
-                        substituted++;
-                    }
-                    proseSum += c.proseChars();
-                    wordSum += c.proseWords();
-                    citeSum += c.jsonIds().size();
-                    pageSum += c.citedPages();
-                    proseN++;
-                }
-            }
+            final CellStats s = computeCellStats(runs);
             final int n = runs.size();
-            final long proseAvg = proseN > 0 ? proseSum / proseN : 0;
-            final long wordAvg = proseN > 0 ? wordSum / proseN : 0;
-            final long citeAvg = proseN > 0 ? citeSum / proseN : 0;
-            final long pageAvg = proseN > 0 ? pageSum / proseN : 0;
             LOGGER.info(String.format("%-26s | %-22s | %-22s | %5d/%d | %5d/%d | %5d/%d | %5d/%d | %8d | %7d | %5d | %5d",
-                    truncate(first.queryLabel(), 26),
-                    truncate(first.promptLabel(), 22),
-                    truncate(first.llmLabel(), 22),
-                    ok, n, jsonPresent, n, matched, n, substituted, n, proseAvg, wordAvg, citeAvg, pageAvg));
+                    truncate(first.queryLabel(), 26), truncate(first.promptLabel(), 22), truncate(first.llmLabel(), 22),
+                    s.ok(), n, s.jsonPresent(), n, s.matched(), n, s.substituted(), n,
+                    s.proseAvg(), s.wordAvg(), s.citeAvg(), s.pageAvg()));
         }
 
+        printConsistencyLegend();
+    }
+
+    private static CellStats computeCellStats(final List<RunResult> runs) {
+        int ok = 0;
+        int jsonPresent = 0;
+        int matched = 0;
+        int substituted = 0;
+        long proseSum = 0;
+        long wordSum = 0;
+        long citeSum = 0;
+        long pageSum = 0;
+        for (final RunResult r : runs) {
+            if (r.error() != null || r.response() == null
+                    || !"ANSWER_GENERATED".equals(String.valueOf(r.response().status()))) {
+                continue;
+            }
+            ok++;
+            final Compliance c = computeCompliance(r.response());
+            jsonPresent += c.jsonBlockPresent() ? 1 : 0;
+            matched += c.inlineSubsetOfJson() ? 1 : 0;
+            substituted += c.processorSubstituted() ? 1 : 0;
+            proseSum += c.proseChars();
+            wordSum += c.proseWords();
+            citeSum += c.jsonIds().size();
+            pageSum += c.citedPages();
+        }
+        final int denom = ok > 0 ? ok : 1;
+        return new CellStats(ok, jsonPresent, matched, substituted,
+                proseSum / denom, wordSum / denom, citeSum / denom, pageSum / denom);
+    }
+
+    private static void printConsistencyLegend() {
         LOGGER.info("");
         LOGGER.info("Legend:");
         LOGGER.info("  ok       = runs that returned ANSWER_GENERATED");
@@ -425,9 +446,11 @@ public final class TestHarness {
     }
 
     private static final Pattern BARE_BRACKET = Pattern.compile("\\[(\\d+)\\]");
-    private static final Pattern ANY_BRACKET_CITATION = Pattern.compile("\\[(\\d+)[^\\[\\]]*\\]");
+    // Possessive quantifiers ({@code *+}): the negated class already excludes brackets, so the match
+    // is linear — possessive makes that explicit and avoids any catastrophic-backtracking risk.
+    private static final Pattern ANY_BRACKET_CITATION = Pattern.compile("\\[(\\d+)[^\\[\\]]*+\\]");
     /** Any bracketed token — used to strip all citation markers when measuring prose length. */
-    private static final Pattern BRACKET_TOKEN = Pattern.compile("\\[[^\\[\\]]*\\]");
+    private static final Pattern BRACKET_TOKEN = Pattern.compile("\\[[^\\[\\]]*+\\]");
     private static final Pattern JSON_CITATION_ID = Pattern.compile("\"citationId\"\\s*:\\s*(\\d+)");
     /** Captures each individualPageNumbers value, to count how many source pages the answer cites. */
     private static final Pattern INDIVIDUAL_PAGES = Pattern.compile("\"individualPageNumbers\"\\s*:\\s*\"([^\"]*)\"");
@@ -519,31 +542,37 @@ public final class TestHarness {
                 LOGGER.info("");
                 LOGGER.info("=== prompt: {} ===", spc.label());
                 for (final RunResult r : sorted) {
-                    if (!r.queryLabel().equals(uqc.label()) || !r.promptLabel().equals(spc.label())) {
-                        continue;
-                    }
-                    LOGGER.info("");
-                    LOGGER.info("--- llm: {} | iter: {} | {} ms ---", r.llmLabel(), r.iteration(), r.durationMs());
-                    if (r.error() != null) {
-                        LOGGER.info("ERROR: {}", r.error());
-                    } else if (r.response() != null) {
-                        final Compliance c = computeCompliance(r.response());
-                        LOGGER.info("status: {} | jsonBlock: {} | inlineIds: {} | jsonIds: {}"
-                                        + " | drift: {} | match: {} | subst: {} | proseChars: {} | proseWords: {}"
-                                        + " | citedPages: {}",
-                                r.response().status(), c.jsonBlockPresent(), c.inlineIds(), c.jsonIds(),
-                                c.rawDriftMarkers(), c.inlineSubsetOfJson(), c.processorSubstituted(),
-                                c.proseChars(), c.proseWords(), c.citedPages());
-                        LOGGER.info("");
-                        LOGGER.info("RAW RESPONSE:");
-                        LOGGER.info(safe(r.response().rawLlmResponse()));
-                        LOGGER.info("");
-                        LOGGER.info("FORMATTED RESPONSE (after CitationProcessor):");
-                        LOGGER.info(safe(r.response().formattedLlmResponse()));
+                    if (r.queryLabel().equals(uqc.label()) && r.promptLabel().equals(spc.label())) {
+                        printRunDetail(r);
                     }
                 }
             }
         }
+    }
+
+    private static void printRunDetail(final RunResult r) {
+        LOGGER.info("");
+        LOGGER.info("--- llm: {} | iter: {} | {} ms ---", r.llmLabel(), r.iteration(), r.durationMs());
+        if (r.error() != null) {
+            LOGGER.info("ERROR: {}", r.error());
+            return;
+        }
+        if (r.response() == null) {
+            return;
+        }
+        final Compliance c = computeCompliance(r.response());
+        LOGGER.info("status: {} | jsonBlock: {} | inlineIds: {} | jsonIds: {}"
+                        + " | drift: {} | match: {} | subst: {} | proseChars: {} | proseWords: {}"
+                        + " | citedPages: {}",
+                r.response().status(), c.jsonBlockPresent(), c.inlineIds(), c.jsonIds(),
+                c.rawDriftMarkers(), c.inlineSubsetOfJson(), c.processorSubstituted(),
+                c.proseChars(), c.proseWords(), c.citedPages());
+        LOGGER.info("");
+        LOGGER.info("RAW RESPONSE:");
+        LOGGER.info(safe(r.response().rawLlmResponse()));
+        LOGGER.info("");
+        LOGGER.info("FORMATTED RESPONSE (after CitationProcessor):");
+        LOGGER.info(safe(r.response().formattedLlmResponse()));
     }
 
     // ---- env + string helpers ----------------------------------------------
