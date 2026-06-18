@@ -447,14 +447,15 @@ public final class TestHarness {
     }
 
     private static final Pattern BARE_BRACKET = Pattern.compile("\\[(\\d+)\\]");
-    // Possessive quantifiers ({@code *+}): the negated class already excludes brackets, so the match
-    // is linear — possessive makes that explicit and avoids any catastrophic-backtracking risk.
-    private static final Pattern ANY_BRACKET_CITATION = Pattern.compile("\\[(\\d+)[^\\[\\]]*+\\]");
+    // Bounded repetition ({0,N}) on the negated classes: citation markers and page lists are short,
+    // and a bounded quantifier cannot backtrack super-linearly — this satisfies SonarQube's S5852
+    // (regex-DoS) check, which a possessive quantifier did not.
+    private static final Pattern ANY_BRACKET_CITATION = Pattern.compile("\\[\\d[^\\[\\]]{0,40}\\]");
     /** Any bracketed token — used to strip all citation markers when measuring prose length. */
-    private static final Pattern BRACKET_TOKEN = Pattern.compile("\\[[^\\[\\]]*+\\]");
+    private static final Pattern BRACKET_TOKEN = Pattern.compile("\\[[^\\[\\]]{0,64}\\]");
     private static final Pattern JSON_CITATION_ID = Pattern.compile("\"citationId\"\\s*:\\s*(\\d+)");
     /** Captures each individualPageNumbers value, to count how many source pages the answer cites. */
-    private static final Pattern INDIVIDUAL_PAGES = Pattern.compile("\"individualPageNumbers\"\\s*:\\s*\"([^\"]*)\"");
+    private static final Pattern INDIVIDUAL_PAGES = Pattern.compile("\"individualPageNumbers\"\\s*:\\s*\"([^\"]{0,200})\"");
     /** Literal citation-block tags (the prompt mandates these exact tags). Matched case-insensitively
      *  by index scan rather than a regex, to avoid any backtracking over the block body. */
     private static final String FACT_MAP_OPEN = "<FACT_MAP_JSON>";
