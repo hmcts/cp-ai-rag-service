@@ -28,17 +28,14 @@ This mono-repo contains five independent Azure Functions, a shared library, and 
 
 ### Document Ingestion Pipeline
 
-The metadata-check module supports two upload entry flows; both converge on the document-ingestion queue and the same downstream worker.
+The metadata-check module exposes an HTTP-initiated SAS upload flow that feeds the document-ingestion queue and the downstream worker.
 
-**Flow A — HTTP-initiated SAS upload** (preferred, two-step):
+**HTTP-initiated SAS upload** (two-step):
 1. Caller calls `DocumentUploadFunction` (`POST /document-upload`, `@FunctionName("InitiateDocumentUpload")`) with a `DocumentUploadRequest` (documentId, documentName, metadata, overwrites). The function validates the request, rejects duplicates, records an "awaiting upload" row in Table Storage, and returns a write-only SAS URL (issued by `BlobClientService` against the document-upload container) together with the documentId.
 2. Caller PUTs the file bytes directly to the returned SAS URL.
 3. The blob landing in the upload container fires `DocumentBlobTriggerFunction` (`@FunctionName("DocumentUploadCheck")`), which checks the file size, updates the Table Storage row, and enqueues an ingestion message.
 
-**Flow B — direct blob drop** (file arrives in the primary upload container via an out-of-band mechanism):
-1. `BlobTriggerFunction` (`@FunctionName("DocumentMetadataCheck")`) fires; `IngestionOrchestratorService` validates metadata against Table Storage and enqueues an ingestion message on success.
-
-**Downstream (shared by both flows):**
+**Downstream:**
 - `DocumentIngestionFunction` (ingestion-function, queue-triggered) consumes the queue and runs `DocumentIngestionOrchestrator`:
   - Azure Document Intelligence extracts text content
   - Content is chunked by `DocumentChunkingService` (uses LangChain4J's recursive `DocumentSplitter`)
