@@ -82,8 +82,6 @@ public class DocumentIngestionOrchestrator {
         final String documentName = queueIngestionMetadata.documentName();
         final String documentId = queueIngestionMetadata.documentId();
         final String documentUrl = queueIngestionMetadata.blobUrl();
-        final boolean isDocumentIdAsRowKey = queueIngestionMetadata.isDocumentIdUsedAsRowKey();
-
 
         LOGGER.info("Starting document ingestion process for document: {} (ID: {})", documentName, documentId);
         // Step 1: Analyze document using Azure Document Intelligence
@@ -102,7 +100,7 @@ public class DocumentIngestionOrchestrator {
         markSupersededDocumentsInactive(documentId);
 
         // Step 6: Record success
-        recordOutcome(documentName, documentId, INGESTION_SUCCESS.name(), INGESTION_SUCCESS.getReason(), isDocumentIdAsRowKey);
+        recordOutcome(documentName, documentId, INGESTION_SUCCESS.name(), INGESTION_SUCCESS.getReason());
 
         LOGGER.info("Document ingestion completed successfully for document: {} (ID: {})", documentName, documentId);
 
@@ -112,9 +110,8 @@ public class DocumentIngestionOrchestrator {
         try {
             final String documentName = queueIngestionMetadata.documentName();
             final String documentId = queueIngestionMetadata.documentId();
-            final boolean isDocumentIdAsRowKey = queueIngestionMetadata.isDocumentIdUsedAsRowKey();
 
-            recordOutcome(documentName, documentId, INGESTION_FAILED.name(), INGESTION_FAILED.getReason(), isDocumentIdAsRowKey);
+            recordOutcome(documentName, documentId, INGESTION_FAILED.name(), INGESTION_FAILED.getReason());
 
         } catch (Exception e) {
             LOGGER.error("Error processing queue message for the documentId: {} and documentName: {}, document outcome cannot be updated.",
@@ -140,14 +137,9 @@ public class DocumentIngestionOrchestrator {
     }
 
     private void recordOutcome(final String documentName, final String documentId,
-                               final String status, final String reason,
-                               boolean isDocumentIdAsRowKey) throws DocumentProcessingException {
+                               final String status, final String reason) throws DocumentProcessingException {
         try {
-            if (isDocumentIdAsRowKey) {
-                documentIngestionOutcomeTableService.upsertDocument(documentId, status, reason);
-            } else {
-                documentIngestionOutcomeTableService.upsertIntoTable(documentName, documentId, status, reason);
-            }
+            documentIngestionOutcomeTableService.upsertDocument(documentId, status, reason);
             LOGGER.info("event=outcome_recorded status={} documentName={} documentId={}", status, documentName, documentId);
         } catch (Exception e) {
             final String message = String.format("Failed to update document outcome '%s' for the documentId: '%s'", status, documentId);

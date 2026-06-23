@@ -15,7 +15,7 @@ This mono-repo contains five independent Azure Functions, a shared library, and 
 | `ai-document-ingestion-function` | Orchestrates document preprocessing, chunking, embedding generation, and vector storage |
 | `ai-document-answer-retrieval-function` | Processes client queries, performs retrieval/grounding, and generates answer summaries |
 | `ai-document-answer-scoring-function` | Scores generated responses and records telemetry in Azure Monitor |
-| `ai-document-status-check-function` | HTTP GET endpoints to look up document ingestion status by reference |
+| `ai-document-status-check-function` | HTTP GET endpoint to look up document ingestion status by document reference |
 
 ### Supporting Modules
 
