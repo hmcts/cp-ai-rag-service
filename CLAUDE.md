@@ -55,7 +55,7 @@ Multi-module Maven project with five Azure Functions, one shared library, and on
 | Module | Purpose |
 |--------|---------|
 | `ai-document-shared-artefacts` | Shared models (OpenAPI-generated), entities, utility services used by all functions |
-| `ai-document-metadata-check-function` | HTTP `POST /document-upload` issues a SAS URL for the file upload; blob triggers then validate metadata against Table Storage and enqueue the ingestion message |
+| `ai-document-metadata-check-function` | HTTP `POST /document-upload` issues a SAS URL for the file upload; a blob trigger then validates the uploaded file, records status in Table Storage, and enqueues the ingestion message |
 | `ai-document-ingestion-function` | Queue-triggered; orchestrates Document Intelligence → chunking → embedding → AI Search indexing |
 | `ai-document-answer-retrieval-function` | Queue-triggered; embeds query, retrieves chunks via AI Search, generates LLM answer summary |
 | `ai-document-answer-scoring-function` | Evaluates response groundedness, publishes scores to Azure Monitor |
@@ -82,7 +82,6 @@ implement.
 |---|---|---|---|---|---|
 | `POST /document-upload` | `initiate-document-upload` | `documentUploadRequest` | `200` `fileStorageLocationReturnedSuccessfully` | `400`/`500` `requestErrored` | `InitiateDocumentUpload` |
 | `GET /document-upload/{documentReference}` | `document-status-by-reference` | path `documentReference` (uuid) | `200` `documentIngestionStatusReturnedSuccessfully` | `404` `documentStatusNotAvailable` | `DocumentStatusByReference` |
-| `GET /document-status` | `document-status` | query `document-name` | `200` `documentIngestionStatusReturnedSuccessfully` | `404` `documentStatusNotAvailable` | `DocumentStatusCheck` |
 | `POST /answer-user-query` | `answer-user-query` | `answerUserQueryRequest` | `200` `userQueryAnswerReturnedSuccessfullySynchronously` | `400`/`500` `requestErrored` | `AnswerRetrieval` |
 | `POST /answer-user-query-async` | `answer-user-query-async` | `answerUserQueryRequest` | `202` `userQueryAnswerRequestAccepted` | `400`/`500` `requestErrored` | `InitiateAnswerGeneration` |
 | `GET /answer-user-query-async-status/{transactionId}` | `answer-user-query-status` | path `transactionId` (uuid), query `withChunkedEntries` (bool) | `200` `userQueryAnswerReturnedSuccessfullyAsynchronously` | `400` `requestErrored` | `GetAnswerGeneration` |
@@ -91,32 +90,26 @@ implement.
 - **Requests:** `documentUploadRequest` (documentId, documentName, metadataFilter[], optional overwrites[]), `answerUserQueryRequest` (userQuery, queryPrompt, metadataFilter[]).
 - **Responses:** `fileStorageLocationReturnedSuccessfully` (storageUrl + documentReference), `documentIngestionStatusReturnedSuccessfully`, `userQueryAnswerReturnedSuccessfully{Synchronously,Asynchronously}`, `userQueryAnswerRequestAccepted` (transactionId), `documentStatusNotAvailable`, `requestErrored`.
 - **Building blocks:** `uuid` (regex-constrained), `metadataFilter` (key/value, each ≤40 chars), `documentChunk` (documentId, documentName, pageNumber, chunkContent, customMetadata[]).
-- **Enums:** `documentIngestionStatus` = `INGESTION_SUCCESS` | `INGESTION_FAILED` | `METADATA_VALIDATED` | `INVALID_METADATA` | `AWAITING_UPLOAD` | `AWAITING_INGESTION` | `FILE_SIZE_OVER_LIMIT`; `answerGenerationStatus` = `ANSWER_GENERATED` | `ANSWER_GENERATION_FAILED` | `ANSWER_GENERATION_PENDING`.
+- **Enums:** `documentIngestionStatus` = `INGESTION_SUCCESS` | `INGESTION_FAILED` | `METADATA_VALIDATED`¹ | `INVALID_METADATA`¹ | `AWAITING_UPLOAD` | `AWAITING_INGESTION` | `FILE_SIZE_OVER_LIMIT`; `answerGenerationStatus` = `ANSWER_GENERATED` | `ANSWER_GENERATION_FAILED` | `ANSWER_GENERATION_PENDING`. (¹ deprecated — only ever produced by the decommissioned direct-blob-drop flow; retained for backward compatibility with historical records.)
 
 ### Known contract ↔ implementation drift
-Two HTTP functions declare no explicit `route`, so the Functions host derives the
-route from the `@FunctionName` value rather than the contract path:
-- `AnswerRetrieval` — contract path is `POST /answer-user-query`.
-- `DocumentStatusCheck` — contract path is `GET /document-status` (query `document-name`).
-
-Add explicit `route = "..."` attributes to align these with the spec. Run the
-`api-contract-check` skill to re-verify after changes.
+`AnswerRetrieval` declares no explicit `route`, so the Functions host derives the
+route from the `@FunctionName` value (`/api/AnswerRetrieval`) rather than the contract
+path `POST /answer-user-query`. Add an explicit `route = "answer-user-query"` attribute
+to align it with the spec. Run the `api-contract-check` skill to re-verify after changes.
 
 ## Architecture & Data Flow
 
 ### Document Ingestion Pipeline
 
-The metadata-check module exposes two upload entry flows; both converge on `STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION` and the same downstream worker.
+The metadata-check module exposes an HTTP-initiated SAS upload flow that feeds `STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION` and the downstream worker.
 
-**Flow A — HTTP-initiated SAS upload** (preferred, two-step):
+**HTTP-initiated SAS upload** (two-step):
 1. Caller calls `DocumentUploadFunction` (`POST /document-upload`, `@FunctionName("InitiateDocumentUpload")`) with a `DocumentUploadRequest` (documentId, documentName, metadata, overwrites). The function validates the request, rejects duplicates, records an "awaiting upload" row in Table Storage, and returns a `FileStorageLocationReturnedSuccessfully` payload containing a write-only SAS URL (generated by `BlobClientService.getSasUrl`, expiry controlled by `SAS_STORAGE_URL_EXPIRY_MINUTES`) for the `STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD` container, plus the documentId.
 2. Caller PUTs the file bytes directly to the SAS URL.
 3. The upload triggers `DocumentBlobTriggerFunction` (`@FunctionName("DocumentUploadCheck")`), which checks blob size against `MAX_DOCUMENT_UPLOAD_BLOB_SIZE_MIB`, updates the Table Storage row's status, and enqueues a `QueueIngestionMetadata` message to `STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION`.
 
-**Flow B — direct blob drop** (file lands in `STORAGE_ACCOUNT_BLOB_CONTAINER_NAME` via an out-of-band mechanism):
-1. `BlobTriggerFunction` (`@FunctionName("DocumentMetadataCheck")`) fires; `IngestionOrchestratorService` validates metadata against Table Storage and enqueues an ingestion message on success.
-
-**Downstream (shared by both flows):**
+**Downstream:**
 - `DocumentIngestionFunction` (ingestion-function, queue-triggered) consumes the queue and runs `DocumentIngestionOrchestrator`:
   - Azure Document Intelligence extracts text content
   - Content is chunked by `DocumentChunkingService` (uses LangChain4J's recursive `DocumentSplitter`)

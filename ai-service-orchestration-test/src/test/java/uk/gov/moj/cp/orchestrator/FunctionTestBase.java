@@ -50,7 +50,6 @@ public abstract class FunctionTestBase {
 
     private static final String TEST_RANDOM_KEY = randomAlphanumeric(10).toLowerCase();
 
-    protected static final String DOCUMENT_LANDING_FOLDER = "test-documents-" + TEST_RANDOM_KEY;
     protected static final String DOCUMENT_LANDING_FOLDER_NEW = "test-documents-new-" + TEST_RANDOM_KEY;
 
     protected static final String LLM_EVAL_PAYLOADS_FOLDER = "test-llm-eval-payloads-" + TEST_RANDOM_KEY;
@@ -86,7 +85,6 @@ public abstract class FunctionTestBase {
         final int documentMetadataCheckFunctionPort = getAvailablePort();
         final int documentStatusCheckFunctionPort = getAvailablePort();
 
-        ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_LANDING_FOLDER);
         ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_LANDING_FOLDER_NEW);
         ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, LLM_EVAL_PAYLOADS_FOLDER);
         ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, LLM_INPUT_CHUNKS_FOLDER);
@@ -133,7 +131,6 @@ public abstract class FunctionTestBase {
                 Map.entry("STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME", DOCUMENT_STATUS_OUTCOME_TABLE),
                 Map.entry("STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION", ANSWER_GENERATION_TABLE),
 
-                Map.entry("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME", DOCUMENT_LANDING_FOLDER),
                 Map.entry("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD", DOCUMENT_LANDING_FOLDER_NEW),
                 Map.entry("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS", LLM_EVAL_PAYLOADS_FOLDER),
                 Map.entry("STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS", LLM_INPUT_CHUNKS_FOLDER),
@@ -173,7 +170,6 @@ public abstract class FunctionTestBase {
             pair.getLeft().stop();
         });
 
-        deleteContainer(BLOB_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_LANDING_FOLDER);
         deleteContainer(BLOB_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_LANDING_FOLDER_NEW);
         deleteContainer(BLOB_STORAGE_ACCOUNT_ENDPOINT, LLM_EVAL_PAYLOADS_FOLDER);
         deleteContainer(BLOB_STORAGE_ACCOUNT_ENDPOINT, LLM_INPUT_CHUNKS_FOLDER);

@@ -48,28 +48,6 @@ public class OrchestrationIntegrationTest extends FunctionTestBase {
             """;
 
     @Test
-    @DisplayName("Upload file with metadata, check upload status, and retrieve answer for questions about the document")
-    void testUploadToBlobContainerWithMetadataAndResponseGeneration() throws InterruptedException, TimeoutException {
-
-        // Step 1 - upload file for ingestion
-        final UUID documentId1 = randomUUID();
-        final String documentName1 = uploadFile(BLOB_STORAGE_ACCOUNT_ENDPOINT, DOCUMENT_LANDING_FOLDER, "test-doc-capital.pdf", documentId1);
-
-        // Step 2 - Check status of uploaded document
-        final RequestSpecification documentStatusRequestSpecification = getRequestSpecification(DOCUMENT_STATUS_CHECK_FUNCTION)
-                .queryParam("document-name", documentName1)
-                .contentType("application/json");
-
-
-        final Response documentStatusResponse = pollForResponse(documentStatusRequestSpecification, RestOperation.GET, "/DocumentStatusCheck",
-                response -> response.getStatusCode() == 200 &&
-                        response.jsonPath().getString("status").equals("INGESTION_SUCCESS"));
-        assertNotNull(documentStatusResponse);
-
-        verifyAnswerRetrievalFunction(documentId1.toString(), "document_id");
-    }
-
-    @Test
     @DisplayName("Submit metadata, upload file using generated SAS URL, check upload status, and retrieve answer for questions about the document")
     void testUploadApiAndResponseGeneration() throws JsonProcessingException, InterruptedException, TimeoutException {
 

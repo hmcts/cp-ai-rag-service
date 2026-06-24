@@ -1,6 +1,6 @@
 # ai-document-status-check-function
 
-Azure Function app that exposes HTTP GET endpoints for querying the ingestion status of documents that have been submitted through the upload pipeline. Both functions read rows from an Azure Table Storage table (`STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME`) written by the metadata-check and ingestion functions, and return a `DocumentIngestionStatusReturnedSuccessfully` or error payload.
+Azure Function app that exposes an HTTP GET endpoint for querying the ingestion status of documents that have been submitted through the upload pipeline. It reads rows from an Azure Table Storage table (`STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME`) written by the metadata-check and ingestion functions, and returns a `DocumentIngestionStatusReturnedSuccessfully` or error payload.
 
 This module contains no queue triggers, no output bindings, and no AI service calls. It is a read-only status query layer over Table Storage.
 
@@ -10,8 +10,9 @@ For the full platform architecture, pipeline data flow, and branch/release strat
 
 | `@FunctionName` | Trigger | Route / Query | Output bindings | Purpose |
 |---|---|---|---|---|
-| `DocumentStatusCheck` | `HttpTrigger` GET, `authLevel = FUNCTION` | No explicit `route` set — the Functions host defaults the route to the function name, so the effective path is `api/DocumentStatusCheck`. <!-- TODO: The published api-cp-ai-rag contract expects `/document-status`; confirm whether a `route = "document-status"` annotation or a `host.json` `routePrefix` change is required to align with the contract. --> Query param: `document-name` (string, required) | None | Looks up the first Table Storage row whose row/partition key matches the supplied `document-name` and returns its ingestion status, documentId, timestamp, and reason. Returns `400` if the param is missing, `404` if no row is found, `500` on a retrieval error. |
 | `DocumentStatusByReference` | `HttpTrigger` GET, `authLevel = FUNCTION` | `route = "document-upload/{documentReference}"` — effective path `api/document-upload/{documentReference}`. Path param: `documentReference` (UUID, bound via `@BindingName`) | None | Validates that `documentReference` is a well-formed UUID, then fetches the Table Storage row by document ID. Returns `400` for an invalid UUID, `404` if no document is found, `200` with `DocumentIngestionStatusReturnedSuccessfully` on success, `500` on any other exception. |
+
+> The `DocumentStatusCheck` lookup-by-`document-name` endpoint (`GET /document-status`) was removed alongside the decommissioned direct-blob-drop (Flow B) ingestion path. Status is now queried by `documentReference` only. Documents are keyed in Table Storage by `documentId`, which `DocumentStatusByReference` resolves directly.
 
 ## Azure dependencies
 

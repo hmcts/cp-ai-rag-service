@@ -35,8 +35,7 @@ class DocumentChunkingServiceTest {
                 "test-document.pdf",
                 Collections.singletonMap("document_type", "CONTRACT"),
                 "https://storage.blob.core.windows.net/container/test-document.pdf",
-                "2025-10-07T10:30:45.123456Z",
-                false
+                "2025-10-07T10:30:45.123456Z"
         );
     }
 
@@ -85,8 +84,7 @@ class DocumentChunkingServiceTest {
                 "Burglary-IDPC.pdf",
                 Collections.singletonMap("document_type", "MCC"),
                 "https://storage.blob.core.windows.net/container/Burglary-IDPC.pdf",
-                "2025-10-06T05:14:39.658828Z",
-                false
+                "2025-10-06T05:14:39.658828Z"
         );
 
         // when

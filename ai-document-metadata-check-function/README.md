@@ -1,6 +1,6 @@
 # ai-document-metadata-check-function
 
-This module is the document intake gateway for the CP AI RAG service. It exposes two upload entry flows — an HTTP-initiated SAS-URL flow and a direct blob-drop flow — both of which converge on the same downstream ingestion queue. Flow A (preferred): an HTTP `POST /document-upload` caller receives a write-only SAS URL, uploads the file directly to Blob Storage, which triggers a size-check and then enqueues a `QueueIngestionMetadata` message. Flow B: a file dropped out-of-band into a separate blob container triggers metadata extraction and validation against Table Storage, then enqueues the same message. For the platform-wide architecture and data-flow diagram see the root [CLAUDE.md](../CLAUDE.md).
+This module is the document intake gateway for the CP AI RAG service. It exposes an HTTP-initiated SAS-URL upload flow: an HTTP `POST /document-upload` caller receives a write-only SAS URL, uploads the file directly to Blob Storage, which triggers a size-check and then enqueues a `QueueIngestionMetadata` message for the downstream ingestion worker. For the platform-wide architecture and data-flow diagram see the root [CLAUDE.md](../CLAUDE.md).
 
 ## Functions
 
@@ -8,15 +8,13 @@ This module is the document intake gateway for the CP AI RAG service. It exposes
 |---|---|---|---|---|
 | `InitiateDocumentUpload` | `HttpTrigger` — `POST` | `document-upload` (auth: `FUNCTION`) | None | Validates the `DocumentUploadRequest`, rejects duplicates, records an `AWAITING_UPLOAD` row in Table Storage, and returns a write-only SAS URL plus the `documentId` for the caller to PUT the file bytes directly to Blob Storage |
 | `DocumentUploadCheck` | `BlobTrigger` | `%STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD%/{name}` | `QueueOutput` → `%STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION%` | Fires when the SAS-uploaded file lands; checks blob availability, validates file size against `MAX_DOCUMENT_UPLOAD_BLOB_SIZE_MIB`, updates Table Storage to `AWAITING_INGESTION` or `FILE_SIZE_OVER_LIMIT`, and enqueues a `QueueIngestionMetadata` JSON message |
-| `DocumentMetadataCheck` | `BlobTrigger` | `%STORAGE_ACCOUNT_BLOB_CONTAINER_NAME%/{name}` | `QueueOutput` → `%STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION%` | Fires when a file is dropped directly into the legacy blob container; `IngestionOrchestratorService` reads blob metadata, validates the `document_id` UUID, records the outcome in Table Storage (`METADATA_VALIDATED` or `INVALID_METADATA`), and enqueues the ingestion message |
 
 ## Azure dependencies
 
 | Service | Used by |
 |---|---|
 | Azure Blob Storage — container `STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD` | `DocumentUploadCheck` trigger container; SAS-URL target for `InitiateDocumentUpload` |
-| Azure Blob Storage — container `STORAGE_ACCOUNT_BLOB_CONTAINER_NAME` | `DocumentMetadataCheck` trigger container (direct-drop flow); metadata extraction via `DocumentMetadataService` |
-| Azure Table Storage — table `STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME` | Document status tracking (`AWAITING_UPLOAD`, `AWAITING_INGESTION`, `FILE_SIZE_OVER_LIMIT`, `METADATA_VALIDATED`, `INVALID_METADATA`) read and written by all three functions via `DocumentIngestionOutcomeTableService` |
+| Azure Table Storage — table `STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME` | Document status tracking (`AWAITING_UPLOAD`, `AWAITING_INGESTION`, `FILE_SIZE_OVER_LIMIT`) read and written by both functions via `DocumentIngestionOutcomeTableService` |
 | Azure Storage Queue — `STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION` | Output queue for `QueueIngestionMetadata` messages consumed by `ai-document-ingestion-function` |
 
 ## Configuration
@@ -26,12 +24,11 @@ All values are supplied via app settings / `Azure/local.settings.json` (copy fro
 | Env var | Purpose |
 |---|---|
 | `AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING` | Name of the identity-based binding `connection` for all blob triggers and queue output bindings (the host resolves `..._CONNECTION_STRING__accountName` and authenticates via managed identity). The shared `BlobContainerClientFactory` / `TableClientFactory` authenticate separately via the `*_STORAGE_ENDPOINT` vars |
-| `AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT` | Blob service endpoint URL; used to construct the `blobUrl` field in the queued `QueueIngestionMetadata` message (both flows) |
+| `AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT` | Blob service endpoint URL; used to construct the `blobUrl` field in the queued `QueueIngestionMetadata` message |
 | `AI_RAG_SERVICE_TABLE_STORAGE_ENDPOINT` | Table service endpoint URL; `TableClientFactory` authenticates against it via managed identity |
 | `AI_RAG_SERVICE_QUEUE_STORAGE_ENDPOINT` | Queue service endpoint URL; present in `local.settings.sample.json` for completeness — not directly referenced in this module's Java code |
-| `STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION` | Name of the output queue; referenced in `@QueueOutput` binding expressions on `DocumentUploadCheck` and `DocumentMetadataCheck` |
-| `STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME` | Table name for document ingestion status rows; read by `DocumentUploadService` and `IngestionOrchestratorService` |
-| `STORAGE_ACCOUNT_BLOB_CONTAINER_NAME` | Blob container for the direct-drop flow (`DocumentMetadataCheck` trigger) and blob-URL construction in `IngestionOrchestratorService` |
+| `STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION` | Name of the output queue; referenced in the `@QueueOutput` binding expression on `DocumentUploadCheck` |
+| `STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME` | Table name for document ingestion status rows; read by `DocumentUploadService` |
 | `STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD` | Blob container for the SAS-upload flow (`DocumentUploadCheck` trigger, SAS-URL generation, and blob-URL construction in `DocumentBlobTriggerFunction`) |
 | `SAS_STORAGE_URL_EXPIRY_MINUTES` | SAS URL validity window in minutes; default `120`; read by `DocumentUploadFunction` |
 | `UPLOAD_FILE_EXTENSION` | File extension appended when constructing the blob name for a new upload; default `pdf`; read by `DocumentUploadFunction` |

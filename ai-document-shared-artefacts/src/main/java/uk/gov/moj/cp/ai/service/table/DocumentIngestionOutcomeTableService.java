@@ -8,7 +8,6 @@ import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_STATUS;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_DOCUMENT_SUPERSEDED_DOCUMENTS;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_REASON;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_TIMESTAMP;
-import static uk.gov.moj.cp.ai.util.RowKeyUtil.generateKeyForRowAndPartition;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
@@ -27,8 +26,6 @@ public class DocumentIngestionOutcomeTableService {
 
     private final TableService tableService;
 
-    private static final String ERROR_MESSAGE = "Failed to %s record for document '%s' with ID: '%s";
-
     public DocumentIngestionOutcomeTableService(String tableName) {
         if (isNullOrEmpty(tableName)) {
             throw new IllegalArgumentException("Table name cannot be null or empty.");
@@ -40,16 +37,6 @@ public class DocumentIngestionOutcomeTableService {
 
     protected DocumentIngestionOutcomeTableService(final TableService tableService) {
         this.tableService = tableService;
-    }
-
-    public void insertIntoTable(String documentName, String documentId, String status, String reason) throws DuplicateRecordException {
-
-        final TableEntity entity = getTableEntity(documentName, documentId, status, reason);
-
-        tableService.insertIntoTable(entity);
-
-        LOGGER.info("Record INSERTED into table with status '{}' for document '{}' with ID '{}'", status, documentName, documentId);
-
     }
 
     public void insert(final String documentId, final String documentName, final String metadata, final String supersededDocuments,
@@ -65,20 +52,6 @@ public class DocumentIngestionOutcomeTableService {
         tableService.insertIntoTable(entity);
 
         LOGGER.info("Document upload record INSERTED into table with status '{}' for document '{}' with ID '{}'", status, documentName, documentId);
-    }
-
-    public void upsertIntoTable(String documentName, String documentId, String status, String reason) {
-        try {
-
-            final TableEntity entity = getTableEntity(documentName, documentId, status, reason);
-
-            tableService.upsertIntoTable(entity);
-
-            LOGGER.info("Record UPSERTED into table with status={} for document '{}' with ID '{}'", status, documentName, documentId);
-
-        } catch (Exception e) {
-            throw new RuntimeException(format(ERROR_MESSAGE, "UPSERT", documentName, documentId), e);
-        }
     }
 
     public void upsertDocument(final String documentId, final String status, final String reason) {
@@ -97,17 +70,6 @@ public class DocumentIngestionOutcomeTableService {
         }
     }
 
-    public DocumentIngestionOutcome getFirstDocumentMatching(String documentName) throws EntityRetrievalException {
-        String rowAndPartitionKey = generateKeyForRowAndPartition(documentName);
-
-        final TableEntity entity = tableService.getFirstDocumentMatching(rowAndPartitionKey, rowAndPartitionKey);
-        if (null == entity) {
-            return null;
-        }
-        return getDocumentIngestionOutcome(entity);
-
-    }
-
     public DocumentIngestionOutcome getDocumentById(String documentId) throws EntityRetrievalException {
         final TableEntity entity = tableService.getFirstDocumentMatching(documentId, documentId);
         if (null == entity) {
@@ -121,17 +83,6 @@ public class DocumentIngestionOutcomeTableService {
             return value.toString();
         }
         return null;
-    }
-
-    private TableEntity getTableEntity(final String documentName, final String documentId, final String status, final String reason) {
-        final String rowAndPartitionKey = generateKeyForRowAndPartition(documentName);
-
-        TableEntity entity = new TableEntity(rowAndPartitionKey, rowAndPartitionKey);
-        entity.addProperty(TC_DOCUMENT_FILE_NAME, documentName);
-        entity.addProperty(TC_DOCUMENT_ID, documentId);
-        entity.addProperty(TC_DOCUMENT_STATUS, status);
-        entity.addProperty(TC_REASON, reason);
-        return entity;
     }
 
     private DocumentIngestionOutcome getDocumentIngestionOutcome(final TableEntity entity) {

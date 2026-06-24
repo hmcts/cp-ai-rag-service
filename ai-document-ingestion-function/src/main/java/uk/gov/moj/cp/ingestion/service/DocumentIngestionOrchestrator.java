@@ -3,11 +3,11 @@ package uk.gov.moj.cp.ingestion.service;
 
 import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
+import static uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatus.INGESTION_FAILED;
+import static uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatus.INGESTION_SUCCESS;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_ENDPOINT;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_SEARCH_SERVICE_INDEX_NAME;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME;
-import static uk.gov.moj.cp.ai.model.DocumentStatus.INGESTION_FAILED;
-import static uk.gov.moj.cp.ai.model.DocumentStatus.INGESTION_SUCCESS;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
@@ -32,6 +32,9 @@ import org.slf4j.LoggerFactory;
 public class DocumentIngestionOrchestrator {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentIngestionOrchestrator.class);
+
+    private static final String INGESTION_SUCCESS_REASON = "Document ingestion completed successfully";
+    private static final String INGESTION_FAILED_REASON = "Document ingestion failed during processing";
 
     private final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService;
     private final DocumentIntelligenceService documentIntelligenceService;
@@ -82,8 +85,6 @@ public class DocumentIngestionOrchestrator {
         final String documentName = queueIngestionMetadata.documentName();
         final String documentId = queueIngestionMetadata.documentId();
         final String documentUrl = queueIngestionMetadata.blobUrl();
-        final boolean isDocumentIdAsRowKey = queueIngestionMetadata.isDocumentIdUsedAsRowKey();
-
 
         LOGGER.info("Starting document ingestion process for document: {} (ID: {})", documentName, documentId);
         // Step 1: Analyze document using Azure Document Intelligence
@@ -102,7 +103,7 @@ public class DocumentIngestionOrchestrator {
         markSupersededDocumentsInactive(documentId);
 
         // Step 6: Record success
-        recordOutcome(documentName, documentId, INGESTION_SUCCESS.name(), INGESTION_SUCCESS.getReason(), isDocumentIdAsRowKey);
+        recordOutcome(documentName, documentId, INGESTION_SUCCESS.name(), INGESTION_SUCCESS_REASON);
 
         LOGGER.info("Document ingestion completed successfully for document: {} (ID: {})", documentName, documentId);
 
@@ -112,9 +113,8 @@ public class DocumentIngestionOrchestrator {
         try {
             final String documentName = queueIngestionMetadata.documentName();
             final String documentId = queueIngestionMetadata.documentId();
-            final boolean isDocumentIdAsRowKey = queueIngestionMetadata.isDocumentIdUsedAsRowKey();
 
-            recordOutcome(documentName, documentId, INGESTION_FAILED.name(), INGESTION_FAILED.getReason(), isDocumentIdAsRowKey);
+            recordOutcome(documentName, documentId, INGESTION_FAILED.name(), INGESTION_FAILED_REASON);
 
         } catch (Exception e) {
             LOGGER.error("Error processing queue message for the documentId: {} and documentName: {}, document outcome cannot be updated.",
@@ -140,14 +140,9 @@ public class DocumentIngestionOrchestrator {
     }
 
     private void recordOutcome(final String documentName, final String documentId,
-                               final String status, final String reason,
-                               boolean isDocumentIdAsRowKey) throws DocumentProcessingException {
+                               final String status, final String reason) throws DocumentProcessingException {
         try {
-            if (isDocumentIdAsRowKey) {
-                documentIngestionOutcomeTableService.upsertDocument(documentId, status, reason);
-            } else {
-                documentIngestionOutcomeTableService.upsertIntoTable(documentName, documentId, status, reason);
-            }
+            documentIngestionOutcomeTableService.upsertDocument(documentId, status, reason);
             LOGGER.info("event=outcome_recorded status={} documentName={} documentId={}", status, documentName, documentId);
         } catch (Exception e) {
             final String message = String.format("Failed to update document outcome '%s' for the documentId: '%s'", status, documentId);
