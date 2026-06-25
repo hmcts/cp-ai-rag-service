@@ -56,4 +56,4 @@ stages:
               dockerfilePath: "$(System.DefaultWorkingDirectory)/cp-ai-rag-service/ai-document-migration-tool/"
               acrServiceConnectionNonLive: "Acr_non_live_registryConnection"
               tag: "1.0.0"
-              repo: "ai-index-migration"
+              repository: "ai-index-migration"
