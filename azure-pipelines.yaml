@@ -21,7 +21,7 @@ resources:
       type: github
       name: hmcts/cpp-azure-devops-templates
       endpoint: 'hmcts'
-      ref: 'main'
+      ref: 'add-default'
 
 pool:
   name: "MDV-ADO-AGENT-AKS-01"
@@ -47,3 +47,10 @@ stages:
           sonarQubeType: 'sonarQubeAKS'
           serviceName: ${{ variables['service_Name'] }}
           itTestFolder: ${{ variables['itTest_Folder'] }}
+
+  - template: steps/common/build-docker-image.yaml
+    parameters:
+      dockerfilePath: "$(System.DefaultWorkingDirectory)/cp-ai-rag-service/ai-document-migration-tool/"
+      acrServiceConnectionNonLive: "Acr_non_live_registryConnection"
+      tag: "1.0.0"
+      repo: "ai-index-migration"
