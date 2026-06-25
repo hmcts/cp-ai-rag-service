@@ -47,10 +47,13 @@ stages:
           sonarQubeType: 'sonarQubeAKS'
           serviceName: ${{ variables['service_Name'] }}
           itTestFolder: ${{ variables['itTest_Folder'] }}
-
-  - template: steps/common/build-docker-image.yaml@cppAzureDevOpsTemplates
-    parameters:
-      dockerfilePath: "$(System.DefaultWorkingDirectory)/cp-ai-rag-service/ai-document-migration-tool/"
-      acrServiceConnectionNonLive: "Acr_non_live_registryConnection"
-      tag: "1.0.0"
-      repo: "ai-index-migration"
+  - stage: Build
+    jobs:
+      - job: DockerBuild
+        steps:
+          - template: steps/common/build-docker-image.yaml@cppAzureDevOpsTemplates
+            parameters:
+              dockerfilePath: "$(System.DefaultWorkingDirectory)/cp-ai-rag-service/ai-document-migration-tool/"
+              acrServiceConnectionNonLive: "Acr_non_live_registryConnection"
+              tag: "1.0.0"
+              repo: "ai-index-migration"
