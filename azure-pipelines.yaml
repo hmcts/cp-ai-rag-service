@@ -48,7 +48,7 @@ stages:
           serviceName: ${{ variables['service_Name'] }}
           itTestFolder: ${{ variables['itTest_Folder'] }}
 
-  - template: ../steps/common/build-docker-image.yaml
+  - template: steps/common/build-docker-image.yaml@cppAzureDevOpsTemplates
     parameters:
       dockerfilePath: "$(System.DefaultWorkingDirectory)/cp-ai-rag-service/ai-document-migration-tool/"
       acrServiceConnectionNonLive: "Acr_non_live_registryConnection"
