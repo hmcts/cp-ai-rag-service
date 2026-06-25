@@ -49,7 +49,7 @@ stages:
           itTestFolder: ${{ variables['itTest_Folder'] }}
 
   - stage: Build
-    dependsOn: Validation
+    dependsOn: ContextValidation
     condition: succeeded()
     jobs:
       - job: DockerBuild
