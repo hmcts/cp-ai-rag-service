@@ -16,7 +16,7 @@
 # (AZURE_TENANT_ID / AZURE_CLIENT_ID / AZURE_CLIENT_SECRET), and in an Azure Container Apps Job via the
 # attached managed identity. The same image therefore runs unchanged in both places.
 
-FROM eclipse-temurin:21-jre AS runtime
+FROM crmdvrepo01.azurecr.io/docker.io/library/eclipse-temurin:21-jre AS runtime
 WORKDIR /app
 
 # Non-root runtime user (fixed high uid; not --system, whose uids must stay below 1000).
