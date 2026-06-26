@@ -18,7 +18,7 @@
 
 FROM crmdvrepo01.azurecr.io/docker.io/library/eclipse-temurin:21-jre AS runtime
 WORKDIR /app
-
+ARG VERSION
 # Non-root runtime user (fixed high uid; not --system, whose uids must stay below 1000).
 RUN useradd --uid 10001 --create-home appuser
 
@@ -26,7 +26,7 @@ RUN useradd --uid 10001 --create-home appuser
 # Bundling (not shading) keeps each dependency a separate jar, so the Azure SDK's ServiceLoader-based
 # HTTP client / serializer discovery and the signed Azure jars are unaffected. The app jar's manifest
 # Class-Path resolves lib/ relative to itself. DIST_ARCHIVE defaults to the local build; CI overrides it.
-ARG DIST_ARCHIVE=target/ai-document-migration-tool-*-dist.tar.gz
+ARG DIST_ARCHIVE=https://libraries-internal.mdv.cpp.nonlive/artifactory/repocentral/uk/gov/moj/cp/azure/ragservice/ai-document-migration-tool/${VERSION}/ai-document-migration-tool-${VERSION}-dist.tar.gz
 ADD ${DIST_ARCHIVE} /app/
 
 USER appuser
