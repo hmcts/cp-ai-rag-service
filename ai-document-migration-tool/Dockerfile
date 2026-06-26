@@ -26,8 +26,8 @@ RUN useradd --uid 10001 --create-home appuser
 # Bundling (not shading) keeps each dependency a separate jar, so the Azure SDK's ServiceLoader-based
 # HTTP client / serializer discovery and the signed Azure jars are unaffected. The app jar's manifest
 # Class-Path resolves lib/ relative to itself. DIST_ARCHIVE defaults to the local build; CI overrides it.
-ARG DIST_ARCHIVE=https://libraries-internal.mdv.cpp.nonlive/artifactory/repocentral/uk/gov/moj/cp/azure/ragservice/ai-document-migration-tool/19.0.1/ai-document-migration-tool-*-dist.tar.gz
-ADD ${DIST_ARCHIVE} /app/
+ARG DIST_ARCHIVE_URL=https://libraries-internal.mdv.cpp.nonlive/artifactory/repocentral/uk/gov/moj/cp/azure/ragservice/ai-document-migration-tool/19.0.1/ai-document-migration-tool-*-dist.tar.gz
+RUN curl "${DIST_ARCHIVE_URL}" | tar -xzf - -C /app/
 
 USER appuser
 
