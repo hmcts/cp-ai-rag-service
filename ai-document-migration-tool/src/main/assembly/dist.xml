@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Distribution archive for the migration tool: a single tar.gz bundling the thin application jar (renamed
+     to a stable app.jar) plus its dependency jars under lib/. This is the artefact published to Artifactory
+     and consumed by the Dockerfile in a single auto-extracting ADD.
+
+     We bundle (not shade) deliberately: keeping every dependency a separate jar preserves each one's
+     META-INF/services (Azure SDK ServiceLoader discovery) and its original signature — merging into an uber
+     jar would collide service files and invalidate the signed Azure jars. The app jar's manifest Class-Path
+     uses lib/-relative entries, so renaming the jar to app.jar does not affect dependency resolution. -->
+<assembly xmlns="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.2"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.2 http://maven.apache.org/xsd/assembly-1.1.2.xsd">
+    <id>dist</id>
+    <includeBaseDirectory>false</includeBaseDirectory>
+    <formats>
+        <format>tar.gz</format>
+    </formats>
+    <files>
+        <file>
+            <source>${project.build.directory}/${project.build.finalName}.jar</source>
+            <outputDirectory>/</outputDirectory>
+            <destName>app.jar</destName>
+        </file>
+    </files>
+    <fileSets>
+        <fileSet>
+            <directory>${project.build.directory}/lib</directory>
+            <outputDirectory>lib</outputDirectory>
+            <includes>
+                <include>*.jar</include>
+            </includes>
+        </fileSet>
+    </fileSets>
+</assembly>

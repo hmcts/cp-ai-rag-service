@@ -19,6 +19,7 @@
         <exec.maven.plugin.version>3.1.0</exec.maven.plugin.version>
         <maven.jar.plugin.version>3.5.0</maven.jar.plugin.version>
         <maven.dependency.plugin.version>3.7.0</maven.dependency.plugin.version>
+        <maven.assembly.plugin.version>3.7.1</maven.assembly.plugin.version>
         <migration.mainClass>uk.gov.moj.cp.migration.MigrationTool</migration.mainClass>
     </properties>
 
@@ -63,14 +64,13 @@
                 </configuration>
             </plugin>
 
-            <!-- Package a runnable thin jar + a lib/ directory of dependencies (rather than a shaded
-                 uber-jar). The module is run standalone in a container.  This layout deliberately
-                 keeps every dependency as its own jar, so each one retains its own META-INF/services
-                 entries — the Azure SDK discovers its Netty HTTP client, JSON serializer providers
-                 and DefaultAzureCredential token sources via ServiceLoader, and a flat classpath needs
-                 no service-file merging (which an uber-jar would). The jar-plugin writes Main-Class +
-                 a lib/-relative Class-Path into the manifest so `java -jar app.jar` just works;
-                 dependency-plugin populates lib/. -->
+            <!-- Package a runnable thin jar whose manifest carries Main-Class + a lib/-relative Class-Path,
+                 alongside a lib/ directory of the dependency jars (populated by dependency-plugin below).
+                 We deliberately keep every dependency as its own jar (rather than a shaded uber-jar): each
+                 retains its own META-INF/services — the Azure SDK discovers its Netty HTTP client and JSON
+                 serializer providers via ServiceLoader — and the signed Azure jars keep valid signatures.
+                 The thin jar + lib/ are then bundled into a single dist tar.gz (assembly-plugin below) for
+                 transport to Artifactory and the container. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
@@ -93,13 +93,39 @@
                 <executions>
                     <execution>
                         <id>copy-runtime-dependencies</id>
-                        <phase>package</phase>
+                        <!-- prepare-package: lib/ must exist before the assembly (package) bundles it. -->
+                        <phase>prepare-package</phase>
                         <goals>
                             <goal>copy-dependencies</goal>
                         </goals>
                         <configuration>
                             <outputDirectory>${project.build.directory}/lib</outputDirectory>
                             <includeScope>runtime</includeScope>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Bundle the thin jar (renamed to app.jar) + lib/ into a single dist tar.gz, attached as the
+                 'dist'-classifier artefact (ai-document-migration-tool-<version>-dist.tar.gz). This is the
+                 single artefact published to Artifactory and pulled by CI; the Dockerfile auto-extracts it
+                 with one ADD. Descriptor: src/main/assembly/dist.xml. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>${maven.assembly.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>dist</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <appendAssemblyId>true</appendAssemblyId>
+                            <descriptors>
+                                <descriptor>src/main/assembly/dist.xml</descriptor>
+                            </descriptors>
                         </configuration>
                     </execution>
                 </executions>

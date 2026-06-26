@@ -1,12 +1,15 @@
-# Runtime-only image for the one-off index-migration tool.
+# Runtime-only image for the migration tool.
 #
-# The jar + dependency lib/ are built ON THE HOST first (the Maven build resolves through the internal
-# Artifactory mirror configured in ~/.m2/settings.xml, which a clean in-image build / cloud build agent
-# cannot reach). This image just packages those prebuilt artifacts into a clean JRE.
+# The artefact is a single distribution archive — the thin app jar + its dependency jars under lib/,
+# bundled into one tar.gz by maven-assembly-plugin. It is built ON THE HOST / in CI (Maven resolves
+# through the internal Artifactory mirror, which a clean in-image build cannot reach) and either taken
+# from target/ locally or pulled from Artifactory in CI. This image just unpacks it into a clean JRE.
 #
-# Build context is THIS module directory (so target/ is available):
+# Build the artefact, then the image (build context = this module dir):
 #   mvn -pl ai-document-migration-tool -am -DskipTests package
-#   docker build -f ai-document-migration-tool/Dockerfile -t ai-index-migration:1 ai-document-migration-tool
+#   docker build -f ai-document-migration-tool/Dockerfile -t ai-rag-migration:1 ai-document-migration-tool
+# In CI, download the dist tar.gz from Artifactory into the build context and override the path:
+#   docker build --build-arg DIST_ARCHIVE=ai-document-migration-tool-<ver>-dist.tar.gz ...
 #
 # The image is deliberately clean: no Azure CLI, no secrets, no mounts. Authentication is resolved at
 # run time by DefaultAzureCredential — locally via a service principal in the environment
@@ -19,11 +22,12 @@ WORKDIR /app
 # Non-root runtime user (fixed high uid; not --system, whose uids must stay below 1000).
 RUN useradd --uid 10001 --create-home appuser
 
-# Thin application jar (its manifest carries Main-Class + a lib/-relative Class-Path) plus the
-# dependency jars. Keeping dependencies as separate jars preserves each one's META-INF/services, so
-# the Azure SDK's ServiceLoader-based HTTP client / credential discovery works without uber-jar merging.
-COPY target/lib /app/lib
-COPY target/ai-document-migration-tool-*.jar /app/app.jar
+# Single distribution archive: ADD auto-extracts a local tar.gz, yielding /app/app.jar + /app/lib/.
+# Bundling (not shading) keeps each dependency a separate jar, so the Azure SDK's ServiceLoader-based
+# HTTP client / serializer discovery and the signed Azure jars are unaffected. The app jar's manifest
+# Class-Path resolves lib/ relative to itself. DIST_ARCHIVE defaults to the local build; CI overrides it.
+ARG DIST_ARCHIVE=target/ai-document-migration-tool-*-dist.tar.gz
+ADD ${DIST_ARCHIVE} /app/
 
 USER appuser
 

@@ -146,21 +146,30 @@ with no application change. Re-runs are safe — uploads are idempotent upserts 
 ## Running as a container
 
 For running in Azure (e.g. an in-region Container Apps Job) or any clean host, the module ships a
-`Dockerfile`. It is **runtime-only**: build the runnable artifacts on a host that can reach the Maven
-repositories, then package them into a lean `eclipse-temurin:21-jre` image (no Azure CLI, no secrets).
+`Dockerfile`. It is **runtime-only**: the artefact is built on a host that can reach the Maven repositories (or
+in CI), and the image just unpacks it into a lean `eclipse-temurin:21-jre` image (no Azure CLI, no secrets).
 
-The build produces a thin jar plus a `lib/` of dependency jars (via `maven-jar-plugin` +
-`maven-dependency-plugin`) rather than a shaded uber-jar — keeping each dependency separate preserves its
-`META-INF/services`, so the Azure SDK's `ServiceLoader`-based HTTP-client and credential discovery works
-with no service-file merging.
+The build produces a **single distribution archive** —
+`ai-document-migration-tool-<version>-dist.tar.gz` (the thin app jar as `app.jar` + a `lib/` of dependency
+jars), assembled by `maven-assembly-plugin`. We bundle rather than build a shaded uber-jar: keeping each
+dependency a separate jar preserves its `META-INF/services` (so the Azure SDK's `ServiceLoader`-based
+HTTP-client / serializer discovery works) **and** the signed Azure jars keep valid signatures — a merged jar
+would collide the service files and break the signatures. The Dockerfile consumes this one archive with a
+single `ADD` (Docker auto-extracts a local tar) → `/app/app.jar` + `/app/lib/`.
 
 The image `ENTRYPOINT` is `java -jar app.jar`, i.e. the `MigrationTool` dispatcher — so the container takes the
 **same arguments as the mvn invocation**: the tool name (`index` / `table`) first, then that tool's arguments.
 
 ```bash
-# 1. build artifacts on the host, then the image (build context = this module dir)
+# 1a. LOCAL: build the dist archive, then the image (build context = this module dir; default DIST_ARCHIVE
+#     points at target/)
 mvn -pl ai-document-migration-tool -am -DskipTests package
 docker build -f ai-document-migration-tool/Dockerfile -t ai-rag-migration:1 ai-document-migration-tool
+
+# 1b. CI: pull the dist archive from Artifactory into the build context, then point DIST_ARCHIVE at it
+docker build -f ai-document-migration-tool/Dockerfile -t ai-rag-migration:1 \
+  --build-arg DIST_ARCHIVE=ai-document-migration-tool-<version>-dist.tar.gz \
+  <context-dir-containing-the-archive>
 
 # 2. run the index migration — note the leading "index" tool name
 docker run --rm --env-file sp.env ai-rag-migration:1 \
