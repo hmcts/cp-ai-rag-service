@@ -46,4 +46,6 @@ stages:
           repo: "$(Build.Repository.Name)"
           sonarQubeType: 'sonarQubeAKS'
           serviceName: ${{ variables['service_Name'] }}
+          dockerfilePath: "$(System.DefaultWorkingDirectory)/cp-ai-rag-service/ai-document-migration-tool/Dockerfile"
           itTestFolder: ${{ variables['itTest_Folder'] }}
+          repository: "ai-rag-migration"
