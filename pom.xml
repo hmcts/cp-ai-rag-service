@@ -50,6 +50,12 @@
             ${project.reporting.outputDirectory}/jacoco/jacoco.xml
         </sonar.coverage.jacoco.xmlReportPaths>
         <plugins.jacoco.version>0.8.15</plugins.jacoco.version>
+
+        <!-- Build-plugin versions shared by the non-deployed tooling modules
+             (ai-document-migration-tool, ai-document-system-prompt-harness-eval) -->
+        <exec.maven.plugin.version>3.6.3</exec.maven.plugin.version>
+        <maven.jar.plugin.version>3.5.0</maven.jar.plugin.version>
+        <maven.dependency.plugin.version>3.11.0</maven.dependency.plugin.version>
     </properties>
 
     <build>

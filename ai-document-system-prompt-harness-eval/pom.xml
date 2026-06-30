@@ -18,9 +18,7 @@
     </description>
 
     <properties>
-        <exec.maven.plugin.version>3.6.3</exec.maven.plugin.version>
-        <maven.jar.plugin.version>3.5.0</maven.jar.plugin.version>
-        <maven.dependency.plugin.version>3.11.0</maven.dependency.plugin.version>
+        <!-- exec/jar/dependency plugin versions are inherited from the root pom -->
         <harness.mainClass>uk.gov.moj.cp.harness.TestHarness</harness.mainClass>
         <!-- This is a non-deployed, on-demand evaluation tool whose value is in running it live
              (orchestration over real LLM calls), not in unit-testable logic. Waive Sonar's
