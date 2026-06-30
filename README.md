@@ -1,5 +1,6 @@
 # CP AI RAG Service
 
+
 A multi-module Azure Functions project for AI-powered Retrieval-Augmented Generation (RAG) service.
 This service processes documents through ingestion, retrieval, and scoring workflows using Azure AI services.
 
