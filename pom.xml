@@ -27,19 +27,19 @@
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <azure.functions.maven.plugin.version>1.24.0</azure.functions.maven.plugin.version>
-        <azure.functions.java.library.version>3.2.3</azure.functions.java.library.version>
+        <azure.functions.maven.plugin.version>1.42.0</azure.functions.maven.plugin.version>
+        <azure.functions.java.library.version>3.3.0</azure.functions.java.library.version>
         <plugins.maven.jgitflow.version>1.0-m5.1</plugins.maven.jgitflow.version>
         <azure.openai.version>1.0.0-beta.16</azure.openai.version>
-        <openai-java.version>4.38.0</openai-java.version>
-        <junit-jupiter-engine.version>6.0.2</junit-jupiter-engine.version>
-        <mockito-junit-jupiter.version>5.21.0</mockito-junit-jupiter.version>
+        <openai-java.version>4.41.0</openai-java.version>
+        <junit-jupiter-engine.version>6.1.1</junit-jupiter-engine.version>
+        <mockito-junit-jupiter.version>5.23.0</mockito-junit-jupiter.version>
         <assertj-core.version>3.27.7</assertj-core.version>
         <langchain4j.version>0.30.0</langchain4j.version>
         <jackson.version>2.15.2</jackson.version>
-        <opentelemetry-sdk.version>1.58.0</opentelemetry-sdk.version>
+        <opentelemetry-sdk.version>1.31.0</opentelemetry-sdk.version>
         <api-cp-ai-rag.version>0.0.12</api-cp-ai-rag.version>
-        <hibernate-validator.version>9.0.1.Final</hibernate-validator.version>
+        <hibernate-validator.version>9.1.1.Final</hibernate-validator.version>
         <jakarta.validation-api.version>3.1.1</jakarta.validation-api.version>
 
         <!-- SonarQube Properties -->
@@ -49,7 +49,13 @@
         <sonar.coverage.jacoco.xmlReportPaths>
             ${project.reporting.outputDirectory}/jacoco/jacoco.xml
         </sonar.coverage.jacoco.xmlReportPaths>
-        <plugins.jacoco.version>0.8.14</plugins.jacoco.version>
+        <plugins.jacoco.version>0.8.15</plugins.jacoco.version>
+
+        <!-- Build-plugin versions shared by the non-deployed tooling modules
+             (ai-document-migration-tool, ai-document-system-prompt-harness-eval) -->
+        <exec.maven.plugin.version>3.6.3</exec.maven.plugin.version>
+        <maven.jar.plugin.version>3.5.0</maven.jar.plugin.version>
+        <maven.dependency.plugin.version>3.11.0</maven.dependency.plugin.version>
     </properties>
 
     <build>
@@ -84,12 +90,12 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.1.2</version>
+                <version>3.5.6</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
-                <version>3.1.2</version>
+                <version>3.5.6</version>
             </plugin>
             <plugin>
                 <groupId>org.jacoco</groupId>
@@ -127,7 +133,7 @@
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-bom</artifactId>
-                <version>1.31.0</version>
+                <version>${opentelemetry-sdk.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -176,7 +182,7 @@
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
                 <artifactId>log4j-slf4j-impl</artifactId>
-                <version>2.25.2</version>
+                <version>2.26.0</version>
             </dependency>
 
             <!-- Testing dependencies -->

@@ -138,7 +138,7 @@
                     <dependency>
                         <groupId>com.microsoft.azure.functions</groupId>
                         <artifactId>azure-functions-java-library</artifactId>
-                        <version>3.1.0</version>
+                        <version>${azure.functions.java.library.version}</version>
                     </dependency>
                 </dependencies>
                 <configuration>
