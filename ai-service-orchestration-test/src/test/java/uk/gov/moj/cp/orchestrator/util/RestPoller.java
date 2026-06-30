@@ -65,7 +65,7 @@ public class RestPoller {
             LOGGER.info("Successfully posted request to '{}'.", path);
             return response.get();
         }
-        fail();
+        fail("Received response: " + response.get().prettyPrint() + " for path: " + path + ". Expected condition not met.");
         return null;
     }
 }
