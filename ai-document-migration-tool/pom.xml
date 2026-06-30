@@ -16,10 +16,10 @@
     </description>
 
     <properties>
-        <exec.maven.plugin.version>3.1.0</exec.maven.plugin.version>
+        <exec.maven.plugin.version>3.6.3</exec.maven.plugin.version>
         <maven.jar.plugin.version>3.5.0</maven.jar.plugin.version>
-        <maven.dependency.plugin.version>3.7.0</maven.dependency.plugin.version>
-        <maven.assembly.plugin.version>3.7.1</maven.assembly.plugin.version>
+        <maven.dependency.plugin.version>3.11.0</maven.dependency.plugin.version>
+        <maven.assembly.plugin.version>3.8.0</maven.assembly.plugin.version>
         <migration.mainClass>uk.gov.moj.cp.migration.MigrationTool</migration.mainClass>
     </properties>
 
