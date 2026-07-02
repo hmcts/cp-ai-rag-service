@@ -39,7 +39,7 @@ The exercise starts from the **real deployed prompt** (`RESPONSE_GENERATION_SYST
 not the `sample` placeholder. It is the "British Legal Advisor" baseline: nine numbered
 instructions covering inline `[N]` placeholders, one-placeholder-per-document, the
 `<FACT_MAP_JSON>` block, the bracket guardrail, heading hierarchy, and British spelling.
-Captured verbatim at `prompts/baseline-production.txt`.
+Captured verbatim at `prompts/v1-baseline-production.txt`.
 
 ### Known weaknesses carried by the baseline
 
@@ -94,7 +94,7 @@ what GPT-5.1 specifically needs.
 
 ## 5. The improved prompt
 
-Stored at `prompts/baseline-with-improvements.txt`. It is the deployed baseline **+**:
+Stored at `prompts/v2-baseline-with-improvements.txt`. It is the deployed baseline **+**:
 
 | Change | Addresses | Risk |
 |--------|-----------|------|
@@ -162,7 +162,7 @@ The harness lives in this module, `ai-document-system-prompt-harness-eval`
 - **Runs both deployments.** The full prompt set runs against **both** `gpt-4o` and
   `gpt-5.1` so cross-model regressions are visible in one run, via the production
   `ChatServiceFactory` path (so the real `isReasoningModel` branch is exercised).
-- **Tests two prompts.** `baseline-production` and `baseline-with-improvements`
+- **Tests two prompts.** `v1-baseline-production` and `v2-baseline-with-improvements`
   (`src/main/resources/prompts/*.txt`), over the query set in `user-queries.json`.
 - **Metric `jsonBlockPresent`** — did the response contain a parseable
   `<FACT_MAP_JSON>…</FACT_MAP_JSON>` at all? This isolates the GPT-5.1 reasoning-token
@@ -221,7 +221,7 @@ and the downstream `CitationProcessor` treat `citationId` as a **per-statement s
 counter** (a document cited for three facts → `[1] [2] [3]`). The "one `[N]` per document /
 collapse same-document" reframing caused both the spray and the id-from-GUID behaviour.
 
-**The revision** (current `prompts/baseline-with-improvements.txt`):
+**The revision** (current `prompts/v2-baseline-with-improvements.txt`):
 1. `citationId` is a **plain sequential counter**, explicitly **never** derived from
    DOCUMENT_ID, CHUNK_ID, page number, or any GUID/hex.
 2. New "How the retrieved documents are structured" section explaining
@@ -272,7 +272,7 @@ supports it via `LLM_CHAT_SERVICE_PROVIDER` in `.env`.)
 **Recommended configuration for the move** (nothing here is live in production yet; the
 codebase changes are merged, the deployment settings are to be applied *if/when* the
 migration proceeds):
-- Prompt: `prompts/baseline-with-improvements.txt` (→ `RESPONSE_GENERATION_SYSTEM_PROMPT`) — *deployment setting to apply with the move.*
+- Prompt: `prompts/v2-baseline-with-improvements.txt` (→ `RESPONSE_GENERATION_SYSTEM_PROMPT`) — *deployment setting to apply with the move.*
 - `LLM_REASONING_EFFORT=none` for the gpt-5.1 deployment (already defaulted in `AzureChatService`;
   only applied to reasoning models — gpt-4o is unaffected). *Codebase change merged.*
 - `CHUNK_ID` removed from `ChunkFormatterUtility` output (closes the GUID-citationId surface). *Codebase change merged.*
@@ -286,5 +286,5 @@ IDPC before the migration is approved.
 
 | File | Role |
 |------|------|
-| `prompts/baseline-production.txt` | Deployed prompt — the starting point / control |
-| `prompts/baseline-with-improvements.txt` | **The candidate** — baseline + the citation and cross-model improvements (§5) |
+| `prompts/v1-baseline-production.txt` | Deployed prompt — the starting point / control |
+| `prompts/v2-baseline-with-improvements.txt` | **The candidate** — baseline + the citation and cross-model improvements (§5) |

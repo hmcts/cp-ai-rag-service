@@ -1,5 +1,5 @@
 {
-  "_comment": "10 production-shaped queries against DEFAULT_DOCUMENT_ID (4fa52386-d5f2-4b61-bc8c-c28cb02093ee). 6 findings-expected + 4 no-findings-expected. The queryPrompt is the per-query userQueryPrompt (custom instruction); userQuery is the end-user question. queryId is informational only.",
+  "_comment": "10 production-shaped queries. 6 findings-expected + 4 no-findings-expected. Every query runs against every document id in HARNESS_DOCUMENT_IDS (see TestHarness.DOCUMENT_IDS for the default). The queryPrompt is the per-query userQueryPrompt (custom instruction); userQuery is the end-user question. queryId is informational only.",
   "queries": [
     {
       "label": "Summary of the facts of the offences",

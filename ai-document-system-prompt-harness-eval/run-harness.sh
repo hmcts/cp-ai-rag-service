@@ -13,7 +13,10 @@
 #   Knobs (set in .env, or export before running to override):
 #     HARNESS_REPETITIONS=1               # fast smoke test (default 2)
 #     HARNESS_LLM_DEPLOYMENTS=gpt-5.1     # single model (default: gpt-5.1,gpt-4o-response-generation)
+#     HARNESS_DOCUMENT_IDS=id1,id2        # target document ids; every query runs against every id
 #     HARNESS_MAX_QUERIES=1               # only the first N queries (default: all)
+#     HARNESS_JUDGE=false                 # disable the LLM-judge quality comparison (default true)
+#     HARNESS_JUDGE_DEPLOYMENT=gpt-5.1    # judge model for the quality comparison
 #     HARNESS_CALL_DELAY_SECONDS=5        # delay before each LLM call (default 5)
 #     LLM_REASONING_EFFORT=none           # reasoning models only (default none)
 #
