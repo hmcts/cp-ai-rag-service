@@ -55,7 +55,7 @@ import org.slf4j.LoggerFactory;
  *       (reasoning models such as gpt-5.1 omit {@code temperature}/{@code top_p} and apply
  *       {@code reasoning_effort}; gpt-4o gets {@code temperature=0}/{@code top_p=0}).</li>
  *   <li><b>Prompts under test.</b> Loaded from {@code src/main/resources/prompts/*.txt}
- *       ({@code baseline-production} and {@code baseline-with-improvements}); the query set
+ *       ({@code v1-baseline-production} and {@code v2-baseline-with-improvements}); the query set
  *       is {@code src/main/resources/user-queries.json}.</li>
  *   <li><b>Metrics.</b> Per cell, across {@link #REPETITIONS} repeats: {@code ok}
  *       (answer generated), {@code jsonBlockPresent} (a parseable
@@ -80,8 +80,16 @@ public final class TestHarness {
     private TestHarness() {
     }
 
-    /** All harness queries target this document; queries in user-queries.json carry no documentId. */
-    private static final String DEFAULT_DOCUMENT_ID = "4fa52386-d5f2-4b61-bc8c-c28cb02093ee";
+    /**
+     * The document(s) the harness queries target — retrieval is filtered per document id.
+     * Comma-separated; override with HARNESS_DOCUMENT_IDS. Every query in user-queries.json is
+     * run against EVERY id in this list, so the run matrix expands to
+     * prompts × LLMs × (queries × documentIds). With more than one id, each query label is
+     * suffixed with the id's first 8 characters so report rows stay distinguishable.
+     */
+    private static final String DEFAULT_DOCUMENT_IDS =
+            "4fa52386-d5f2-4b61-bc8c-c28cb02093ee,22e543b6-9f10-49db-9119-94a41fc02002";
+    private static final List<String> DOCUMENT_IDS = splitCsv(env("HARNESS_DOCUMENT_IDS", DEFAULT_DOCUMENT_IDS));
 
     /** Metadata field the AI Search index filters documents on. */
     private static final String DOCUMENT_ID_FILTER_KEY = "document_id";
@@ -101,10 +109,12 @@ public final class TestHarness {
      */
     private static final int CALL_DELAY_SECONDS = intEnv("HARNESS_CALL_DELAY_SECONDS", 15);
 
-    /** Prompt files under src/main/resources/prompts, in display order. */
+    /** Prompt files under src/main/resources/prompts, in display order. The quality-comparison
+     *  stage compares each prompt against its predecessor in this list. */
     private static final List<String> PROMPT_FILES = List.of(
-            "baseline-production",
-            "baseline-with-improvements");
+            "v2-baseline-with-improvements",
+            "v3-strict-citation-grouping",
+            "v4-strict-citation-grouping-compact");
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -132,7 +142,8 @@ public final class TestHarness {
     record Compliance(int rawInlineMarkers, Set<Integer> inlineIds, int rawDriftMarkers,
                       int jsonEntries, Set<Integer> jsonIds,
                       boolean inlineSubsetOfJson, boolean processorSubstituted,
-                      boolean jsonBlockPresent, int proseChars, int proseWords, int citedPages) {
+                      boolean jsonBlockPresent, int proseChars, int proseWords, int citedPages,
+                      int sameDocStackedRuns) {
     }
 
     public static void main(final String[] args) throws InterruptedException {
@@ -151,6 +162,13 @@ public final class TestHarness {
         printSummary(results);
         printConsistency(results);
         printDetail(results, systemPrompts, queries);
+
+        try {
+            ResponseQualityComparator.run(results, systemPrompts, queries, embeddingService,
+                    requireEnv("AZURE_OPENAI_ENDPOINT"));
+        } catch (final Exception e) {
+            LOGGER.warn("[quality] comparison stage failed; generation reports above are unaffected.", e);
+        }
     }
 
     /**
@@ -288,8 +306,9 @@ public final class TestHarness {
      * Load queries from src/main/resources/user-queries.json (relative to module root
      * or repo root), falling back to the classpath. JSON shape:
      * <pre>{ "queries": [ { "label": "...", "userQuery": "...", "queryPrompt": "..." }, ... ] }</pre>
-     * Each entry uses {@link #DEFAULT_DOCUMENT_ID}; add a documentId field and read it here
-     * for per-query filtering.
+     * Each query is expanded against every id in {@link #DOCUMENT_IDS} (HARNESS_DOCUMENT_IDS),
+     * so one query file drives the same evaluation across any number of target documents.
+     * HARNESS_MAX_QUERIES caps the base queries BEFORE the document expansion.
      */
     private static List<UserQueryConfig> loadUserQueriesFromJson() {
         final Path[] candidates = {
@@ -315,20 +334,25 @@ public final class TestHarness {
                     used = Paths.get("classpath:/user-queries.json");
                 }
             }
-            final JsonNode queries = root.get("queries");
-            final List<UserQueryConfig> out = new ArrayList<>();
-            for (final JsonNode q : queries) {
-                out.add(new UserQueryConfig(
-                        q.get("label").asText(),
-                        q.get("userQuery").asText(),
-                        q.get("queryPrompt").asText(),
-                        DEFAULT_DOCUMENT_ID));
-            }
+            final List<JsonNode> queryNodes = new ArrayList<>();
+            root.get("queries").forEach(queryNodes::add);
             final int maxQueries = intEnv("HARNESS_MAX_QUERIES", 0);
-            final List<UserQueryConfig> selected = (maxQueries > 0 && out.size() > maxQueries)
-                    ? new ArrayList<>(out.subList(0, maxQueries)) : out;
-            LOGGER.info("[init] loaded {} user queries from {} (using {})", out.size(), used, selected.size());
-            return selected;
+            final List<JsonNode> selected = (maxQueries > 0 && queryNodes.size() > maxQueries)
+                    ? queryNodes.subList(0, maxQueries) : queryNodes;
+
+            final List<UserQueryConfig> out = new ArrayList<>();
+            for (final JsonNode q : selected) {
+                for (final String documentId : DOCUMENT_IDS) {
+                    out.add(new UserQueryConfig(
+                            queryLabelFor(q.get("label").asText(), documentId),
+                            q.get("userQuery").asText(),
+                            q.get("queryPrompt").asText(),
+                            documentId));
+                }
+            }
+            LOGGER.info("[init] loaded {} user queries from {} ({} selected x {} documentIds = {} rows); documentIds={}",
+                    queryNodes.size(), used, selected.size(), DOCUMENT_IDS.size(), out.size(), DOCUMENT_IDS);
+            return out;
         } catch (final Exception e) {
             throw new RuntimeException("Failed to parse user-queries.json", e);
         }
@@ -371,7 +395,7 @@ public final class TestHarness {
 
     /** Per-(query, prompt, LLM) cell aggregate across the {@link #REPETITIONS} iterations. */
     private record CellStats(int ok, int jsonPresent, int matched, int substituted,
-                             long proseAvg, long wordAvg, long citeAvg, long pageAvg) {
+                             long proseAvg, long wordAvg, long citeAvg, long pageAvg, long stackAvg) {
     }
 
     /** Aggregate stats per (query, prompt, LLM) cell across the {@link #REPETITIONS} iterations. */
@@ -384,18 +408,18 @@ public final class TestHarness {
 
         LOGGER.info("");
         LOGGER.info("======== CONSISTENCY ACROSS {} ITERATIONS ========", REPETITIONS);
-        LOGGER.info(String.format("%-26s | %-22s | %-22s | %-7s | %-7s | %-7s | %-7s | %8s | %7s | %5s | %5s",
-                "query", "prompt", "llm", "ok", "json", "match", "subst", "proseAvg", "wordAvg", "cites", "pages"));
-        LOGGER.info("-".repeat(160));
+        LOGGER.info(String.format("%-26s | %-22s | %-22s | %-7s | %-7s | %-7s | %-7s | %8s | %7s | %5s | %5s | %6s",
+                "query", "prompt", "llm", "ok", "json", "match", "subst", "proseAvg", "wordAvg", "cites", "pages", "stacks"));
+        LOGGER.info("-".repeat(169));
 
         for (final List<RunResult> runs : grouped.values()) {
             final RunResult first = runs.get(0);
             final CellStats s = computeCellStats(runs);
             final int n = runs.size();
-            LOGGER.info(String.format("%-26s | %-22s | %-22s | %5d/%d | %5d/%d | %5d/%d | %5d/%d | %8d | %7d | %5d | %5d",
+            LOGGER.info(String.format("%-26s | %-22s | %-22s | %5d/%d | %5d/%d | %5d/%d | %5d/%d | %8d | %7d | %5d | %5d | %6d",
                     truncate(first.queryLabel(), 26), truncate(first.promptLabel(), 22), truncate(first.llmLabel(), 22),
                     s.ok(), n, s.jsonPresent(), n, s.matched(), n, s.substituted(), n,
-                    s.proseAvg(), s.wordAvg(), s.citeAvg(), s.pageAvg()));
+                    s.proseAvg(), s.wordAvg(), s.citeAvg(), s.pageAvg(), s.stackAvg()));
         }
 
         printConsistencyLegend();
@@ -410,6 +434,7 @@ public final class TestHarness {
         long wordSum = 0;
         long citeSum = 0;
         long pageSum = 0;
+        long stackSum = 0;
         for (final RunResult r : runs) {
             if (r.error() != null || r.response() == null
                     || !"ANSWER_GENERATED".equals(String.valueOf(r.response().status()))) {
@@ -424,10 +449,11 @@ public final class TestHarness {
             wordSum += c.proseWords();
             citeSum += c.jsonIds().size();
             pageSum += c.citedPages();
+            stackSum += c.sameDocStackedRuns();
         }
         final int denom = ok > 0 ? ok : 1;
         return new CellStats(ok, jsonPresent, matched, substituted,
-                proseSum / denom, wordSum / denom, citeSum / denom, pageSum / denom);
+                proseSum / denom, wordSum / denom, citeSum / denom, pageSum / denom, stackSum / denom);
     }
 
     private static void printConsistencyLegend() {
@@ -444,6 +470,9 @@ public final class TestHarness {
         LOGGER.info("  cites    = mean distinct citations (FACT_MAP_JSON entries) — coverage guard");
         LOGGER.info("  pages    = mean total source pages cited across entries — coverage guard");
         LOGGER.info("             (when cutting wordAvg, cites/pages should hold ⇒ padding removed, not facts)");
+        LOGGER.info("  stacks   = mean same-document stacked runs: adjacent [N][M] markers whose ids resolve");
+        LOGGER.info("             to the SAME documentId — should be 0; the prompt requires one merged citation");
+        LOGGER.info("             (adjacent markers for DIFFERENT documents are legitimate and not counted)");
     }
 
     private static final Pattern BARE_BRACKET = Pattern.compile("\\[(\\d+)\\]");
@@ -456,6 +485,15 @@ public final class TestHarness {
     private static final Pattern JSON_CITATION_ID = Pattern.compile("\"citationId\"\\s*:\\s*(\\d+)");
     /** Captures each individualPageNumbers value, to count how many source pages the answer cites. */
     private static final Pattern INDIVIDUAL_PAGES = Pattern.compile("\"individualPageNumbers\"\\s*:\\s*\"([^\"]{0,200})\"");
+    /** A maximal run of >=2 adjacent bare [N] markers, separated by at most a few horizontal
+     *  whitespace chars. Every quantifier is bounded and each repetition is anchored on a literal
+     *  '[' — no super-linear backtracking (S5852). */
+    private static final Pattern MARKER_RUN = Pattern.compile("\\[\\d{1,4}\\](?:[ \\t]{0,3}\\[\\d{1,4}\\]){1,50}");
+    /** One JSON object literal inside a FACT_MAP_JSON payload (objects are flat — no nesting). */
+    private static final Pattern JSON_OBJECT = Pattern.compile("\\{[^{}]{0,600}\\}");
+    /** Quote-tolerant citationId, for the id→documentId map: models emit both 1 and "1". */
+    private static final Pattern OBJ_CITATION_ID = Pattern.compile("\"citationId\"\\s*:\\s*\"?(\\d{1,6})\"?");
+    private static final Pattern OBJ_DOCUMENT_ID = Pattern.compile("\"documentId\"\\s*:\\s*\"([^\"]{0,80})\"");
     /** Literal citation-block tags (the prompt mandates these exact tags). Matched case-insensitively
      *  by index scan rather than a regex, to avoid any backtracking over the block body. */
     private static final String FACT_MAP_OPEN = "<FACT_MAP_JSON>";
@@ -522,8 +560,75 @@ public final class TestHarness {
             }
         }
 
+        final int sameDocStackedRuns =
+                countSameDocStackedRuns(rawWithoutJson, buildCitationIdToDocumentId(raw));
+
         return new Compliance(bareCount, inlineIds, driftCount, jsonEntryCount, jsonIds,
-                inlineSubsetOfJson, processorSubstituted, jsonBlockPresent, proseChars, proseWords, citedPages);
+                inlineSubsetOfJson, processorSubstituted, jsonBlockPresent, proseChars, proseWords, citedPages,
+                sameDocStackedRuns);
+    }
+
+    /**
+     * Maps citationId → documentId from every object literal inside the FACT_MAP_JSON block(s),
+     * located by the same index scan as {@link #stripFactMapBlocks} (no regex over the full
+     * response). First mapping wins; quote-tolerant on the citationId.
+     */
+    private static Map<Integer, String> buildCitationIdToDocumentId(final String raw) {
+        final Map<Integer, String> idToDoc = new LinkedHashMap<>();
+        final String open = FACT_MAP_OPEN.toLowerCase(Locale.ROOT);
+        final String close = FACT_MAP_CLOSE.toLowerCase(Locale.ROOT);
+        final String lower = raw.toLowerCase(Locale.ROOT);
+        int from = 0;
+        while (true) {
+            final int o = lower.indexOf(open, from);
+            final int c = o < 0 ? -1 : lower.indexOf(close, o + open.length());
+            if (o < 0 || c < 0) {
+                return idToDoc;
+            }
+            final Matcher obj = JSON_OBJECT.matcher(raw.substring(o + open.length(), c));
+            while (obj.find()) {
+                addObjectMapping(obj.group(), idToDoc);
+            }
+            from = c + close.length();
+        }
+    }
+
+    private static void addObjectMapping(final String objectLiteral, final Map<Integer, String> idToDoc) {
+        final Matcher id = OBJ_CITATION_ID.matcher(objectLiteral);
+        final Matcher doc = OBJ_DOCUMENT_ID.matcher(objectLiteral);
+        if (id.find() && doc.find()) {
+            idToDoc.putIfAbsent(Integer.parseInt(id.group(1)), doc.group(1));
+        }
+    }
+
+    /**
+     * Counts maximal adjacent {@code [N][M]…} runs in the raw answer where at least two
+     * CONSECUTIVE ids resolve to the same documentId — the "same-document stacking" the
+     * prompt tells the model to merge into a single citation entry. Adjacent ids from
+     * different documents (legitimate multi-document support) do not count.
+     */
+    private static int countSameDocStackedRuns(final String rawWithoutJson, final Map<Integer, String> idToDoc) {
+        int stackedRuns = 0;
+        final Matcher run = MARKER_RUN.matcher(rawWithoutJson);
+        while (run.find()) {
+            if (runHasSameDocAdjacency(run.group(), idToDoc)) {
+                stackedRuns++;
+            }
+        }
+        return stackedRuns;
+    }
+
+    private static boolean runHasSameDocAdjacency(final String runText, final Map<Integer, String> idToDoc) {
+        String prevDoc = null;
+        final Matcher m = BARE_BRACKET.matcher(runText);
+        while (m.find()) {
+            final String doc = idToDoc.get(Integer.parseInt(m.group(1)));
+            if (doc != null && doc.equals(prevDoc)) {
+                return true;
+            }
+            prevDoc = doc;
+        }
+        return false;
     }
 
     /** True if {@code raw} contains a complete (open … close) FACT_MAP_JSON block, case-insensitively. */
@@ -551,6 +656,24 @@ public final class TestHarness {
             }
             out.append(raw, from, o);
             from = c + close.length();
+        }
+    }
+
+    /** Citation-stripped prose of a raw response: FACT_MAP block(s) and every bracket token removed. */
+    static String proseOf(final String raw) {
+        final String withoutJson = stripFactMapBlocks(raw == null ? "" : raw);
+        return BRACKET_TOKEN.matcher(withoutJson).replaceAll("").replaceAll("\\s+", " ").trim();
+    }
+
+    /** Applies the same pre-call delay as generation calls; restores the interrupt flag if interrupted. */
+    static void pause() {
+        if (CALL_DELAY_SECONDS <= 0) {
+            return;
+        }
+        try {
+            Thread.sleep(Duration.ofSeconds(CALL_DELAY_SECONDS).toMillis());
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -593,10 +716,10 @@ public final class TestHarness {
         final Compliance c = computeCompliance(r.response());
         LOGGER.info("status: {} | jsonBlock: {} | inlineIds: {} | jsonIds: {}"
                         + " | drift: {} | match: {} | subst: {} | proseChars: {} | proseWords: {}"
-                        + " | citedPages: {}",
+                        + " | citedPages: {} | sameDocStacks: {}",
                 r.response().status(), c.jsonBlockPresent(), c.inlineIds(), c.jsonIds(),
                 c.rawDriftMarkers(), c.inlineSubsetOfJson(), c.processorSubstituted(),
-                c.proseChars(), c.proseWords(), c.citedPages());
+                c.proseChars(), c.proseWords(), c.citedPages(), c.sameDocStackedRuns());
         LOGGER.info("");
         LOGGER.info("RAW RESPONSE:");
         LOGGER.info(safe(r.response().rawLlmResponse()));
@@ -607,7 +730,30 @@ public final class TestHarness {
 
     // ---- env + string helpers ----------------------------------------------
 
-    private static String env(final String key, final String dflt) {
+    /** Splits a comma-separated value into trimmed, non-empty tokens. */
+    private static List<String> splitCsv(final String csv) {
+        final List<String> out = new ArrayList<>();
+        for (final String token : csv.split(",")) {
+            if (!token.trim().isEmpty()) {
+                out.add(token.trim());
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Report label for a (query, documentId) row. With a single target document the plain query
+     * label is kept; with several, the id's first 8 chars are appended so rows stay distinct.
+     */
+    private static String queryLabelFor(final String label, final String documentId) {
+        if (DOCUMENT_IDS.size() < 2) {
+            return label;
+        }
+        final String shortId = documentId.length() > 8 ? documentId.substring(0, 8) : documentId;
+        return label + " @" + shortId;
+    }
+
+    static String env(final String key, final String dflt) {
         final String v = System.getenv(key);
         return (v == null || v.isBlank()) ? dflt : v;
     }
@@ -621,7 +767,7 @@ public final class TestHarness {
         return v;
     }
 
-    private static int intEnv(final String key, final int dflt) {
+    static int intEnv(final String key, final int dflt) {
         final String v = System.getenv(key);
         try {
             return (v == null || v.isBlank()) ? dflt : Integer.parseInt(v.trim());

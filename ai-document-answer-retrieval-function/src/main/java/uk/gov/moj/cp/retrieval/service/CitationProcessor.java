@@ -11,8 +11,11 @@ import static uk.gov.moj.cp.retrieval.model.CitationKeys.PAGE_NUMBERS;
 import uk.gov.moj.cp.ai.util.StringUtil;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -47,6 +50,14 @@ import org.slf4j.LoggerFactory;
  *       the JSON payload.</li>
  *   <li>Accepts opening/closing tags emitted in any letter case and with
  *       whitespace inside the angle brackets.</li>
+ *   <li>Merges <em>same-document stacked runs</em>: a run of adjacent bare
+ *       placeholders (e.g. {@code [2][3]}) whose citationIds resolve to the
+ *       <strong>same</strong> documentId is collapsed into a single formatted
+ *       citation carrying the sorted, de-duplicated union of the entries'
+ *       pages. Adjacent placeholders citing <em>different</em> documents are
+ *       legitimate multi-document support and are left separate. The merge is
+ *       positional: JSON entries are never removed, so the same id appearing
+ *       non-adjacently elsewhere still substitutes normally.</li>
  *   <li>Strips <em>unresolved</em> bare {@code [N]} markers — any inline
  *       placeholder left over once substitution has run, because it had no
  *       matching JSON entry, the {@code <FACT_MAP_JSON>} block was absent, or the
@@ -81,6 +92,16 @@ public class CitationProcessor {
 
     /** Matches any bare {@code [N]} integer-in-brackets. Used to detect counter-loop pathology. */
     private static final Pattern BARE_BRACKET_INT = Pattern.compile("\\[\\d+\\]");
+
+    /** A maximal run of two or more adjacent bare {@code [N]} markers, separated by at most a few
+     *  horizontal whitespace characters (a newline between markers is NOT a run — citations of
+     *  separate list items must not merge). Every quantifier is bounded and each repetition is
+     *  anchored on a literal '[', so the pattern cannot backtrack super-linearly (S5852). */
+    private static final Pattern MARKER_RUN_PATTERN =
+            Pattern.compile("\\[\\d{1,4}\\](?:[ \\t]{0,3}\\[\\d{1,4}\\]){1,50}");
+
+    /** A single bare {@code [N]} marker within a matched run; group 1 is the citation id. */
+    private static final Pattern SINGLE_MARKER_PATTERN = Pattern.compile("\\[(\\d{1,4})\\]");
 
     /** Above this many surviving {@code [N]} markers, the output is treated as catastrophic. */
     private static final int CATASTROPHIC_BRACKET_THRESHOLD = 100;
@@ -125,6 +146,7 @@ public class CitationProcessor {
         try {
             final List<Map<String, Object>> citations =
                     objectMapper.readValue(jsonPayload, new TypeReference<>() { });
+            answerText = mergeSameDocumentRuns(answerText, citations);
             for (final Map<String, Object> citation : citations) {
                 answerText = substituteCitation(answerText, citation);
             }
@@ -169,16 +191,151 @@ public class CitationProcessor {
         final String individual = stringifyJsonValue(citation.getOrDefault(INDIVIDUAL_PAGE_NUMBERS, NOT_AVAILABLE));
         final String compressed = resolveCompressedPages(citation, individual);
 
-        final String formatted = String.format(
-                CITATION_FORMAT,
+        final String formatted = formatCitation(
                 stringifyJsonValue(citation.getOrDefault(DOCUMENT_FILE_NAME, UNKNOWN_FILE)),
                 compressed,
                 individual,
-                stringifyJsonValue(citation.getOrDefault(DOCUMENT_ID, UNKNOWN_ID))
-        );
+                stringifyJsonValue(citation.getOrDefault(DOCUMENT_ID, UNKNOWN_ID)));
 
         final String placeholderRegex = String.format(PLACEHOLDER_REGEX_TEMPLATE, Pattern.quote(citationIdStr));
         return answerText.replaceAll(placeholderRegex, Matcher.quoteReplacement(formatted));
+    }
+
+    private static String formatCitation(final String filename, final String compressed,
+                                         final String individual, final String documentId) {
+        return String.format(CITATION_FORMAT, filename, compressed, individual, documentId);
+    }
+
+    /**
+     * Collapses each maximal run of adjacent bare {@code [N]} markers whose citationIds resolve
+     * to the same documentId into a single formatted citation carrying the union of the entries'
+     * pages. The rewrite is positional — only the matched run region changes and no JSON entry
+     * is removed, so an id reused non-adjacently elsewhere still substitutes normally. Runs (or
+     * portions of runs) citing different documents, or ids without a JSON entry, are re-emitted
+     * verbatim for the ordinary substitution and unresolved-marker stripping to handle.
+     */
+    private static String mergeSameDocumentRuns(final String answerText, final List<Map<String, Object>> citations) {
+        final Map<String, Map<String, Object>> idToEntry = new LinkedHashMap<>();
+        for (final Map<String, Object> citation : citations) {
+            final String id = stringifyJsonValue(citation.get(CITATION_ID));
+            if (!StringUtil.isNullOrEmpty(id)) {
+                idToEntry.putIfAbsent(id, citation);
+            }
+        }
+        if (idToEntry.isEmpty()) {
+            return answerText;
+        }
+
+        final Matcher run = MARKER_RUN_PATTERN.matcher(answerText);
+        final StringBuilder out = new StringBuilder(answerText.length());
+        int last = 0;
+        while (run.find()) {
+            out.append(answerText, last, run.start());
+            out.append(buildRunReplacement(run.group(), idToEntry));
+            last = run.end();
+        }
+        return out.append(answerText, last, answerText.length()).toString();
+    }
+
+    /**
+     * Rewrites one adjacent-marker run: maximal consecutive ids sharing a non-null documentId
+     * become one merged citation; every other id is re-emitted as its original {@code [N]}.
+     */
+    private static String buildRunReplacement(final String runText, final Map<String, Map<String, Object>> idToEntry) {
+        final List<String> ids = new ArrayList<>();
+        final Matcher marker = SINGLE_MARKER_PATTERN.matcher(runText);
+        while (marker.find()) {
+            ids.add(marker.group(1));
+        }
+
+        final StringBuilder out = new StringBuilder();
+        int i = 0;
+        while (i < ids.size()) {
+            final String documentId = documentIdOf(idToEntry.get(ids.get(i)));
+            int j = i + 1;
+            while (documentId != null && j < ids.size()
+                    && documentId.equals(documentIdOf(idToEntry.get(ids.get(j))))) {
+                j++;
+            }
+            appendGroup(out, ids.subList(i, j), documentId, idToEntry);
+            i = j;
+        }
+        return out.toString();
+    }
+
+    private static void appendGroup(final StringBuilder out, final List<String> groupIds, final String documentId,
+                                    final Map<String, Map<String, Object>> idToEntry) {
+        if (groupIds.size() < 2) {
+            out.append('[').append(groupIds.get(0)).append(']');
+            return;
+        }
+        out.append(formatMergedCitation(groupIds, documentId, idToEntry));
+        LOGGER.info("Merged {} adjacent same-document citation markers {} into one citation for documentId={}",
+                groupIds.size(), groupIds, documentId);
+    }
+
+    private static String formatMergedCitation(final List<String> groupIds, final String documentId,
+                                               final Map<String, Map<String, Object>> idToEntry) {
+        final List<Map<String, Object>> entries = new LinkedHashSet<>(groupIds).stream()
+                .map(idToEntry::get)
+                .toList();
+        // The union invalidates any single entry's LLM-provided compressed "pageNumbers" string,
+        // so the compressed form is always recomputed from the unioned pages.
+        final String individual = unionPages(entries);
+        return formatCitation(
+                stringifyJsonValue(entries.get(0).getOrDefault(DOCUMENT_FILE_NAME, UNKNOWN_FILE)),
+                compressPageRange(individual),
+                individual,
+                documentId);
+    }
+
+    /**
+     * Unions the {@code individualPageNumbers} of the given entries: numeric pages de-duplicated
+     * and sorted ascending, then non-numeric tokens (e.g. Roman-numeral front-matter pages) in
+     * first-seen order.
+     */
+    private static String unionPages(final List<Map<String, Object>> entries) {
+        final TreeSet<Integer> numeric = new TreeSet<>();
+        final LinkedHashSet<String> nonNumeric = new LinkedHashSet<>();
+        for (final Map<String, Object> entry : entries) {
+            final String pages = stringifyJsonValue(entry.get(INDIVIDUAL_PAGE_NUMBERS));
+            if (StringUtil.isNullOrEmpty(pages)) {
+                continue;
+            }
+            for (final String token : pages.split(",")) {
+                addPageToken(token.trim(), numeric, nonNumeric);
+            }
+        }
+        if (numeric.isEmpty() && nonNumeric.isEmpty()) {
+            return NOT_AVAILABLE;
+        }
+        final StringBuilder out = new StringBuilder();
+        numeric.forEach(page -> appendToken(out, String.valueOf(page)));
+        nonNumeric.forEach(token -> appendToken(out, token));
+        return out.toString();
+    }
+
+    private static void addPageToken(final String token, final TreeSet<Integer> numeric,
+                                     final LinkedHashSet<String> nonNumeric) {
+        if (token.isEmpty() || NOT_AVAILABLE.equals(token)) {
+            return;
+        }
+        try {
+            numeric.add(Integer.parseInt(token));
+        } catch (final NumberFormatException e) {
+            nonNumeric.add(token);
+        }
+    }
+
+    private static void appendToken(final StringBuilder out, final String token) {
+        if (out.length() > 0) {
+            out.append(',');
+        }
+        out.append(token);
+    }
+
+    private static String documentIdOf(final Map<String, Object> entry) {
+        return entry == null ? null : stringifyJsonValue(entry.get(DOCUMENT_ID));
     }
 
     /**

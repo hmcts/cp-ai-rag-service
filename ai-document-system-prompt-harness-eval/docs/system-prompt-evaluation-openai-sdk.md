@@ -22,7 +22,7 @@ The service has two interchangeable `ChatService` implementations, selected by
 
 The earlier evaluation only exercised the Azure path. Three of the four changes it
 produced are **provider-agnostic** and already protect both paths:
-- the improved prompt (`baseline-with-improvements`) — passed as the system instruction;
+- the improved prompt (`v2-baseline-with-improvements`) — passed as the system instruction;
 - the `CitationProcessor` hardening — post-processing, after the chat call;
 - the `ChunkFormatterUtility` `CHUNK_ID` removal — input formatting, before the chat call.
 
@@ -50,7 +50,7 @@ verbosity present for reasoning models / absent for non-reasoning).
 
 ## 3. The run (OpenAI SDK) vs the earlier run (Azure SDK)
 
-Both: 2 reps × 2 prompts (`baseline-production`, `baseline-with-improvements`) × 2 models
+Both: 2 reps × 2 prompts (`v1-baseline-production`, `v2-baseline-with-improvements`) × 2 models
 (`gpt-4o`, `gpt-5.1`) × 10 queries; `reasoning_effort=none`; `max_completion_tokens=7000`.
 
 | Dimension | Azure SDK | OpenAI SDK |
