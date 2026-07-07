@@ -9,10 +9,13 @@ import static java.util.UUID.randomUUID;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING;
+import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATED;
+import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATION_FAILED;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
-import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
 import static uk.gov.moj.cp.ai.validation.RequestValidator.validate;
+import static uk.gov.moj.cp.retrieval.service.ResponseGenerationService.LLM_RESPONSE_FAILURE_TO_GENERATE;
+import static uk.gov.moj.cp.retrieval.util.ChunkUtil.getAnswerWithChunksFilename;
 import static uk.gov.moj.cp.retrieval.util.ChunkUtil.transformChunkEntries;
 
 import uk.gov.hmcts.cp.openapi.model.AnswerUserQueryRequest;
@@ -22,6 +25,8 @@ import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.model.ScoringPayload;
 import uk.gov.moj.cp.ai.model.ScoringQueuePayload;
+import uk.gov.moj.cp.retrieval.exception.CitationDegradedException;
+import uk.gov.moj.cp.retrieval.model.CitationGuardMode;
 import uk.gov.moj.cp.retrieval.model.LlmResponse;
 import uk.gov.moj.cp.retrieval.service.AzureAISearchService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
@@ -58,18 +63,25 @@ public class SyncAnswerGenerationFunction {
 
     private final BlobPersistenceService blobPersistenceService;
 
+    private final CitationGuardMode guardMode;
+
     public SyncAnswerGenerationFunction() {
         embedDataService = new EmbedDataService();
         searchService = new AzureAISearchService();
         responseGenerationService = new ResponseGenerationService();
         blobPersistenceService = new BlobPersistenceService(getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS));
+        guardMode = CitationGuardMode.fromEnv();
     }
 
-    public SyncAnswerGenerationFunction(final EmbedDataService embedDataService, final AzureAISearchService searchService, final ResponseGenerationService responseGenerationService, final BlobPersistenceService blobPersistenceService) {
+    SyncAnswerGenerationFunction(final EmbedDataService embedDataService, final AzureAISearchService searchService,
+                                 final ResponseGenerationService responseGenerationService,
+                                 final BlobPersistenceService blobPersistenceService,
+                                 final CitationGuardMode guardMode) {
         this.embedDataService = embedDataService;
         this.searchService = searchService;
         this.responseGenerationService = responseGenerationService;
         this.blobPersistenceService = blobPersistenceService;
+        this.guardMode = guardMode;
     }
 
     /**
@@ -104,30 +116,31 @@ public class SyncAnswerGenerationFunction {
 
             final List<ChunkedEntry> chunkedEntries = searchService.search(userQuery, queryEmbeddings, metadataFilters);
 
-            final LlmResponse llmResponse = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
+            LlmResponse llmResponse;
+            try {
+                llmResponse = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
+            } catch (final CitationDegradedException e) {
+                llmResponse = applyGuardPolicy(e);
+            }
 
-            LOGGER.info("Answer retrieval processing completed successfully for query: {}", userQuery);
+            LOGGER.info("Answer retrieval processing completed for query: {} (status: {})", userQuery, llmResponse.status());
 
             final UserQueryAnswerReturnedSuccessfullySynchronously queryResponse = new UserQueryAnswerReturnedSuccessfullySynchronously(userQuery, llmResponse.formattedLlmResponse(), userQueryPrompt, transformChunkEntries(chunkedEntries));
 
             final String responseAsString = convert(queryResponse);
 
-            final String filename = "llm-answer-with-chunks-" + randomUUID() + ".json";
-            blobPersistenceService.saveBlob(
-                    filename,
-                    getObjectMapper().writeValueAsString(
-                            new ScoringPayload(
-                                    userQuery,
-                                    llmResponse.formattedLlmResponse(),
-                                    userQueryPrompt,
-                                    chunkedEntries,
-                                    null
-                            )
-                    )
-            );
+            // A guard-rejected (uncited) or failed generation carries only sentinel text —
+            // nothing meaningful to score, so skip the scoring blob + enqueue.
+            if (llmResponse.status() == ANSWER_GENERATION_FAILED) {
+                LOGGER.warn("Skipping scoring for failed generation (reason: {})", llmResponse.reason());
+                return generateResponse(request, OK, responseAsString);
+            }
 
-            ScoringQueuePayload scoringQueuePayload = new ScoringQueuePayload(filename);
-            message.setValue(convert(scoringQueuePayload));
+            final String filename = getAnswerWithChunksFilename(randomUUID());
+            final ScoringPayload scoringPayload = new ScoringPayload(
+                    userQuery, llmResponse.formattedLlmResponse(), userQueryPrompt, chunkedEntries, null);
+            blobPersistenceService.saveBlob(filename, convert(scoringPayload));
+            message.setValue(convert(new ScoringQueuePayload(filename)));
 
             return generateResponse(request, OK, responseAsString);
 
@@ -136,6 +149,21 @@ public class SyncAnswerGenerationFunction {
             final String errorMessage = convert(new RequestErrored("An internal error occurred: " + e.getMessage()));
             return generateResponse(request, INTERNAL_SERVER_ERROR, errorMessage);
         }
+    }
+
+    /**
+     * Interactive path: no retries — the citation-guard policy applies immediately (the caller
+     * can simply re-submit). REJECT maps the degraded answer to a FAILED sentinel response;
+     * DELIVER returns the degraded answer carried by the exception, reason recorded.
+     */
+    private LlmResponse applyGuardPolicy(final CitationDegradedException e) {
+        if (guardMode == CitationGuardMode.REJECT) {
+            LOGGER.warn("Citation guard: rejecting uncited answer — {}", e.getMessage());
+            return new LlmResponse(e.rawLlmResponse(), LLM_RESPONSE_FAILURE_TO_GENERATE,
+                    ANSWER_GENERATION_FAILED, e.getMessage());
+        }
+        LOGGER.warn("Citation guard: delivering citation-degraded answer — {}", e.getMessage());
+        return new LlmResponse(e.rawLlmResponse(), e.formattedText(), ANSWER_GENERATED, e.getMessage());
     }
 
     private HttpResponseMessage generateResponse(final HttpRequestMessage<?> request,

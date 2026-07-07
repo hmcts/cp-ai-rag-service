@@ -15,14 +15,16 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATED;
 import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATION_FAILED;
-import static uk.gov.moj.cp.retrieval.AnswerGenerationFunction.LLM_INPUT_CHUNKS;
+import static uk.gov.moj.cp.retrieval.util.ChunkUtil.getInputChunksFilename;
 import static uk.org.webcompere.modelassert.json.JsonAssertions.json;
 
 import uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
+import uk.gov.moj.cp.retrieval.exception.CitationDegradedException;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
+import uk.gov.moj.cp.retrieval.model.CitationGuardMode;
 import uk.gov.moj.cp.retrieval.model.LlmResponse;
 import uk.gov.moj.cp.retrieval.service.AzureAISearchService;
 import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
@@ -163,7 +165,7 @@ class AnswerGenerationFunctionTest {
                 eq(transactionId.toString()),
                 eq("query"),
                 eq("prompt"),
-                eq(format(LLM_INPUT_CHUNKS, transactionId)),
+                eq(getInputChunksFilename(transactionId)),
                 eq("generated response"),
                 eq(ANSWER_GENERATED),
                 eq(null),
@@ -232,7 +234,7 @@ class AnswerGenerationFunctionTest {
                 eq(transactionId.toString()),
                 eq("query"),
                 eq("prompt"),
-                eq(format(LLM_INPUT_CHUNKS, transactionId)),
+                eq(getInputChunksFilename(transactionId)),
                 eq("raw formatted error"),
                 eq(ANSWER_GENERATION_FAILED),
                 isNotNull(),
@@ -240,25 +242,92 @@ class AnswerGenerationFunctionTest {
                 any(Long.class)
         );
 
-        verify(mockBlobPersistenceService).saveBlob(
-                anyString(),
-                argThat(
-                        json().at("/userQuery").isText("query")
-                                .at("/llmResponse").isText("raw formatted error")
-                                .at("/queryPrompt").isText("prompt")
-                                .at("/chunkedEntries").isArray()
-                                .at("/transactionId").isText(transactionId.toString())
-                                .toArgumentMatcher()
-                )
-        );
+        // A failed generation (e.g. citation-guard rejection) carries only sentinel text —
+        // nothing meaningful to score, so the eval blob and scoring enqueue are skipped.
+        verify(mockBlobPersistenceService, never()).saveBlob(anyString(), anyString());
+        verify(mockScoringOutputBinding, never()).setValue(anyString());
+    }
 
-        verify(mockScoringOutputBinding).setValue(
-                argThat(
-                        json().at("/filename")
-                                .matches("^llm-answer-with-chunks-" + transactionId + ".json$")
-                                .toArgumentMatcher()
-                )
+    // ---- citation guard: retry via queue redelivery, policy at exhaustion ----
+
+    private AnswerGenerationQueuePayload stubGuardScenario(final UUID transactionId) throws Exception {
+        final AnswerGenerationQueuePayload payload = new AnswerGenerationQueuePayload(
+                transactionId, "query", "prompt", List.of(new KeyValuePair("key", "value")));
+        final List<Float> embeddings = List.of(1.0f, 2.0f);
+        final List<ChunkedEntry> chunkedEntries = List.of(ChunkedEntry.builder()
+                .id("1").chunk("Sample content").documentFileName("doc.pdf").pageNumber(1).documentId("doc1")
+                .build());
+        when(mockEmbedDataService.getEmbedding("query")).thenReturn(embeddings);
+        when(mockSearchService.search("query", embeddings, payload.metadataFilter())).thenReturn(chunkedEntries);
+        when(mockResponseGenerationService.generateResponse("query", chunkedEntries, "prompt"))
+                .thenThrow(new CitationDegradedException(
+                        "Citations missing: jsonBlock=false, inlineMarkers=3, rendered=0, stripped=3",
+                        "raw uncited", "uncited formatted"));
+        return payload;
+    }
+
+    @Test
+    void run_RethrowsForQueueRedelivery_WhenCitationDegradedBelowMaxDequeueCount() throws Exception {
+        final UUID transactionId = randomUUID();
+        final String queueMessage = objectMapper.writeValueAsString(stubGuardScenario(transactionId));
+
+        final RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> function.run(queueMessage, mockScoringOutputBinding, 1, context));
+
+        assertThat(ex.getMessage(), is(format("Retrying AnswerGeneration for transactionId='%s' (citation-degraded)", transactionId)));
+        verify(mockAnswerGenerationTableService, never()).upsertIntoTable(anyString(), anyString(), anyString(),
+                any(), any(), any(), any(), any(OffsetDateTime.class), any(Long.class));
+        verify(mockScoringOutputBinding, never()).setValue(anyString());
+    }
+
+    @Test
+    void run_DeliversDegradedAnswerWithReason_WhenRedeliveryExhausted_InDeliverMode() throws Exception {
+        final UUID transactionId = randomUUID();
+        final String queueMessage = objectMapper.writeValueAsString(stubGuardScenario(transactionId));
+
+        // dequeueCount == maxDequeueCount (3, env default) → exhaustion policy applies (DELIVER default).
+        function.run(queueMessage, mockScoringOutputBinding, 3, context);
+
+        verify(mockAnswerGenerationTableService).upsertIntoTable(
+                eq(transactionId.toString()),
+                eq("query"),
+                eq("prompt"),
+                eq(getInputChunksFilename(transactionId)),
+                eq("uncited formatted"),
+                eq(ANSWER_GENERATED),
+                eq("Citations missing: jsonBlock=false, inlineMarkers=3, rendered=0, stripped=3"),
+                any(OffsetDateTime.class),
+                any(Long.class)
         );
+        // Delivered answers are real answers: blob persisted and scoring enqueued.
+        verify(mockBlobPersistenceService).saveBlob(anyString(), anyString());
+        verify(mockScoringOutputBinding).setValue(anyString());
+    }
+
+    @Test
+    void run_RecordsFailureWithReason_WhenRedeliveryExhausted_InRejectMode() throws Exception {
+        function = new AnswerGenerationFunction(
+                mockEmbedDataService, mockSearchService, mockResponseGenerationService,
+                mockBlobPersistenceService, mockBlobPersistenceInputChunksService,
+                mockAnswerGenerationTableService, CitationGuardMode.REJECT);
+        final UUID transactionId = randomUUID();
+        final String queueMessage = objectMapper.writeValueAsString(stubGuardScenario(transactionId));
+
+        function.run(queueMessage, mockScoringOutputBinding, 3, context);
+
+        verify(mockAnswerGenerationTableService).upsertIntoTable(
+                eq(transactionId.toString()),
+                eq("query"),
+                eq("prompt"),
+                eq(null),
+                eq(null),
+                eq(ANSWER_GENERATION_FAILED),
+                eq("Citations missing: jsonBlock=false, inlineMarkers=3, rendered=0, stripped=3"),
+                any(OffsetDateTime.class),
+                any(Long.class)
+        );
+        verify(mockBlobPersistenceService, never()).saveBlob(anyString(), anyString());
+        verify(mockScoringOutputBinding, never()).setValue(anyString());
     }
 
     @Test

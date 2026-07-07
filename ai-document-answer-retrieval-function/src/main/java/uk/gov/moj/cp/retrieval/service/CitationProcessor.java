@@ -113,11 +113,31 @@ public class CitationProcessor {
     /** The user-visible citation format. */
     private static final String CITATION_FORMAT = "::(Source: [%s], Pages %s|%s|documentId=%s)";
 
+    /** Stable prefix of {@link #CITATION_FORMAT}, used to count rendered citations. */
+    private static final String RENDERED_CITATION_PREFIX = "::(Source: [";
+
     private static final String UNKNOWN_FILE = "UNKNOWN_FILE";
     private static final String UNKNOWN_ID = "UNKNOWN_ID";
     private static final String NOT_AVAILABLE = "N/A";
 
     private final ObjectMapper objectMapper = getObjectMapper();
+
+    /**
+     * The outcome of citation post-processing: the formatted text plus the degradation signal
+     * that was previously log-only. Consumed by the citation guard in
+     * {@code ResponseGenerationService} to decide whether an answer may progress.
+     *
+     * @param formattedText      the user-visible answer after substitution/merge/stripping
+     * @param jsonBlockPresent   a complete {@code <FACT_MAP_JSON>} block was found
+     * @param emptyFactMap       the block parsed to an empty array (deliberate no-evidence refusal)
+     * @param inlineMarkers      bare {@code [N]} markers the model wrote (after joined-id normalisation)
+     * @param renderedCitations  citations actually rendered into the formatted text
+     * @param strippedMarkers    markers removed because they could not be resolved to a citation
+     */
+    public record CitationOutcome(String formattedText, boolean jsonBlockPresent,
+                                  boolean emptyFactMap, int inlineMarkers,
+                                  int renderedCitations, int strippedMarkers) {
+    }
 
     /**
      * Executes the post-processing pipeline: extracts structured citations and substitutes
@@ -127,19 +147,32 @@ public class CitationProcessor {
      * @return the clean, fully cited response text, or an empty string if the input is empty
      */
     public String processAndFormatCitations(final String rawLlmOutput) {
+        return processCitations(rawLlmOutput).formattedText();
+    }
+
+    /**
+     * Same pipeline as {@link #processAndFormatCitations}, returning the full
+     * {@link CitationOutcome} so callers can act on citation degradation instead of it
+     * being visible only in the logs.
+     */
+    public CitationOutcome processCitations(final String rawLlmOutput) {
         if (StringUtil.isNullOrEmpty(rawLlmOutput)) {
-            return "";
+            return new CitationOutcome("", false, false, 0, 0, 0);
         }
 
         final TagLocation lastTag = findLastJsonTag(rawLlmOutput);
         if (lastTag == null) {
             LOGGER.warn("Raw output missing required <{}> tags; cannot format citations.", FACT_MAP_ATTRIBUTE_KEY);
-            return stripUnresolvedCitationMarkers(rawLlmOutput, true).trim();
+            final String normalised = normaliseJoinedIds(rawLlmOutput);
+            final int markers = countBareMarkers(normalised);
+            return new CitationOutcome(stripUnresolvedCitationMarkers(normalised, true).trim(),
+                    false, false, markers, 0, markers);
         }
 
         final String answerBeforeTag = rawLlmOutput.substring(0, lastTag.start);
         final String answerAfterTag = rawLlmOutput.substring(lastTag.end);
         String answerText = normaliseJoinedIds((answerBeforeTag + " " + answerAfterTag).trim());
+        final int inlineMarkers = countBareMarkers(answerText);
 
         final String jsonPayload = stripCodeFences(lastTag.payload).trim();
 
@@ -150,11 +183,30 @@ public class CitationProcessor {
             for (final Map<String, Object> citation : citations) {
                 answerText = substituteCitation(answerText, citation);
             }
-            return stripUnresolvedCitationMarkers(answerText, false).trim();
+            final int leftover = countBareMarkers(answerText);
+            final String formatted = stripUnresolvedCitationMarkers(answerText, false).trim();
+            return new CitationOutcome(formatted, true, citations.isEmpty(), inlineMarkers,
+                    countRenderedCitations(formatted), leftover);
         } catch (final Exception e) {
             LOGGER.warn("Failed to parse citation JSON or substitute placeholders; returning narrative without citations.", e);
-            return stripUnresolvedCitationMarkers(answerText, true).trim();
+            return new CitationOutcome(stripUnresolvedCitationMarkers(answerText, true).trim(),
+                    true, false, inlineMarkers, 0, inlineMarkers);
         }
+    }
+
+    private static int countBareMarkers(final String text) {
+        return (int) BARE_BRACKET_INT.matcher(text).results().count();
+    }
+
+    /** Rendered citations = occurrences of the citation format prefix in the formatted text. */
+    private static int countRenderedCitations(final String formatted) {
+        int count = 0;
+        int from = 0;
+        while ((from = formatted.indexOf(RENDERED_CITATION_PREFIX, from)) >= 0) {
+            count++;
+            from += RENDERED_CITATION_PREFIX.length();
+        }
+        return count;
     }
 
     private static TagLocation findLastJsonTag(final String rawLlmOutput) {

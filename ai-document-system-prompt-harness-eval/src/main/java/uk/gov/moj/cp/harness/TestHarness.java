@@ -143,8 +143,14 @@ public final class TestHarness {
                       int jsonEntries, Set<Integer> jsonIds,
                       boolean inlineSubsetOfJson, boolean processorSubstituted,
                       boolean jsonBlockPresent, int proseChars, int proseWords, int citedPages,
-                      int sameDocStackedRuns) {
+                      int sameDocStackedRuns, int renderedCitations, int strippedMarkers,
+                      boolean uncitedSubstantive) {
     }
+
+    /** Words of prose at/above which an answer counts as substantive (refusals are far shorter). */
+    private static final int SUBSTANTIVE_PROSE_WORDS = 50;
+
+    private static final CitationProcessor OUTCOME_PROCESSOR = new CitationProcessor();
 
     public static void main(final String[] args) throws InterruptedException {
         final List<SystemPromptConfig> systemPrompts = loadPrompts();
@@ -395,7 +401,8 @@ public final class TestHarness {
 
     /** Per-(query, prompt, LLM) cell aggregate across the {@link #REPETITIONS} iterations. */
     private record CellStats(int ok, int jsonPresent, int matched, int substituted,
-                             long proseAvg, long wordAvg, long citeAvg, long pageAvg, long stackAvg) {
+                             long proseAvg, long wordAvg, long citeAvg, long pageAvg, long stackAvg,
+                             int uncited) {
     }
 
     /** Aggregate stats per (query, prompt, LLM) cell across the {@link #REPETITIONS} iterations. */
@@ -408,18 +415,18 @@ public final class TestHarness {
 
         LOGGER.info("");
         LOGGER.info("======== CONSISTENCY ACROSS {} ITERATIONS ========", REPETITIONS);
-        LOGGER.info(String.format("%-26s | %-22s | %-22s | %-7s | %-7s | %-7s | %-7s | %8s | %7s | %5s | %5s | %6s",
-                "query", "prompt", "llm", "ok", "json", "match", "subst", "proseAvg", "wordAvg", "cites", "pages", "stacks"));
-        LOGGER.info("-".repeat(169));
+        LOGGER.info(String.format("%-26s | %-22s | %-22s | %-7s | %-7s | %-7s | %-7s | %8s | %7s | %5s | %5s | %6s | %7s",
+                "query", "prompt", "llm", "ok", "json", "match", "subst", "proseAvg", "wordAvg", "cites", "pages", "stacks", "uncited"));
+        LOGGER.info("-".repeat(179));
 
         for (final List<RunResult> runs : grouped.values()) {
             final RunResult first = runs.get(0);
             final CellStats s = computeCellStats(runs);
             final int n = runs.size();
-            LOGGER.info(String.format("%-26s | %-22s | %-22s | %5d/%d | %5d/%d | %5d/%d | %5d/%d | %8d | %7d | %5d | %5d | %6d",
+            LOGGER.info(String.format("%-26s | %-22s | %-22s | %5d/%d | %5d/%d | %5d/%d | %5d/%d | %8d | %7d | %5d | %5d | %6d | %7d",
                     truncate(first.queryLabel(), 26), truncate(first.promptLabel(), 22), truncate(first.llmLabel(), 22),
                     s.ok(), n, s.jsonPresent(), n, s.matched(), n, s.substituted(), n,
-                    s.proseAvg(), s.wordAvg(), s.citeAvg(), s.pageAvg(), s.stackAvg()));
+                    s.proseAvg(), s.wordAvg(), s.citeAvg(), s.pageAvg(), s.stackAvg(), s.uncited()));
         }
 
         printConsistencyLegend();
@@ -435,6 +442,7 @@ public final class TestHarness {
         long citeSum = 0;
         long pageSum = 0;
         long stackSum = 0;
+        int uncited = 0;
         for (final RunResult r : runs) {
             if (r.error() != null || r.response() == null
                     || !"ANSWER_GENERATED".equals(String.valueOf(r.response().status()))) {
@@ -450,10 +458,12 @@ public final class TestHarness {
             citeSum += c.jsonIds().size();
             pageSum += c.citedPages();
             stackSum += c.sameDocStackedRuns();
+            uncited += c.uncitedSubstantive() ? 1 : 0;
         }
         final int denom = ok > 0 ? ok : 1;
         return new CellStats(ok, jsonPresent, matched, substituted,
-                proseSum / denom, wordSum / denom, citeSum / denom, pageSum / denom, stackSum / denom);
+                proseSum / denom, wordSum / denom, citeSum / denom, pageSum / denom, stackSum / denom,
+                uncited);
     }
 
     private static void printConsistencyLegend() {
@@ -473,13 +483,18 @@ public final class TestHarness {
         LOGGER.info("  stacks   = mean same-document stacked runs: adjacent [N][M] markers whose ids resolve");
         LOGGER.info("             to the SAME documentId — should be 0; the prompt requires one merged citation");
         LOGGER.info("             (adjacent markers for DIFFERENT documents are legitimate and not counted)");
+        LOGGER.info("  uncited  = substantive answers (>= " + SUBSTANTIVE_PROSE_WORDS + " prose words) with ZERO rendered citations —");
+        LOGGER.info("             the citation guard's rejection signal; legitimate short refusals do not count");
     }
 
     private static final Pattern BARE_BRACKET = Pattern.compile("\\[(\\d+)\\]");
     // Bounded repetition ({0,N}) on the negated classes: citation markers and page lists are short,
     // and a bounded quantifier cannot backtrack super-linearly — this satisfies SonarQube's S5852
     // (regex-DoS) check, which a possessive quantifier did not.
-    private static final Pattern ANY_BRACKET_CITATION = Pattern.compile("\\[\\d[^\\[\\]]{0,40}\\]");
+    // Includes labelled forms ([Source 1], [Ref 2] …) that CitationProcessor's tolerant regex
+    // substitutes but a digit-first pattern would miss (observed blind spot).
+    private static final Pattern ANY_BRACKET_CITATION = Pattern.compile(
+            "(?i)\\[\\^?(?:(?:Source|doc|Citation|Ref)[\\s:]{1,3})?\\d[^\\[\\]]{0,40}\\]");
     /** Any bracketed token — used to strip all citation markers when measuring prose length. */
     private static final Pattern BRACKET_TOKEN = Pattern.compile("\\[[^\\[\\]]{0,64}\\]");
     private static final Pattern JSON_CITATION_ID = Pattern.compile("\"citationId\"\\s*:\\s*(\\d+)");
@@ -563,9 +578,15 @@ public final class TestHarness {
         final int sameDocStackedRuns =
                 countSameDocStackedRuns(rawWithoutJson, buildCitationIdToDocumentId(raw));
 
+        // Same signal the production citation guard consumes: rendered/stripped counts and the
+        // "substantive but uncited" flag (legitimate short refusals stay below the word floor).
+        final CitationProcessor.CitationOutcome outcome = OUTCOME_PROCESSOR.processCitations(raw);
+        final boolean uncitedSubstantive =
+                proseWords >= SUBSTANTIVE_PROSE_WORDS && outcome.renderedCitations() == 0;
+
         return new Compliance(bareCount, inlineIds, driftCount, jsonEntryCount, jsonIds,
                 inlineSubsetOfJson, processorSubstituted, jsonBlockPresent, proseChars, proseWords, citedPages,
-                sameDocStackedRuns);
+                sameDocStackedRuns, outcome.renderedCitations(), outcome.strippedMarkers(), uncitedSubstantive);
     }
 
     /**
@@ -716,10 +737,11 @@ public final class TestHarness {
         final Compliance c = computeCompliance(r.response());
         LOGGER.info("status: {} | jsonBlock: {} | inlineIds: {} | jsonIds: {}"
                         + " | drift: {} | match: {} | subst: {} | proseChars: {} | proseWords: {}"
-                        + " | citedPages: {} | sameDocStacks: {}",
+                        + " | citedPages: {} | sameDocStacks: {} | rendered: {} | stripped: {} | uncitedSubstantive: {}",
                 r.response().status(), c.jsonBlockPresent(), c.inlineIds(), c.jsonIds(),
                 c.rawDriftMarkers(), c.inlineSubsetOfJson(), c.processorSubstituted(),
-                c.proseChars(), c.proseWords(), c.citedPages(), c.sameDocStackedRuns());
+                c.proseChars(), c.proseWords(), c.citedPages(), c.sameDocStackedRuns(),
+                c.renderedCitations(), c.strippedMarkers(), c.uncitedSubstantive());
         LOGGER.info("");
         LOGGER.info("RAW RESPONSE:");
         LOGGER.info(safe(r.response().rawLlmResponse()));

@@ -14,7 +14,7 @@ import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.util.UuidUtil.isValid;
-import static uk.gov.moj.cp.retrieval.AnswerGenerationFunction.getInputChunksFilename;
+import static uk.gov.moj.cp.retrieval.util.ChunkUtil.getInputChunksFilename;
 import static uk.gov.moj.cp.retrieval.util.ChunkUtil.transformChunkEntries;
 
 import uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus;

@@ -36,6 +36,8 @@
     "LLM_MODEL_RESPONSE_MAX_TOKENS": "4000",
     "LLM_REASONING_EFFORT": "none",
 
+    "CITATION_GUARD_MODE": "deliver",
+
     "STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING": "answer-scoring-queue",
     "STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION": "answer-generation-queue",
     "STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION": "answergeneration",
