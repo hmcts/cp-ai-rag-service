@@ -17,7 +17,7 @@ import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERA
 import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATION_PENDING;
 import static uk.gov.moj.cp.ai.model.ChunkedEntry.builder;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
-import static uk.gov.moj.cp.retrieval.AnswerGenerationFunction.getInputChunksFilename;
+import static uk.gov.moj.cp.retrieval.util.ChunkUtil.getInputChunksFilename;
 import static uk.gov.moj.cp.retrieval.GetAnswerGenerationResultFunction.PARAM_WITH_CHUNKED_ENTRIES;
 
 import uk.gov.hmcts.cp.openapi.model.UserQueryAnswerReturnedSuccessfullyAsynchronously;

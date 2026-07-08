@@ -140,6 +140,7 @@ public abstract class FunctionTestBase {
                 Map.entry("STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION", ANSWER_GENERATION_QUEUE),
 
                 Map.entry("RESPONSE_GENERATION_SYSTEM_PROMPT", RESPONSE_GENERATION_SYSTEM_PROMPT),
+                Map.entry("CITATION_GUARD_MODE", "OFF"),
 
                 Map.entry("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", getRequiredEnv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")),
 
