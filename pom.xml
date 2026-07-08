@@ -35,11 +35,11 @@
         <junit-jupiter-engine.version>6.1.1</junit-jupiter-engine.version>
         <mockito-junit-jupiter.version>5.23.0</mockito-junit-jupiter.version>
         <assertj-core.version>3.27.7</assertj-core.version>
-        <langchain4j.version>1.17.0</langchain4j.version>
+        <langchain4j.version>1.17.2</langchain4j.version>
         <jackson.version>2.15.2</jackson.version>
         <opentelemetry-sdk.version>1.49.0</opentelemetry-sdk.version>
         <api-cp-ai-rag.version>0.0.12</api-cp-ai-rag.version>
-        <hibernate-validator.version>9.1.1.Final</hibernate-validator.version>
+        <hibernate-validator.version>9.1.2.Final</hibernate-validator.version>
         <jakarta.validation-api.version>3.1.1</jakarta.validation-api.version>
 
         <!-- SonarQube Properties -->
@@ -191,7 +191,7 @@
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
                 <artifactId>log4j-slf4j2-impl</artifactId>
-                <version>2.26.0</version>
+                <version>2.26.1</version>
             </dependency>
 
             <!-- Testing dependencies -->
