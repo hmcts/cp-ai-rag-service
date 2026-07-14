@@ -16,6 +16,14 @@
 # (or higher) in .env — reasoning calls can run for minutes with no bytes flowing, and this
 # script no longer floors them for you.
 #
+#   Anthropic Claude on Azure AI Foundry (harness-only; see .env.sample):
+#     HARNESS_LLM_DEPLOYMENTS=gpt-4o-response-generation,anthropic:claude-sonnet-4-6
+#     ANTHROPIC_FOUNDRY_RESOURCE=<res>    # or ANTHROPIC_FOUNDRY_BASE_URL (exactly one)
+#     ANTHROPIC_FOUNDRY_API_KEY=...       # optional; default is a DefaultAzureCredential token
+#   Note: the AZURE_CLIENT_* / HTTP_CLIENT_* retry+timeout vars apply to the Azure SDK
+#   clients only — the Anthropic SDK uses its own defaults (10-minute request timeout,
+#   2 retries).
+#
 set -euo pipefail
 
 MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
