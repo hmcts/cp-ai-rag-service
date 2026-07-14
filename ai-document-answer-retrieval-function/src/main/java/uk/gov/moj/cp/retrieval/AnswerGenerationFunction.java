@@ -241,10 +241,12 @@ public class AnswerGenerationFunction {
     }
 
     /**
-     * Persists one generated answer: input-chunks blob, status-table row (with the reason column
-     * when there is one), then — unless the generation FAILED, in which case there is nothing
-     * meaningful to score — the eval blob and the scoring enqueue. Shared by the happy path and
-     * the citation-guard DELIVER branch.
+     * Persists one generated answer: input-chunks blob, then — unless the generation FAILED, in
+     * which case only the fenced status row is written (nothing meaningful to score) — the eval
+     * blob and serialized scoring message, the fenced status row (with the reason column when
+     * there is one), and finally the scoring enqueue. Every fallible step precedes the fenced
+     * terminal write; scoring follows it. Shared by the happy path and the citation-guard
+     * DELIVER branch.
      */
     private void persistAnswer(final AnswerGenerationQueuePayload payload,
                                final LlmResponse llmResponse,
