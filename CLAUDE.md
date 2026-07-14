@@ -20,8 +20,11 @@ mvn test -pl ai-document-ingestion-function -Dtest=DocumentIngestionFunctionTest
 # Run tests with coverage report
 mvn verify
 
-# Run integration tests (skipped by default; activate the profile in ai-service-orchestration-test)
-mvn verify -P ai-rag-integration-test
+# Run integration tests (skipped by default; runs against real Azure via locally started
+# function hosts). Config comes from ai-service-orchestration-test/.env — copy .env.sample,
+# populate it, `az login`, then:
+./ai-service-orchestration-test/run-integration-test.sh
+# (equivalent to: mvn verify -P ai-rag-integration-test — with the .env exported first)
 
 # Build and package the Azure Functions
 mvn clean package -DskipTests
