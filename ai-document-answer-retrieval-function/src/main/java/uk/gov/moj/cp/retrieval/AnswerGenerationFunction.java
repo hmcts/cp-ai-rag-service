@@ -5,6 +5,7 @@ import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
+import static uk.gov.moj.cp.ai.SharedSystemVariables.IDEMPOTENCY_LEASE_TTL_SECONDS;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION;
@@ -20,12 +21,17 @@ import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.retrieval.util.ChunkUtil.getAnswerWithChunksFilename;
 import static uk.gov.moj.cp.retrieval.util.ChunkUtil.getInputChunksFilename;
 
+import uk.gov.moj.cp.ai.exception.EtagMismatchException;
+import uk.gov.moj.cp.ai.idempotency.ClaimToken;
+import uk.gov.moj.cp.ai.idempotency.IdempotencyGuard;
+import uk.gov.moj.cp.ai.idempotency.LeaseConflictException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.InputChunksPayload;
 import uk.gov.moj.cp.ai.model.ScoringPayload;
 import uk.gov.moj.cp.ai.model.ScoringQueuePayload;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 import uk.gov.moj.cp.retrieval.exception.CitationDegradedException;
+import uk.gov.moj.cp.retrieval.exception.RedeliveryException;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
 import uk.gov.moj.cp.retrieval.model.CitationGuardMode;
 import uk.gov.moj.cp.retrieval.model.LlmResponse;
@@ -34,6 +40,7 @@ import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
 import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -63,6 +70,7 @@ public class AnswerGenerationFunction {
     private final BlobPersistenceService blobPersistenceInputChunksService;
     private final AnswerGenerationTableService answerGenerationTableService;
     private final CitationGuardMode guardMode;
+    private final IdempotencyGuard idempotencyGuard;
 
     public AnswerGenerationFunction() {
         this.embedDataService = new EmbedDataService();
@@ -73,6 +81,7 @@ public class AnswerGenerationFunction {
         this.blobPersistenceInputChunksService = new BlobPersistenceService(getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS));
         this.answerGenerationTableService = new AnswerGenerationTableService(getRequiredEnv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION));
         this.guardMode = CitationGuardMode.fromEnv();
+        this.idempotencyGuard = buildIdempotencyGuard(this.answerGenerationTableService);
     }
 
     public AnswerGenerationFunction(
@@ -103,6 +112,15 @@ public class AnswerGenerationFunction {
         this.blobPersistenceInputChunksService = blobPersistenceInputChunksService;
         this.answerGenerationTableService = answerGenerationTableService;
         this.guardMode = guardMode;
+        this.idempotencyGuard = buildIdempotencyGuard(answerGenerationTableService);
+    }
+
+    private static IdempotencyGuard buildIdempotencyGuard(final AnswerGenerationTableService store) {
+        // Default TTL must stay BELOW visibilityTimeout × (maxDequeueCount − 1) — the total
+        // redelivery span — or a crashed leaseholder's lease outlives the retry budget and the
+        // row is stuck non-terminal forever. 300s also comfortably exceeds a healthy attempt.
+        return new IdempotencyGuard(store,
+                Duration.ofSeconds(getRequiredEnvAsInteger(IDEMPOTENCY_LEASE_TTL_SECONDS, "300")));
     }
 
 
@@ -129,7 +147,6 @@ public class AnswerGenerationFunction {
 
         long startTime = currentTimeMillis();
         AnswerGenerationQueuePayload payload = null;
-        List<ChunkedEntry> chunkedEntries = null;
 
         try {
             if (isNullOrEmpty(queueMessage)) {
@@ -148,14 +165,63 @@ public class AnswerGenerationFunction {
             }
 
             final UUID transactionId = payload.transactionId();
+            final AnswerGenerationQueuePayload validPayload = payload;
 
             LOGGER.info("Starting answer generation for transactionId '{}'", transactionId);
 
+            idempotencyGuard.runOnce(transactionId.toString(), token ->
+                    processWithClaim(validPayload, token, scoringMessage, dequeueCount, maxDequeueCount, startTime));
+
+        } catch (RedeliveryException e) {
+            // Redelivery decision already made inside processWithClaim (lease released by the guard).
+            throw e;
+        } catch (EtagMismatchException e) {
+            // Lost the fencing race at completion: another worker reclaimed the expired lease and
+            // owns the outcome. Discard this result; no scoring, no rethrow.
+            LOGGER.warn("Fenced write rejected for transactionId='{}' — another worker owns the outcome; discarding this attempt's result",
+                    nonNull(payload) ? payload.transactionId() : null, e);
+        } catch (LeaseConflictException e) {
+            if (dequeueCount < maxDequeueCount) {
+                throw redeliveryException(payload, " (lease held)", e);
+            }
+            // Never overwrite a possibly-completing leaseholder with FAILED; if it crashed, the
+            // row stays PENDING — surfaced here for alerting.
+            LOGGER.warn("Delivery attempts exhausted while a live lease exists for transactionId='{}' — leaving the outcome to the leaseholder",
+                    nonNull(payload) ? payload.transactionId() : null, e);
+        } catch (Exception e) {
+            // Failures before or during the claim (message parsing, status-row reads).
+            if (dequeueCount >= maxDequeueCount) {
+                LOGGER.error("Answer generation failed", e);
+                if (nonNull(payload) && nonNull(payload.transactionId())) {
+                    recordAnswerGenerationFailedIfSafe(payload, e.getMessage(), currentTimeMillis() - startTime);
+                }
+            } else {
+                throw redeliveryException(payload, "", e);
+            }
+        }
+    }
+
+    /**
+     * The claimed section: the expensive pipeline plus the retry/exhaustion policy, all fenced by
+     * the claim token. Only two exception types escape: {@link RedeliveryException} (budget
+     * remains — the guard releases the lease so the next delivery re-claims immediately) and
+     * {@link EtagMismatchException} (fence lost — never converted into a FAILED write).
+     */
+    private void processWithClaim(final AnswerGenerationQueuePayload payload,
+                                  final ClaimToken token,
+                                  final OutputBinding<String> scoringMessage,
+                                  final long dequeueCount,
+                                  final int maxDequeueCount,
+                                  final long startTime) {
+        List<ChunkedEntry> chunkedEntries = null;
+        try {
             final List<Float> embeddings = embedDataService.getEmbedding(payload.userQuery());
             chunkedEntries = searchService.search(payload.userQuery(), embeddings, payload.metadataFilter());
             final LlmResponse llmResponse = responseGenerationService.generateResponse(payload.userQuery(), chunkedEntries, payload.queryPrompt());
 
-            persistAnswer(payload, llmResponse, chunkedEntries, currentTimeMillis() - startTime, scoringMessage);
+            persistAnswer(payload, llmResponse, chunkedEntries, currentTimeMillis() - startTime, scoringMessage, token);
+        } catch (EtagMismatchException e) {
+            throw e;
         } catch (CitationDegradedException e) {
             // Citation-guard retry rides the queue redelivery mechanism: each redelivery is a
             // fresh, short invocation (re-embed, re-search, one LLM call) rather than a
@@ -163,13 +229,11 @@ public class AnswerGenerationFunction {
             if (dequeueCount < maxDequeueCount) {
                 throw redeliveryException(payload, " (citation-degraded)", e);
             }
-            handleCitationExhaustion(payload, chunkedEntries, e, currentTimeMillis() - startTime, scoringMessage);
+            handleCitationExhaustion(payload, chunkedEntries, e, currentTimeMillis() - startTime, scoringMessage, token);
         } catch (Exception e) {
-            if (dequeueCount == maxDequeueCount) {
+            if (dequeueCount >= maxDequeueCount) {
                 LOGGER.error("Answer generation failed", e);
-                if (nonNull(payload) && nonNull(payload.transactionId())) {
-                    recordAnswerGenerationFailed(payload, e.getMessage(), currentTimeMillis() - startTime);
-                }
+                recordAnswerGenerationFailed(payload, e.getMessage(), currentTimeMillis() - startTime, token);
             } else {
                 throw redeliveryException(payload, "", e);
             }
@@ -186,12 +250,38 @@ public class AnswerGenerationFunction {
                                final LlmResponse llmResponse,
                                final List<ChunkedEntry> chunkedEntries,
                                final long durationMs,
-                               final OutputBinding<String> scoringMessage) throws JsonProcessingException {
+                               final OutputBinding<String> scoringMessage,
+                               final ClaimToken token) throws JsonProcessingException {
         final UUID transactionId = payload.transactionId();
         final String inputChunksFilename = saveInputChunksToTheBlobContainer(transactionId, chunkedEntries);
 
-        answerGenerationTableService.upsertIntoTable(
-                transactionId.toString(),
+        if (llmResponse.status() == ANSWER_GENERATION_FAILED) {
+            upsertTerminalFenced(payload, llmResponse, inputChunksFilename, durationMs, token);
+            LOGGER.warn("Skipping scoring for failed generation of transactionId={} (reason: {})",
+                    transactionId, llmResponse.reason());
+            return;
+        }
+
+        // Everything fallible happens BEFORE the fenced terminal write: once the row flips to a
+        // terminal status a redelivery is skipped as already-done, so a tail step failing after
+        // it could never be retried. Blob writes before a lost fence are benign overwrites.
+        final String filename = saveLlmResponseToTheBlobContainer(transactionId, payload.userQuery(), payload.queryPrompt(),
+                llmResponse.formattedLlmResponse(), chunkedEntries);
+        final String scoringMessageBody = getObjectMapper().writeValueAsString(new ScoringQueuePayload(filename));
+
+        // Fenced on the claim-time ETag: a worker whose lease was reclaimed gets a 412 here,
+        // which aborts before the scoring enqueue.
+        upsertTerminalFenced(payload, llmResponse, inputChunksFilename, durationMs, token);
+
+        scoringMessage.setValue(scoringMessageBody);
+
+        LOGGER.info("Answer generation completed for transactionId={} in {} ms", transactionId, durationMs);
+    }
+
+    private void upsertTerminalFenced(final AnswerGenerationQueuePayload payload, final LlmResponse llmResponse,
+                                      final String inputChunksFilename, final long durationMs, final ClaimToken token) {
+        answerGenerationTableService.upsertTerminalFenced(
+                payload.transactionId().toString(),
                 payload.userQuery(),
                 payload.queryPrompt(),
                 inputChunksFilename,
@@ -199,20 +289,9 @@ public class AnswerGenerationFunction {
                 llmResponse.status(),
                 reasonColumn(llmResponse),
                 OffsetDateTime.now(),
-                durationMs
+                durationMs,
+                token.etag()
         );
-
-        if (llmResponse.status() == ANSWER_GENERATION_FAILED) {
-            LOGGER.warn("Skipping scoring for failed generation of transactionId={} (reason: {})",
-                    transactionId, llmResponse.reason());
-            return;
-        }
-
-        final String filename = saveLlmResponseToTheBlobContainer(transactionId, payload.userQuery(), payload.queryPrompt(),
-                llmResponse.formattedLlmResponse(), chunkedEntries);
-        scoringMessage.setValue(getObjectMapper().writeValueAsString(new ScoringQueuePayload(filename)));
-
-        LOGGER.info("Answer generation completed for transactionId={} in {} ms", transactionId, durationMs);
     }
 
     /**
@@ -225,7 +304,8 @@ public class AnswerGenerationFunction {
                                           final List<ChunkedEntry> chunkedEntries,
                                           final CitationDegradedException e,
                                           final long durationMs,
-                                          final OutputBinding<String> scoringMessage) {
+                                          final OutputBinding<String> scoringMessage,
+                                          final ClaimToken token) {
         if (isNull(payload) || isNull(payload.transactionId())) {
             LOGGER.error("Citation guard: cannot apply exhaustion policy without a payload.", e);
             return;
@@ -233,17 +313,20 @@ public class AnswerGenerationFunction {
         final UUID transactionId = payload.transactionId();
         if (guardMode == CitationGuardMode.REJECT) {
             LOGGER.error("Citation guard: rejecting uncited answer for transactionId={} — {}", transactionId, e.getMessage());
-            recordAnswerGenerationFailed(payload, e.getMessage(), durationMs);
+            recordAnswerGenerationFailed(payload, e.getMessage(), durationMs, token);
             return;
         }
         LOGGER.warn("Citation guard: delivering citation-degraded answer for transactionId={} — {}", transactionId, e.getMessage());
         try {
             final LlmResponse degraded = new LlmResponse(
                     e.rawLlmResponse(), e.formattedText(), ANSWER_GENERATED, e.getMessage());
-            persistAnswer(payload, degraded, chunkedEntries, durationMs, scoringMessage);
+            persistAnswer(payload, degraded, chunkedEntries, durationMs, scoringMessage, token);
+        } catch (final EtagMismatchException fenceLoss) {
+            // Never convert a fence loss into a FAILED write — the reclaimer owns the outcome.
+            throw fenceLoss;
         } catch (final Exception persistFailure) {
             LOGGER.error("Citation guard: failed to persist delivered degraded answer for transactionId={}", transactionId, persistFailure);
-            recordAnswerGenerationFailed(payload, persistFailure.getMessage(), durationMs);
+            recordAnswerGenerationFailed(payload, persistFailure.getMessage(), durationMs, token);
         }
     }
 
@@ -256,14 +339,16 @@ public class AnswerGenerationFunction {
     }
 
     /** The rethrow that forces queue redelivery; message shape is asserted by tests and log queries. */
-    private RuntimeException redeliveryException(final AnswerGenerationQueuePayload payload,
-                                                 final String qualifier, final Exception cause) {
+    private RedeliveryException redeliveryException(final AnswerGenerationQueuePayload payload,
+                                                    final String qualifier, final Exception cause) {
         final UUID trnId = nonNull(payload) ? payload.transactionId() : null;
-        return new RuntimeException(format("Retrying AnswerGeneration for transactionId='%s'%s", trnId, qualifier), cause);
+        return new RedeliveryException(format("Retrying AnswerGeneration for transactionId='%s'%s", trnId, qualifier), cause);
     }
 
-    private void recordAnswerGenerationFailed(final AnswerGenerationQueuePayload payload, final String errorMessage, final long durationMs) {
-        answerGenerationTableService.upsertIntoTable(
+    /** Fenced FAILED write for exhaustion paths that hold a claim. */
+    private void recordAnswerGenerationFailed(final AnswerGenerationQueuePayload payload, final String errorMessage,
+                                              final long durationMs, final ClaimToken token) {
+        answerGenerationTableService.upsertTerminalFenced(
                 payload.transactionId().toString(),
                 payload.userQuery(),
                 payload.queryPrompt(),
@@ -272,8 +357,45 @@ public class AnswerGenerationFunction {
                 ANSWER_GENERATION_FAILED,
                 errorMessage,
                 OffsetDateTime.now(),
-                durationMs
+                durationMs,
+                token.etag()
         );
+    }
+
+    /**
+     * FAILED write for failures where no claim was ever obtained (status-row read errors at
+     * exhaustion). Re-checks the row first and writes fenced on the freshly read ETag — it must
+     * never overwrite a terminal outcome or a live leaseholder's in-progress work (the row may
+     * belong to a completed or still-running duplicate). If even the re-check fails, nothing is
+     * written and the row is left for the leaseholder / alerting.
+     */
+    private void recordAnswerGenerationFailedIfSafe(final AnswerGenerationQueuePayload payload, final String errorMessage, final long durationMs) {
+        final String transactionId = payload.transactionId().toString();
+        try {
+            final var snapshot = answerGenerationTableService.readForClaim(transactionId);
+            if (snapshot == null) {
+                answerGenerationTableService.upsertIntoTable(
+                        transactionId, payload.userQuery(), payload.queryPrompt(),
+                        null, null, ANSWER_GENERATION_FAILED, errorMessage, OffsetDateTime.now(), durationMs);
+                return;
+            }
+            if (answerGenerationTableService.isTerminal(snapshot.status())) {
+                LOGGER.info("Not recording FAILED for transactionId={} — row is already terminal ({})", transactionId, snapshot.status());
+                return;
+            }
+            if (snapshot.leaseExpiresAt() != null && snapshot.leaseExpiresAt().isAfter(OffsetDateTime.now())) {
+                LOGGER.warn("Not recording FAILED for transactionId={} — another worker holds a live lease", transactionId);
+                return;
+            }
+            answerGenerationTableService.upsertTerminalFenced(
+                    transactionId, payload.userQuery(), payload.queryPrompt(),
+                    null, null, ANSWER_GENERATION_FAILED, errorMessage, OffsetDateTime.now(), durationMs,
+                    snapshot.etag());
+        } catch (EtagMismatchException e) {
+            LOGGER.warn("Not recording FAILED for transactionId={} — row changed concurrently; leaving the outcome to its owner", transactionId, e);
+        } catch (Exception e) {
+            LOGGER.error("Unable to safely record FAILED for transactionId={} — leaving row unchanged", transactionId, e);
+        }
     }
 
     private String saveLlmResponseToTheBlobContainer(final UUID transactionId, final String userQuery, final String queryPrompt,

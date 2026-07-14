@@ -23,6 +23,12 @@ public class StorageTableColumns {
     public static final String TC_RESPONSE_GENERATION_DURATION = "ResponseGenerationDuration";
     public static final String TC_RESPONSE_GROUNDEDNESS_SCORE = "GroundednessScore";
 
+    // ------------------------
+    // Idempotency lease columns (internal — not part of the public API), on BOTH status tables
+    // ------------------------
+    public static final String TC_LEASE_OWNER = "LeaseOwner";
+    public static final String TC_LEASE_EXPIRES_AT = "LeaseExpiresAt";
+
     private StorageTableColumns(){
         //constants class
     }
