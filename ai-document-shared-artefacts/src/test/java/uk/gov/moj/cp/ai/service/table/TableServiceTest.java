@@ -166,6 +166,20 @@ class TableServiceTest {
     }
 
     @Test
+    @DisplayName("Restores the closing quote azure-core strips from the ETag response header")
+    void restoresClosingQuoteStrippedFromEtagResponseHeader() {
+        // Observed against real Table Storage: the header arrives as W/"datetime'...' (unbalanced);
+        // sending that back as If-Match fails with HTTP 400 InvalidInput.
+        TableEntity entity = new TableEntity("partition", "row");
+        Response<Void> response = responseWithEtag("W/\"datetime'2026-07-14T19%3A08%3A04.616648Z'");
+        when(tableClient.updateEntityWithResponse(eq(entity), eq(TableEntityUpdateMode.MERGE), eq(true), isNull(), eq(Context.NONE)))
+                .thenReturn(response);
+
+        assertEquals("W/\"datetime'2026-07-14T19%3A08%3A04.616648Z'\"",
+                tableService.updateEntityIfUnchanged(entity, "W/\"old\""));
+    }
+
+    @Test
     @DisplayName("Throws EtagMismatchException when the conditional update is rejected (412)")
     void throwsEtagMismatchExceptionWhenConditionalUpdateRejected() {
         TableEntity entity = new TableEntity("partition", "row");

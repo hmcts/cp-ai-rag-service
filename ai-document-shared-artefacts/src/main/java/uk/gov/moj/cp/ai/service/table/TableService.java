@@ -29,6 +29,19 @@ public class TableService {
     // (TableEntity has no public setETag); updateEntityWithResponse(ifUnchanged=true) reads it as If-Match.
     private static final String ODATA_ETAG_PROPERTY = "odata.etag";
 
+    /**
+     * azure-core surfaces the {@code ETag} response header with its closing quote stripped
+     * (observed against real Table Storage: {@code W/"datetime'...'} — unbalanced), while
+     * {@code getEntity().getETag()} returns the full quoted form. The If-Match header requires
+     * the full form, so restore the quote when it is missing.
+     */
+    private static String normalizeEtag(final String etag) {
+        if (etag != null && etag.startsWith("W/\"") && !etag.endsWith("\"")) {
+            return etag + "\"";
+        }
+        return etag;
+    }
+
     public TableService(String tableName) {
         if (isNullOrEmpty(tableName)) {
             throw new IllegalArgumentException("Table name cannot be null or empty.");
@@ -97,7 +110,7 @@ public class TableService {
             LOGGER.info("Record conditionally UPDATED in table with partition key '{}' and row key '{}'",
                     tableEntity.getPartitionKey(), tableEntity.getRowKey());
 
-            return response.getHeaders().getValue(HttpHeaderName.ETAG);
+            return normalizeEtag(response.getHeaders().getValue(HttpHeaderName.ETAG));
 
         } catch (final TableServiceException tse) {
             // Null-safe: the odata error body may be absent/unparseable, and misclassifying a
@@ -127,7 +140,7 @@ public class TableService {
 
             LOGGER.info("Record INSERTED into table with partition key '{}' and row key '{}'", tableEntity.getPartitionKey(), tableEntity.getRowKey());
 
-            return response.getHeaders().getValue(HttpHeaderName.ETAG);
+            return normalizeEtag(response.getHeaders().getValue(HttpHeaderName.ETAG));
 
         } catch (final TableServiceException tse) {
             if (tse.getValue() != null && tse.getValue().getErrorCode() == TableErrorCode.ENTITY_ALREADY_EXISTS) {
