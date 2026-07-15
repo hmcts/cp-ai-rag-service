@@ -108,7 +108,7 @@ public class DocumentIngestionFunction {
      * terminal write must go through the fenced path, never the unfenced fallback.
      */
     private void processUnderClaim(final QueueIngestionMetadata queueIngestionMetadata, final ClaimToken token,
-                                   final long dequeueCount, final int maxDequeueCount) throws Exception {
+                                   final long dequeueCount, final int maxDequeueCount) throws DocumentProcessingException {
         try {
             documentIngestionOrchestrator.processQueueMessage(queueIngestionMetadata, token);
 

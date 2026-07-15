@@ -6,6 +6,7 @@ import uk.gov.moj.cp.ai.client.TableClientFactory;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
 import uk.gov.moj.cp.ai.exception.EtagMismatchException;
+import uk.gov.moj.cp.ai.exception.TableOperationException;
 
 import com.azure.core.http.HttpHeaderName;
 import com.azure.core.http.rest.Response;
@@ -70,9 +71,9 @@ public class TableService {
                 throw new DuplicateRecordException(duplicateRecordErrorMessage, tse);
             }
 
-            throw new RuntimeException(String.format(ERROR_MESSAGE, INSERT_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), tse);
+            throw new TableOperationException(String.format(ERROR_MESSAGE, INSERT_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), tse);
         } catch (Exception e) {
-            throw new RuntimeException(String.format(ERROR_MESSAGE, INSERT_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), e);
+            throw new TableOperationException(String.format(ERROR_MESSAGE, INSERT_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), e);
         }
     }
 
@@ -91,7 +92,7 @@ public class TableService {
                     tableEntity.getRowKey(),
                     e
             );
-            throw new RuntimeException(String.format(ERROR_MESSAGE, UPSERT_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), e);
+            throw new TableOperationException(String.format(ERROR_MESSAGE, UPSERT_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), e);
         }
     }
 
@@ -127,9 +128,9 @@ public class TableService {
                                 + "' partition key '" + tableEntity.getPartitionKey()
                                 + "' row key '" + tableEntity.getRowKey() + "'", tse);
             }
-            throw new RuntimeException(String.format(ERROR_MESSAGE, CONDITIONAL_UPDATE_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), tse);
+            throw new TableOperationException(String.format(ERROR_MESSAGE, CONDITIONAL_UPDATE_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), tse);
         } catch (Exception e) {
-            throw new RuntimeException(String.format(ERROR_MESSAGE, CONDITIONAL_UPDATE_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), e);
+            throw new TableOperationException(String.format(ERROR_MESSAGE, CONDITIONAL_UPDATE_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), e);
         }
     }
 
@@ -151,9 +152,9 @@ public class TableService {
                 throw new DuplicateRecordException(duplicateRecordErrorMessage, tse);
             }
 
-            throw new RuntimeException(String.format(ERROR_MESSAGE, INSERT_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), tse);
+            throw new TableOperationException(String.format(ERROR_MESSAGE, INSERT_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), tse);
         } catch (Exception e) {
-            throw new RuntimeException(String.format(ERROR_MESSAGE, INSERT_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), e);
+            throw new TableOperationException(String.format(ERROR_MESSAGE, INSERT_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), e);
         }
     }
 

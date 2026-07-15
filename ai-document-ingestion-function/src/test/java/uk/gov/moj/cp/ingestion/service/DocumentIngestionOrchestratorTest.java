@@ -345,7 +345,7 @@ class DocumentIngestionOrchestratorTest {
 
     @Test
     @DisplayName("A fenced-out failure write (etag mismatch) is swallowed — the reclaimer owns the outcome")
-    void shouldSwallowEtagMismatchOnFailureOutcome() throws Exception {
+    void shouldSwallowEtagMismatchOnFailureOutcome() {
         final QueueIngestionMetadata metadata = new QueueIngestionMetadata(
                 "123e4567-e89b-12d3-a456-426614174000",
                 "Burglary-IDPC.pdf",
