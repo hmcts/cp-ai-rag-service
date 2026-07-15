@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.ai.service.table;
 
 import static java.util.UUID.randomUUID;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -224,7 +225,9 @@ class AnswerGenerationTableServiceTest {
         doThrow(new EtagMismatchException("etag changed"))
                 .when(tableService).updateEntityIfUnchanged(any(TableEntity.class), any());
 
-        service.releaseLease("tx13", "W/\"stale\"");
+        assertDoesNotThrow(() -> service.releaseLease("tx13", "W/\"stale\""));
+
+        verify(tableService).updateEntityIfUnchanged(any(TableEntity.class), eq("W/\"stale\""));
     }
 }
 

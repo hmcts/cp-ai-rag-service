@@ -179,26 +179,42 @@ public class AnswerGenerationFunction {
             // Lost the fencing race at completion: another worker reclaimed the expired lease and
             // owns the outcome. Discard this result; no scoring, no rethrow.
             LOGGER.warn("Fenced write rejected for transactionId='{}' — another worker owns the outcome; discarding this attempt's result",
-                    nonNull(payload) ? payload.transactionId() : null, e);
+                    transactionIdOf(payload), e);
         } catch (LeaseConflictException e) {
-            if (dequeueCount < maxDequeueCount) {
-                throw redeliveryException(payload, " (lease held)", e);
-            }
-            // Never overwrite a possibly-completing leaseholder with FAILED; if it crashed, the
-            // row stays PENDING — surfaced here for alerting.
-            LOGGER.warn("Delivery attempts exhausted while a live lease exists for transactionId='{}' — leaving the outcome to the leaseholder",
-                    nonNull(payload) ? payload.transactionId() : null, e);
+            rethrowOrWarnOnLiveLease(payload, e, dequeueCount, maxDequeueCount);
         } catch (Exception e) {
-            // Failures before or during the claim (message parsing, status-row reads).
-            if (dequeueCount >= maxDequeueCount) {
-                LOGGER.error("Answer generation failed", e);
-                if (nonNull(payload) && nonNull(payload.transactionId())) {
-                    recordAnswerGenerationFailedIfSafe(payload, e.getMessage(), currentTimeMillis() - startTime);
-                }
-            } else {
-                throw redeliveryException(payload, "", e);
-            }
+            handleClaimFailure(payload, e, dequeueCount, maxDequeueCount, startTime);
         }
+    }
+
+    /**
+     * Another worker holds a live lease: rethrow to redeliver-and-recheck while budget remains;
+     * at exhaustion never overwrite the possibly-completing leaseholder with FAILED — if it
+     * crashed, the row stays PENDING, surfaced here for alerting.
+     */
+    private void rethrowOrWarnOnLiveLease(final AnswerGenerationQueuePayload payload, final LeaseConflictException e,
+                                          final long dequeueCount, final int maxDequeueCount) {
+        if (dequeueCount < maxDequeueCount) {
+            throw redeliveryException(payload, " (lease held)", e);
+        }
+        LOGGER.warn("Delivery attempts exhausted while a live lease exists for transactionId='{}' — leaving the outcome to the leaseholder",
+                transactionIdOf(payload), e);
+    }
+
+    /** Failures before or during the claim (message parsing, status-row reads). */
+    private void handleClaimFailure(final AnswerGenerationQueuePayload payload, final Exception e,
+                                    final long dequeueCount, final int maxDequeueCount, final long startTime) {
+        if (dequeueCount < maxDequeueCount) {
+            throw redeliveryException(payload, "", e);
+        }
+        LOGGER.error("Answer generation failed", e);
+        if (nonNull(payload) && nonNull(payload.transactionId())) {
+            recordAnswerGenerationFailedIfSafe(payload, e.getMessage(), currentTimeMillis() - startTime);
+        }
+    }
+
+    private static UUID transactionIdOf(final AnswerGenerationQueuePayload payload) {
+        return nonNull(payload) ? payload.transactionId() : null;
     }
 
     /**
@@ -343,8 +359,7 @@ public class AnswerGenerationFunction {
     /** The rethrow that forces queue redelivery; message shape is asserted by tests and log queries. */
     private RedeliveryException redeliveryException(final AnswerGenerationQueuePayload payload,
                                                     final String qualifier, final Exception cause) {
-        final UUID trnId = nonNull(payload) ? payload.transactionId() : null;
-        return new RedeliveryException(format("Retrying AnswerGeneration for transactionId='%s'%s", trnId, qualifier), cause);
+        return new RedeliveryException(format("Retrying AnswerGeneration for transactionId='%s'%s", transactionIdOf(payload), qualifier), cause);
     }
 
     /** Fenced FAILED write for exhaustion paths that hold a claim. */

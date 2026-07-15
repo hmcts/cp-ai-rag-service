@@ -1,6 +1,6 @@
 package uk.gov.moj.cp.ingestion;
 
-import static java.util.Objects.nonNull;
+import static java.util.Objects.isNull;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.IDEMPOTENCY_LEASE_TTL_SECONDS;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION;
@@ -11,6 +11,7 @@ import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.exception.EtagMismatchException;
+import uk.gov.moj.cp.ai.idempotency.ClaimToken;
 import uk.gov.moj.cp.ai.idempotency.IdempotencyGuard;
 import uk.gov.moj.cp.ai.idempotency.LeaseConflictException;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
@@ -74,58 +75,76 @@ public class DocumentIngestionFunction {
         }
 
         final QueueIngestionMetadata queueIngestionMetadata = toQueueIngestionMetadata(queueMessage);
-        if (nonNull(queueIngestionMetadata)) {
-            final String documentId = queueIngestionMetadata.documentId();
-            try {
-                LOGGER.info("Parsed ingestion metadata - ID: {}, Name: {}, Blob URL: {}",
-                        documentId,
-                        queueIngestionMetadata.documentName(),
-                        queueIngestionMetadata.blobUrl());
-
-                idempotencyGuard.runOnce(documentId, token -> {
-                    try {
-                        documentIngestionOrchestrator.processQueueMessage(queueIngestionMetadata, token);
-
-                    } catch (EtagMismatchException fenceLoss) {
-                        // Never convert a fence loss into a retry or a FAILED write.
-                        throw fenceLoss;
-                    } catch (Exception processingException) {
-                        // Broad catch on purpose: a claim IS held here, so any failure's terminal
-                        // write must go through the fenced path, never the unfenced fallback.
-                        if (dequeueCount >= maxDequeueCount) {
-                            documentIngestionOrchestrator.processQueueMessageFailed(queueIngestionMetadata, token);
-                        } else {
-                            // Re-throw to trigger Azure Function retry mechanism
-                            throw new DocumentProcessingException("Error processing queueMessage", processingException);
-                        }
-                    }
-                });
-
-            } catch (EtagMismatchException e) {
-                // Lost the fencing race at completion: another worker reclaimed the expired lease
-                // and owns the outcome. Discard this attempt; no rethrow.
-                LOGGER.warn("Fenced write rejected for documentId='{}' — another worker owns the outcome; discarding this attempt", documentId, e);
-            } catch (LeaseConflictException e) {
-                if (dequeueCount < maxDequeueCount) {
-                    // Re-throw to trigger redelivery; the next delivery re-checks the row.
-                    throw new DocumentProcessingException("Lease held by another worker for documentId: " + documentId, e);
-                }
-                // Never overwrite a possibly-completing leaseholder with FAILED; if it crashed,
-                // the row stays non-terminal — surfaced here for alerting.
-                LOGGER.warn("Delivery attempts exhausted while a live lease exists for documentId='{}' — leaving the outcome to the leaseholder", documentId, e);
-            } catch (DocumentProcessingException e) {
-                // Redelivery decision already made inside the work (lease released by the guard).
-                throw e;
-            } catch (Exception e) {
-                // Failures during the claim itself (status-row reads etc.) — no claim obtained.
-                if (dequeueCount >= maxDequeueCount) {
-                    LOGGER.error("Document ingestion failed during idempotency claim for documentId='{}'", documentId, e);
-                    documentIngestionOrchestrator.processQueueMessageFailedIfSafe(queueIngestionMetadata);
-                } else {
-                    throw new DocumentProcessingException("Error processing queueMessage", e);
-                }
-            }
+        if (isNull(queueIngestionMetadata)) {
+            return;
         }
+
+        final String documentId = queueIngestionMetadata.documentId();
+        try {
+            LOGGER.info("Parsed ingestion metadata - ID: {}, Name: {}, Blob URL: {}",
+                    documentId,
+                    queueIngestionMetadata.documentName(),
+                    queueIngestionMetadata.blobUrl());
+
+            idempotencyGuard.runOnce(documentId, token ->
+                    processUnderClaim(queueIngestionMetadata, token, dequeueCount, maxDequeueCount));
+
+        } catch (EtagMismatchException e) {
+            // Lost the fencing race at completion: another worker reclaimed the expired lease
+            // and owns the outcome. Discard this attempt; no rethrow.
+            LOGGER.warn("Fenced write rejected for documentId='{}' — another worker owns the outcome; discarding this attempt", documentId, e);
+        } catch (LeaseConflictException e) {
+            rethrowOrWarnOnLiveLease(documentId, e, dequeueCount, maxDequeueCount);
+        } catch (DocumentProcessingException e) {
+            // Redelivery decision already made inside the work (lease released by the guard).
+            throw e;
+        } catch (Exception e) {
+            handleClaimFailure(queueIngestionMetadata, e, dequeueCount, maxDequeueCount);
+        }
+    }
+
+    /**
+     * The claimed section. Broad catch on purpose: a claim IS held here, so any failure's
+     * terminal write must go through the fenced path, never the unfenced fallback.
+     */
+    private void processUnderClaim(final QueueIngestionMetadata queueIngestionMetadata, final ClaimToken token,
+                                   final long dequeueCount, final int maxDequeueCount) throws Exception {
+        try {
+            documentIngestionOrchestrator.processQueueMessage(queueIngestionMetadata, token);
+
+        } catch (EtagMismatchException fenceLoss) {
+            // Never convert a fence loss into a retry or a FAILED write.
+            throw fenceLoss;
+        } catch (Exception processingException) {
+            if (dequeueCount < maxDequeueCount) {
+                // Re-throw to trigger Azure Function retry mechanism
+                throw new DocumentProcessingException("Error processing queueMessage", processingException);
+            }
+            documentIngestionOrchestrator.processQueueMessageFailed(queueIngestionMetadata, token);
+        }
+    }
+
+    /**
+     * Another worker holds a live lease: rethrow to redeliver-and-recheck while budget remains;
+     * at exhaustion never overwrite the possibly-completing leaseholder with FAILED — if it
+     * crashed, the row stays non-terminal, surfaced here for alerting.
+     */
+    private void rethrowOrWarnOnLiveLease(final String documentId, final LeaseConflictException e,
+                                          final long dequeueCount, final int maxDequeueCount) throws DocumentProcessingException {
+        if (dequeueCount < maxDequeueCount) {
+            throw new DocumentProcessingException("Lease held by another worker for documentId: " + documentId, e);
+        }
+        LOGGER.warn("Delivery attempts exhausted while a live lease exists for documentId='{}' — leaving the outcome to the leaseholder", documentId, e);
+    }
+
+    /** Failures during the claim itself (status-row reads etc.) — no claim obtained. */
+    private void handleClaimFailure(final QueueIngestionMetadata queueIngestionMetadata, final Exception e,
+                                    final long dequeueCount, final int maxDequeueCount) throws DocumentProcessingException {
+        if (dequeueCount < maxDequeueCount) {
+            throw new DocumentProcessingException("Error processing queueMessage", e);
+        }
+        LOGGER.error("Document ingestion failed during idempotency claim for documentId='{}'", queueIngestionMetadata.documentId(), e);
+        documentIngestionOrchestrator.processQueueMessageFailedIfSafe(queueIngestionMetadata);
     }
 
     private QueueIngestionMetadata toQueueIngestionMetadata(final String queueMessage) {

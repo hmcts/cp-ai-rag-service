@@ -24,6 +24,9 @@ public class TableService {
     private final TableClient tableClient;
 
     private static final String ERROR_MESSAGE = "Failed to %s record in table '%s' with partition key '%s' and row key '%s";
+    private static final String INSERT_OPERATION = "INSERT";
+    private static final String UPSERT_OPERATION = "UPSERT";
+    private static final String CONDITIONAL_UPDATE_OPERATION = "CONDITIONAL UPDATE";
 
     // The Azure Tables SDK carries an entity's ETag in its properties map under this key
     // (TableEntity has no public setETag); updateEntityWithResponse(ifUnchanged=true) reads it as If-Match.
@@ -67,9 +70,9 @@ public class TableService {
                 throw new DuplicateRecordException(duplicateRecordErrorMessage, tse);
             }
 
-            throw new RuntimeException(String.format(ERROR_MESSAGE, "INSERT", tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), tse);
+            throw new RuntimeException(String.format(ERROR_MESSAGE, INSERT_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), tse);
         } catch (Exception e) {
-            throw new RuntimeException(String.format(ERROR_MESSAGE, "INSERT", tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), e);
+            throw new RuntimeException(String.format(ERROR_MESSAGE, INSERT_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), e);
         }
     }
 
@@ -88,7 +91,7 @@ public class TableService {
                     tableEntity.getRowKey(),
                     e
             );
-            throw new RuntimeException(String.format(ERROR_MESSAGE, "UPSERT", tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), e);
+            throw new RuntimeException(String.format(ERROR_MESSAGE, UPSERT_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), e);
         }
     }
 
@@ -124,9 +127,9 @@ public class TableService {
                                 + "' partition key '" + tableEntity.getPartitionKey()
                                 + "' row key '" + tableEntity.getRowKey() + "'", tse);
             }
-            throw new RuntimeException(String.format(ERROR_MESSAGE, "CONDITIONAL UPDATE", tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), tse);
+            throw new RuntimeException(String.format(ERROR_MESSAGE, CONDITIONAL_UPDATE_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), tse);
         } catch (Exception e) {
-            throw new RuntimeException(String.format(ERROR_MESSAGE, "CONDITIONAL UPDATE", tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), e);
+            throw new RuntimeException(String.format(ERROR_MESSAGE, CONDITIONAL_UPDATE_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), e);
         }
     }
 
@@ -148,9 +151,9 @@ public class TableService {
                 throw new DuplicateRecordException(duplicateRecordErrorMessage, tse);
             }
 
-            throw new RuntimeException(String.format(ERROR_MESSAGE, "INSERT", tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), tse);
+            throw new RuntimeException(String.format(ERROR_MESSAGE, INSERT_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), tse);
         } catch (Exception e) {
-            throw new RuntimeException(String.format(ERROR_MESSAGE, "INSERT", tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), e);
+            throw new RuntimeException(String.format(ERROR_MESSAGE, INSERT_OPERATION, tableClient.getTableName(), tableEntity.getPartitionKey(), tableEntity.getRowKey()), e);
         }
     }
 

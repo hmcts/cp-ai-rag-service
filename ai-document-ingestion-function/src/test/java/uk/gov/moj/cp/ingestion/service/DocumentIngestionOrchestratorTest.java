@@ -3,6 +3,7 @@ package uk.gov.moj.cp.ingestion.service;
 import static java.util.Collections.singletonMap;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -357,7 +358,13 @@ class DocumentIngestionOrchestratorTest {
         doThrow(new EtagMismatchException("etag changed"))
                 .when(documentIngestionOutcomeTableService).recordOutcomeFenced(any(), any(), any(), any());
 
-        orchestrator.processQueueMessageFailed(metadata, TOKEN);
+        assertDoesNotThrow(() -> orchestrator.processQueueMessageFailed(metadata, TOKEN));
+
+        verify(documentIngestionOutcomeTableService).recordOutcomeFenced(
+                "123e4567-e89b-12d3-a456-426614174000",
+                "INGESTION_FAILED",
+                "Document ingestion failed during processing",
+                TOKEN.etag());
     }
 
     @Test
