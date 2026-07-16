@@ -31,6 +31,12 @@ public class SharedSystemVariables {
     public static final String LLM_CHAT_SERVICE_PROVIDER = "LLM_CHAT_SERVICE_PROVIDER";
     public static final String MAX_DOCUMENT_UPLOAD_BLOB_SIZE_MIB = "MAX_DOCUMENT_UPLOAD_BLOB_SIZE_MIB";
 
+    // How long a queue worker's in-progress idempotency lease stays live before a
+    // redelivery may reclaim it. Size above worst-case single-attempt processing time but
+    // BELOW visibilityTimeout × (maxDequeueCount − 1), or a crashed leaseholder's lease
+    // outlives the retry budget and the row is stuck non-terminal forever.
+    public static final String IDEMPOTENCY_LEASE_TTL_SECONDS = "IDEMPOTENCY_LEASE_TTL_SECONDS";
+
     private SharedSystemVariables() {
         // Prevent instantiation
     }

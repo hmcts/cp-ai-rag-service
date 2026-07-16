@@ -38,6 +38,8 @@
 
     "CITATION_GUARD_MODE": "deliver",
 
+    "IDEMPOTENCY_LEASE_TTL_SECONDS": "300",
+
     "STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING": "answer-scoring-queue",
     "STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION": "answer-generation-queue",
     "STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION": "answergeneration",

@@ -4,6 +4,8 @@ import static java.util.Objects.nonNull;
 import static org.slf4j.LoggerFactory.getLogger;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_ANSWER_STATUS;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_CHUNKED_ENTRIES_FILE;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_LEASE_EXPIRES_AT;
+import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_LEASE_OWNER;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_LLM_RESPONSE;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_QUERY_PROMPT;
 import static uk.gov.moj.cp.ai.entity.StorageTableColumns.TC_REASON;
@@ -18,6 +20,8 @@ import uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus;
 import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
+import uk.gov.moj.cp.ai.idempotency.IdempotencyStatusStore;
+import uk.gov.moj.cp.ai.idempotency.LeaseSnapshot;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -28,7 +32,7 @@ import org.slf4j.Logger;
 /**
  * Table storage service for Answer Generation outcomes.
  */
-public class AnswerGenerationTableService {
+public class AnswerGenerationTableService implements IdempotencyStatusStore {
     private static final Logger LOGGER = getLogger(AnswerGenerationTableService.class);
 
     private final TableService tableService;
@@ -105,6 +109,83 @@ public class AnswerGenerationTableService {
         final TableEntity entity = new TableEntity(transactionId, transactionId);
         entity.addProperty(TC_RESPONSE_GROUNDEDNESS_SCORE, bigDecimal);
         tableService.upsertIntoTable(entity);
+    }
+
+    /**
+     * Same write as {@link #upsertIntoTable} but conditioned on the claim-time ETag (If-Match
+     * MERGE) — the fenced terminal write of the idempotency guard. Throws
+     * {@link uk.gov.moj.cp.ai.exception.EtagMismatchException} if the lease was reclaimed.
+     */
+    public void upsertTerminalFenced(final String transactionId, final String userQuery,
+                                     final String queryPrompt, final String chunkedEntriesFile, final String llmResponse,
+                                     final AnswerGenerationStatus status, final String reason,
+                                     final OffsetDateTime responseGenerationTime, final Long responseGenerationDuration,
+                                     final String etag
+    ) {
+        final TableEntity entity = buildEntity(
+                transactionId,
+                userQuery,
+                queryPrompt,
+                chunkedEntriesFile,
+                llmResponse,
+                status,
+                reason,
+                responseGenerationTime,
+                responseGenerationDuration
+        );
+
+        tableService.updateEntityIfUnchanged(entity, etag);
+
+        LOGGER.info("Answer generation record fenced-UPDATED with status={} for transactionId={}", status, transactionId);
+    }
+
+    @Override
+    public LeaseSnapshot readForClaim(final String key) throws EntityRetrievalException {
+        final TableEntity entity = tableService.getFirstDocumentMatching(key, key);
+        if (null == entity) {
+            return null;
+        }
+        return new LeaseSnapshot(
+                getPropertyAsString(entity.getProperty(TC_ANSWER_STATUS)),
+                entity.getETag(),
+                (OffsetDateTime) entity.getProperty(TC_LEASE_EXPIRES_AT),
+                getPropertyAsString(entity.getProperty(TC_LEASE_OWNER))
+        );
+    }
+
+    @Override
+    public boolean isTerminal(final String status) {
+        return AnswerGenerationStatus.ANSWER_GENERATED.name().equals(status)
+                || AnswerGenerationStatus.ANSWER_GENERATION_FAILED.name().equals(status);
+    }
+
+    @Override
+    public String claimLease(final String key, final String expectedEtag, final String owner, final OffsetDateTime expiresAt) {
+        final TableEntity entity = new TableEntity(key, key);
+        entity.addProperty(TC_LEASE_OWNER, owner);
+        entity.addProperty(TC_LEASE_EXPIRES_AT, expiresAt);
+        return tableService.updateEntityIfUnchanged(entity, expectedEtag);
+    }
+
+    @Override
+    public String createClaimedRow(final String key, final String owner, final OffsetDateTime expiresAt) throws DuplicateRecordException {
+        final TableEntity entity = new TableEntity(key, key);
+        entity.addProperty(TC_TRANSACTION_ID, key);
+        entity.addProperty(TC_ANSWER_STATUS, AnswerGenerationStatus.ANSWER_GENERATION_PENDING.name());
+        entity.addProperty(TC_LEASE_OWNER, owner);
+        entity.addProperty(TC_LEASE_EXPIRES_AT, expiresAt);
+        return tableService.insertReturningEtag(entity);
+    }
+
+    @Override
+    public void releaseLease(final String key, final String etag) {
+        try {
+            final TableEntity entity = new TableEntity(key, key);
+            entity.addProperty(TC_LEASE_EXPIRES_AT, LEASE_RELEASED);
+            tableService.updateEntityIfUnchanged(entity, etag);
+        } catch (Exception e) {
+            LOGGER.warn("Best-effort lease release failed for transactionId={} — lease will expire by TTL", key, e);
+        }
     }
 
     private TableEntity buildEntity(

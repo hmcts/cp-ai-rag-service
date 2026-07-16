@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.orchestrator;
 
 import static java.util.UUID.randomUUID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.ANSWER_RETRIEVAL_FUNCTION;
@@ -13,6 +14,7 @@ import static uk.gov.moj.cp.orchestrator.util.RestPoller.postRequest;
 import uk.gov.hmcts.cp.openapi.model.DocumentUploadRequest;
 import uk.gov.hmcts.cp.openapi.model.FileStorageLocationReturnedSuccessfully;
 import uk.gov.hmcts.cp.openapi.model.MetadataFilter;
+import uk.gov.moj.cp.orchestrator.util.QueueUtil;
 import uk.gov.moj.cp.orchestrator.util.RestOperation;
 
 import java.util.List;
@@ -36,6 +38,21 @@ public class OrchestrationIntegrationTest extends FunctionTestBase {
     private static final Logger LOGGER = LoggerFactory.getLogger(OrchestrationIntegrationTest.class);
     private static final String ANSWER_GENERATION_PAYLOAD = """
                 {
+                  "userQuery": "Capital of UK",
+                  "queryPrompt": "Capital of UK",
+                  "metadataFilter": [
+                    {
+                      "key": "%s",
+                      "value": "%s"
+                    }
+                  ]
+                }
+            """;
+
+    /** Shape of the worker's queue message (AnswerGenerationQueuePayload) — used to simulate a duplicate delivery. */
+    private static final String ANSWER_GENERATION_QUEUE_MESSAGE = """
+                {
+                  "transactionId": "%s",
                   "userQuery": "Capital of UK",
                   "queryPrompt": "Capital of UK",
                   "metadataFilter": [
@@ -199,5 +216,21 @@ public class OrchestrationIntegrationTest extends FunctionTestBase {
         );
 
         assertNotNull(answerGenerationResponse);
+
+        // Step 6 - Idempotency: redeliver the same queue message for the completed transaction.
+        // The guard must skip it — no second LLM run, the persisted answer stays byte-identical.
+        final String completedLlmResponse = answerGenerationResponse.jsonPath().getString("llmResponse");
+
+        QueueUtil.sendMessage(QUEUE_STORAGE_ACCOUNT_ENDPOINT, ANSWER_GENERATION_QUEUE,
+                ANSWER_GENERATION_QUEUE_MESSAGE.formatted(transactionId, documentIdKey, documentId));
+
+        Thread.sleep(30_000); // give the worker time to consume (and skip) the duplicate
+
+        final Response afterDuplicateResponse = pollForResponse(llmQueryRequestSpecification, RestOperation.GET, "/answer-user-query-async-status/" + transactionId,
+                response -> response.getStatusCode() == 200 &&
+                        "ANSWER_GENERATED".equals(response.jsonPath().getString("status"))
+        );
+        assertEquals(completedLlmResponse, afterDuplicateResponse.jsonPath().getString("llmResponse"),
+                "A duplicate delivery must not regenerate the answer");
     }
 }

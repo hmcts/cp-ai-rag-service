@@ -3,6 +3,7 @@ package uk.gov.moj.cp.ingestion.service;
 import static java.util.Collections.singletonMap;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -15,6 +16,9 @@ import static org.mockito.Mockito.when;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.exception.EntityRetrievalException;
+import uk.gov.moj.cp.ai.exception.EtagMismatchException;
+import uk.gov.moj.cp.ai.idempotency.ClaimToken;
+import uk.gov.moj.cp.ai.idempotency.LeaseSnapshot;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
@@ -32,6 +36,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class DocumentIngestionOrchestratorTest {
+
+    private static final ClaimToken TOKEN = new ClaimToken("claim-key", "W/\"datetime'2026-01-01T00%3A00%3A00Z'\"");
 
     @Mock
     private DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService;
@@ -64,13 +70,13 @@ class DocumentIngestionOrchestratorTest {
                 "2025-10-07T10:30:45.123456Z"
         );
 
-        doNothing().when(documentIngestionOutcomeTableService).upsertDocument(anyString(), anyString(), anyString());
+        doNothing().when(documentIngestionOutcomeTableService).recordOutcomeFenced(anyString(), anyString(), anyString(), anyString());
 
         // when
-        orchestrator.processQueueMessage(metadata);
+        orchestrator.processQueueMessage(metadata, TOKEN);
 
         // then
-        verify(documentIngestionOutcomeTableService).upsertDocument("123e4567-e89b-12d3-a456-426614174000", "INGESTION_SUCCESS", "Document ingestion completed successfully");
+        verify(documentIngestionOutcomeTableService).recordOutcomeFenced("123e4567-e89b-12d3-a456-426614174000", "INGESTION_SUCCESS", "Document ingestion completed successfully", TOKEN.etag());
     }
 
     @Test
@@ -85,13 +91,13 @@ class DocumentIngestionOrchestratorTest {
                 "2025-10-06T05:14:39.658828Z"
         );
 
-        doNothing().when(documentIngestionOutcomeTableService).upsertDocument(anyString(), anyString(), anyString());
+        doNothing().when(documentIngestionOutcomeTableService).recordOutcomeFenced(anyString(), anyString(), anyString(), anyString());
 
         // when
-        orchestrator.processQueueMessage(metadata);
+        orchestrator.processQueueMessage(metadata, TOKEN);
 
         // then
-        verify(documentIngestionOutcomeTableService).upsertDocument("53ac8b90-c4c8-472c-a5ee-fe84ed96047b", "INGESTION_SUCCESS", "Document ingestion completed successfully");
+        verify(documentIngestionOutcomeTableService).recordOutcomeFenced("53ac8b90-c4c8-472c-a5ee-fe84ed96047b", "INGESTION_SUCCESS", "Document ingestion completed successfully", TOKEN.etag());
     }
 
     @Test
@@ -106,13 +112,13 @@ class DocumentIngestionOrchestratorTest {
                 "2025-10-07T12:00:00.000000Z"
         );
 
-        doNothing().when(documentIngestionOutcomeTableService).upsertDocument(anyString(), anyString(), anyString());
+        doNothing().when(documentIngestionOutcomeTableService).recordOutcomeFenced(anyString(), anyString(), anyString(), anyString());
 
         // when
-        orchestrator.processQueueMessage(metadata);
+        orchestrator.processQueueMessage(metadata, TOKEN);
 
         // then
-        verify(documentIngestionOutcomeTableService).upsertDocument("456e7890-f123-4567-8901-234567890123", "INGESTION_SUCCESS", "Document ingestion completed successfully");
+        verify(documentIngestionOutcomeTableService).recordOutcomeFenced("456e7890-f123-4567-8901-234567890123", "INGESTION_SUCCESS", "Document ingestion completed successfully", TOKEN.etag());
     }
 
     @Test
@@ -127,16 +133,17 @@ class DocumentIngestionOrchestratorTest {
                 "2025-10-07T15:45:30.987654Z"
         );
 
-        doNothing().when(documentIngestionOutcomeTableService).upsertDocument(anyString(), anyString(), anyString());
+        doNothing().when(documentIngestionOutcomeTableService).recordOutcomeFenced(anyString(), anyString(), anyString(), anyString());
 
         // when
-        orchestrator.processQueueMessage(metadata);
+        orchestrator.processQueueMessage(metadata, TOKEN);
 
         // then
-        verify(documentIngestionOutcomeTableService).upsertDocument(
+        verify(documentIngestionOutcomeTableService).recordOutcomeFenced(
                 "789e0123-f456-7890-abcd-ef1234567890",
                 "INGESTION_SUCCESS",
-                "Document ingestion completed successfully");
+                "Document ingestion completed successfully",
+                TOKEN.etag());
     }
 
     @Test
@@ -155,17 +162,18 @@ class DocumentIngestionOrchestratorTest {
         final DocumentIngestionOutcome documentIngestionOutcome = mock(DocumentIngestionOutcome.class);
         when(documentIngestionOutcome.getSupersededDocuments()).thenReturn("67d6aeac-c533-41aa-9824-cc4ef7a346ef,569fefd2-d032-4c01-be59-b9045de5f43a");
         when(documentIngestionOutcomeTableService.getDocumentById(documentId)).thenReturn(documentIngestionOutcome);
-        doNothing().when(documentIngestionOutcomeTableService).upsertDocument("789e0123-f456-7890-abcd-ef1234567890", "INGESTION_SUCCESS", "Document ingestion completed successfully");
+        doNothing().when(documentIngestionOutcomeTableService).recordOutcomeFenced("789e0123-f456-7890-abcd-ef1234567890", "INGESTION_SUCCESS", "Document ingestion completed successfully", TOKEN.etag());
 
         // when
-        orchestrator.processQueueMessage(metadata);
+        orchestrator.processQueueMessage(metadata, TOKEN);
 
         // then
         verify(documentStorageService).markDocumentsInActive(any());
-        verify(documentIngestionOutcomeTableService).upsertDocument(
+        verify(documentIngestionOutcomeTableService).recordOutcomeFenced(
                 documentId,
                 "INGESTION_SUCCESS",
-                "Document ingestion completed successfully");
+                "Document ingestion completed successfully",
+                TOKEN.etag());
     }
 
     @Test
@@ -186,10 +194,10 @@ class DocumentIngestionOrchestratorTest {
 
         // when
         final DocumentProcessingException ex = assertThrows(
-                DocumentProcessingException.class, () -> orchestrator.processQueueMessage(metadata));
+                DocumentProcessingException.class, () -> orchestrator.processQueueMessage(metadata, TOKEN));
 
         assertThat(ex.getMessage().contains("Unable to mark documents as Inactive in search index which were to be superseded by document with ID: " + documentId), is(true));
-        verify(documentIngestionOutcomeTableService, times(0)).upsertDocument(anyString(), anyString(), anyString());
+        verify(documentIngestionOutcomeTableService, times(0)).recordOutcomeFenced(anyString(), anyString(), anyString(), anyString());
     }
 
 
@@ -205,20 +213,40 @@ class DocumentIngestionOrchestratorTest {
                 "2025-10-07T15:45:30.987654Z"
         );
 
-        doNothing().when(documentIngestionOutcomeTableService).upsertDocument(anyString(), anyString(), anyString());
+        doNothing().when(documentIngestionOutcomeTableService).recordOutcomeFenced(anyString(), anyString(), anyString(), anyString());
 
         // when
-        orchestrator.processQueueMessage(metadata);
+        orchestrator.processQueueMessage(metadata, TOKEN);
 
         // then
-        verify(documentIngestionOutcomeTableService).upsertDocument(
+        verify(documentIngestionOutcomeTableService).recordOutcomeFenced(
                 "789e0123-f456-7890-abcd-ef1234567890",
                 "INGESTION_SUCCESS",
-                "Document ingestion completed successfully");
+                "Document ingestion completed successfully",
+                TOKEN.etag());
     }
 
     @Test
-    @DisplayName("Record ingestion failure outcome keyed by documentId")
+    @DisplayName("A fenced-out success write (etag mismatch) propagates unwrapped, not as DocumentProcessingException")
+    void shouldPropagateEtagMismatchUnwrappedFromSuccessOutcome() {
+        // given
+        final QueueIngestionMetadata metadata = new QueueIngestionMetadata(
+                "789e0123-f456-7890-abcd-ef1234567890",
+                "Legal-Contract-Agreement.pdf",
+                singletonMap("document_type", "CONTRACT"),
+                "https://storage.blob.core.windows.net/legal/Legal-Contract-Agreement.pdf",
+                "2025-10-07T15:45:30.987654Z"
+        );
+
+        doThrow(new EtagMismatchException("etag changed"))
+                .when(documentIngestionOutcomeTableService).recordOutcomeFenced(anyString(), anyString(), anyString(), anyString());
+
+        // when & then
+        assertThrows(EtagMismatchException.class, () -> orchestrator.processQueueMessage(metadata, TOKEN));
+    }
+
+    @Test
+    @DisplayName("Record fenced ingestion failure outcome keyed by documentId")
     void shouldRecordFailureKeyedByDocumentId() throws Exception {
         //given
         final QueueIngestionMetadata metadata = new QueueIngestionMetadata(
@@ -231,18 +259,117 @@ class DocumentIngestionOrchestratorTest {
         );
 
         // when
-        orchestrator.processQueueMessageFailed(metadata);
+        orchestrator.processQueueMessageFailed(metadata, TOKEN);
 
         // then
-        verify(documentIngestionOutcomeTableService).upsertDocument(
+        verify(documentIngestionOutcomeTableService).recordOutcomeFenced(
                 "123e4567-e89b-12d3-a456-426614174000",
                 "INGESTION_FAILED",
-                "Document ingestion failed during processing");
+                "Document ingestion failed during processing",
+                TOKEN.etag());
     }
 
     @Test
-    @DisplayName("Handle Queue Message processing failed and fail to update the table")
-    void shouldHandleQueueMessageProcessingFailedAndFailToUpdateTable() {
+    @DisplayName("No-claim failure path re-checks the row and records FAILED fenced on the fresh etag")
+    void shouldRecordFailureFencedOnFreshEtagWhenNoClaimObtained() throws Exception {
+        //given
+        final QueueIngestionMetadata metadata = new QueueIngestionMetadata(
+                "123e4567-e89b-12d3-a456-426614174000",
+                "Burglary-IDPC.pdf",
+                Map.of("case_id", "b99704aa-b1b1-4d5f-bb39-47dc3f18ffa9",
+                        "document_type", "MCC"),
+                "https://storage.blob.core.windows.net/documents/Burglary-IDPC.pdf",
+                Instant.now().toString()
+        );
+        when(documentIngestionOutcomeTableService.readForClaim("123e4567-e89b-12d3-a456-426614174000"))
+                .thenReturn(new LeaseSnapshot("AWAITING_INGESTION", "W/\"fresh\"", null, null));
+        when(documentIngestionOutcomeTableService.isTerminal("AWAITING_INGESTION")).thenReturn(false);
+
+        // when
+        orchestrator.processQueueMessageFailedIfSafe(metadata);
+
+        // then
+        verify(documentIngestionOutcomeTableService).recordOutcomeFenced(
+                "123e4567-e89b-12d3-a456-426614174000",
+                "INGESTION_FAILED",
+                "Document ingestion failed during processing",
+                "W/\"fresh\"");
+    }
+
+    @Test
+    @DisplayName("No-claim failure path writes nothing when the row is already terminal")
+    void shouldNotOverwriteTerminalRowWhenNoClaimObtained() throws Exception {
+        //given
+        final QueueIngestionMetadata metadata = new QueueIngestionMetadata(
+                "123e4567-e89b-12d3-a456-426614174000",
+                "Burglary-IDPC.pdf",
+                Map.of("case_id", "b99704aa-b1b1-4d5f-bb39-47dc3f18ffa9",
+                        "document_type", "MCC"),
+                "https://storage.blob.core.windows.net/documents/Burglary-IDPC.pdf",
+                Instant.now().toString()
+        );
+        when(documentIngestionOutcomeTableService.readForClaim("123e4567-e89b-12d3-a456-426614174000"))
+                .thenReturn(new LeaseSnapshot("INGESTION_SUCCESS", "W/\"fresh\"", null, null));
+        when(documentIngestionOutcomeTableService.isTerminal("INGESTION_SUCCESS")).thenReturn(true);
+
+        // when
+        orchestrator.processQueueMessageFailedIfSafe(metadata);
+
+        // then
+        verify(documentIngestionOutcomeTableService, times(0)).recordOutcomeFenced(anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("No-claim failure path writes nothing when another worker holds a live lease")
+    void shouldNotOverwriteLiveLeaseholderWhenNoClaimObtained() throws Exception {
+        //given
+        final QueueIngestionMetadata metadata = new QueueIngestionMetadata(
+                "123e4567-e89b-12d3-a456-426614174000",
+                "Burglary-IDPC.pdf",
+                Map.of("case_id", "b99704aa-b1b1-4d5f-bb39-47dc3f18ffa9",
+                        "document_type", "MCC"),
+                "https://storage.blob.core.windows.net/documents/Burglary-IDPC.pdf",
+                Instant.now().toString()
+        );
+        when(documentIngestionOutcomeTableService.readForClaim("123e4567-e89b-12d3-a456-426614174000"))
+                .thenReturn(new LeaseSnapshot("AWAITING_INGESTION", "W/\"fresh\"",
+                        java.time.OffsetDateTime.now().plusMinutes(5), "other-worker"));
+        when(documentIngestionOutcomeTableService.isTerminal("AWAITING_INGESTION")).thenReturn(false);
+
+        // when
+        orchestrator.processQueueMessageFailedIfSafe(metadata);
+
+        // then
+        verify(documentIngestionOutcomeTableService, times(0)).recordOutcomeFenced(anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("A fenced-out failure write (etag mismatch) is swallowed — the reclaimer owns the outcome")
+    void shouldSwallowEtagMismatchOnFailureOutcome() {
+        final QueueIngestionMetadata metadata = new QueueIngestionMetadata(
+                "123e4567-e89b-12d3-a456-426614174000",
+                "Burglary-IDPC.pdf",
+                Map.of("case_id", "b99704aa-b1b1-4d5f-bb39-47dc3f18ffa9",
+                        "document_type", "MCC"),
+                "https://storage.blob.core.windows.net/documents/Burglary-IDPC.pdf",
+                Instant.now().toString()
+        );
+
+        doThrow(new EtagMismatchException("etag changed"))
+                .when(documentIngestionOutcomeTableService).recordOutcomeFenced(any(), any(), any(), any());
+
+        assertDoesNotThrow(() -> orchestrator.processQueueMessageFailed(metadata, TOKEN));
+
+        verify(documentIngestionOutcomeTableService).recordOutcomeFenced(
+                "123e4567-e89b-12d3-a456-426614174000",
+                "INGESTION_FAILED",
+                "Document ingestion failed during processing",
+                TOKEN.etag());
+    }
+
+    @Test
+    @DisplayName("A transient failure of the fenced FAILED write propagates so the invocation fails visibly")
+    void shouldPropagateTransientFailureOfFencedFailedWrite() {
         final QueueIngestionMetadata metadata = new QueueIngestionMetadata(
                 "123e4567-e89b-12d3-a456-426614174000",
                 "Burglary-IDPC.pdf",
@@ -253,8 +380,8 @@ class DocumentIngestionOrchestratorTest {
         );
 
         doThrow(new RuntimeException("DB write error!"))
-                .when(documentIngestionOutcomeTableService).upsertDocument(any(), any(), any());
+                .when(documentIngestionOutcomeTableService).recordOutcomeFenced(any(), any(), any(), any());
 
-        orchestrator.processQueueMessageFailed(metadata);
+        assertThrows(DocumentProcessingException.class, () -> orchestrator.processQueueMessageFailed(metadata, TOKEN));
     }
 }

@@ -44,6 +44,25 @@ public class QueueUtil {
         }
     }
 
+    /**
+     * Enqueues a message directly (Base64-encoded, matching what the Functions host produces
+     * and expects for Java queue triggers). Lets tests simulate a duplicate delivery by
+     * re-sending a payload the worker has already processed.
+     */
+    public static void sendMessage(final String endpoint, final String queueName, final String payload) {
+        LOGGER.info("Sending message to queue '{}' on '{}'", queueName, endpoint);
+
+        try {
+            final QueueClient queueClient = getQueueClient(endpoint, queueName);
+
+            queueClient.sendMessage(java.util.Base64.getEncoder()
+                    .encodeToString(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to send message to queue", e);
+        }
+    }
+
     private static @NotNull QueueClient getQueueClient(final String endpoint, final String queueName) {
         return new QueueClientBuilder()
                 .endpoint(endpoint)
