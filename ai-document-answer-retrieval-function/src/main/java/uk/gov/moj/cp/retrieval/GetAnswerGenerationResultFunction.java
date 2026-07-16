@@ -97,7 +97,7 @@ public class GetAnswerGenerationResultFunction {
                 return generateResponse(request, OK, convert(toQueryResponse(generatedAnswer, chunkedEntriesFromBlobContainer)));
             }
 
-            return generateResponse(request, NOT_FOUND, String.format("No Answer request found for the transactionId=%s", transactionId));
+            return generateResponse(request, NOT_FOUND, convert(new RequestErrored(String.format("No Answer request found for the transactionId=%s", transactionId))));
 
         } catch (Exception e) {
             LOGGER.error("Error initiating answer retrieval for request: {}", request, e);

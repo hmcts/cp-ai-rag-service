@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Runs the RAG service integration tests (OrchestrationIntegrationTest) against real Azure.
+# Runs the RAG service integration tests (OrchestrationIT, via maven-failsafe) against real Azure.
 #
 # Configuration is read from a local .env file in this module directory: copy .env.sample
 # to .env and populate it. This script sources .env into the environment, because

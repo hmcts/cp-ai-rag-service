@@ -2,7 +2,7 @@ package uk.gov.moj.cp.retrieval;
 
 import static com.microsoft.azure.functions.HttpStatus.BAD_REQUEST;
 import static com.microsoft.azure.functions.HttpStatus.INTERNAL_SERVER_ERROR;
-import static com.microsoft.azure.functions.HttpStatus.OK;
+import static com.microsoft.azure.functions.HttpStatus.ACCEPTED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -75,17 +75,17 @@ class InitiateAnswerGenerationFunctionTest {
         final String queryPrompt = "query prompt";
         final AnswerUserQueryRequest payload = new AnswerUserQueryRequest(userQuery, queryPrompt, List.of(new MetadataFilter("key", "value")));
         when(mockRequest.getBody()).thenReturn(payload);
-        mockHttpResponse(OK);
+        mockHttpResponse(ACCEPTED);
 
         final HttpResponseMessage result = function.run(mockRequest, outputBinding, executionContext);
 
-        assertEquals(OK, result.getStatus());
+        assertEquals(ACCEPTED, result.getStatus());
         verify(outputBinding).setValue(anyString());
         verify(answerGenerationTableService).saveAnswerGenerationRequest(anyString(),
                 eq(userQuery), eq(queryPrompt),
                 eq(ANSWER_GENERATION_PENDING));
 
-        verify(mockRequest).createResponseBuilder(OK);
+        verify(mockRequest).createResponseBuilder(ACCEPTED);
         verify(mockResponseBuilder).header("Content-Type", "application/json");
         verify(mockResponseBuilder).body(argThat(
                 json().at("/transactionId").isNotNull()

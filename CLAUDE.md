@@ -86,10 +86,10 @@ implement.
 | Method & path (contract) | operationId | Request | Success | Errors | Implemented by (`@FunctionName`) |
 |---|---|---|---|---|---|
 | `POST /document-upload` | `initiate-document-upload` | `documentUploadRequest` | `200` `fileStorageLocationReturnedSuccessfully` | `400`/`500` `requestErrored` | `InitiateDocumentUpload` |
-| `GET /document-upload/{documentReference}` | `document-status-by-reference` | path `documentReference` (uuid) | `200` `documentIngestionStatusReturnedSuccessfully` | `404` `documentStatusNotAvailable` | `DocumentStatusByReference` |
+| `GET /document-upload/{documentReference}` | `document-status-by-reference` | path `documentReference` (uuid) | `200` `documentIngestionStatusReturnedSuccessfully` | `400`/`404`/`500` `requestErrored` | `DocumentStatusByReference` |
 | `POST /answer-user-query` | `answer-user-query` | `answerUserQueryRequest` | `200` `userQueryAnswerReturnedSuccessfullySynchronously` | `400`/`500` `requestErrored` | `AnswerRetrieval` |
 | `POST /answer-user-query-async` | `answer-user-query-async` | `answerUserQueryRequest` | `202` `userQueryAnswerRequestAccepted` | `400`/`500` `requestErrored` | `InitiateAnswerGeneration` |
-| `GET /answer-user-query-async-status/{transactionId}` | `answer-user-query-status` | path `transactionId` (uuid), query `withChunkedEntries` (bool) | `200` `userQueryAnswerReturnedSuccessfullyAsynchronously` | `400` `requestErrored` | `GetAnswerGeneration` |
+| `GET /answer-user-query-async-status/{transactionId}` | `answer-user-query-status` | path `transactionId` (uuid), query `withChunkedEntries` (bool) | `200` `userQueryAnswerReturnedSuccessfullyAsynchronously` | `400`/`404`/`500` `requestErrored` | `GetAnswerGeneration` |
 
 ### Key schemas
 - **Requests:** `documentUploadRequest` (documentId, documentName, metadataFilter[], optional overwrites[]), `answerUserQueryRequest` (userQuery, queryPrompt, metadataFilter[]).
@@ -97,11 +97,11 @@ implement.
 - **Building blocks:** `uuid` (regex-constrained), `metadataFilter` (key/value, each ≤40 chars), `documentChunk` (documentId, documentName, pageNumber, chunkContent, customMetadata[]).
 - **Enums:** `documentIngestionStatus` = `INGESTION_SUCCESS` | `INGESTION_FAILED` | `METADATA_VALIDATED`¹ | `INVALID_METADATA`¹ | `AWAITING_UPLOAD` | `AWAITING_INGESTION` | `FILE_SIZE_OVER_LIMIT`; `answerGenerationStatus` = `ANSWER_GENERATED` | `ANSWER_GENERATION_FAILED` | `ANSWER_GENERATION_PENDING`. (¹ deprecated — only ever produced by the decommissioned direct-blob-drop flow; retained for backward compatibility with historical records.)
 
-### Known contract ↔ implementation drift
-`AnswerRetrieval` declares no explicit `route`, so the Functions host derives the
-route from the `@FunctionName` value (`/api/AnswerRetrieval`) rather than the contract
-path `POST /answer-user-query`. Add an explicit `route = "answer-user-query"` attribute
-to align it with the spec. Run the `api-contract-check` skill to re-verify after changes.
+### Contract alignment notes
+All HTTP functions declare explicit `route` attributes matching the contract paths
+(`AnswerRetrieval` serves `route = "answer-user-query"`). Error responses (400/404/500,
+all `requestErrored`) are documented in the spec as of the `dev/align-error-responses`
+spec change. Run the `api-contract-check` skill to re-verify after endpoint changes.
 
 ## Architecture & Data Flow
 
@@ -126,7 +126,7 @@ The metadata-check module exposes an HTTP-initiated SAS upload flow that feeds `
 The answer-retrieval module exposes two HTTP invocation modes plus the queue-triggered async worker.
 
 **Synchronous** — single round-trip:
-- `SyncAnswerGenerationFunction` (`POST` `AnswerRetrieval`) — embeds the query (`EmbedDataService`), retrieves chunks (`AzureAISearchService`), calls Azure OpenAI via `ResponseGenerationService`/`ChatService`, and returns the answer in the HTTP response. Also enqueues a scoring message to `STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING`.
+- `SyncAnswerGenerationFunction` (`POST /answer-user-query`) — embeds the query (`EmbedDataService`), retrieves chunks (`AzureAISearchService`), calls Azure OpenAI via `ResponseGenerationService`/`ChatService`, and returns the answer in the HTTP response. Also enqueues a scoring message to `STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING`.
 
 **Asynchronous** — request/poll across three functions:
 1. `InitiateAnswerGenerationFunction` (`POST /answer-user-query-async`) validates the request, writes a pending row to `STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION`, enqueues a payload to `STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION`, and returns a `transactionId`.
