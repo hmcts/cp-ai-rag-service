@@ -2,7 +2,7 @@ package uk.gov.moj.cp.retrieval;
 
 import static com.microsoft.azure.functions.HttpStatus.BAD_REQUEST;
 import static com.microsoft.azure.functions.HttpStatus.INTERNAL_SERVER_ERROR;
-import static com.microsoft.azure.functions.HttpStatus.OK;
+import static com.microsoft.azure.functions.HttpStatus.ACCEPTED;
 import static com.microsoft.azure.functions.annotation.AuthorizationLevel.FUNCTION;
 import static java.lang.String.join;
 import static java.util.UUID.randomUUID;
@@ -89,7 +89,7 @@ public class InitiateAnswerGenerationFunction {
             answerGenerationTableService.saveAnswerGenerationRequest(transactionId.toString(), userQuery, userQueryPrompt, ANSWER_GENERATION_PENDING);
             LOGGER.info("Successfully initiated answer retrieval processing for the query: {} with transactionId: {}", userQuery, transactionId);
 
-            return generateResponse(request, OK, convert(new UserQueryAnswerRequestAccepted(transactionId.toString())));
+            return generateResponse(request, ACCEPTED, convert(new UserQueryAnswerRequestAccepted(transactionId.toString())));
 
         } catch (Exception e) {
             LOGGER.error("Error initiating answer retrieval for request: {}", request, e);

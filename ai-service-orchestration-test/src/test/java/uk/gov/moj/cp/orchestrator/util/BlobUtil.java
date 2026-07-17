@@ -19,22 +19,25 @@ public class BlobUtil {
     private static final Logger LOGGER = LoggerFactory.getLogger(BlobUtil.class);
 
     public static void uploadFile(final String sasUrlForFile, final String localResourceFileName) {
-
         try {
-            final byte[] payloadBytes = readAllBytes(Paths.get(ClassLoader.getSystemResource(localResourceFileName).toURI()));
+            uploadBytes(sasUrlForFile, readAllBytes(Paths.get(ClassLoader.getSystemResource(localResourceFileName).toURI())));
+            LOGGER.info("Document '{}' uploaded successfully to URL '{}'", localResourceFileName, sasUrlForFile);
+        } catch (Exception e) {
+            LOGGER.error("Failed to upload file: {}", e.getMessage());
+            throw new RuntimeException("Failed to upload file.", e);
+        }
+    }
+
+    public static void uploadBytes(final String sasUrlForFile, final byte[] payloadBytes) {
+        try {
             final BlobClient blobClient = new BlobClientBuilder()
                     .endpoint(sasUrlForFile)
                     .buildClient();
 
             blobClient.upload(new java.io.ByteArrayInputStream(payloadBytes), true);
-
-            LOGGER.info("Document '{}' uploaded successfully to URL '{}'", localResourceFileName, sasUrlForFile);
-
-
         } catch (Exception e) {
-            // Handle or rethrow if the container could not be created
-            LOGGER.error("Failed to upload file: {}", e.getMessage());
-            throw new RuntimeException("Failed to upload file.", e);
+            LOGGER.error("Failed to upload blob: {}", e.getMessage());
+            throw new RuntimeException("Failed to upload blob.", e);
         }
     }
 

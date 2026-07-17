@@ -1,6 +1,9 @@
 package uk.gov.moj.cp.orchestrator.util;
 
+import static org.awaitility.Awaitility.await;
 import static uk.gov.moj.cp.ai.util.CredentialUtil.getCredentialInstance;
+
+import java.time.Duration;
 
 import com.azure.storage.queue.QueueClient;
 import com.azure.storage.queue.QueueClientBuilder;
@@ -61,6 +64,22 @@ public class QueueUtil {
         } catch (Exception e) {
             throw new RuntimeException("Failed to send message to queue", e);
         }
+    }
+
+    /**
+     * Blocks until the queue reports no messages (visible or in-flight), proving a delivered
+     * message has been consumed and deleted — a deterministic alternative to sleeping.
+     */
+    public static void awaitQueueDrained(final String endpoint, final String queueName, final Duration timeout) {
+        final QueueClient queueClient = getQueueClient(endpoint, queueName);
+        await()
+                .atMost(timeout)
+                .pollInterval(Duration.ofSeconds(2))
+                .until(() -> {
+                    final int count = queueClient.getProperties().getApproximateMessagesCount();
+                    LOGGER.debug("Queue '{}' approximate message count: {}", queueName, count);
+                    return count == 0;
+                });
     }
 
     private static @NotNull QueueClient getQueueClient(final String endpoint, final String queueName) {
