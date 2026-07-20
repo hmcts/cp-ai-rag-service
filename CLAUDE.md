@@ -193,13 +193,16 @@ plugin files.
   connection-strings as a tracked deviation). It supersedes the plugin's
   `tech-stack.md`, `azure-cloud-native.md`, and `logging-standards.md`.
 - **Overridden agents** (`.claude/agents/`): `implementation`, `doc-generator`,
-  and `ci-orchestrator` — rewritten for Functions. Note `ci-orchestrator` is
-  **monitor + triage only** (read-only): CI auto-triggers on PR, so it observes
-  and triages the existing run, it never triggers a build.
+  `ci-orchestrator`, and `architecture-designer` — rewritten for Functions. Note
+  `ci-orchestrator` is **monitor + triage only** (read-only): CI auto-triggers on
+  PR, so it observes and triages the existing run, it never triggers a build.
+  `architecture-designer` replaces the plugin's CQRS/Spring Boot design flow with
+  a Functions-aware one (trigger/binding choice, sync-vs-async, contract-first
+  OpenAPI gate, storage/queue state, idempotency & retrieval invariants).
 - **Out of scope locally:** CI is **never triggered from a local machine** — it runs
   automatically on PR. The local agents therefore cover implementation, doc
   generation, and CI triage only.
-- **Reuse from the plugin as-is:** `requirements-analyst`, `architecture-designer`,
+- **Reuse from the plugin as-is:** `requirements-analyst`,
   `story-writer`, `test-engineer`, `research`, `test-analyzer`, `code-reviewer`
   (skip its Spring Boot template-alignment / actuator checks), `api-contract-check`,
   the security hooks (`block-secrets`, `block-pii`, `guard-bash`, `guard-paths`).
