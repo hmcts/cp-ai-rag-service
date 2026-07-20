@@ -2,23 +2,19 @@
 #
 # Runs the cross-model system-prompt evaluation harness (TestHarness).
 #
-# Configuration is read from a local .env file in this module directory: copy .env.sample
-# to .env and populate it. This script sources .env into the environment, because the
-# production services the harness drives read their config via System.getenv (which the JVM
-# cannot set for itself). Authentication is DefaultAzureCredential, so `az login` first.
+# Configuration comes SOLELY from the local .env file in this module directory (copy
+# .env.sample to .env and populate it) — this script applies no defaults and no overrides;
+# what the .env says is what the harness runs with. The file is sourced into the environment
+# because the production services the harness drives read their config via System.getenv.
+# Authentication is DefaultAzureCredential, so `az login` first.
 #
 #   Usage (from anywhere):
 #     ./run-harness.sh
 #
-#   Knobs (set in .env, or export before running to override):
-#     HARNESS_REPETITIONS=1               # fast smoke test (default 2)
-#     HARNESS_LLM_DEPLOYMENTS=gpt-5.1     # single model (default: gpt-5.1,gpt-4o-response-generation)
-#     HARNESS_DOCUMENT_IDS=id1,id2        # target document ids; every query runs against every id
-#     HARNESS_MAX_QUERIES=1               # only the first N queries (default: all)
-#     HARNESS_JUDGE=false                 # disable the LLM-judge quality comparison (default true)
-#     HARNESS_JUDGE_DEPLOYMENT=gpt-5.1    # judge model for the quality comparison
-#     HARNESS_CALL_DELAY_SECONDS=5        # delay before each LLM call (default 5)
-#     LLM_REASONING_EFFORT=none           # reasoning models only (default none)
+# See .env.sample for the full list of knobs. Two that matter for gpt-5.1 runs: set
+# HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS=300 and HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS=600
+# (or higher) in .env — reasoning calls can run for minutes with no bytes flowing, and this
+# script no longer floors them for you.
 #
 set -euo pipefail
 
@@ -38,25 +34,11 @@ set -a
 source "${ENV_FILE}"
 set +a
 
-# Harness-knob defaults, applied only if .env / the shell did not set them.
-export HARNESS_REPETITIONS="${HARNESS_REPETITIONS:-2}"
-export HARNESS_LLM_DEPLOYMENTS="${HARNESS_LLM_DEPLOYMENTS:-gpt-5.1,gpt-4o-response-generation}"
-export HARNESS_CALL_DELAY_SECONDS="${HARNESS_CALL_DELAY_SECONDS:-5}"
-export LLM_MODEL_RESPONSE_MAX_TOKENS="${LLM_MODEL_RESPONSE_MAX_TOKENS:-7000}"
-export LLM_REASONING_EFFORT="${LLM_REASONING_EFFORT:-none}"
-
-# gpt-5.1 reasoning calls can run for minutes with no bytes flowing, blowing a short read
-# timeout. Force the HTTP timeouts UP TO A FLOOR for the harness, respecting any higher value.
-if [[ "${HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS:-0}" -lt 300 ]]; then
-  export HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS=300
-fi
-if [[ "${HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS:-0}" -lt 600 ]]; then
-  export HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS=600
-fi
-
 echo "[run-harness] module: ${MODULE_DIR}"
-echo "[run-harness] models: ${HARNESS_LLM_DEPLOYMENTS}  reps: ${HARNESS_REPETITIONS}  delay: ${HARNESS_CALL_DELAY_SECONDS}s"
-echo "[run-harness] reasoning_effort: ${LLM_REASONING_EFFORT}  max_completion_tokens: ${LLM_MODEL_RESPONSE_MAX_TOKENS}  read_timeout: ${HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS}s"
+echo "[run-harness] prompts: ${HARNESS_SYSTEM_PROMPTS:-<unset>}"
+echo "[run-harness] models: ${HARNESS_LLM_DEPLOYMENTS:-<unset>}  reps: ${HARNESS_REPETITIONS:-<unset>}  delay: ${HARNESS_CALL_DELAY_SECONDS:-<unset>}s"
+echo "[run-harness] reasoning_effort: ${LLM_REASONING_EFFORT:-<unset>}  max_completion_tokens: ${LLM_MODEL_RESPONSE_MAX_TOKENS:-<unset>}  read_timeout: ${HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS:-<unset>}s"
+echo "[run-harness] guard: ${CITATION_GUARD_MODE:-<unset>}  judge: ${HARNESS_JUDGE:-<unset>}/${HARNESS_JUDGE_DEPLOYMENT:-<unset>}  knn/top/mmr-final: ${SEARCH_NEAREST_NEIGHBOURS_COUNT:-<unset>}/${SEARCH_TOP_RESULTS_COUNT:-<unset>}/${SEARCH_MMR_FINAL_COUNT:-<unset>}"
 echo "[run-harness] ensure you have run 'az login' (DefaultAzureCredential)."
 
 # Build the module + its upstream deps (shared-artefacts, answer-retrieval) and install to
