@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Proposed (pending tech-lead sign-off) |
+| **Status** | Accepted (2026-07-20, Mahesh Subramanian) |
 | **Date** | 2026-07-20 |
 | **Jira** | DD-42722 (sub-tasks DD-42976 … DD-42984) |
 | **Artefacts** | `docs/pipeline/DD-42722-multi-tenant-data-isolation/` (00-input-brief, 01-requirements, 02-design, 03-stories) |
