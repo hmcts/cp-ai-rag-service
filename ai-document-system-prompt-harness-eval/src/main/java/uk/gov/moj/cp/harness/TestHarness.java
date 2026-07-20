@@ -1,6 +1,5 @@
 package uk.gov.moj.cp.harness;
 
-import uk.gov.moj.cp.ai.exception.ChatServiceException;
 import uk.gov.moj.cp.ai.exception.EmbeddingServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
@@ -54,8 +53,8 @@ import org.slf4j.LoggerFactory;
  *       {@link ChatServiceFactory}, so the actual {@code isReasoningModel} branch runs
  *       (reasoning models such as gpt-5.1 omit {@code temperature}/{@code top_p} and apply
  *       {@code reasoning_effort}; gpt-4o gets {@code temperature=0}/{@code top_p=0}).</li>
- *   <li><b>Prompts under test.</b> Loaded from {@code src/main/resources/prompts/*.txt}
- *       ({@code v1-baseline-production} and {@code v2-baseline-with-improvements}); the query set
+ *   <li><b>Prompts under test.</b> Loaded from {@code src/main/resources/prompts/*.txt}, selected
+ *       by the {@code HARNESS_SYSTEM_PROMPTS} env var (comma-separated file names); the query set
  *       is {@code src/main/resources/user-queries.json}.</li>
  *   <li><b>Metrics.</b> Per cell, across {@link #REPETITIONS} repeats: {@code ok}
  *       (answer generated), {@code jsonBlockPresent} (a parseable
@@ -109,12 +108,15 @@ public final class TestHarness {
      */
     private static final int CALL_DELAY_SECONDS = intEnv("HARNESS_CALL_DELAY_SECONDS", 15);
 
-    /** Prompt files under src/main/resources/prompts, in display order. The quality-comparison
-     *  stage compares each prompt against its predecessor in this list. */
-    private static final List<String> PROMPT_FILES = List.of(
-            "v2-baseline-with-improvements",
-            "v3-strict-citation-grouping",
-            "v4-strict-citation-grouping-compact");
+    /**
+     * System-prompt files (without the {@code .txt} suffix) under src/main/resources/prompts, in
+     * display order. Comma-separated; override with {@code HARNESS_SYSTEM_PROMPTS} — no recompile
+     * needed to change which prompts are evaluated. The quality-comparison stage compares each
+     * prompt against its predecessor in this list; with a single prompt and multiple query versions
+     * in user-queries.json, it compares query versions instead.
+     */
+    private static final String DEFAULT_SYSTEM_PROMPTS = "v4-strict-citation-grouping-compact";
+    private static final List<String> PROMPT_FILES = splitCsv(env("HARNESS_SYSTEM_PROMPTS", DEFAULT_SYSTEM_PROMPTS));
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -124,7 +126,8 @@ public final class TestHarness {
     record LlmConfig(String label, String deployment) {
     }
 
-    record UserQueryConfig(String label, String userQuery, String userQueryPrompt, String documentId) {
+    record UserQueryConfig(String label, String userQuery, String userQueryPrompt, String documentId,
+                           String version) {
     }
 
     record RunResult(String promptLabel, String llmLabel, String queryLabel, int iteration,
@@ -309,12 +312,15 @@ public final class TestHarness {
     }
 
     /**
-     * Load queries from src/main/resources/user-queries.json (relative to module root
-     * or repo root), falling back to the classpath. JSON shape:
-     * <pre>{ "queries": [ { "label": "...", "userQuery": "...", "queryPrompt": "..." }, ... ] }</pre>
-     * Each query is expanded against every id in {@link #DOCUMENT_IDS} (HARNESS_DOCUMENT_IDS),
-     * so one query file drives the same evaluation across any number of target documents.
-     * HARNESS_MAX_QUERIES caps the base queries BEFORE the document expansion.
+     * Load queries from src/main/resources/user-queries.json (relative to module root or repo
+     * root), falling back to the classpath. JSON shape:
+     * <pre>{ "versions": [ { "version": "prod", "queries": [ { "queryId": "...", "label": "...",
+     * "userQuery": "...", "queryPrompt": "..." }, ... ] }, ... ] }</pre>
+     * Versions carry the same query set matched by {@code queryId} (differing prompts/wording).
+     * Every query is expanded against every id in {@link #DOCUMENT_IDS} and every version, in
+     * query → document → version order so version rows sit adjacent per (query, document). With
+     * more than one version, row labels carry a {@code #version} suffix.
+     * HARNESS_MAX_QUERIES caps the base queries BEFORE the expansion.
      */
     private static List<UserQueryConfig> loadUserQueriesFromJson() {
         final Path[] candidates = {
@@ -340,28 +346,59 @@ public final class TestHarness {
                     used = Paths.get("classpath:/user-queries.json");
                 }
             }
-            final List<JsonNode> queryNodes = new ArrayList<>();
-            root.get("queries").forEach(queryNodes::add);
+
+            final List<JsonNode> versions = new ArrayList<>();
+            root.get("versions").forEach(versions::add);
+            final Map<String, Map<String, JsonNode>> queriesByVersion = indexQueriesByVersion(versions);
+
+            final JsonNode baseQueries = versions.get(0).get("queries");
             final int maxQueries = intEnv("HARNESS_MAX_QUERIES", 0);
-            final List<JsonNode> selected = (maxQueries > 0 && queryNodes.size() > maxQueries)
-                    ? queryNodes.subList(0, maxQueries) : queryNodes;
+            final int limit = (maxQueries > 0 && maxQueries < baseQueries.size()) ? maxQueries : baseQueries.size();
 
             final List<UserQueryConfig> out = new ArrayList<>();
-            for (final JsonNode q : selected) {
+            for (int i = 0; i < limit; i++) {
+                final String queryId = baseQueries.get(i).get("queryId").asText();
                 for (final String documentId : DOCUMENT_IDS) {
-                    out.add(new UserQueryConfig(
-                            queryLabelFor(q.get("label").asText(), documentId),
-                            q.get("userQuery").asText(),
-                            q.get("queryPrompt").asText(),
-                            documentId));
+                    for (final JsonNode versionNode : versions) {
+                        final String version = versionNode.get("version").asText();
+                        final JsonNode q = queriesByVersion.get(version).get(queryId);
+                        if (q == null) {
+                            LOGGER.warn("[init] queryId {} missing from version '{}'; skipping that cell", queryId, version);
+                            continue;
+                        }
+                        out.add(new UserQueryConfig(
+                                versionedLabel(q.get("label").asText(), documentId, version, versions.size()),
+                                q.get("userQuery").asText(),
+                                q.get("queryPrompt").asText(),
+                                documentId,
+                                version));
+                    }
                 }
             }
-            LOGGER.info("[init] loaded {} user queries from {} ({} selected x {} documentIds = {} rows); documentIds={}",
-                    queryNodes.size(), used, selected.size(), DOCUMENT_IDS.size(), out.size(), DOCUMENT_IDS);
+            LOGGER.info("[init] loaded user queries from {} ({} selected x {} documentIds x {} versions = {} rows); documentIds={}",
+                    used, limit, DOCUMENT_IDS.size(), versions.size(), out.size(), DOCUMENT_IDS);
             return out;
         } catch (final Exception e) {
             throw new RuntimeException("Failed to parse user-queries.json", e);
         }
+    }
+
+    /** Per version: queryId → query node, so versions join on queryId regardless of ordering. */
+    private static Map<String, Map<String, JsonNode>> indexQueriesByVersion(final List<JsonNode> versions) {
+        final Map<String, Map<String, JsonNode>> byVersion = new LinkedHashMap<>();
+        for (final JsonNode versionNode : versions) {
+            final Map<String, JsonNode> byId = new LinkedHashMap<>();
+            versionNode.get("queries").forEach(q -> byId.put(q.get("queryId").asText(), q));
+            byVersion.put(versionNode.get("version").asText(), byId);
+        }
+        return byVersion;
+    }
+
+    /** Row label: query label, doc-id suffix when multi-document, {@code #version} suffix when multi-version. */
+    private static String versionedLabel(final String label, final String documentId,
+                                         final String version, final int versionCount) {
+        final String base = queryLabelFor(label, documentId);
+        return versionCount > 1 ? base + " #" + version : base;
     }
 
     // ---- reporting ----------------------------------------------------------

@@ -10,7 +10,9 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeMap;
+import java.util.function.Function;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,10 +20,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Compares response QUALITY across system-prompt variants, chain-wise: each prompt in
- * PROMPT_FILES is compared against its predecessor (A = predecessor, B = successor), so every
- * evolution step of the prompt is measured directly. Three layers per (query, llm, iteration) row:
+ * Compares response QUALITY across run variants. Two comparison dimensions are supported:
  *
+ * <ul>
+ *   <li><b>System prompts</b> — with two or more entries in PROMPT_FILES, each prompt is
+ *       compared against its predecessor (chain-wise), rows paired per (query, llm, iteration).</li>
+ *   <li><b>Query versions</b> — with two or more versions in user-queries.json (same queries
+ *       matched by queryId, different queryPrompt wording), each version is compared against its
+ *       predecessor, rows paired per (base query, prompt, llm, iteration). This measures what a
+ *       query-prompt revision changes under an identical system prompt.</li>
+ * </ul>
+ *
+ * <p>Three layers per paired row:
  * <ol>
  *   <li><b>Semantic similarity</b> — cosine between embeddings of the citation-stripped prose of
  *       the two answers (reuses the production {@link EmbeddingService}). High cosine on
@@ -29,10 +39,11 @@ import org.slf4j.LoggerFactory;
  *       red-flag detector: a pair well below the batch mean has diverged.</li>
  *   <li><b>Structure counts</b> — deterministic per answer: h1 violations / h2+ headings / bullet
  *       lines, so format drift is visible without a model in the loop.</li>
- *   <li><b>LLM judge</b> — HARNESS_JUDGE_DEPLOYMENT (default gpt-5.1, independent of the
- *       system-under-test) scores factual parity (EQUIVALENT | A_RICHER | B_RICHER | DIVERGENT,
- *       with the material facts missing from each side) and 1–5 adherence to the output format
- *       requested by the query instruction. Disable with HARNESS_JUDGE=false.</li>
+ *   <li><b>LLM judge</b> — HARNESS_JUDGE_DEPLOYMENT (default gpt-5.1) scores factual parity
+ *       (EQUIVALENT | A_RICHER | B_RICHER | DIVERGENT, with the material facts missing from each
+ *       side) and 1–5 adherence of each answer to <em>its own</em> query instruction — the two
+ *       sides may carry different instructions when comparing query versions. Disable with
+ *       HARNESS_JUDGE=false.</li>
  * </ol>
  *
  * <p>Every failure (embedding, judge call, judge-JSON parse) downgrades to {@code n/a} for that
@@ -44,10 +55,11 @@ final class ResponseQualityComparator {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private static final String JUDGE_SYSTEM_PROMPT = """
-            You are a strict evaluation judge. You compare two answers (A and B) produced by two \
-            different system prompts for the same retrieval-augmented legal query over the same \
-            source documents. Judge only the two answers given; do not reward verbosity. \
-            Ignore citation artefacts such as "::(Source: ...)" or bracketed numbers when judging.
+            You are a strict evaluation judge. You compare two answers (A and B) produced for the \
+            same underlying legal query over the same source documents. The two answers may have \
+            been generated under different system prompts or different query instructions — each \
+            answer's instruction is supplied. Judge only the two answers given; do not reward \
+            verbosity. Ignore citation artefacts such as "::(Source: ...)" or bracketed numbers.
             Return ONLY a minified JSON object with exactly these keys:
             {"semanticVerdict":"EQUIVALENT|A_RICHER|B_RICHER|DIVERGENT",\
             "factsMissingFromA":["..."],"factsMissingFromB":["..."],\
@@ -55,10 +67,11 @@ final class ResponseQualityComparator {
             semanticVerdict: EQUIVALENT = both contain the same material facts; A_RICHER / B_RICHER \
             = that answer contains material facts the other lacks; DIVERGENT = each misses material \
             facts the other has. factsMissingFromA/B: material facts absent from that answer but \
-            present in the other — short phrases, at most 5 each, [] if none. structureScoreA/B: \
-            integer 1-5 scoring how well that answer follows the structure, sections, ordering and \
-            formatting requested in the QUERY INSTRUCTION (5 = fully adherent). note: one short \
-            sentence on the most important difference.""";
+            present in the other — short phrases, at most 5 each, [] if none. An answer is NOT \
+            missing facts that its own instruction expressly excludes or caps. structureScoreA/B: \
+            integer 1-5 scoring how well that answer follows the structure, sections, ordering, \
+            formatting and any length limits requested in ITS OWN instruction (5 = fully adherent). \
+            note: one short sentence on the most important difference.""";
 
     private ResponseQualityComparator() {
     }
@@ -80,7 +93,12 @@ final class ResponseQualityComparator {
                     final List<TestHarness.UserQueryConfig> queries,
                     final EmbeddingService embeddingService,
                     final String chatEndpoint) {
-        if (prompts.size() < 2) {
+        final List<String> versions = queries.stream()
+                .map(TestHarness.UserQueryConfig::version)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (prompts.size() < 2 && versions.size() < 2) {
             return;
         }
         final boolean judgeEnabled = !"false".equalsIgnoreCase(TestHarness.env("HARNESS_JUDGE", "true"));
@@ -89,38 +107,68 @@ final class ResponseQualityComparator {
 
         final Map<String, TestHarness.UserQueryConfig> queryByLabel = new HashMap<>();
         queries.forEach(q -> queryByLabel.put(q.label(), q));
-        final Map<String, Map<String, TestHarness.RunResult>> rows = groupRows(results);
         final Map<String, List<Float>> embeddingCache = new HashMap<>();
 
         LOGGER.info("");
-        LOGGER.info("======== QUALITY COMPARISON (chain-wise; judge: {}) ========",
-                judgeEnabled ? judgeDeployment : "disabled");
-        for (int i = 1; i < prompts.size(); i++) {
-            comparePair(prompts.get(i - 1).label(), prompts.get(i).label(),
-                    rows, queryByLabel, embeddingCache, embeddingService, judge);
+        LOGGER.info("======== QUALITY COMPARISON (judge: {}) ========", judgeEnabled ? judgeDeployment : "disabled");
+
+        if (prompts.size() >= 2) {
+            final Map<String, Map<String, TestHarness.RunResult>> rows = groupRows(results,
+                    r -> r.queryLabel() + "|" + r.llmLabel() + "|" + r.iteration(),
+                    TestHarness.RunResult::promptLabel);
+            for (int i = 1; i < prompts.size(); i++) {
+                comparePair("system prompt", prompts.get(i - 1).label(), prompts.get(i).label(),
+                        rows, queryByLabel, embeddingCache, embeddingService, judge);
+            }
+        }
+        if (versions.size() >= 2) {
+            final Map<String, Map<String, TestHarness.RunResult>> rows = groupRows(results,
+                    r -> baseLabel(r, queryByLabel) + "|" + r.promptLabel() + "|" + r.llmLabel() + "|" + r.iteration(),
+                    r -> versionOf(r, queryByLabel));
+            for (int i = 1; i < versions.size(); i++) {
+                comparePair("query version", versions.get(i - 1), versions.get(i),
+                        rows, queryByLabel, embeddingCache, embeddingService, judge);
+            }
         }
         printLegend();
     }
 
-    /** Rows keyed by query|llm|iteration, each holding promptLabel → result. */
+    /** Rows keyed by {@code rowKey}, each holding {@code variantKey} → result. */
     private static Map<String, Map<String, TestHarness.RunResult>> groupRows(
-            final List<TestHarness.RunResult> results) {
+            final List<TestHarness.RunResult> results,
+            final Function<TestHarness.RunResult, String> rowKey,
+            final Function<TestHarness.RunResult, String> variantKey) {
         final Map<String, Map<String, TestHarness.RunResult>> rows = new LinkedHashMap<>();
         for (final TestHarness.RunResult r : results) {
-            rows.computeIfAbsent(r.queryLabel() + "|" + r.llmLabel() + "|" + r.iteration(),
-                    k -> new LinkedHashMap<>()).put(r.promptLabel(), r);
+            rows.computeIfAbsent(rowKey.apply(r), k -> new LinkedHashMap<>()).put(variantKey.apply(r), r);
         }
         return rows;
     }
 
-    private static void comparePair(final String labelA, final String labelB,
+    /** The row's query label with its {@code #version} suffix removed (pairing key across versions). */
+    private static String baseLabel(final TestHarness.RunResult r,
+                                    final Map<String, TestHarness.UserQueryConfig> queryByLabel) {
+        final TestHarness.UserQueryConfig cfg = queryByLabel.get(r.queryLabel());
+        if (cfg == null || cfg.version() == null) {
+            return r.queryLabel();
+        }
+        return r.queryLabel().replace(" #" + cfg.version(), "");
+    }
+
+    private static String versionOf(final TestHarness.RunResult r,
+                                    final Map<String, TestHarness.UserQueryConfig> queryByLabel) {
+        final TestHarness.UserQueryConfig cfg = queryByLabel.get(r.queryLabel());
+        return cfg == null || cfg.version() == null ? "?" : cfg.version();
+    }
+
+    private static void comparePair(final String dimension, final String keyA, final String keyB,
                                     final Map<String, Map<String, TestHarness.RunResult>> rows,
                                     final Map<String, TestHarness.UserQueryConfig> queryByLabel,
                                     final Map<String, List<Float>> embeddingCache,
                                     final EmbeddingService embeddingService,
                                     final ChatService judge) {
         LOGGER.info("");
-        LOGGER.info("---- A: {}   vs   B: {} ----", labelA, labelB);
+        LOGGER.info("---- {} A: {}   vs   B: {} ----", dimension, keyA, keyB);
         double cosSum = 0;
         int cosN = 0;
         final Map<String, Integer> verdicts = new TreeMap<>();
@@ -129,17 +177,17 @@ final class ResponseQualityComparator {
         int judged = 0;
 
         for (final Map.Entry<String, Map<String, TestHarness.RunResult>> row : rows.entrySet()) {
-            final TestHarness.RunResult a = okResult(row.getValue().get(labelA));
-            final TestHarness.RunResult b = okResult(row.getValue().get(labelB));
+            final TestHarness.RunResult a = okResult(row.getValue().get(keyA));
+            final TestHarness.RunResult b = okResult(row.getValue().get(keyB));
             if (a == null || b == null) {
                 continue;
             }
-            final Double cos = cosineOf(row.getKey(), labelA, a, labelB, b, embeddingCache, embeddingService);
+            final Double cos = cosineOf(row.getKey(), keyA, a, keyB, b, embeddingCache, embeddingService);
             if (cos != null) {
                 cosSum += cos;
                 cosN++;
             }
-            final JudgeResult j = judgeRow(judge, queryByLabel.get(a.queryLabel()), a, b);
+            final JudgeResult j = judgeRow(judge, queryByLabel.get(a.queryLabel()), queryByLabel.get(b.queryLabel()), a, b);
             if (j != null) {
                 verdicts.merge(j.verdict(), 1, Integer::sum);
                 structASum += j.structureA();
@@ -225,15 +273,18 @@ final class ResponseQualityComparator {
     }
 
     private static JudgeResult judgeRow(final ChatService judge,
-                                        final TestHarness.UserQueryConfig query,
+                                        final TestHarness.UserQueryConfig queryA,
+                                        final TestHarness.UserQueryConfig queryB,
                                         final TestHarness.RunResult a, final TestHarness.RunResult b) {
-        if (judge == null || query == null) {
+        if (judge == null || queryA == null || queryB == null) {
             return null;
         }
         try {
             TestHarness.pause();
-            final String content = "QUERY INSTRUCTION (requested format):\n" + query.userQueryPrompt()
-                    + "\n\nUSER QUERY:\n" + query.userQuery()
+            final String content = "QUERY INSTRUCTION FOR ANSWER A (requested format):\n" + queryA.userQueryPrompt()
+                    + "\n\nQUERY INSTRUCTION FOR ANSWER B (requested format):\n" + queryB.userQueryPrompt()
+                    + "\n\nUSER QUERY FOR ANSWER A:\n" + queryA.userQuery()
+                    + "\n\nUSER QUERY FOR ANSWER B:\n" + queryB.userQuery()
                     + "\n\nANSWER A:\n" + a.response().formattedLlmResponse()
                     + "\n\nANSWER B:\n" + b.response().formattedLlmResponse();
             return judge.callModel(JUDGE_SYSTEM_PROMPT, content, String.class)
@@ -277,7 +328,8 @@ final class ResponseQualityComparator {
         LOGGER.info("  cos        = cosine similarity of citation-stripped prose embeddings (A vs B). Saturates high;");
         LOGGER.info("               read relatively — a row well below the batch mean has semantically diverged");
         LOGGER.info("  verdict    = judge's factual-parity verdict; missA/missB = material facts missing from that side");
-        LOGGER.info("  judgeStruct= judge's 1-5 adherence to the query instruction's requested output format");
+        LOGGER.info("               (facts an answer's own instruction excludes or caps are not counted as missing)");
+        LOGGER.info("  judgeStruct= judge's 1-5 adherence of each answer to ITS OWN query instruction (incl. length limits)");
         LOGGER.info("  mdStruct   = deterministic counts per answer: h1-violations/h2+ headings/bullet lines");
     }
 }
