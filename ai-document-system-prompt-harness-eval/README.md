@@ -53,7 +53,8 @@ It then produces two things:
 ### Comparison dimensions (LLM judge)
 
 The quality stage compares variants **chain-wise** (each vs. its predecessor), pairing rows that are
-identical on every dimension except the one being compared. It auto-selects the axis:
+identical on every dimension except the one being compared. It runs **whichever axes vary** — both
+fire if both have ≥ 2 entries (independently; typically only one varies per run):
 
 - **System prompts** — when `HARNESS_SYSTEM_PROMPTS` lists ≥ 2 prompts: prompt *i* vs *i-1*, per model.
 - **Query versions** — when `user-queries.json` has ≥ 2 versions: version *i* vs *i-1*, per model.

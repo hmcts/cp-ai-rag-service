@@ -53,9 +53,9 @@ import org.slf4j.LoggerFactory;
  *       {@link ChatServiceFactory}, so the actual {@code isReasoningModel} branch runs
  *       (reasoning models such as gpt-5.1 omit {@code temperature}/{@code top_p} and apply
  *       {@code reasoning_effort}; gpt-4o gets {@code temperature=0}/{@code top_p=0}).</li>
- *   <li><b>Prompts under test.</b> Loaded from {@code src/main/resources/prompts/*.txt}
- *       ({@code v1-baseline-production} and {@code v2-baseline-with-improvements}); the query set
- *       is {@code src/main/resources/user-queries-prod.json}.</li>
+ *   <li><b>Prompts under test.</b> Loaded from {@code src/main/resources/prompts/*.txt}, selected
+ *       by the {@code HARNESS_SYSTEM_PROMPTS} env var (comma-separated file names); the query set
+ *       is {@code src/main/resources/user-queries.json}.</li>
  *   <li><b>Metrics.</b> Per cell, across {@link #REPETITIONS} repeats: {@code ok}
  *       (answer generated), {@code jsonBlockPresent} (a parseable
  *       {@code <FACT_MAP_JSON>…</FACT_MAP_JSON>} block — isolates reasoning-token truncation
@@ -81,7 +81,7 @@ public final class TestHarness {
 
     /**
      * The document(s) the harness queries target — retrieval is filtered per document id.
-     * Comma-separated; override with HARNESS_DOCUMENT_IDS. Every query in user-queries-prod.json is
+     * Comma-separated; override with HARNESS_DOCUMENT_IDS. Every query in user-queries.json is
      * run against EVERY id in this list, so the run matrix expands to
      * prompts × LLMs × (queries × documentIds). With more than one id, each query label is
      * suffixed with the id's first 8 characters so report rows stay distinguishable.
