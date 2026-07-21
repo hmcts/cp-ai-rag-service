@@ -16,19 +16,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 /**
- * MTDI-01 red-phase specs for {@link HeaderClientIdentityResolver}. Encodes AC-001..AC-006.
- *
- * <p>Strictness is LENIENT so that header stubs — which the resolver only consumes once
- * {@code resolve(...)} is implemented — do not raise UnnecessaryStubbingException while the skeleton
- * throws {@code UnsupportedOperationException}. Every test here is expected to FAIL until MTDI-01 is
- * implemented; the failures are the intended reds.
+ * Specs for {@link HeaderClientIdentityResolver} (MTDI-01). Encodes AC-001..AC-006: flag-off is
+ * behaviour-neutral (unenforced, never throws), flag-on resolves the configured header (default
+ * {@code X-Client-Id}, host-lower-cased lookup) and rejects missing/blank/non-UUID identities.
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class HeaderClientIdentityResolverTest {
 
     private static final String HEADER = "X-Client-Id";
@@ -94,7 +88,7 @@ class HeaderClientIdentityResolverTest {
     @Test
     @DisplayName("AC-004: flag off + header present → unenforced context, no exception, clientId empty")
     void shouldReturnUnenforced_whenFlagOffAndHeaderPresent() {
-        when(request.getHeaders()).thenReturn(Map.of(LOWER_HEADER, randomUUID().toString()));
+        // No getHeaders() stub: strict stubbing proves the resolver never reads the request when the flag is off.
         final HeaderClientIdentityResolver resolver = new HeaderClientIdentityResolver(HEADER, false);
 
         final ClientContext ctx = resolver.resolve(request);
@@ -106,7 +100,6 @@ class HeaderClientIdentityResolverTest {
     @Test
     @DisplayName("AC-004: flag off + header absent → unenforced context, never throws")
     void shouldReturnUnenforced_whenFlagOffAndHeaderAbsent() {
-        when(request.getHeaders()).thenReturn(Map.of());
         final HeaderClientIdentityResolver resolver = new HeaderClientIdentityResolver(HEADER, false);
 
         final ClientContext ctx = resolver.resolve(request);
@@ -127,5 +120,30 @@ class HeaderClientIdentityResolverTest {
         final ClientContext ctx = resolver.resolve(request);
 
         assertEquals(clientId, ctx.clientId().orElseThrow());
+    }
+
+    @Test
+    @DisplayName("fromEnvironment: unset env vars → enforcement off (never throws) with default header")
+    void shouldDefaultToUnenforced_whenEnvironmentUnset() {
+        final HeaderClientIdentityResolver resolver = HeaderClientIdentityResolver.fromEnvironment(key -> null);
+
+        final ClientContext ctx = resolver.resolve(request);
+
+        assertFalse(ctx.enforced());
+        assertTrue(ctx.clientId().isEmpty());
+    }
+
+    @Test
+    @DisplayName("fromEnvironment: CLIENT_FILTERING_ENABLED=true + custom CLIENT_IDENTITY_HEADER → enforced on that header")
+    void shouldEnforceOnConfiguredHeader_whenEnvironmentSet() {
+        final String clientId = randomUUID().toString();
+        final Map<String, String> env = Map.of(
+                "CLIENT_FILTERING_ENABLED", "true",
+                "CLIENT_IDENTITY_HEADER", "X-Consumer-Id");
+        when(request.getHeaders()).thenReturn(Map.of("x-consumer-id", clientId));
+
+        final HeaderClientIdentityResolver resolver = HeaderClientIdentityResolver.fromEnvironment(env::get);
+
+        assertEquals(clientId, resolver.resolve(request).clientId().orElseThrow());
     }
 }

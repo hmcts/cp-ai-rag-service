@@ -9,8 +9,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * MTDI-01 red-phase specs for {@link ClientContext} factory/accessor semantics. Expected to FAIL
- * until the skeleton factories/accessors are implemented (they currently throw).
+ * Specs for {@link ClientContext} factory/accessor semantics (MTDI-01): {@code unenforced()} carries
+ * no identity; {@code of(clientId)} is enforced with the identity populated.
  */
 class ClientContextTest {
 

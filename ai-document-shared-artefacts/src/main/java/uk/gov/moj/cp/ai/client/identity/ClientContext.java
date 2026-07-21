@@ -9,9 +9,6 @@ import java.util.Optional;
  *   <li>{@link #unenforced()} — {@code CLIENT_FILTERING_ENABLED} off: no clientId, {@code enforced()==false}.</li>
  *   <li>{@link #of(String)} — enforcement on and a valid clientId resolved: {@code enforced()==true}.</li>
  * </ul>
- *
- * <p>Skeleton for MTDI-01 — factory/accessor bodies are unimplemented and throw; the implementation
- * story makes them green.
  */
 public final class ClientContext {
 

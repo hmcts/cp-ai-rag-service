@@ -8,9 +8,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * MTDI-01 red-phase specs for the worker-side {@link ClientId#requireValid(String)} helper (AC-007).
- * It must reject null/blank/non-UUID values with the same {@link ClientIdentityException} used at the
- * HTTP boundary, and return a valid UUID unchanged. Expected to FAIL until implemented (skeleton throws).
+ * Specs for the worker-side {@link ClientId#requireValid(String)} helper (MTDI-01, AC-007). It rejects
+ * null/blank/non-UUID values with the same {@link ClientIdentityException} used at the HTTP boundary,
+ * and returns a valid UUID unchanged.
  */
 class ClientIdTest {
 

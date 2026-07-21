@@ -5,10 +5,10 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.CLIENT_FILTERING_ENABLED;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.CLIENT_IDENTITY_HEADER;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
-import uk.gov.moj.cp.ai.util.EnvVarUtil;
 import uk.gov.moj.cp.ai.util.UuidUtil;
 
 import java.util.Locale;
+import java.util.function.UnaryOperator;
 
 import com.microsoft.azure.functions.HttpRequestMessage;
 
@@ -18,9 +18,6 @@ import com.microsoft.azure.functions.HttpRequestMessage;
  * <p>Header name defaults to {@code X-Client-Id} ({@code CLIENT_IDENTITY_HEADER}); lookup is
  * case-insensitive because the Functions host lower-cases header keys. UUID-shape validation reuses
  * {@code UuidUtil.isValid} (NFR-4/D7).
- *
- * <p>Skeleton for MTDI-01 — {@link #resolve(HttpRequestMessage)} is unimplemented and throws; the
- * implementation story makes it green.
  */
 public final class HeaderClientIdentityResolver implements ClientIdentityResolver {
 
@@ -41,9 +38,13 @@ public final class HeaderClientIdentityResolver implements ClientIdentityResolve
      * composition of the tested constructor.
      */
     public static HeaderClientIdentityResolver fromEnvironment() {
-        final boolean enforced = parseBoolean(EnvVarUtil.getRequiredEnv(CLIENT_FILTERING_ENABLED, "false"));
-        final String headerName = EnvVarUtil.getRequiredEnv(CLIENT_IDENTITY_HEADER, DEFAULT_CLIENT_IDENTITY_HEADER);
-        return new HeaderClientIdentityResolver(headerName, enforced);
+        return fromEnvironment(System::getenv);
+    }
+
+    // Package-private seam so the env-defaulting behaviour is unit-testable without process-env manipulation.
+    static HeaderClientIdentityResolver fromEnvironment(final UnaryOperator<String> env) {
+        final boolean enforced = parseBoolean(env.apply(CLIENT_FILTERING_ENABLED)); // null → false
+        return new HeaderClientIdentityResolver(env.apply(CLIENT_IDENTITY_HEADER), enforced); // null/blank → default
     }
 
     @Override
@@ -52,7 +53,7 @@ public final class HeaderClientIdentityResolver implements ClientIdentityResolve
             return ClientContext.unenforced();                       // flag off → identity optional (AC-4)
         }
         final String raw = request.getHeaders().get(headerName.toLowerCase(Locale.ROOT)); // host lower-cases keys
-        if (isNullOrEmpty(raw) || !UuidUtil.isValid(raw)) {          // UUID validated at the boundary (NFR-4/D7)
+        if (!UuidUtil.isValid(raw)) {                                // null/blank-safe; UUID at the boundary (NFR-4/D7)
             throw new ClientIdentityException("Missing or invalid client identity");
         }
         return ClientContext.of(raw);                                // AC-1
