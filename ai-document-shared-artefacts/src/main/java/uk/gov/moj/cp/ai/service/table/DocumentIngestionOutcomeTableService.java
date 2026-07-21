@@ -151,11 +151,12 @@ public class DocumentIngestionOutcomeTableService implements IdempotencyStatusSt
     }
 
     /**
-     * Effective partition key for a {@code (clientId, key)} row. Keys on the row key only for now;
-     * a subsequent change swaps in {@code clientId} as the partition when it is present.
+     * Effective partition key for a {@code (clientId, key)} row. When a {@code clientId} is present
+     * it becomes the partition, isolating rows per client; a null or blank {@code clientId} falls
+     * back to the row key as the partition (legacy PK == RK == key layout).
      */
     private static String partitionKey(final String clientId, final String key) {
-        return key;
+        return isNullOrEmpty(clientId) ? key : clientId;
     }
 
     private String getPropertyAsString(final Object value) {
