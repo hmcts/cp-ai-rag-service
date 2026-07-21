@@ -12,17 +12,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * MTDI-02 (AC-010) spec: {@code vector-db-index-schema-v2.json} declares a top-level {@code clientId}
+ * Specs: {@code vector-db-index-schema-v2.json} declares a top-level {@code clientId}
  * field with exactly the v2 attribute shape mirroring {@code documentId}
  * ({@code filterable: true, searchable: false, retrievable: true, stored: true, sortable: false, facetable: false}).
- * Schema JSON is data — the field is added so this passes.
  */
 class VectorDbIndexSchemaV2Test {
 
     private static final String SCHEMA_RESOURCE = "/vector-db-index-schema-v2.json";
 
     @Test
-    @DisplayName("AC-010: clientId field is declared with the expected v2 attribute shape")
+    @DisplayName("clientId field is declared with the expected v2 attribute shape")
     void shouldDeclareClientIdFieldWithExpectedAttributes() throws Exception {
         final ObjectMapper mapper = new ObjectMapper();
         final JsonNode schema;

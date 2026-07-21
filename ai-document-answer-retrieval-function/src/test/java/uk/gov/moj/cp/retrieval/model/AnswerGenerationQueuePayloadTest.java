@@ -13,18 +13,17 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * MTDI-02 (AC-011) backward-compatibility specs for the additive {@code clientId} field on
+ * Backward-compatibility specs for the additive {@code clientId} field on
  * {@link AnswerGenerationQueuePayload}. A legacy/pre-rollout message without a {@code clientId}
  * property must deserialise with {@code clientId == null}; a message carrying it must round-trip.
  * Uses the production {@code ObjectMapperFactory} to mirror the worker's deserialisation path.
- * Pure-data AC — passes on the additive skeleton.
  */
 class AnswerGenerationQueuePayloadTest {
 
     private final ObjectMapper objectMapper = getObjectMapper();
 
     @Test
-    @DisplayName("AC-011: a legacy message without a clientId property deserialises with clientId == null")
+    @DisplayName("a legacy message without a clientId property deserialises with clientId == null")
     void shouldDeserialiseLegacyShapeWithNullClientId() throws Exception {
         final String legacyJson = """
                 {
@@ -43,7 +42,7 @@ class AnswerGenerationQueuePayloadTest {
     }
 
     @Test
-    @DisplayName("AC-011: a message carrying clientId round-trips the value through JSON")
+    @DisplayName("a message carrying clientId round-trips the value through JSON")
     void shouldRoundTripClientId_whenSet() throws Exception {
         final String clientId = randomUUID().toString();
         final AnswerGenerationQueuePayload original = new AnswerGenerationQueuePayload(
@@ -58,7 +57,7 @@ class AnswerGenerationQueuePayloadTest {
     }
 
     @Test
-    @DisplayName("AC-011: the legacy 4-arg constructor defaults clientId to null")
+    @DisplayName("the legacy 4-arg constructor defaults clientId to null")
     void shouldDefaultClientIdToNull_whenBuiltByLegacyConstructor() {
         final AnswerGenerationQueuePayload payload = new AnswerGenerationQueuePayload(
                 randomUUID(), "query", "prompt", List.of());

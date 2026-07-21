@@ -11,15 +11,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * MTDI-02 (AC-009) backward-compatibility specs for the additive {@code clientId} field on
- * {@link ChunkedEntry}. Pure-data ACs — these pass on the additive skeleton (default Jackson behaviour).
+ * Backward-compatibility specs for the additive {@code clientId} field on
+ * {@link ChunkedEntry} (default Jackson behaviour).
  */
 class ChunkedEntryTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    @DisplayName("AC-009: a chunk built without clientId (today's callers) defaults clientId to null and round-trips")
+    @DisplayName("a chunk built without clientId (today's callers) defaults clientId to null and round-trips")
     void shouldDefaultClientIdToNullAndRoundTrip_whenBuiltWithoutClientId() throws Exception {
         final ChunkedEntry original = ChunkedEntry.builder()
                 .id(randomUUID().toString())
@@ -43,7 +43,7 @@ class ChunkedEntryTest {
     }
 
     @Test
-    @DisplayName("AC-009: a chunk built with clientId round-trips the value through JSON")
+    @DisplayName("a chunk built with clientId round-trips the value through JSON")
     void shouldRoundTripClientId_whenBuiltWithClientId() throws Exception {
         final String clientId = randomUUID().toString();
         final ChunkedEntry original = ChunkedEntry.builder()
@@ -69,7 +69,7 @@ class ChunkedEntryTest {
     }
 
     @Test
-    @DisplayName("AC-009: legacy JSON without a clientId property deserialises with clientId == null")
+    @DisplayName("legacy JSON without a clientId property deserialises with clientId == null")
     void shouldDeserialiseLegacyJsonWithNullClientId() throws Exception {
         final String legacyJson = """
                 {

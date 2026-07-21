@@ -18,7 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Specs for {@link HeaderClientIdentityResolver} (MTDI-01). Encodes AC-001..AC-006: flag-off is
+ * Specs for {@link HeaderClientIdentityResolver}: flag-off is
  * behaviour-neutral (unenforced, never throws), flag-on resolves the configured header (default
  * {@code X-Client-Id}, host-lower-cased lookup) and rejects missing/blank/non-UUID identities.
  */
@@ -32,7 +32,7 @@ class HeaderClientIdentityResolverTest {
     private HttpRequestMessage<Optional<String>> request;
 
     @Test
-    @DisplayName("AC-001: flag on + valid UUID header → enforced ClientContext with clientId populated")
+    @DisplayName("flag on + valid UUID header → enforced ClientContext with clientId populated")
     void shouldReturnEnforcedContextWithClientId_whenFlagOnAndValidUuidHeader() {
         final String clientId = randomUUID().toString();
         when(request.getHeaders()).thenReturn(Map.of(LOWER_HEADER, clientId));
@@ -45,7 +45,7 @@ class HeaderClientIdentityResolverTest {
     }
 
     @Test
-    @DisplayName("AC-002: flag on + header absent → ClientIdentityException")
+    @DisplayName("flag on + header absent → ClientIdentityException")
     void shouldThrow_whenFlagOnAndHeaderAbsent() {
         when(request.getHeaders()).thenReturn(Map.of());
         final HeaderClientIdentityResolver resolver = new HeaderClientIdentityResolver(HEADER, true);
@@ -54,7 +54,7 @@ class HeaderClientIdentityResolverTest {
     }
 
     @Test
-    @DisplayName("AC-002: flag on + empty header value → ClientIdentityException")
+    @DisplayName("flag on + empty header value → ClientIdentityException")
     void shouldThrow_whenFlagOnAndHeaderEmpty() {
         when(request.getHeaders()).thenReturn(Map.of(LOWER_HEADER, ""));
         final HeaderClientIdentityResolver resolver = new HeaderClientIdentityResolver(HEADER, true);
@@ -63,7 +63,7 @@ class HeaderClientIdentityResolverTest {
     }
 
     @Test
-    @DisplayName("AC-005: flag on + malformed non-UUID header → ClientIdentityException")
+    @DisplayName("flag on + malformed non-UUID header → ClientIdentityException")
     void shouldThrow_whenFlagOnAndHeaderNotUuid() {
         when(request.getHeaders()).thenReturn(Map.of(LOWER_HEADER, "not-a-uuid"));
         final HeaderClientIdentityResolver resolver = new HeaderClientIdentityResolver(HEADER, true);
@@ -72,7 +72,7 @@ class HeaderClientIdentityResolverTest {
     }
 
     @Test
-    @DisplayName("AC-003: only the header is consulted — body/metadataFilter content has no effect")
+    @DisplayName("only the header is consulted — body/metadataFilter content has no effect")
     void shouldUseHeaderValueOnly_whenBodyCarriesDifferentClientId() {
         final String headerClientId = randomUUID().toString();
         // A spoofed clientId-like value would live in the body/metadataFilter; the resolver must ignore it
@@ -86,7 +86,7 @@ class HeaderClientIdentityResolverTest {
     }
 
     @Test
-    @DisplayName("AC-004: flag off + header present → unenforced context, no exception, clientId empty")
+    @DisplayName("flag off + header present → unenforced context, no exception, clientId empty")
     void shouldReturnUnenforced_whenFlagOffAndHeaderPresent() {
         // No getHeaders() stub: strict stubbing proves the resolver never reads the request when the flag is off.
         final HeaderClientIdentityResolver resolver = new HeaderClientIdentityResolver(HEADER, false);
@@ -98,7 +98,7 @@ class HeaderClientIdentityResolverTest {
     }
 
     @Test
-    @DisplayName("AC-004: flag off + header absent → unenforced context, never throws")
+    @DisplayName("flag off + header absent → unenforced context, never throws")
     void shouldReturnUnenforced_whenFlagOffAndHeaderAbsent() {
         final HeaderClientIdentityResolver resolver = new HeaderClientIdentityResolver(HEADER, false);
 
@@ -109,7 +109,7 @@ class HeaderClientIdentityResolverTest {
     }
 
     @Test
-    @DisplayName("AC-006: header name defaults to X-Client-Id and lookup is case-insensitive (lower-cased key)")
+    @DisplayName("header name defaults to X-Client-Id and lookup is case-insensitive (lower-cased key)")
     void shouldUseDefaultHeaderCaseInsensitively_whenHeaderNameUnset() {
         final String clientId = randomUUID().toString();
         // Null header name => resolver must default to X-Client-Id and look it up under the host's

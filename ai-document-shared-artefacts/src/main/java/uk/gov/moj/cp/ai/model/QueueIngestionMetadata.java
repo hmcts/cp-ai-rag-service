@@ -15,13 +15,13 @@ public record QueueIngestionMetadata(String documentId,
                                      Map<String, String> metadata,
                                      String blobUrl,
                                      String currentTimestamp,
-                                     // Additive client-scoping field (MTDI-02), kept last. Nullable; legacy
+                                     // Additive client-scoping field, kept last. Nullable; legacy
                                      // messages without it deserialize with clientId == null.
                                      String clientId) {
 
     /**
-     * Backward-compatible constructor for producers pre-dating the additive {@code clientId} field
-     * (MTDI-02); {@code clientId} defaults to {@code null}.
+     * Backward-compatible constructor for producers pre-dating the additive {@code clientId} field;
+     * {@code clientId} defaults to {@code null}.
      */
     public QueueIngestionMetadata(String documentId, String documentName, Map<String, String> metadata,
                                   String blobUrl, String currentTimestamp) {

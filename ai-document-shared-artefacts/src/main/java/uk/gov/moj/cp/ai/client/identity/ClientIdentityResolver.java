@@ -3,7 +3,7 @@ package uk.gov.moj.cp.ai.client.identity;
 import com.microsoft.azure.functions.HttpRequestMessage;
 
 /**
- * The single point of change for extracting the caller's client identity (FR-1/D4). When APIM's
+ * The single point of change for extracting the caller's client identity. When APIM's
  * identity mechanism is finalised (JWT/cookie/header), only the implementation changes.
  */
 public interface ClientIdentityResolver {

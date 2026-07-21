@@ -5,7 +5,7 @@ import uk.gov.moj.cp.ai.util.UuidUtil;
 /**
  * Worker-side helper to defensively re-validate a payload-carried {@code clientId} using the same
  * UUID-shape check ({@code UuidUtil.isValid}) and the same exception type ({@link ClientIdentityException})
- * as the HTTP boundary, so queue workers (wired in MTDI-06) have one shared validation routine (FR-1/NFR-4).
+ * as the HTTP boundary, so queue workers (when they adopt it) have one shared validation routine.
  */
 public final class ClientId {
 

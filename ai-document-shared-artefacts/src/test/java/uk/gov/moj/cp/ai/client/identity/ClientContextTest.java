@@ -9,7 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Specs for {@link ClientContext} factory/accessor semantics (MTDI-01): {@code unenforced()} carries
+ * Specs for {@link ClientContext} factory/accessor semantics: {@code unenforced()} carries
  * no identity; {@code of(clientId)} is enforced with the identity populated.
  */
 class ClientContextTest {

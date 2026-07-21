@@ -26,14 +26,14 @@ public record ChunkedEntry(
         @JsonProperty(CHUNK_INDEX) Integer chunkIndex,
         @JsonProperty(DOCUMENT_FILE_URL) String documentFileUrl,
         @JsonProperty(CUSTOM_METADATA) List<KeyValuePair> customMetadata,
-        // Additive client-scoping field (MTDI-02). Nullable; defaults to null for legacy chunks.
+        // Additive client-scoping field. Nullable; defaults to null for legacy chunks.
         @JsonProperty(CLIENT_ID) String clientId
 
 ) {
 
     /**
-     * Backward-compatible constructor for callers pre-dating the additive {@code clientId} field
-     * (MTDI-02); {@code clientId} defaults to {@code null}.
+     * Backward-compatible constructor for callers pre-dating the additive {@code clientId} field;
+     * {@code clientId} defaults to {@code null}.
      */
     public ChunkedEntry(
             String id, String documentId, String chunk, List<Float> chunkVector, String documentFileName,

@@ -55,7 +55,7 @@ class QueueIngestionMetadataTest {
     }
 
     @Test
-    @DisplayName("AC-011: a legacy message without a clientId property deserialises with clientId == null")
+    @DisplayName("a legacy message without a clientId property deserialises with clientId == null")
     void deserialisesLegacyShapeWithNullClientId() throws Exception {
         final String legacyJson = """
                 {
@@ -74,7 +74,7 @@ class QueueIngestionMetadataTest {
     }
 
     @Test
-    @DisplayName("AC-011: a message carrying clientId round-trips the value through JSON")
+    @DisplayName("a message carrying clientId round-trips the value through JSON")
     void roundTripsClientId() throws Exception {
         final QueueIngestionMetadata original = new QueueIngestionMetadata(
                 "123e4567-e89b-12d3-a456-426614174000",

@@ -17,7 +17,7 @@ import com.microsoft.azure.functions.HttpRequestMessage;
  *
  * <p>Header name defaults to {@code X-Client-Id} ({@code CLIENT_IDENTITY_HEADER}); lookup is
  * case-insensitive because the Functions host lower-cases header keys. UUID-shape validation reuses
- * {@code UuidUtil.isValid} (NFR-4/D7).
+ * {@code UuidUtil.isValid}.
  */
 public final class HeaderClientIdentityResolver implements ClientIdentityResolver {
 
@@ -25,7 +25,7 @@ public final class HeaderClientIdentityResolver implements ClientIdentityResolve
     public static final String DEFAULT_CLIENT_IDENTITY_HEADER = "X-Client-Id";
 
     private final String headerName;   // CLIENT_IDENTITY_HEADER, defaults to X-Client-Id when null/blank
-    private final boolean enforced;    // CLIENT_FILTERING_ENABLED (FR-3)
+    private final boolean enforced;    // CLIENT_FILTERING_ENABLED
 
     public HeaderClientIdentityResolver(final String headerName, final boolean enforced) {
         this.headerName = isNullOrEmpty(headerName) ? DEFAULT_CLIENT_IDENTITY_HEADER : headerName;
@@ -50,12 +50,12 @@ public final class HeaderClientIdentityResolver implements ClientIdentityResolve
     @Override
     public ClientContext resolve(final HttpRequestMessage<?> request) {
         if (!enforced) {
-            return ClientContext.unenforced();                       // flag off → identity optional (AC-4)
+            return ClientContext.unenforced();                       // flag off → identity optional
         }
         final String raw = request.getHeaders().get(headerName.toLowerCase(Locale.ROOT)); // host lower-cases keys
-        if (!UuidUtil.isValid(raw)) {                                // null/blank-safe; UUID at the boundary (NFR-4/D7)
+        if (!UuidUtil.isValid(raw)) {                                // null/blank-safe; UUID-shape validated at the boundary
             throw new ClientIdentityException("Missing or invalid client identity");
         }
-        return ClientContext.of(raw);                                // AC-1
+        return ClientContext.of(raw);
     }
 }
