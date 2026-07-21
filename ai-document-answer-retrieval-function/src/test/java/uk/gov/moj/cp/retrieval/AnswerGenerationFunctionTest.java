@@ -172,7 +172,7 @@ class AnswerGenerationFunctionTest {
         when(mockEmbedDataService.getEmbedding("query"))
                 .thenReturn(embeddings);
 
-        when(mockSearchService.search("query", embeddings, payload.metadataFilter()))
+        when(mockSearchService.search(null, "query", embeddings, payload.metadataFilter()))
                 .thenReturn(chunkedEntries);
 
         when(mockResponseGenerationService.generateResponse(
@@ -248,7 +248,7 @@ class AnswerGenerationFunctionTest {
         when(mockEmbedDataService.getEmbedding("query"))
                 .thenReturn(embeddings);
 
-        when(mockSearchService.search("query", embeddings, payload.metadataFilter()))
+        when(mockSearchService.search(null, "query", embeddings, payload.metadataFilter()))
                 .thenReturn(chunkedEntries);
 
         when(mockResponseGenerationService.generateResponse(
@@ -360,7 +360,7 @@ class AnswerGenerationFunctionTest {
                 .thenReturn(CLAIM_ETAG);
 
         when(mockEmbedDataService.getEmbedding("query")).thenReturn(embeddings);
-        when(mockSearchService.search("query", embeddings, payload.metadataFilter())).thenReturn(chunkedEntries);
+        when(mockSearchService.search(null, "query", embeddings, payload.metadataFilter())).thenReturn(chunkedEntries);
         when(mockResponseGenerationService.generateResponse("query", chunkedEntries, "prompt"))
                 .thenReturn(new LlmResponse("raw response", "generated response", ANSWER_GENERATED));
 
@@ -387,7 +387,7 @@ class AnswerGenerationFunctionTest {
 
         stubClaimableRow(transactionId);
         when(mockEmbedDataService.getEmbedding("query")).thenReturn(embeddings);
-        when(mockSearchService.search("query", embeddings, payload.metadataFilter())).thenReturn(chunkedEntries);
+        when(mockSearchService.search(null, "query", embeddings, payload.metadataFilter())).thenReturn(chunkedEntries);
         when(mockResponseGenerationService.generateResponse("query", chunkedEntries, "prompt"))
                 .thenReturn(new LlmResponse("raw response", "generated response", ANSWER_GENERATED));
 
@@ -418,7 +418,7 @@ class AnswerGenerationFunctionTest {
                 .build());
         stubClaimableRow(transactionId);
         when(mockEmbedDataService.getEmbedding("query")).thenReturn(embeddings);
-        when(mockSearchService.search("query", embeddings, payload.metadataFilter())).thenReturn(chunkedEntries);
+        when(mockSearchService.search(null, "query", embeddings, payload.metadataFilter())).thenReturn(chunkedEntries);
         when(mockResponseGenerationService.generateResponse("query", chunkedEntries, "prompt"))
                 .thenThrow(new CitationDegradedException(
                         "Citations missing: jsonBlock=false, inlineMarkers=3, rendered=0, stripped=3",

@@ -108,10 +108,10 @@ public class DocumentStorageService {
     }
 
     @SuppressWarnings("unchecked")
-    public void markDocumentsInActive(final List<String> supersededDocuments) {
+    public void markDocumentsInActive(final String clientId, final List<String> supersededDocuments) {
         final List<SearchDocument> allUpdates = new ArrayList<>();
 
-        final SearchPagedIterable searchResults = getSearchResults(supersededDocuments);
+        final SearchPagedIterable searchResults = getSearchResults(clientId, supersededDocuments);
 
         for (SearchResult result : searchResults) {
             final SearchDocument searchDocument = result.getDocument(SearchDocument.class);
@@ -132,7 +132,9 @@ public class DocumentStorageService {
         }
     }
 
-    private SearchPagedIterable getSearchResults(final List<String> supersededDocuments) {
+    SearchPagedIterable getSearchResults(final String clientId, final List<String> supersededDocuments) {
+        // Scaffold: the supersede filter is not yet scoped by clientId; the clientId argument is
+        // intentionally ignored until the scoping logic is implemented.
         final String filter = supersededDocuments.stream()
                 .map(id -> format("%s/any(m: m/key eq '%s' and m/value eq '%s')", CUSTOM_METADATA, DOCUMENT_ID, id))
                 .collect(joining(" or "));

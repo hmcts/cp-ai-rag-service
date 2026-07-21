@@ -114,7 +114,7 @@ public class SyncAnswerGenerationFunction {
 
             final List<Float> queryEmbeddings = embedDataService.getEmbedding(userQuery);
 
-            final List<ChunkedEntry> chunkedEntries = searchService.search(userQuery, queryEmbeddings, metadataFilters);
+            final List<ChunkedEntry> chunkedEntries = searchService.search(null, userQuery, queryEmbeddings, metadataFilters);
 
             LlmResponse llmResponse;
             try {

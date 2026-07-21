@@ -73,6 +73,7 @@ public class AzureAISearchService {
     }
 
     public List<ChunkedEntry> search(
+            final String clientId,
             final String userQuery,
             final List<Float> vectorizedUserQuery,
             final List<KeyValuePair> metadataFilters) throws SearchServiceException {
@@ -83,7 +84,7 @@ public class AzureAISearchService {
 
         LOGGER.info("Retrieving documents for query with filters: {}", metadataFilters);
 
-        final String filterExpression = generateFilterExpression(metadataFilters);
+        final String filterExpression = generateFilterExpression(clientId, metadataFilters);
         LOGGER.info("Retrieving documents for query with filters: {}", filterExpression);
 
 
@@ -130,8 +131,11 @@ public class AzureAISearchService {
         }
     }
 
-    String generateFilterExpression(final List<KeyValuePair> metadataFilters) {
+    String generateFilterExpression(final String clientId, final List<KeyValuePair> metadataFilters) {
         final StringBuilder filterBuilder = new StringBuilder();
+
+        // Scaffold: the leading client-scoping clause is not yet prepended; the clientId argument
+        // is intentionally ignored until the scoping logic is implemented.
 
         if (metadataFilters != null && !metadataFilters.isEmpty()) {
             for (KeyValuePair pair : metadataFilters) {
