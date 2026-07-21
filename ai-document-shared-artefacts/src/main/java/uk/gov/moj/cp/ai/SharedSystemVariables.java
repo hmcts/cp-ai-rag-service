@@ -37,6 +37,13 @@ public class SharedSystemVariables {
     // outlives the retry budget and the row is stuck non-terminal forever.
     public static final String IDEMPOTENCY_LEASE_TTL_SECONDS = "IDEMPOTENCY_LEASE_TTL_SECONDS";
 
+    // Multi-client data isolation. Both default to the safe/off value so behaviour is
+    // unchanged until an environment is deliberately cut over.
+    // CLIENT_FILTERING_ENABLED: enforcement flag; default "false" (off = today's behaviour).
+    public static final String CLIENT_FILTERING_ENABLED = "CLIENT_FILTERING_ENABLED";
+    // CLIENT_IDENTITY_HEADER: internal APIM↔function header carrying the caller's clientId; default "X-Client-Id".
+    public static final String CLIENT_IDENTITY_HEADER = "CLIENT_IDENTITY_HEADER";
+
     private SharedSystemVariables() {
         // Prevent instantiation
     }
