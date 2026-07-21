@@ -35,6 +35,10 @@ tool does.
 - **`synonymMaps` removed** from every field except `chunk` (they only apply to searchable string fields).
 - **Unchanged:** `chunkVector` (incl. `dimensions`), `retrievable`, `stored`, and the vector (HNSW),
   semantic, and similarity (BM25) configuration.
+- **New `clientId` field** — a top-level consumer-namespace field (`filterable`, not `searchable`) for
+  multi-client data isolation. Source (v1) documents have no value for it; the migration stamps it onto
+  every copied chunk when the index tool is run with the `clientIdOverride` argument (see the README's
+  argument table), so the rebuilt index comes up fully attributed to the incumbent client.
 
 ---
 
@@ -53,6 +57,7 @@ the vector, back out). ✅ = enabled in v2, ❌ = disabled in v2; **bold** marks
 | `pageNumber` | `Edm.Int32` | ❌ | **❌** | **❌** | **❌** | Retrieved only; dropped unused filter/sort/facet. |
 | `chunkIndex` | `Edm.Int32` | ❌ | **❌** | **❌** | **❌** | Retrieved only; dropped unused filter/sort/facet. |
 | `documentFileUrl` | `Edm.String` | **❌** | **❌** | **❌** | **❌** | Citation field, retrieved only; dropped searchable/filter/sort/facet. |
+| `clientId` | `Edm.String` | ❌ | ✅ | ❌ | ❌ | **New in v2.** Top-level consumer namespace for multi-client isolation; filtered on every query once enforcement is enabled. Populated during migration via the index tool's `clientIdOverride`. |
 | `customMetadata/key` | `Edm.String` (complex) | **❌** | ✅ | ❌ | **❌** | Kept `filterable` (drives the `/any(...)` metadata filters); dropped searchable/facetable. |
 | `customMetadata/value` | `Edm.String` (complex) | **❌** | ✅ | ❌ | **❌** | Kept `filterable` (drives the `/any(...)` metadata filters); dropped searchable/facetable. |
 

@@ -81,7 +81,7 @@ The `index` subcommand selects this tool; everything after it is the index tool'
 
 ```bash
 mvn -pl ai-document-migration-tool exec:java \
-  -Dexec.args="index <endpoint> <sourceIndex> <targetIndex> <aliasName> <schemaResourcePath> [workers] [maxRecords] [startAfterId]"
+  -Dexec.args="index <endpoint> <sourceIndex> <targetIndex> <aliasName> <schemaResourcePath> [workers] [maxRecords] [startAfterId] [clientIdOverride]"
 ```
 
 ```bash
@@ -92,6 +92,11 @@ mvn -pl ai-document-migration-tool exec:java \
 # Sample copy of the first 20,000 records (validation) — no verification, no cutover command
 mvn -pl ai-document-migration-tool exec:java \
   -Dexec.args="index https://my-svc.search.windows.net ai-rag-service-index ai-rag-service-index-v2 ai-rag-service-index-alias /vector-db-index-schema-v2.json 8 20000"
+
+# Multi-client migration: full copy that also stamps every chunk with the incumbent client id
+# (positional arg 9 — pass "-" for any earlier optional slot you want to leave at its default)
+mvn -pl ai-document-migration-tool exec:java \
+  -Dexec.args="index https://my-svc.search.windows.net ai-rag-service-index ai-rag-service-index-v2 ai-rag-service-index-alias /vector-db-index-schema-v2.json 8 0 - 8f7b1c2e-4a5d-4f6e-9b0a-1c2d3e4f5a6b"
 
 # Low-memory / constrained host: sync uploads, 4 workers, heap capped at 1 GB
 MAVEN_OPTS="-Xmx1g -XX:+UseG1GC" \
@@ -115,6 +120,7 @@ These are the `index` tool's arguments (they follow the `index` subcommand).
 | 6 | `workers` | no | `8` | Concurrent shard readers; effective parallelism is `min(workers, 16)` |
 | 7 | `maxRecords` | no | `0` (all) | Global cap on documents copied — a positive value makes it a **sample** run |
 | 8 | `startAfterId` | no | — | Resume cursor (single-worker runs only; ignored when `workers > 1`) |
+| 9 | `clientIdOverride` | no | — | Stamps every copied chunk's `clientId` with this value (the multi-client migration). Omit, or pass blank / `-`, to copy chunks **verbatim**. Re-runs re-stamp identically — uploads stay idempotent upserts keyed by `id`. |
 
 Read page size and the async initial batch size are fixed at **250** (`DEFAULT_PAGE_SIZE`) — a 3072-float
 vector serialises to ~25–35 KB of JSON, so 250 keeps a batch (~7–9 MB) safely under Azure's 16 MB request
