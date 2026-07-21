@@ -9,6 +9,8 @@ public class StorageTableColumns {
     public static final String TC_DOCUMENT_SUPERSEDED_DOCUMENTS = "SupersededDocuments";
     public static final String TC_DOCUMENT_FILE_NAME = "DocumentFileName";
     public static final String TC_DOCUMENT_ID = "DocumentId";
+    // Additive client-scoping column (MTDI-02). Not used by any table read/write path yet (usage lands in MTDI-03).
+    public static final String TC_CLIENT_ID = "ClientId";
 
     // ------------------------
     // Answer Generation by QUEUE processing columns

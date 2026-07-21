@@ -53,4 +53,41 @@ class QueueIngestionMetadataTest {
         assertEquals(original, roundTripped);
         assertNull(roundTripped.metadata());
     }
+
+    @Test
+    @DisplayName("AC-011: a legacy message without a clientId property deserialises with clientId == null")
+    void deserialisesLegacyShapeWithNullClientId() throws Exception {
+        final String legacyJson = """
+                {
+                  "documentId": "123e4567-e89b-12d3-a456-426614174000",
+                  "documentName": "Contract-Agreement.pdf",
+                  "metadata": {"document_type": "CONTRACT"},
+                  "blobUrl": "https://storage.blob.core.windows.net/legal/Contract-Agreement.pdf",
+                  "currentTimestamp": "2025-10-07T10:30:45.123456Z"
+                }
+                """;
+
+        final QueueIngestionMetadata metadata = objectMapper.readValue(legacyJson, QueueIngestionMetadata.class);
+
+        assertNull(metadata.clientId());
+        assertEquals("123e4567-e89b-12d3-a456-426614174000", metadata.documentId());
+    }
+
+    @Test
+    @DisplayName("AC-011: a message carrying clientId round-trips the value through JSON")
+    void roundTripsClientId() throws Exception {
+        final QueueIngestionMetadata original = new QueueIngestionMetadata(
+                "123e4567-e89b-12d3-a456-426614174000",
+                "Contract-Agreement.pdf",
+                null,
+                "https://storage.blob.core.windows.net/legal/Contract-Agreement.pdf",
+                "2025-10-07T10:30:45.123456Z",
+                "923e4567-e89b-12d3-a456-426614174000");
+
+        final String json = objectMapper.writeValueAsString(original);
+        final QueueIngestionMetadata roundTripped = objectMapper.readValue(json, QueueIngestionMetadata.class);
+
+        assertEquals("923e4567-e89b-12d3-a456-426614174000", roundTripped.clientId());
+        assertEquals(original, roundTripped);
+    }
 }

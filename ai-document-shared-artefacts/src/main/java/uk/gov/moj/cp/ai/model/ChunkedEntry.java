@@ -3,6 +3,7 @@ package uk.gov.moj.cp.ai.model;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK_INDEX;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK_VECTOR;
+import static uk.gov.moj.cp.ai.index.IndexConstants.CLIENT_ID;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CUSTOM_METADATA;
 import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_FILE_NAME;
 import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_FILE_URL;
@@ -24,9 +25,22 @@ public record ChunkedEntry(
         @JsonProperty(PAGE_NUMBER) Integer pageNumber,
         @JsonProperty(CHUNK_INDEX) Integer chunkIndex,
         @JsonProperty(DOCUMENT_FILE_URL) String documentFileUrl,
-        @JsonProperty(CUSTOM_METADATA) List<KeyValuePair> customMetadata
+        @JsonProperty(CUSTOM_METADATA) List<KeyValuePair> customMetadata,
+        // Additive client-scoping field (MTDI-02). Nullable; defaults to null for legacy chunks.
+        @JsonProperty(CLIENT_ID) String clientId
 
 ) {
+
+    /**
+     * Backward-compatible constructor for callers pre-dating the additive {@code clientId} field
+     * (MTDI-02); {@code clientId} defaults to {@code null}.
+     */
+    public ChunkedEntry(
+            String id, String documentId, String chunk, List<Float> chunkVector, String documentFileName,
+            Integer pageNumber, Integer chunkIndex, String documentFileUrl, List<KeyValuePair> customMetadata) {
+        this(id, documentId, chunk, chunkVector, documentFileName, pageNumber, chunkIndex,
+                documentFileUrl, customMetadata, null);
+    }
 
     public static class Builder {
         private String id;
@@ -38,6 +52,7 @@ public record ChunkedEntry(
         private Integer chunkIndex;
         private String documentFileUrl;
         private List<KeyValuePair> customMetadata;
+        private String clientId;
 
         public Builder id(String id) {
             this.id = id;
@@ -84,10 +99,15 @@ public record ChunkedEntry(
             return this;
         }
 
+        public Builder clientId(String clientId) {
+            this.clientId = clientId;
+            return this;
+        }
+
         public ChunkedEntry build() {
             return new ChunkedEntry(
                     id, documentId, chunk, chunkVector, documentFileName, pageNumber,
-                    chunkIndex, documentFileUrl, customMetadata
+                    chunkIndex, documentFileUrl, customMetadata, clientId
             );
         }
     }

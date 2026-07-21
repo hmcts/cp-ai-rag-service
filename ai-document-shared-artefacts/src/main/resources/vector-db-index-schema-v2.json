@@ -60,6 +60,17 @@
       "key": false
     },
     {
+      "name": "clientId",
+      "type": "Edm.String",
+      "searchable": false,
+      "filterable": true,
+      "retrievable": true,
+      "stored": true,
+      "sortable": false,
+      "facetable": false,
+      "key": false
+    },
+    {
       "name": "pageNumber",
       "type": "Edm.Int32",
       "searchable": false,
