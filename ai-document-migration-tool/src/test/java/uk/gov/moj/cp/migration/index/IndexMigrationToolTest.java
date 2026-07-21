@@ -16,6 +16,7 @@ import uk.gov.moj.cp.ai.client.AISearchClientFactory;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -40,6 +41,29 @@ class IndexMigrationToolTest {
         assertThatThrownBy(() -> IndexMigrationTool.main(new String[]{"a", "b", "c", "d"}))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Usage:");
+    }
+
+    @Test
+    void usageMessageDocumentsTheClientIdOverrideArgument() {
+        assertThatThrownBy(() -> IndexMigrationTool.main(new String[]{"a", "b", "c"}))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("clientIdOverride");
+    }
+
+    @Test
+    void clientIdOverrideArgumentIsParsedAndThreadedOntoTheCopier() throws Exception {
+        assertThat(copierClientIdOverrideArg("8", "0", "cursor-x", "consumer-abc")).isEqualTo("consumer-abc");
+    }
+
+    @Test
+    void blankOrDashClientIdOverrideArgumentIsTreatedAsNoOverride() throws Exception {
+        assertThat(copierClientIdOverrideArg("8", "0", "cursor-x", "-")).isNull();
+        assertThat(copierClientIdOverrideArg("8", "0", "cursor-x", " ")).isNull();
+    }
+
+    @Test
+    void absentClientIdOverrideArgumentYieldsNoOverride() throws Exception {
+        assertThat(copierClientIdOverrideArg("8", "0", "cursor-x")).isNull();
     }
 
     @Test
@@ -126,6 +150,35 @@ class IndexMigrationToolTest {
                     .isInstanceOf(BufferedSenderUploader.class);
             assertThat(IndexMigrationTool.uploader(null, "e", "t", 250, new AtomicLong(), new AtomicLong()))
                     .isInstanceOf(BufferedSenderUploader.class); // default
+        }
+    }
+
+    /**
+     * Runs {@code main} with the five mandatory args followed by {@code extraArgs}, all Azure collaborators
+     * mocked, and returns the {@code clientIdOverride} (6th) argument the constructed {@link IndexCopier}
+     * received — asserting the tool's positional parsing threads it through correctly.
+     */
+    private static Object copierClientIdOverrideArg(final String... extraArgs) throws Exception {
+        final List<List<Object>> copierCtorArgs = new ArrayList<>();
+        final SearchIndexingBufferedSender<ChunkedEntry> sender = senderMock();
+
+        try (MockedStatic<SearchIndexAdmin> admin = mockStatic(SearchIndexAdmin.class);
+             MockedStatic<AISearchClientFactory> factory = mockStatic(AISearchClientFactory.class);
+             MockedConstruction<IndexCopier> copier = mockConstruction(IndexCopier.class, (m, ctx) -> {
+                 copierCtorArgs.add(new ArrayList<>(ctx.arguments()));
+                 when(m.copyAllDocuments(any())).thenReturn(1L);
+             })) {
+
+            admin.when(() -> SearchIndexAdmin.indexClient(any())).thenReturn(mock(SearchIndexClient.class));
+            admin.when(() -> SearchIndexAdmin.bufferedSender(any(), any(), anyInt(), any(), any())).thenReturn(sender);
+            factory.when(() -> AISearchClientFactory.getInstance(any(), any())).thenReturn(mock(SearchClient.class));
+
+            final String[] base = {ENDPOINT, "src-index", "tgt-index", "the-alias", "/schema.json"};
+            final String[] args = Arrays.copyOf(base, base.length + extraArgs.length);
+            System.arraycopy(extraArgs, 0, args, base.length, extraArgs.length);
+            IndexMigrationTool.main(args);
+
+            return copierCtorArgs.get(0).get(5); // the clientIdOverride constructor argument
         }
     }
 

@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
  * <p>Usage (managed-identity / {@code az login} credential is used automatically):</p>
  * <pre>
  *   mvn -pl ai-document-migration-tool exec:java \
- *     -Dexec.args="&lt;endpoint&gt; &lt;sourceIndex&gt; &lt;targetIndex&gt; &lt;aliasName&gt; &lt;schemaResourcePath&gt; [workers] [maxRecords] [startAfterId]"
+ *     -Dexec.args="&lt;endpoint&gt; &lt;sourceIndex&gt; &lt;targetIndex&gt; &lt;aliasName&gt; &lt;schemaResourcePath&gt; [workers] [maxRecords] [startAfterId] [clientIdOverride]"
  *
  *   # full copy, 8 concurrent shards
  *   ... -Dexec.args="https://my-svc.search.windows.net ai-rag-service-index ai-rag-service-index-v2 ai-rag-service-index-alias /vector-db-index-schema-v2.json 8"
@@ -49,6 +49,9 @@ import org.slf4j.LoggerFactory;
  *   # sample copy of the first 20000 records, 8 workers
  *   ... -Dexec.args="https://my-svc.search.windows.net ai-rag-service-index ai-rag-service-index-v2 ai-rag-service-index-alias /vector-db-index-schema-v2.json 8 20000"
  * </pre>
+ *
+ * <p>{@code clientIdOverride} is optional; omit it (or pass a blank / {@code "-"}) to copy chunks verbatim.
+ * When supplied, every copied chunk is stamped with that fixed clientId before upload.</p>
  */
 public final class IndexMigrationTool {
 
@@ -68,7 +71,7 @@ public final class IndexMigrationTool {
     public static void main(final String[] args) throws Exception {
         if (args.length < 5) {
             throw new IllegalArgumentException("Usage: <endpoint> <sourceIndex> <targetIndex> <aliasName> "
-                    + "<schemaResourcePath> [workers] [maxRecords] [startAfterId]");
+                    + "<schemaResourcePath> [workers] [maxRecords] [startAfterId] [clientIdOverride]");
         }
         final String endpoint = args[0];
         final String sourceIndex = args[1];
@@ -78,6 +81,9 @@ public final class IndexMigrationTool {
         final int workers = args.length > 5 ? Integer.parseInt(args[5]) : DEFAULT_WORKERS;
         final long maxRecords = args.length > 6 ? Long.parseLong(args[6]) : 0; // 0 = copy everything
         final String startAfterId = args.length > 7 ? args[7] : null;
+        // Treat a blank arg or the "-" placeholder as "no override" so the copies are made verbatim.
+        final String clientIdOverride =
+                args.length > 8 && !args[8].isBlank() && !"-".equals(args[8]) ? args[8] : null;
 
         final SearchIndexClient indexClient = SearchIndexAdmin.indexClient(endpoint);
         SearchIndexAdmin.createTargetIndex(indexClient, targetIndex, schemaResource);
@@ -90,7 +96,7 @@ public final class IndexMigrationTool {
 
         final long submitted;
         try {
-            submitted = new IndexCopier(sourceClient, uploader, DEFAULT_PAGE_SIZE, workers, maxRecords)
+            submitted = new IndexCopier(sourceClient, uploader, DEFAULT_PAGE_SIZE, workers, maxRecords, clientIdOverride)
                     .copyAllDocuments(startAfterId);
         } finally {
             uploader.close(); // flush/await (async) or no-op (sync)
