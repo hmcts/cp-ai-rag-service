@@ -84,6 +84,9 @@ public final class IndexMigrationTool {
         // Treat a blank arg or the "-" placeholder as "no override" so the copies are made verbatim.
         final String clientIdOverride =
                 args.length > 8 && !args[8].isBlank() && !"-".equals(args[8]) ? args[8] : null;
+        LOGGER.info("Index copy starting — source='{}', target='{}', clientIdOverride={}.",
+                sourceIndex, targetIndex,
+                clientIdOverride == null ? "(none — copy verbatim)" : "'" + clientIdOverride + "'");
 
         final SearchIndexClient indexClient = SearchIndexAdmin.indexClient(endpoint);
         SearchIndexAdmin.createTargetIndex(indexClient, targetIndex, schemaResource);

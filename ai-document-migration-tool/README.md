@@ -94,7 +94,8 @@ mvn -pl ai-document-migration-tool exec:java \
   -Dexec.args="index https://my-svc.search.windows.net ai-rag-service-index ai-rag-service-index-v2 ai-rag-service-index-alias /vector-db-index-schema-v2.json 8 20000"
 
 # Multi-client migration: full copy that also stamps every chunk with the incumbent client id
-# (positional arg 9 — pass "-" for any earlier optional slot you want to leave at its default)
+# (positional arg 9 — supply explicit workers/maxRecords values to reach it; the resume-cursor
+#  slot may be "-" since it is ignored for multi-worker runs)
 mvn -pl ai-document-migration-tool exec:java \
   -Dexec.args="index https://my-svc.search.windows.net ai-rag-service-index ai-rag-service-index-v2 ai-rag-service-index-alias /vector-db-index-schema-v2.json 8 0 - 8f7b1c2e-4a5d-4f6e-9b0a-1c2d3e4f5a6b"
 
