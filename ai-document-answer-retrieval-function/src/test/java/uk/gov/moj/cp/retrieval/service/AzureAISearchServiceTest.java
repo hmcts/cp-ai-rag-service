@@ -3,6 +3,7 @@ package uk.gov.moj.cp.retrieval.service;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -65,24 +66,24 @@ class AzureAISearchServiceTest {
     void throwsExceptionWhenUserQueryIsNullOrEmpty() {
         final List<Float> vector = Arrays.asList(1.0f, 2.0f);
         final List<KeyValuePair> filters = List.of(new KeyValuePair("k", "v"));
-        assertThrows(IllegalArgumentException.class, () -> service.search(null,null, vector, filters));
-        assertThrows(IllegalArgumentException.class, () -> service.search(null,"", vector, filters));
+        assertThrows(IllegalArgumentException.class, () -> service.search(null, null, vector, filters));
+        assertThrows(IllegalArgumentException.class, () -> service.search(null, "", vector, filters));
     }
 
     @Test
     @DisplayName("Throws exception when vectorizedUserQuery is null or empty")
     void throwsExceptionWhenVectorizedUserQueryIsNullOrEmpty() {
         final List<KeyValuePair> filters = List.of(new KeyValuePair("k", "v"));
-        assertThrows(IllegalArgumentException.class, () -> service.search(null,"query", null, filters));
-        assertThrows(IllegalArgumentException.class, () -> service.search(null,"query", Collections.emptyList(), filters));
+        assertThrows(IllegalArgumentException.class, () -> service.search(null, "query", null, filters));
+        assertThrows(IllegalArgumentException.class, () -> service.search(null, "query", Collections.emptyList(), filters));
     }
 
     @Test
     @DisplayName("Throws exception when metadataFilters is null or empty")
     void throwsExceptionWhenMetadataFiltersIsNullOrEmpty() {
         final List<Float> vector = Arrays.asList(1.0f, 2.0f);
-        assertThrows(IllegalArgumentException.class, () -> service.search(null,"query", vector, null));
-        assertThrows(IllegalArgumentException.class, () -> service.search(null,"query", vector, Collections.emptyList()));
+        assertThrows(IllegalArgumentException.class, () -> service.search(null, "query", vector, null));
+        assertThrows(IllegalArgumentException.class, () -> service.search(null, "query", vector, Collections.emptyList()));
     }
 
     @Test
@@ -97,7 +98,7 @@ class AzureAISearchServiceTest {
         final ChunkedEntry entry = ChunkedEntry.builder().id("id").build();
         when(mockResult.getDocument(ChunkedEntry.class)).thenReturn(entry);
         when(mockSearchClient.search(anyString(), any(SearchOptions.class), any())).thenReturn(mockPagedIterable);
-        final List<ChunkedEntry> result = service.search(null,userQuery, vector, filters);
+        final List<ChunkedEntry> result = service.search(null, userQuery, vector, filters);
         when(mockDeduplicationService.performSemanticDeduplication(anyList())).thenReturn(List.of(entry));
         assertEquals(1, result.size());
         assertEquals("id", result.get(0).id());
@@ -109,21 +110,21 @@ class AzureAISearchServiceTest {
         final List<Float> vector = Arrays.asList(1.0f, 2.0f);
         final List<KeyValuePair> filters = List.of(new KeyValuePair("k", "v"));
         when(mockSearchClient.search(anyString(), any(SearchOptions.class), any())).thenThrow(new RuntimeException("fail"));
-        assertThrows(SearchServiceException.class, () -> service.search(null,"query", vector, filters));
+        assertThrows(SearchServiceException.class, () -> service.search(null, "query", vector, filters));
     }
 
     @Test
     @DisplayName("generateFilterExpression returns isActive != false for empty filters")
     void generateFilterExpressionReturnsIsActiveNeFalseForEmptyFilters() {
-        assertThat(service.generateFilterExpression(null,Collections.emptyList()), is("(not customMetadata/any(m: m/key eq 'is_active') or customMetadata/any(m: m/key eq 'is_active' and m/value ne 'false'))"));
-        assertThat(service.generateFilterExpression(null,null), is("(not customMetadata/any(m: m/key eq 'is_active') or customMetadata/any(m: m/key eq 'is_active' and m/value ne 'false'))"));
+        assertThat(service.generateFilterExpression(null, Collections.emptyList()), is("(not customMetadata/any(m: m/key eq 'is_active') or customMetadata/any(m: m/key eq 'is_active' and m/value ne 'false'))"));
+        assertThat(service.generateFilterExpression(null, null), is("(not customMetadata/any(m: m/key eq 'is_active') or customMetadata/any(m: m/key eq 'is_active' and m/value ne 'false'))"));
     }
 
     @Test
     @DisplayName("generateFilterExpression returns correct filter string for single filter")
     void generateFilterExpressionReturnsCorrectStringForSingleFilter() {
         final List<KeyValuePair> filters = List.of(new KeyValuePair("foo", "bar"));
-        final String result = service.generateFilterExpression(null,filters);
+        final String result = service.generateFilterExpression(null, filters);
         assertTrue(result.contains("customMetadata/any(m: m/key eq 'foo' and m/value eq 'bar')"));
     }
 
@@ -135,7 +136,7 @@ class AzureAISearchServiceTest {
                 new KeyValuePair("foo", "bar"),
                 new KeyValuePair("baz", "qux")
         );
-        final String result = service.generateFilterExpression(null,filters);
+        final String result = service.generateFilterExpression(null, filters);
         assertTrue(result.contains(" and "));
         assertTrue(result.contains("customMetadata/any(m: m/key eq 'foo' and m/value eq 'bar')"));
         assertTrue(result.contains("customMetadata/any(m: m/key eq 'baz' and m/value eq 'qux')"));
@@ -148,7 +149,7 @@ class AzureAISearchServiceTest {
     @DisplayName("generateFilterExpression escapes single quote in value")
     void generateFilterExpression_escapesSingleQuoteInValue() {
         final List<KeyValuePair> filters = List.of(new KeyValuePair("caseName", "Crown v O'Brien"));
-        final String result = service.generateFilterExpression(null,filters);
+        final String result = service.generateFilterExpression(null, filters);
         assertTrue(result.contains("customMetadata/any(m: m/key eq 'caseName' and m/value eq 'Crown v O''Brien')"));
     }
 
@@ -156,7 +157,7 @@ class AzureAISearchServiceTest {
     @DisplayName("generateFilterExpression escapes single quote in key")
     void generateFilterExpression_escapesSingleQuoteInKey() {
         final List<KeyValuePair> filters = List.of(new KeyValuePair("o'key", "v"));
-        final String result = service.generateFilterExpression(null,filters);
+        final String result = service.generateFilterExpression(null, filters);
         assertTrue(result.contains("customMetadata/any(m: m/key eq 'o''key' and m/value eq 'v')"));
     }
 
@@ -167,7 +168,7 @@ class AzureAISearchServiceTest {
         // making the any() predicate vacuously true for every chunk -> filter bypass.
         // Post-fix: doubled quotes demote the entire payload to an inert string literal.
         final List<KeyValuePair> filters = List.of(new KeyValuePair("k", "x' or 'a' eq 'a"));
-        final String result = service.generateFilterExpression(null,filters);
+        final String result = service.generateFilterExpression(null, filters);
         assertTrue(result.contains("customMetadata/any(m: m/key eq 'k' and m/value eq 'x'' or ''a'' eq ''a')"));
     }
 
@@ -178,7 +179,7 @@ class AzureAISearchServiceTest {
         // IS_ACTIVE_FILTER guard (since `and` binds tighter than `or`), surfacing soft-deleted
         // documents. Post-fix: the entire payload is contained inside one string literal.
         final List<KeyValuePair> filters = List.of(new KeyValuePair("k", "x') or (true"));
-        final String result = service.generateFilterExpression(null,filters);
+        final String result = service.generateFilterExpression(null, filters);
         assertTrue(result.contains("m/value eq 'x'') or (true'"));
         // The security-trimming guard must remain the outermost and-joined trailing clause.
         assertTrue(result.endsWith(" and " + IS_ACTIVE_FILTER_LITERAL),
@@ -189,7 +190,7 @@ class AzureAISearchServiceTest {
     @DisplayName("generateFilterExpression handles empty string value")
     void generateFilterExpression_handlesEmptyStringValue() {
         final List<KeyValuePair> filters = List.of(new KeyValuePair("k", ""));
-        final String result = service.generateFilterExpression(null,filters);
+        final String result = service.generateFilterExpression(null, filters);
         assertTrue(result.contains("customMetadata/any(m: m/key eq 'k' and m/value eq '')"));
     }
 
@@ -197,7 +198,7 @@ class AzureAISearchServiceTest {
     @DisplayName("generateFilterExpression preserves is_active trailer with escaped pair")
     void generateFilterExpression_preservesIsActiveTrailerWithEscapedPair() {
         final List<KeyValuePair> filters = List.of(new KeyValuePair("caseName", "O'Brien"));
-        final String result = service.generateFilterExpression(null,filters);
+        final String result = service.generateFilterExpression(null, filters);
         assertThat(result, is(
                 "customMetadata/any(m: m/key eq 'caseName' and m/value eq 'O''Brien')"
                         + " and "
@@ -211,7 +212,7 @@ class AzureAISearchServiceTest {
                 new KeyValuePair("plain", "value"),
                 new KeyValuePair("caseName", "O'Brien")
         );
-        final String result = service.generateFilterExpression(null,filters);
+        final String result = service.generateFilterExpression(null, filters);
         assertTrue(result.contains("customMetadata/any(m: m/key eq 'plain' and m/value eq 'value')"));
         assertTrue(result.contains("customMetadata/any(m: m/key eq 'caseName' and m/value eq 'O''Brien')"));
         assertTrue(result.contains(" and "));
@@ -224,7 +225,7 @@ class AzureAISearchServiceTest {
     void getColumnsToRetrieveAlwaysIncludesVector() {
         // The search service is agnostic of the dedup/MMR toggles; the vector is always fetched and
         // the downstream services decide whether to use it.
-        final List<String> columns = List.of(service.getColumnsToRetrieve());
+        final List<String> columns = List.of(service.getColumnsToRetrieve(null));
         assertTrue(columns.contains(IndexConstants.CHUNK_VECTOR));
         assertTrue(columns.contains(IndexConstants.CHUNK));
         assertTrue(columns.contains(IndexConstants.ID));
@@ -280,10 +281,17 @@ class AzureAISearchServiceTest {
     }
 
     @Test
-    @DisplayName("getColumnsToRetrieve includes the client id column")
+    @DisplayName("getColumnsToRetrieve includes the client id column when a client scope is supplied")
     void getColumnsToRetrieveIncludesClientIdColumn() {
-        final List<String> columns = List.of(service.getColumnsToRetrieve());
+        final List<String> columns = List.of(service.getColumnsToRetrieve("client-a"));
         assertTrue(columns.contains(IndexConstants.CLIENT_ID));
+    }
+
+    @Test
+    @DisplayName("getColumnsToRetrieve omits the client id column when no client scope is supplied — the live index may not define the field")
+    void getColumnsToRetrieveOmitsClientIdColumn_whenNoClientScope() {
+        final List<String> columns = List.of(service.getColumnsToRetrieve(null));
+        assertFalse(columns.contains(IndexConstants.CLIENT_ID));
     }
 
     @Test

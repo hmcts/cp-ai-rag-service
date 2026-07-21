@@ -102,7 +102,7 @@ public class AzureAISearchService {
                 .setFilter(filterExpression) // Apply the OData filter
                 .setVectorSearchOptions(vectorSearchOptions) // Add the vector query
                 .setQueryType(QueryType.FULL) // Use SEMANTIC for hybrid search with semantic ranking
-                .setSelect(getColumnsToRetrieve()) // Select all fields needed for LLM context and citation
+                .setSelect(getColumnsToRetrieve(clientId)) // Select all fields needed for LLM context and citation
                 .setTop(topResultsCount); // Number of top results to return after filtering and ranking
 
 
@@ -170,21 +170,26 @@ public class AzureAISearchService {
     }
 
 
-    String[] getColumnsToRetrieve() {
+    String[] getColumnsToRetrieve(final String clientId) {
         // The chunk vector is always retrieved; whether it is used for cosine comparisons is decided
         // by the downstream services (DeduplicationService / DiversificationService) based on their
         // own toggles. This search service stays agnostic of those toggles.
-        return new String[]{
+        // The client column is selected only when a client scope is supplied: Azure AI Search rejects
+        // a $select naming a field the index does not define, and the field only exists once the
+        // rebuilt index is live — the same condition under which a client scope starts arriving.
+        final List<String> columns = new ArrayList<>(List.of(
                 IndexConstants.ID,
                 IndexConstants.CHUNK,
                 IndexConstants.DOCUMENT_FILE_NAME,
                 IndexConstants.DOCUMENT_ID,
-                IndexConstants.CLIENT_ID,
                 IndexConstants.PAGE_NUMBER,
                 IndexConstants.DOCUMENT_FILE_URL,
                 CUSTOM_METADATA,
-                IndexConstants.CHUNK_VECTOR
-        };
+                IndexConstants.CHUNK_VECTOR));
+        if (!isNullOrEmpty(clientId)) {
+            columns.add(4, IndexConstants.CLIENT_ID);
+        }
+        return columns.toArray(new String[0]);
     }
 
 }
