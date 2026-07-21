@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.metadata.check.utils;
 
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -74,5 +75,65 @@ public class DocumentBlobNameResolverTest {
         final String blobName = resolver.getBlobName(documentId, extension);
 
         assertThat(blobName.contains(expectedDate), is(true));
+    }
+
+    @Test
+    void getBlobName_shouldReturnClientPrefixedFormat_whenClientIdPresent() {
+        final String clientId = "client-1";
+        final String documentId = "doc123";
+        final String extension = "pdf";
+
+        final String blobName = resolver.getBlobName(clientId, documentId, extension);
+
+        assertThat(blobName.matches("^c=client-1/doc123_[0-9]{8}\\.pdf$"), is(true));
+    }
+
+    @Test
+    void getBlobName_shouldReturnFlatFormat_whenClientIdIsNull() {
+        final String documentId = "doc123";
+        final String extension = "pdf";
+
+        final String prefixedOverloadResult = resolver.getBlobName(null, documentId, extension);
+        final String flatResult = resolver.getBlobName(documentId, extension);
+
+        assertThat(prefixedOverloadResult, is(flatResult));
+        assertThat(prefixedOverloadResult.matches("^doc123_[0-9]{8}\\.pdf$"), is(true));
+    }
+
+    @Test
+    void getBlobName_shouldReturnFlatFormat_whenClientIdIsEmpty() {
+        final String documentId = "doc123";
+        final String extension = "pdf";
+
+        final String prefixedOverloadResult = resolver.getBlobName("", documentId, extension);
+
+        assertThat(prefixedOverloadResult.matches("^doc123_[0-9]{8}\\.pdf$"), is(true));
+    }
+
+    @Test
+    void getDocumentId_shouldReturnDocumentId_whenClientPrefixedBlobName() {
+        final String blobName = "c=client-1/doc123_20240101.pdf";
+
+        final String result = resolver.getDocumentId(blobName);
+
+        assertThat(result, is("doc123"));
+    }
+
+    @Test
+    void getClientId_shouldReturnClientId_whenClientPrefixedBlobName() {
+        final String blobName = "c=client-1/doc123_20240101.pdf";
+
+        final String result = resolver.getClientId(blobName);
+
+        assertThat(result, is("client-1"));
+    }
+
+    @Test
+    void getClientId_shouldReturnNull_whenFlatBlobName() {
+        final String blobName = "doc123_20240101.pdf";
+
+        final String result = resolver.getClientId(blobName);
+
+        assertThat(result, is(nullValue()));
     }
 }

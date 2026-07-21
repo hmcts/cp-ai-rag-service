@@ -27,6 +27,24 @@ public class ChunkUtil {
     public static String getAnswerWithChunksFilename(final UUID id) {
         return format(LLM_ANSWER_WITH_CHUNKS, id);
     }
+
+    /**
+     * Client-scoped variant of {@link #getInputChunksFilename(UUID)}. Prepends the client prefix when
+     * a clientId is supplied; falls back to the unprefixed name otherwise. Prefixing is not yet built.
+     */
+    public static String getInputChunksFilename(final String clientId, final UUID transactionId) {
+        // TODO: prepend the c={clientId}/ prefix when clientId is non-empty
+        return getInputChunksFilename(transactionId);
+    }
+
+    /**
+     * Client-scoped variant of {@link #getAnswerWithChunksFilename(UUID)}. Prepends the client prefix
+     * when a clientId is supplied; falls back to the unprefixed name otherwise. Prefixing is not yet built.
+     */
+    public static String getAnswerWithChunksFilename(final String clientId, final UUID id) {
+        // TODO: prepend the c={clientId}/ prefix when clientId is non-empty
+        return getAnswerWithChunksFilename(id);
+    }
     public static List<DocumentChunk> transformChunkEntries(final List<ChunkedEntry> chunkedEntries) {
         if (null == chunkedEntries || chunkedEntries.isEmpty()) {
             return Collections.emptyList();

@@ -3,6 +3,7 @@ package uk.gov.moj.cp.metadata.check;
 import static java.time.ZonedDateTime.now;
 import static java.time.ZonedDateTime.parse;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -133,6 +134,65 @@ class DocumentBlobTriggerFunctionTest {
             verify(documentUploadService).getDocument(documentId);
             verify(documentUploadService).updateDocumentFileSizeOverLimit(documentId, documentSize, maxSizeLimit);
             verifyNoInteractions(outputBinding);
+        }
+    }
+
+    @Test
+    void shouldCarryParsedClientId_whenBlobNameIsClientPrefixed() throws JsonProcessingException {
+        try (MockedStatic<EnvVarUtil> mockedEnvVarUtil = mockStatic(EnvVarUtil.class)) {
+            mockedEnvVarUtil.when(() -> getRequiredEnv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT)).thenReturn("http://blob.web.com/");
+            mockedEnvVarUtil.when(() -> getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD)).thenReturn("doc-upload");
+
+            final String prefixedBlobName = "c=client-1/123_20260226.json";
+            final BlobClient blobClient = mock(BlobClient.class);
+            when(blobClientService.getBlobClient(prefixedBlobName)).thenReturn(blobClient);
+            when(blobClient.getProperties()).thenReturn(blobProperties);
+
+            when(documentBlobNameResolver.getDocumentId(prefixedBlobName)).thenReturn(documentId);
+            when(documentBlobNameResolver.getClientId(prefixedBlobName)).thenReturn("client-1");
+            when(blobClientService.isBlobAvailable(prefixedBlobName)).thenReturn(true);
+
+            final DocumentIngestionOutcome document = mock(DocumentIngestionOutcome.class);
+            when(document.getDocumentId()).thenReturn(documentId);
+            when(document.getDocumentName()).thenReturn("doc.json");
+            when(document.getMetadata()).thenReturn("{\"version\":\"1.0\"}");
+            when(documentUploadService.getDocument(documentId)).thenReturn(document);
+
+            function.run(new byte[]{}, prefixedBlobName, outputBinding);
+
+            final ArgumentCaptor<String> queueMessageCaptor = ArgumentCaptor.forClass(String.class);
+            verify(outputBinding).setValue(queueMessageCaptor.capture());
+            final QueueIngestionMetadata queueIngestionMetadata = getObjectMapper()
+                    .readValue(queueMessageCaptor.getValue(), QueueIngestionMetadata.class);
+
+            assertThat(queueIngestionMetadata.clientId(), is("client-1"));
+        }
+    }
+
+    @Test
+    void shouldCarryNullClientId_whenBlobNameIsFlat() throws JsonProcessingException {
+        try (MockedStatic<EnvVarUtil> mockedEnvVarUtil = mockStatic(EnvVarUtil.class)) {
+            mockedEnvVarUtil.when(() -> getRequiredEnv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT)).thenReturn("http://blob.web.com/");
+            mockedEnvVarUtil.when(() -> getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD)).thenReturn("doc-upload");
+
+            when(documentBlobNameResolver.getDocumentId(blobName)).thenReturn(documentId);
+            when(documentBlobNameResolver.getClientId(blobName)).thenReturn(null);
+            when(blobClientService.isBlobAvailable(blobName)).thenReturn(true);
+
+            final DocumentIngestionOutcome document = mock(DocumentIngestionOutcome.class);
+            when(document.getDocumentId()).thenReturn(documentId);
+            when(document.getDocumentName()).thenReturn("doc.json");
+            when(document.getMetadata()).thenReturn("{\"version\":\"1.0\"}");
+            when(documentUploadService.getDocument(documentId)).thenReturn(document);
+
+            function.run(new byte[]{}, blobName, outputBinding);
+
+            final ArgumentCaptor<String> queueMessageCaptor = ArgumentCaptor.forClass(String.class);
+            verify(outputBinding).setValue(queueMessageCaptor.capture());
+            final QueueIngestionMetadata queueIngestionMetadata = getObjectMapper()
+                    .readValue(queueMessageCaptor.getValue(), QueueIngestionMetadata.class);
+
+            assertThat(queueIngestionMetadata.clientId(), is(nullValue()));
         }
     }
 

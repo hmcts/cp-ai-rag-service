@@ -91,7 +91,7 @@ public class GetAnswerGenerationResultFunction {
                 final boolean withChunkedEntries = parseBoolean(request.getQueryParameters().getOrDefault(PARAM_WITH_CHUNKED_ENTRIES, "false"));
                 final List<ChunkedEntry> chunkedEntriesFromBlobContainer =
                         (withChunkedEntries && !isNullOrEmpty(generatedAnswer.getChunkedEntriesFile()))
-                                ? blobPersistenceInputChunksService.readBlob(getInputChunksFilename(fromString(transactionId)), InputChunksPayload.class).chunkedEntries()
+                                ? blobPersistenceInputChunksService.readBlob(getInputChunksFilename(null, fromString(transactionId)), InputChunksPayload.class).chunkedEntries()
                                 : null;
 
                 return generateResponse(request, OK, convert(toQueryResponse(generatedAnswer, chunkedEntriesFromBlobContainer)));

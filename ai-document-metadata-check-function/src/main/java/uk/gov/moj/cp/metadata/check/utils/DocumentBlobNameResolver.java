@@ -28,6 +28,15 @@ public class DocumentBlobNameResolver {
         return format("%s_%s.%s", documentId, today, uploadFileExtension);
     }
 
+    /**
+     * Builds a client-namespaced blob name when a clientId is supplied, falling back to the flat
+     * shape otherwise. The prefixed shape is not yet produced.
+     */
+    public String getBlobName(final String clientId, final String documentId, final String uploadFileExtension) {
+        // TODO: prepend the c={clientId}/ prefix when clientId is non-empty
+        return getBlobName(documentId, uploadFileExtension);
+    }
+
     public String getDocumentId(final String blobName) {
         if (isNullOrEmpty(blobName)) {
             throw new IllegalArgumentException(format(INVALID_BLOB_NAME_ERROR_MSG, blobName));
@@ -39,5 +48,14 @@ public class DocumentBlobNameResolver {
         }
 
         return matcher.group(1);
+    }
+
+    /**
+     * Returns the clientId encoded in a namespaced blob name, or {@code null} when the name has no
+     * prefix (defer to the Table row for ownership). Prefix extraction is not yet implemented.
+     */
+    public String getClientId(final String blobName) {
+        // TODO: extract the clientId from the c={clientId}/ prefix when present
+        return null;
     }
 }
