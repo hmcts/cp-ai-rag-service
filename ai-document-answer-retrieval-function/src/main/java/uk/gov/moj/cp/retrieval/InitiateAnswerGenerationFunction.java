@@ -11,6 +11,7 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCO
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
+import static uk.gov.moj.cp.ai.validation.MetadataFilterValidator.validateReservedKeys;
 import static uk.gov.moj.cp.ai.validation.RequestValidator.validate;
 
 import uk.gov.hmcts.cp.openapi.model.AnswerUserQueryRequest;
@@ -20,6 +21,7 @@ import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -70,7 +72,11 @@ public class InitiateAnswerGenerationFunction {
 
         try {
             final AnswerUserQueryRequest userQueryRequest = request.getBody();
-            final List<String> errors = validate(userQueryRequest);
+            final List<String> errors = new ArrayList<>(validate(userQueryRequest));
+            if (userQueryRequest != null && userQueryRequest.getMetadataFilter() != null) {
+                errors.addAll(validateReservedKeys(userQueryRequest.getMetadataFilter().stream()
+                        .map(mf -> new KeyValuePair(mf.getKey(), mf.getValue())).toList()));
+            }
             if (!errors.isEmpty()) {
                 final String errorMessage = convert(new RequestErrored(join(", ", errors)));
                 return generateResponse(request, BAD_REQUEST, errorMessage);

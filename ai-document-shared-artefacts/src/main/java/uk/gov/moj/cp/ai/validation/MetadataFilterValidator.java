@@ -1,12 +1,16 @@
 package uk.gov.moj.cp.ai.validation;
 
+import static java.lang.String.format;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CLIENT_ID;
 import static uk.gov.moj.cp.ai.index.IndexConstants.IS_ACTIVE;
 
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Rejects caller-supplied metadata filters that reference internal, reserved keys. The reserved
@@ -21,6 +25,10 @@ public final class MetadataFilterValidator {
      */
     public static final Set<String> RESERVED_KEYS = Set.of(CLIENT_ID, IS_ACTIVE);
 
+    private static final Set<String> RESERVED_KEYS_LOWER = RESERVED_KEYS.stream()
+            .map(key -> key.toLowerCase(Locale.ROOT))
+            .collect(Collectors.toUnmodifiableSet());
+
     private MetadataFilterValidator() {
     }
 
@@ -31,7 +39,17 @@ public final class MetadataFilterValidator {
      * @return a list of validation error messages; empty when the filters are acceptable
      */
     public static List<String> validateReservedKeys(final List<KeyValuePair> metadataFilters) {
-        // Scaffold: reserved-key detection is not yet implemented; pass-through until built.
-        return List.of();
+        if (metadataFilters == null || metadataFilters.isEmpty()) {
+            return List.of();
+        }
+
+        final List<String> errors = new ArrayList<>();
+        for (final KeyValuePair pair : metadataFilters) {
+            final String key = pair.key();
+            if (key != null && RESERVED_KEYS_LOWER.contains(key.toLowerCase(Locale.ROOT))) {
+                errors.add(format("metadataFilter key '%s' is reserved and cannot be supplied by a caller", key));
+            }
+        }
+        return errors;
     }
 }

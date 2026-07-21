@@ -134,8 +134,12 @@ public class AzureAISearchService {
     String generateFilterExpression(final String clientId, final List<KeyValuePair> metadataFilters) {
         final StringBuilder filterBuilder = new StringBuilder();
 
-        // Scaffold: the leading client-scoping clause is not yet prepended; the clientId argument
-        // is intentionally ignored until the scoping logic is implemented.
+        // When a client id is supplied, lead with a non-optional equality clause on the top-level
+        // client field, and-joined with the metadata clauses and the security-trimming trailer. When
+        // it is null/empty the expression is byte-for-byte identical to the unscoped output.
+        if (!isNullOrEmpty(clientId)) {
+            filterBuilder.append(format("%s eq '%s'", IndexConstants.CLIENT_ID, escapeODataStringLiteral(clientId)));
+        }
 
         if (metadataFilters != null && !metadataFilters.isEmpty()) {
             for (KeyValuePair pair : metadataFilters) {
@@ -175,6 +179,7 @@ public class AzureAISearchService {
                 IndexConstants.CHUNK,
                 IndexConstants.DOCUMENT_FILE_NAME,
                 IndexConstants.DOCUMENT_ID,
+                IndexConstants.CLIENT_ID,
                 IndexConstants.PAGE_NUMBER,
                 IndexConstants.DOCUMENT_FILE_URL,
                 CUSTOM_METADATA,

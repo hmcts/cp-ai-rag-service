@@ -6,6 +6,7 @@ import static java.util.stream.Collectors.joining;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK_INDEX;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK_VECTOR;
+import static uk.gov.moj.cp.ai.index.IndexConstants.CLIENT_ID;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CUSTOM_METADATA;
 import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_FILE_NAME;
 import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_FILE_URL;
@@ -14,6 +15,7 @@ import static uk.gov.moj.cp.ai.index.IndexConstants.FALSE_VALUE;
 import static uk.gov.moj.cp.ai.index.IndexConstants.ID;
 import static uk.gov.moj.cp.ai.index.IndexConstants.IS_ACTIVE;
 import static uk.gov.moj.cp.ai.index.IndexConstants.PAGE_NUMBER;
+import static uk.gov.moj.cp.ai.util.StringUtil.escapeODataStringLiteral;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.client.AISearchClientFactory;
@@ -133,11 +135,16 @@ public class DocumentStorageService {
     }
 
     SearchPagedIterable getSearchResults(final String clientId, final List<String> supersededDocuments) {
-        // Scaffold: the supersede filter is not yet scoped by clientId; the clientId argument is
-        // intentionally ignored until the scoping logic is implemented.
-        final String filter = supersededDocuments.stream()
+        final String documentFilter = supersededDocuments.stream()
                 .map(id -> format("%s/any(m: m/key eq '%s' and m/value eq '%s')", CUSTOM_METADATA, DOCUMENT_ID, id))
                 .collect(joining(" or "));
+
+        // When a client id is supplied, scope the supersede match to that client by leading with a
+        // client-equality clause and grouping the document clauses, so one client cannot mark
+        // another client's chunks inactive. When it is null/empty the filter is unchanged.
+        final String filter = isNullOrEmpty(clientId)
+                ? documentFilter
+                : format("%s eq '%s' and (%s)", CLIENT_ID, escapeODataStringLiteral(clientId), documentFilter);
 
         LOGGER.info("Find search results matching filter criteria: {}", filter);
 
