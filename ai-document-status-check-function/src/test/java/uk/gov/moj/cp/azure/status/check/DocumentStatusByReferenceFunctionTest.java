@@ -66,11 +66,11 @@ class DocumentStatusByReferenceFunctionTest {
         when(outcome.getStatus()).thenReturn("INGESTION_SUCCESS");
         when(outcome.getTimestamp()).thenReturn("2024-01-01T10:00:00Z");
         when(outcome.getReason()).thenReturn("success");
-        when(documentIngestionOutcomeTableService.getDocumentById(documentId)).thenReturn(outcome);
+        when(documentIngestionOutcomeTableService.getDocumentById(null, documentId)).thenReturn(outcome);
 
         final HttpResponseMessage result = function.run(request, documentId, context);
 
-        verify(documentIngestionOutcomeTableService).getDocumentById(documentId);
+        verify(documentIngestionOutcomeTableService).getDocumentById(null, documentId);
         verify(request).createResponseBuilder(HttpStatus.OK);
         assertEquals(response, result);
     }
@@ -91,7 +91,7 @@ class DocumentStatusByReferenceFunctionTest {
     void shouldReturnNotFoundWhenNoDocumentInTheDBForTheDocumentReference() throws EntityRetrievalException {
 
         final String documentId = randomUUID().toString();
-        when(documentIngestionOutcomeTableService.getDocumentById(documentId)).thenReturn(null);
+        when(documentIngestionOutcomeTableService.getDocumentById(null, documentId)).thenReturn(null);
 
         final HttpResponseMessage result = function.run(request, documentId, context);
 
@@ -102,7 +102,7 @@ class DocumentStatusByReferenceFunctionTest {
     @Test
     void shouldReturnInternalServerErrorWhenServiceThrowsException() throws EntityRetrievalException {
         final String documentId = randomUUID().toString();
-        when(documentIngestionOutcomeTableService.getDocumentById(documentId)).thenThrow(new RuntimeException("Service failure"));
+        when(documentIngestionOutcomeTableService.getDocumentById(null, documentId)).thenThrow(new RuntimeException("Service failure"));
 
         final HttpResponseMessage result = function.run(request, documentId, context);
 

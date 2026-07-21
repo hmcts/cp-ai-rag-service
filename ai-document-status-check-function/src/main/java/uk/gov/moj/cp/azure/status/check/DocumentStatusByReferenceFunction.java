@@ -67,7 +67,7 @@ public class DocumentStatusByReferenceFunction {
                 return generateResponse(request, HttpStatus.BAD_REQUEST, convert(new RequestErrored(errorMessage)));
             }
 
-            final DocumentIngestionOutcome document = documentIngestionOutcomeTableService.getDocumentById(documentReference);
+            final DocumentIngestionOutcome document = documentIngestionOutcomeTableService.getDocumentById(null, documentReference);
 
             if (isNull(document)) {
                 return generateResponse(request, NOT_FOUND, convert(new RequestErrored(format("No Document found for the documentReference=%s", documentReference))));

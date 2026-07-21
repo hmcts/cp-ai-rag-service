@@ -86,7 +86,7 @@ public class InitiateAnswerGenerationFunction {
             final AnswerGenerationQueuePayload answerGenerationQueuePayload = new AnswerGenerationQueuePayload(transactionId, userQuery, userQueryPrompt, metadataFilters);
             message.setValue(convert(answerGenerationQueuePayload));
 
-            answerGenerationTableService.saveAnswerGenerationRequest(transactionId.toString(), userQuery, userQueryPrompt, ANSWER_GENERATION_PENDING);
+            answerGenerationTableService.saveAnswerGenerationRequest(null, transactionId.toString(), userQuery, userQueryPrompt, ANSWER_GENERATION_PENDING);
             LOGGER.info("Successfully initiated answer retrieval processing for the query: {} with transactionId: {}", userQuery, transactionId);
 
             return generateResponse(request, ACCEPTED, convert(new UserQueryAnswerRequestAccepted(transactionId.toString())));

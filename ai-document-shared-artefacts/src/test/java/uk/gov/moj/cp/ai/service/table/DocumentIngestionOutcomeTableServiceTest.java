@@ -24,6 +24,7 @@ import uk.gov.moj.cp.ai.idempotency.IdempotencyStatusStore;
 import uk.gov.moj.cp.ai.idempotency.LeaseSnapshot;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 import com.azure.data.tables.models.TableEntity;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,7 +58,7 @@ class DocumentIngestionOutcomeTableServiceTest {
     void successfullyInsertsDocumentOutcomeWithDocumentIdAsKey() throws DuplicateRecordException {
         final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
 
-        service.insert("docId", "docName", "metadata","doc1,doc2","status", "reason");
+        service.insert(null, "docId", "docName", "metadata","doc1,doc2","status", "reason");
 
         final ArgumentCaptor<TableEntity> tableEntityCaptor = ArgumentCaptor.forClass(TableEntity.class);
         verify(mockTableService).insertIntoTable(tableEntityCaptor.capture());
@@ -80,7 +81,7 @@ class DocumentIngestionOutcomeTableServiceTest {
         final TableEntity mockTableEntity = mock(TableEntity.class);
         when(mockTableService.getFirstDocumentMatching("docId", "docId")).thenReturn(mockTableEntity);
 
-        final DocumentIngestionOutcome document = service.getDocumentById("docId");
+        final DocumentIngestionOutcome document = service.getDocumentById(null, "docId");
 
         verify(mockTableService).getFirstDocumentMatching("docId", "docId");
     }
@@ -97,7 +98,7 @@ class DocumentIngestionOutcomeTableServiceTest {
                 .addProperty("Reason", "reason");
         when(mockTableService.getFirstDocumentMatching(docId, docId)).thenReturn(entity);
 
-        service.upsertDocument(docId, "status", "reason");
+        service.upsertDocument(null, docId, "status", "reason");
 
         verify(mockTableService).upsertIntoTable(any(TableEntity.class));
     }
@@ -109,7 +110,7 @@ class DocumentIngestionOutcomeTableServiceTest {
     void recordOutcomeFencedMergesOnlyStatusAndReason() {
         final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
 
-        service.recordOutcomeFenced("docId", "INGESTION_SUCCESS", "done", "W/\"claimed\"");
+        service.recordOutcomeFenced(null, "docId", "INGESTION_SUCCESS", "done", "W/\"claimed\"");
 
         final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
         verify(mockTableService).updateEntityIfUnchanged(captor.capture(), org.mockito.ArgumentMatchers.eq("W/\"claimed\""));
@@ -136,7 +137,7 @@ class DocumentIngestionOutcomeTableServiceTest {
         when(mockTableService.getFirstDocumentMatching("docId", "docId")).thenReturn(entity);
 
         assertEquals(new LeaseSnapshot("AWAITING_INGESTION", "W/\"read\"", expiry, "owner-1"),
-                service.readForClaim("docId"));
+                service.readForClaim(null, "docId"));
     }
 
     @Test
@@ -159,7 +160,7 @@ class DocumentIngestionOutcomeTableServiceTest {
         when(mockTableService.updateEntityIfUnchanged(any(TableEntity.class), org.mockito.ArgumentMatchers.eq("W/\"read\"")))
                 .thenReturn("W/\"claimed\"");
 
-        assertEquals("W/\"claimed\"", service.claimLease("docId", "W/\"read\"", "owner-1", expiry));
+        assertEquals("W/\"claimed\"", service.claimLease(null, "docId", "W/\"read\"", "owner-1", expiry));
 
         final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
         verify(mockTableService).updateEntityIfUnchanged(captor.capture(), org.mockito.ArgumentMatchers.eq("W/\"read\""));
@@ -176,7 +177,7 @@ class DocumentIngestionOutcomeTableServiceTest {
         final OffsetDateTime expiry = OffsetDateTime.parse("2026-07-14T12:10:00Z");
         when(mockTableService.insertReturningEtag(any(TableEntity.class))).thenReturn("W/\"created\"");
 
-        assertEquals("W/\"created\"", service.createClaimedRow("docId", "owner-1", expiry));
+        assertEquals("W/\"created\"", service.createClaimedRow(null, "docId", "owner-1", expiry));
 
         final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
         verify(mockTableService).insertReturningEtag(captor.capture());
@@ -191,7 +192,7 @@ class DocumentIngestionOutcomeTableServiceTest {
     void releaseLeaseMarksLeaseReclaimableAndSwallowsRejection() {
         final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
 
-        service.releaseLease("docId", "W/\"claimed\"");
+        service.releaseLease(null, "docId", "W/\"claimed\"");
 
         final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
         verify(mockTableService).updateEntityIfUnchanged(captor.capture(), org.mockito.ArgumentMatchers.eq("W/\"claimed\""));
@@ -200,6 +201,121 @@ class DocumentIngestionOutcomeTableServiceTest {
         // best-effort: a rejected release must not throw
         org.mockito.Mockito.doThrow(new EtagMismatchException("etag changed"))
                 .when(mockTableService).updateEntityIfUnchanged(any(TableEntity.class), org.mockito.ArgumentMatchers.eq("W/\"stale\""));
-        service.releaseLease("docId", "W/\"stale\"");
+        service.releaseLease(null, "docId", "W/\"stale\"");
+    }
+
+    // ---- Client-aware partition keying ----
+
+    private static final String CLIENT_A = "11111111-1111-1111-1111-111111111111";
+    private static final String CLIENT_B = "22222222-2222-2222-2222-222222222222";
+
+    @Test
+    @DisplayName("insert writes the row under the clientId partition when a clientId is supplied")
+    void insertPartitionsByClientId() throws DuplicateRecordException {
+        final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
+
+        service.insert(CLIENT_A, "docId", "docName", "metadata", "", "status", "reason");
+
+        final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
+        verify(mockTableService).insertIntoTable(captor.capture());
+        assertEquals(CLIENT_A, captor.getValue().getPartitionKey());
+        assertEquals("docId", captor.getValue().getRowKey());
+    }
+
+    @Test
+    @DisplayName("Two clients sharing one documentId are stored under distinct partition keys")
+    void twoClientsSharingDocumentIdCoexistUnderDistinctPartitions() throws DuplicateRecordException {
+        final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
+
+        service.insert(CLIENT_A, "shared-doc", "n", "m", "", "s", "r");
+        service.insert(CLIENT_B, "shared-doc", "n", "m", "", "s", "r");
+
+        final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
+        verify(mockTableService, org.mockito.Mockito.times(2)).insertIntoTable(captor.capture());
+        final List<TableEntity> entities = captor.getAllValues();
+        assertEquals(CLIENT_A, entities.get(0).getPartitionKey());
+        assertEquals(CLIENT_B, entities.get(1).getPartitionKey());
+        assertEquals(entities.get(0).getRowKey(), entities.get(1).getRowKey());
+    }
+
+    @Test
+    @DisplayName("getDocumentById scopes the lookup to the supplied client partition")
+    void getDocumentByIdScopesToClientPartition() throws EntityRetrievalException {
+        final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
+
+        service.getDocumentById(CLIENT_A, "docId");
+
+        verify(mockTableService).getFirstDocumentMatching(CLIENT_A, "docId");
+    }
+
+    @Test
+    @DisplayName("readForClaim scopes the lookup to the supplied client partition")
+    void readForClaimScopesToClientPartition() throws EntityRetrievalException {
+        final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
+
+        service.readForClaim(CLIENT_A, "docId");
+
+        verify(mockTableService).getFirstDocumentMatching(CLIENT_A, "docId");
+    }
+
+    @Test
+    @DisplayName("claimLease writes the lease into the supplied client partition")
+    void claimLeasePartitionsByClientId() {
+        final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
+
+        service.claimLease(CLIENT_A, "docId", "W/\"read\"", "owner-1", OffsetDateTime.parse("2026-07-14T12:10:00Z"));
+
+        final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
+        verify(mockTableService).updateEntityIfUnchanged(captor.capture(), org.mockito.ArgumentMatchers.eq("W/\"read\""));
+        assertEquals(CLIENT_A, captor.getValue().getPartitionKey());
+    }
+
+    @Test
+    @DisplayName("createClaimedRow writes the defensive row into the supplied client partition")
+    void createClaimedRowPartitionsByClientId() throws DuplicateRecordException {
+        final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
+
+        service.createClaimedRow(CLIENT_A, "docId", "owner-1", OffsetDateTime.parse("2026-07-14T12:10:00Z"));
+
+        final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
+        verify(mockTableService).insertReturningEtag(captor.capture());
+        assertEquals(CLIENT_A, captor.getValue().getPartitionKey());
+    }
+
+    @Test
+    @DisplayName("recordOutcomeFenced writes the fenced outcome into the supplied client partition")
+    void recordOutcomeFencedPartitionsByClientId() {
+        final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
+
+        service.recordOutcomeFenced(CLIENT_A, "docId", "INGESTION_SUCCESS", "done", "W/\"claimed\"");
+
+        final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
+        verify(mockTableService).updateEntityIfUnchanged(captor.capture(), org.mockito.ArgumentMatchers.eq("W/\"claimed\""));
+        assertEquals(CLIENT_A, captor.getValue().getPartitionKey());
+    }
+
+    @Test
+    @DisplayName("releaseLease marks the reclaimable sentinel in the supplied client partition")
+    void releaseLeasePartitionsByClientId() {
+        final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
+
+        service.releaseLease(CLIENT_A, "docId", "W/\"claimed\"");
+
+        final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
+        verify(mockTableService).updateEntityIfUnchanged(captor.capture(), org.mockito.ArgumentMatchers.eq("W/\"claimed\""));
+        assertEquals(CLIENT_A, captor.getValue().getPartitionKey());
+        assertEquals(IdempotencyStatusStore.LEASE_RELEASED, captor.getValue().getProperty(TC_LEASE_EXPIRES_AT));
+    }
+
+    @Test
+    @DisplayName("A blank clientId falls back to the row key as the partition key")
+    void blankClientIdFallsBackToRowKeyPartition() throws DuplicateRecordException {
+        final DocumentIngestionOutcomeTableService service = new DocumentIngestionOutcomeTableService(mockTableService);
+
+        service.insert("", "docId", "docName", "metadata", "", "status", "reason");
+
+        final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
+        verify(mockTableService).insertIntoTable(captor.capture());
+        assertEquals("docId", captor.getValue().getPartitionKey());
     }
 }

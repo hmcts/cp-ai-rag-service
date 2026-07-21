@@ -86,7 +86,7 @@ public class DocumentIngestionFunction {
                     queueIngestionMetadata.documentName(),
                     queueIngestionMetadata.blobUrl());
 
-            idempotencyGuard.runOnce(documentId, token ->
+            idempotencyGuard.runOnce(null, documentId, token ->
                     processUnderClaim(queueIngestionMetadata, token, dequeueCount, maxDequeueCount));
 
         } catch (EtagMismatchException e) {

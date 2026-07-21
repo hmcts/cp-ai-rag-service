@@ -111,7 +111,7 @@ public class DocumentUploadFunction {
 
             LOGGER.info("Initiating document upload for the documentId: {} documentName: {} supersededDocuments: {}", documentId, documentName, supersededDocuments);
 
-            if (documentUploadService.isDocumentAlreadyProcessed(documentId)) {
+            if (documentUploadService.isDocumentAlreadyProcessed(null, documentId)) {
                 final String errorMessage = "An upload request has already been initiated for documentId: " + documentId;
                 return generateResponse(request, HttpStatus.BAD_REQUEST, convert(new RequestErrored(errorMessage)));
             }

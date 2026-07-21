@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -50,74 +51,74 @@ class IdempotencyGuardTest {
     @Test
     @DisplayName("Skips without claiming when the row is already terminal")
     void skipsWhenTerminal() throws Exception {
-        when(store.readForClaim(KEY)).thenReturn(new LeaseSnapshot("DONE", READ_ETAG, null, null));
+        when(store.readForClaim(null, KEY)).thenReturn(new LeaseSnapshot("DONE", READ_ETAG, null, null));
         when(store.isTerminal("DONE")).thenReturn(true);
 
-        assertEquals(GuardOutcome.SKIPPED_TERMINAL, guard.runOnce(KEY, work));
+        assertEquals(GuardOutcome.SKIPPED_TERMINAL, guard.runOnce(null, KEY, work));
 
         verify(work, never()).run(any());
-        verify(store, never()).claimLease(anyString(), anyString(), anyString(), any());
+        verify(store, never()).claimLease(any(), anyString(), anyString(), anyString(), any());
     }
 
     @Test
     @DisplayName("Claims a free row (lease TTL from the clock) and runs the work with the claim token")
     void claimsFreeRowAndRunsWork() throws Exception {
-        when(store.readForClaim(KEY)).thenReturn(new LeaseSnapshot("PENDING", READ_ETAG, null, null));
+        when(store.readForClaim(null, KEY)).thenReturn(new LeaseSnapshot("PENDING", READ_ETAG, null, null));
         when(store.isTerminal("PENDING")).thenReturn(false);
-        when(store.claimLease(eq(KEY), eq(READ_ETAG), anyString(), eq(now().plus(TTL)))).thenReturn(CLAIM_ETAG);
+        when(store.claimLease(isNull(), eq(KEY), eq(READ_ETAG), anyString(), eq(now().plus(TTL)))).thenReturn(CLAIM_ETAG);
 
-        assertEquals(GuardOutcome.EXECUTED, guard.runOnce(KEY, work));
+        assertEquals(GuardOutcome.EXECUTED, guard.runOnce(null, KEY, work));
 
-        verify(work).run(new ClaimToken(KEY, CLAIM_ETAG));
-        verify(store, never()).releaseLease(anyString(), anyString());
+        verify(work).run(new ClaimToken(null, KEY, CLAIM_ETAG));
+        verify(store, never()).releaseLease(any(), anyString(), anyString());
     }
 
     @Test
     @DisplayName("Throws LeaseConflictException without claiming when a live lease exists")
     void throwsLeaseConflictWhenLiveLease() throws Exception {
-        when(store.readForClaim(KEY)).thenReturn(
+        when(store.readForClaim(null, KEY)).thenReturn(
                 new LeaseSnapshot("PENDING", READ_ETAG, now().plusMinutes(5), "other-owner"));
         when(store.isTerminal("PENDING")).thenReturn(false);
 
-        assertThrows(LeaseConflictException.class, () -> guard.runOnce(KEY, work));
+        assertThrows(LeaseConflictException.class, () -> guard.runOnce(null, KEY, work));
 
         verify(work, never()).run(any());
-        verify(store, never()).claimLease(anyString(), anyString(), anyString(), any());
+        verify(store, never()).claimLease(any(), anyString(), anyString(), anyString(), any());
     }
 
     @Test
     @DisplayName("Reclaims an expired lease via the conditional write")
     void reclaimsExpiredLease() throws Exception {
-        when(store.readForClaim(KEY)).thenReturn(
+        when(store.readForClaim(null, KEY)).thenReturn(
                 new LeaseSnapshot("PENDING", READ_ETAG, now().minusMinutes(5), "crashed-owner"));
         when(store.isTerminal("PENDING")).thenReturn(false);
-        when(store.claimLease(eq(KEY), eq(READ_ETAG), anyString(), any())).thenReturn(CLAIM_ETAG);
+        when(store.claimLease(isNull(), eq(KEY), eq(READ_ETAG), anyString(), any())).thenReturn(CLAIM_ETAG);
 
-        assertEquals(GuardOutcome.EXECUTED, guard.runOnce(KEY, work));
+        assertEquals(GuardOutcome.EXECUTED, guard.runOnce(null, KEY, work));
 
-        verify(work).run(new ClaimToken(KEY, CLAIM_ETAG));
+        verify(work).run(new ClaimToken(null, KEY, CLAIM_ETAG));
     }
 
     @Test
     @DisplayName("A lease expiring exactly now is reclaimable (not live)")
     void leaseExpiringExactlyNowIsReclaimable() throws Exception {
-        when(store.readForClaim(KEY)).thenReturn(
+        when(store.readForClaim(null, KEY)).thenReturn(
                 new LeaseSnapshot("PENDING", READ_ETAG, now(), "other-owner"));
         when(store.isTerminal("PENDING")).thenReturn(false);
-        when(store.claimLease(eq(KEY), eq(READ_ETAG), anyString(), any())).thenReturn(CLAIM_ETAG);
+        when(store.claimLease(isNull(), eq(KEY), eq(READ_ETAG), anyString(), any())).thenReturn(CLAIM_ETAG);
 
-        assertEquals(GuardOutcome.EXECUTED, guard.runOnce(KEY, work));
+        assertEquals(GuardOutcome.EXECUTED, guard.runOnce(null, KEY, work));
     }
 
     @Test
     @DisplayName("Losing the claim race (etag mismatch) surfaces as LeaseConflictException")
     void claimRaceLossSurfacesAsLeaseConflict() throws Exception {
-        when(store.readForClaim(KEY)).thenReturn(new LeaseSnapshot("PENDING", READ_ETAG, null, null));
+        when(store.readForClaim(null, KEY)).thenReturn(new LeaseSnapshot("PENDING", READ_ETAG, null, null));
         when(store.isTerminal("PENDING")).thenReturn(false);
-        when(store.claimLease(eq(KEY), eq(READ_ETAG), anyString(), any()))
+        when(store.claimLease(isNull(), eq(KEY), eq(READ_ETAG), anyString(), any()))
                 .thenThrow(new EtagMismatchException("etag changed"));
 
-        assertThrows(LeaseConflictException.class, () -> guard.runOnce(KEY, work));
+        assertThrows(LeaseConflictException.class, () -> guard.runOnce(null, KEY, work));
 
         verify(work, never()).run(any());
     }
@@ -125,72 +126,72 @@ class IdempotencyGuardTest {
     @Test
     @DisplayName("Releases the lease then rethrows when the work fails")
     void releasesLeaseAndRethrowsOnWorkFailure() throws Exception {
-        when(store.readForClaim(KEY)).thenReturn(new LeaseSnapshot("PENDING", READ_ETAG, null, null));
+        when(store.readForClaim(null, KEY)).thenReturn(new LeaseSnapshot("PENDING", READ_ETAG, null, null));
         when(store.isTerminal("PENDING")).thenReturn(false);
-        when(store.claimLease(eq(KEY), eq(READ_ETAG), anyString(), any())).thenReturn(CLAIM_ETAG);
+        when(store.claimLease(isNull(), eq(KEY), eq(READ_ETAG), anyString(), any())).thenReturn(CLAIM_ETAG);
 
         final RuntimeException failure = new RuntimeException("work failed");
         org.mockito.Mockito.doThrow(failure).when(work).run(any());
 
-        final RuntimeException thrown = assertThrows(RuntimeException.class, () -> guard.runOnce(KEY, work));
+        final RuntimeException thrown = assertThrows(RuntimeException.class, () -> guard.runOnce(null, KEY, work));
 
         assertSame(failure, thrown);
-        verify(store).releaseLease(KEY, CLAIM_ETAG);
+        verify(store).releaseLease(null, KEY, CLAIM_ETAG);
     }
 
     @Test
     @DisplayName("Does NOT release the lease when the work fails with a fence loss (etag already stale)")
     void doesNotReleaseLeaseOnFenceLoss() throws Exception {
-        when(store.readForClaim(KEY)).thenReturn(new LeaseSnapshot("PENDING", READ_ETAG, null, null));
+        when(store.readForClaim(null, KEY)).thenReturn(new LeaseSnapshot("PENDING", READ_ETAG, null, null));
         when(store.isTerminal("PENDING")).thenReturn(false);
-        when(store.claimLease(eq(KEY), eq(READ_ETAG), anyString(), any())).thenReturn(CLAIM_ETAG);
+        when(store.claimLease(isNull(), eq(KEY), eq(READ_ETAG), anyString(), any())).thenReturn(CLAIM_ETAG);
 
         org.mockito.Mockito.doThrow(new EtagMismatchException("etag changed")).when(work).run(any());
 
-        assertThrows(EtagMismatchException.class, () -> guard.runOnce(KEY, work));
+        assertThrows(EtagMismatchException.class, () -> guard.runOnce(null, KEY, work));
 
-        verify(store, never()).releaseLease(anyString(), anyString());
+        verify(store, never()).releaseLease(any(), anyString(), anyString());
     }
 
     @Test
     @DisplayName("Creates a claimed row defensively when the status row is missing")
     void createsClaimedRowWhenRowMissing() throws Exception {
-        when(store.readForClaim(KEY)).thenReturn(null);
-        when(store.createClaimedRow(eq(KEY), anyString(), eq(now().plus(TTL)))).thenReturn(CLAIM_ETAG);
+        when(store.readForClaim(null, KEY)).thenReturn(null);
+        when(store.createClaimedRow(isNull(), eq(KEY), anyString(), eq(now().plus(TTL)))).thenReturn(CLAIM_ETAG);
 
-        assertEquals(GuardOutcome.EXECUTED, guard.runOnce(KEY, work));
+        assertEquals(GuardOutcome.EXECUTED, guard.runOnce(null, KEY, work));
 
-        verify(work).run(new ClaimToken(KEY, CLAIM_ETAG));
-        verify(store, never()).claimLease(anyString(), anyString(), anyString(), any());
+        verify(work).run(new ClaimToken(null, KEY, CLAIM_ETAG));
+        verify(store, never()).claimLease(any(), anyString(), anyString(), anyString(), any());
     }
 
     @Test
     @DisplayName("Falls back to a re-read when the defensive insert races a concurrent creator")
     void reReadsWhenDefensiveInsertRacesConcurrentCreator() throws Exception {
-        when(store.readForClaim(KEY))
+        when(store.readForClaim(null, KEY))
                 .thenReturn(null)
                 .thenReturn(new LeaseSnapshot("PENDING", READ_ETAG, null, null));
-        when(store.createClaimedRow(eq(KEY), anyString(), any()))
+        when(store.createClaimedRow(isNull(), eq(KEY), anyString(), any()))
                 .thenThrow(new DuplicateRecordException("already exists"));
         when(store.isTerminal("PENDING")).thenReturn(false);
-        when(store.claimLease(eq(KEY), eq(READ_ETAG), anyString(), any())).thenReturn(CLAIM_ETAG);
+        when(store.claimLease(isNull(), eq(KEY), eq(READ_ETAG), anyString(), any())).thenReturn(CLAIM_ETAG);
 
-        assertEquals(GuardOutcome.EXECUTED, guard.runOnce(KEY, work));
+        assertEquals(GuardOutcome.EXECUTED, guard.runOnce(null, KEY, work));
 
-        verify(work).run(new ClaimToken(KEY, CLAIM_ETAG));
+        verify(work).run(new ClaimToken(null, KEY, CLAIM_ETAG));
     }
 
     @Test
     @DisplayName("Skips when the re-read after a racing insert finds a terminal row")
     void skipsWhenReReadAfterRacingInsertFindsTerminalRow() throws Exception {
-        when(store.readForClaim(KEY))
+        when(store.readForClaim(null, KEY))
                 .thenReturn(null)
                 .thenReturn(new LeaseSnapshot("DONE", READ_ETAG, null, null));
-        when(store.createClaimedRow(eq(KEY), anyString(), any()))
+        when(store.createClaimedRow(isNull(), eq(KEY), anyString(), any()))
                 .thenThrow(new DuplicateRecordException("already exists"));
         when(store.isTerminal("DONE")).thenReturn(true);
 
-        assertEquals(GuardOutcome.SKIPPED_TERMINAL, guard.runOnce(KEY, work));
+        assertEquals(GuardOutcome.SKIPPED_TERMINAL, guard.runOnce(null, KEY, work));
 
         verify(work, never()).run(any());
     }
@@ -198,10 +199,51 @@ class IdempotencyGuardTest {
     @Test
     @DisplayName("Throws LeaseConflictException when the row vanishes between the racing insert and the re-read")
     void throwsLeaseConflictWhenRowVanishesAfterRacingInsert() throws Exception {
-        when(store.readForClaim(KEY)).thenReturn(null).thenReturn(null);
-        when(store.createClaimedRow(eq(KEY), anyString(), any()))
+        when(store.readForClaim(null, KEY)).thenReturn(null).thenReturn(null);
+        when(store.createClaimedRow(isNull(), eq(KEY), anyString(), any()))
                 .thenThrow(new DuplicateRecordException("already exists"));
 
-        assertThrows(LeaseConflictException.class, () -> guard.runOnce(KEY, work));
+        assertThrows(LeaseConflictException.class, () -> guard.runOnce(null, KEY, work));
+    }
+
+    // ---- Client-aware keying ----
+
+    private static final String CLIENT_ID = "9c8b7a65-4d3e-2f1a-0b9c-8d7e6f5a4b3c";
+
+    @Test
+    @DisplayName("Skips a duplicate for an already-terminal row under a client namespace")
+    void skipsWhenTerminalForClient() throws Exception {
+        when(store.readForClaim(CLIENT_ID, KEY)).thenReturn(new LeaseSnapshot("DONE", READ_ETAG, null, null));
+        when(store.isTerminal("DONE")).thenReturn(true);
+
+        assertEquals(GuardOutcome.SKIPPED_TERMINAL, guard.runOnce(CLIENT_ID, KEY, work));
+
+        verify(work, never()).run(any());
+        verify(store, never()).claimLease(any(), anyString(), anyString(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("Threads the client namespace into the claim token and store calls")
+    void threadsClientNamespaceIntoClaim() throws Exception {
+        when(store.readForClaim(CLIENT_ID, KEY)).thenReturn(new LeaseSnapshot("PENDING", READ_ETAG, null, null));
+        when(store.isTerminal("PENDING")).thenReturn(false);
+        when(store.claimLease(eq(CLIENT_ID), eq(KEY), eq(READ_ETAG), anyString(), any())).thenReturn(CLAIM_ETAG);
+
+        assertEquals(GuardOutcome.EXECUTED, guard.runOnce(CLIENT_ID, KEY, work));
+
+        verify(work).run(new ClaimToken(CLIENT_ID, KEY, CLAIM_ETAG));
+    }
+
+    @Test
+    @DisplayName("A lost claim race under a client namespace still surfaces as LeaseConflictException")
+    void claimRaceLossForClientSurfacesAsLeaseConflict() throws Exception {
+        when(store.readForClaim(CLIENT_ID, KEY)).thenReturn(new LeaseSnapshot("PENDING", READ_ETAG, null, null));
+        when(store.isTerminal("PENDING")).thenReturn(false);
+        when(store.claimLease(eq(CLIENT_ID), eq(KEY), eq(READ_ETAG), anyString(), any()))
+                .thenThrow(new EtagMismatchException("etag changed"));
+
+        assertThrows(LeaseConflictException.class, () -> guard.runOnce(CLIENT_ID, KEY, work));
+
+        verify(work, never()).run(any());
     }
 }

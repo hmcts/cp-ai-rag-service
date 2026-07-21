@@ -86,7 +86,7 @@ public class DocumentUploadFunctionTest {
         final DocumentUploadRequest body = validRequest();
 
         when(request.getBody()).thenReturn(body);
-        when(documentUploadService.isDocumentAlreadyProcessed(body.getDocumentId())).thenReturn(true);
+        when(documentUploadService.isDocumentAlreadyProcessed(null, body.getDocumentId())).thenReturn(true);
         mockResponseBuilder(HttpStatus.BAD_REQUEST);
 
         final HttpResponseMessage result = function.run(request, context);
@@ -101,7 +101,7 @@ public class DocumentUploadFunctionTest {
         final DocumentUploadRequest body = validRequest();
 
         when(request.getBody()).thenReturn(body);
-        when(documentUploadService.isDocumentAlreadyProcessed(body.getDocumentId())).thenReturn(false);
+        when(documentUploadService.isDocumentAlreadyProcessed(null, body.getDocumentId())).thenReturn(false);
         when(documentBlobNameResolver.getBlobName(any(String.class), any(String.class))).thenReturn("blobName");
         when(blobClientService.getSasUrl(any(String.class), anyInt())).thenReturn("http://sas-url");
         mockResponseBuilder(HttpStatus.OK);
@@ -121,7 +121,7 @@ public class DocumentUploadFunctionTest {
         body.setOverwrites(List.of(doc1.toString(), doc2.toString()));
 
         when(request.getBody()).thenReturn(body);
-        when(documentUploadService.isDocumentAlreadyProcessed(body.getDocumentId())).thenReturn(false);
+        when(documentUploadService.isDocumentAlreadyProcessed(null, body.getDocumentId())).thenReturn(false);
         when(documentBlobNameResolver.getBlobName(any(String.class), any(String.class))).thenReturn("blobName");
         when(blobClientService.getSasUrl(any(String.class), anyInt())).thenReturn("http://sas-url");
         mockResponseBuilder(HttpStatus.OK);
@@ -138,7 +138,7 @@ public class DocumentUploadFunctionTest {
         final DocumentUploadRequest body = validRequest();
 
         when(request.getBody()).thenReturn(body);
-        when(documentUploadService.isDocumentAlreadyProcessed(body.getDocumentId())).thenReturn(false);
+        when(documentUploadService.isDocumentAlreadyProcessed(null, body.getDocumentId())).thenReturn(false);
         when(blobClientService.getSasUrl(any(String.class), anyInt())).thenReturn("http://sas-url");
         when(documentBlobNameResolver.getBlobName(any(String.class), any(String.class))).thenReturn("blobName");
 
@@ -156,7 +156,7 @@ public class DocumentUploadFunctionTest {
         final DocumentUploadRequest body = validRequest();
 
         when(request.getBody()).thenReturn(body);
-        when(documentUploadService.isDocumentAlreadyProcessed(body.getDocumentId())).thenReturn(false);
+        when(documentUploadService.isDocumentAlreadyProcessed(null, body.getDocumentId())).thenReturn(false);
         when(documentBlobNameResolver.getBlobName(any(String.class), any(String.class))).thenReturn("documentId_date.pdf");
         when(blobClientService.getSasUrl(blobNameCaptor.capture(), anyInt())).thenReturn("http://sas-url");
         mockResponseBuilder(HttpStatus.OK);
@@ -173,7 +173,7 @@ public class DocumentUploadFunctionTest {
         final DocumentUploadRequest body = validRequest();
 
         when(request.getBody()).thenReturn(body);
-        when(documentUploadService.isDocumentAlreadyProcessed(any())).thenThrow(new RuntimeException("boom"));
+        when(documentUploadService.isDocumentAlreadyProcessed(any(), any())).thenThrow(new RuntimeException("boom"));
         mockResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR);
 
         HttpResponseMessage result = function.run(request, context);

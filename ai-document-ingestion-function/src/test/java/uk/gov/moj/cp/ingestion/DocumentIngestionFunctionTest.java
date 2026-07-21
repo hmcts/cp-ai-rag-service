@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -78,10 +79,10 @@ class DocumentIngestionFunctionTest {
 
     /** Row is claimable: non-terminal status, no live lease; the claim returns CLAIM_ETAG. */
     private void stubClaimableRow() throws Exception {
-        when(outcomeTableService.readForClaim(DOCUMENT_ID))
+        when(outcomeTableService.readForClaim(null, DOCUMENT_ID))
                 .thenReturn(new LeaseSnapshot("AWAITING_INGESTION", READ_ETAG, null, null));
         when(outcomeTableService.isTerminal("AWAITING_INGESTION")).thenReturn(false);
-        when(outcomeTableService.claimLease(eq(DOCUMENT_ID), eq(READ_ETAG), anyString(), any(OffsetDateTime.class)))
+        when(outcomeTableService.claimLease(isNull(), eq(DOCUMENT_ID), eq(READ_ETAG), anyString(), any(OffsetDateTime.class)))
                 .thenReturn(CLAIM_ETAG);
     }
 
@@ -96,7 +97,7 @@ class DocumentIngestionFunctionTest {
         documentIngestionFunction.run(queueMessage(metadata), 1);
 
         // then
-        verify(documentIngestionOrchestrator).processQueueMessage(metadata, new ClaimToken(DOCUMENT_ID, CLAIM_ETAG));
+        verify(documentIngestionOrchestrator).processQueueMessage(metadata, new ClaimToken(null, DOCUMENT_ID, CLAIM_ETAG));
     }
 
     @Test
@@ -118,7 +119,7 @@ class DocumentIngestionFunctionTest {
     @DisplayName("Skip processing entirely when the status row is already terminal")
     void shouldSkipWhenRowIsTerminal() throws Exception {
         // given
-        when(outcomeTableService.readForClaim(DOCUMENT_ID))
+        when(outcomeTableService.readForClaim(null, DOCUMENT_ID))
                 .thenReturn(new LeaseSnapshot("INGESTION_SUCCESS", READ_ETAG, null, null));
         when(outcomeTableService.isTerminal("INGESTION_SUCCESS")).thenReturn(true);
 
@@ -127,14 +128,14 @@ class DocumentIngestionFunctionTest {
 
         // then
         verifyNoInteractions(documentIngestionOrchestrator);
-        verify(outcomeTableService, never()).claimLease(anyString(), anyString(), anyString(), any());
+        verify(outcomeTableService, never()).claimLease(any(), anyString(), anyString(), anyString(), any());
     }
 
     @Test
     @DisplayName("Rethrow to redeliver when another worker holds a live lease and budget remains")
     void shouldRethrowWhenLiveLeaseHeldAndBudgetRemains() throws Exception {
         // given
-        when(outcomeTableService.readForClaim(DOCUMENT_ID))
+        when(outcomeTableService.readForClaim(null, DOCUMENT_ID))
                 .thenReturn(new LeaseSnapshot("AWAITING_INGESTION", READ_ETAG, OffsetDateTime.now().plusMinutes(5), "other-worker"));
         when(outcomeTableService.isTerminal("AWAITING_INGESTION")).thenReturn(false);
 
@@ -143,14 +144,14 @@ class DocumentIngestionFunctionTest {
                 () -> documentIngestionFunction.run(queueMessage(metadata()), 1));
         assertTrue(exception.getMessage().contains("Lease held by another worker"));
         verifyNoInteractions(documentIngestionOrchestrator);
-        verify(outcomeTableService, never()).claimLease(anyString(), anyString(), anyString(), any());
+        verify(outcomeTableService, never()).claimLease(any(), anyString(), anyString(), anyString(), any());
     }
 
     @Test
     @DisplayName("Do NOT write FAILED when attempts exhaust against a live lease — leave the outcome to the leaseholder")
     void shouldNotWriteFailedWhenExhaustedAgainstLiveLease() throws Exception {
         // given
-        when(outcomeTableService.readForClaim(DOCUMENT_ID))
+        when(outcomeTableService.readForClaim(null, DOCUMENT_ID))
                 .thenReturn(new LeaseSnapshot("AWAITING_INGESTION", READ_ETAG, OffsetDateTime.now().plusMinutes(5), "other-worker"));
         when(outcomeTableService.isTerminal("AWAITING_INGESTION")).thenReturn(false);
 
@@ -166,27 +167,27 @@ class DocumentIngestionFunctionTest {
     void shouldReclaimExpiredLease() throws Exception {
         // given
         final QueueIngestionMetadata metadata = metadata();
-        when(outcomeTableService.readForClaim(DOCUMENT_ID))
+        when(outcomeTableService.readForClaim(null, DOCUMENT_ID))
                 .thenReturn(new LeaseSnapshot("AWAITING_INGESTION", READ_ETAG, OffsetDateTime.now().minusMinutes(5), "crashed-worker"));
         when(outcomeTableService.isTerminal("AWAITING_INGESTION")).thenReturn(false);
-        when(outcomeTableService.claimLease(eq(DOCUMENT_ID), eq(READ_ETAG), anyString(), any(OffsetDateTime.class)))
+        when(outcomeTableService.claimLease(isNull(), eq(DOCUMENT_ID), eq(READ_ETAG), anyString(), any(OffsetDateTime.class)))
                 .thenReturn(CLAIM_ETAG);
 
         // when
         documentIngestionFunction.run(queueMessage(metadata), 1);
 
         // then
-        verify(documentIngestionOrchestrator).processQueueMessage(metadata, new ClaimToken(DOCUMENT_ID, CLAIM_ETAG));
+        verify(documentIngestionOrchestrator).processQueueMessage(metadata, new ClaimToken(null, DOCUMENT_ID, CLAIM_ETAG));
     }
 
     @Test
     @DisplayName("Rethrow to redeliver when the claim race is lost")
     void shouldRethrowWhenClaimRaceLost() throws Exception {
         // given
-        when(outcomeTableService.readForClaim(DOCUMENT_ID))
+        when(outcomeTableService.readForClaim(null, DOCUMENT_ID))
                 .thenReturn(new LeaseSnapshot("AWAITING_INGESTION", READ_ETAG, null, null));
         when(outcomeTableService.isTerminal("AWAITING_INGESTION")).thenReturn(false);
-        when(outcomeTableService.claimLease(eq(DOCUMENT_ID), eq(READ_ETAG), anyString(), any(OffsetDateTime.class)))
+        when(outcomeTableService.claimLease(isNull(), eq(DOCUMENT_ID), eq(READ_ETAG), anyString(), any(OffsetDateTime.class)))
                 .thenThrow(new EtagMismatchException("etag changed"));
 
         // when & then
@@ -200,15 +201,15 @@ class DocumentIngestionFunctionTest {
     void shouldCreateClaimedRowWhenRowMissing() throws Exception {
         // given
         final QueueIngestionMetadata metadata = metadata();
-        when(outcomeTableService.readForClaim(DOCUMENT_ID)).thenReturn(null);
-        when(outcomeTableService.createClaimedRow(eq(DOCUMENT_ID), anyString(), any(OffsetDateTime.class)))
+        when(outcomeTableService.readForClaim(null, DOCUMENT_ID)).thenReturn(null);
+        when(outcomeTableService.createClaimedRow(isNull(), eq(DOCUMENT_ID), anyString(), any(OffsetDateTime.class)))
                 .thenReturn(CLAIM_ETAG);
 
         // when
         documentIngestionFunction.run(queueMessage(metadata), 1);
 
         // then
-        verify(documentIngestionOrchestrator).processQueueMessage(metadata, new ClaimToken(DOCUMENT_ID, CLAIM_ETAG));
+        verify(documentIngestionOrchestrator).processQueueMessage(metadata, new ClaimToken(null, DOCUMENT_ID, CLAIM_ETAG));
     }
 
     @Test
@@ -226,7 +227,7 @@ class DocumentIngestionFunctionTest {
         verify(documentIngestionOrchestrator, never()).processQueueMessageFailed(any(), any());
         verify(documentIngestionOrchestrator, never()).processQueueMessageFailedIfSafe(any());
         // the guard skips releasing an already-stale lease (a release would be a guaranteed 412)
-        verify(outcomeTableService, never()).releaseLease(anyString(), anyString());
+        verify(outcomeTableService, never()).releaseLease(any(), anyString(), anyString());
     }
 
     @Test
@@ -241,7 +242,7 @@ class DocumentIngestionFunctionTest {
         final DocumentProcessingException exception = assertThrows(DocumentProcessingException.class,
                 () -> documentIngestionFunction.run(queueMessage(metadata()), 1));
         assertEquals("Error processing queueMessage", exception.getMessage());
-        verify(outcomeTableService).releaseLease(DOCUMENT_ID, CLAIM_ETAG);
+        verify(outcomeTableService).releaseLease(null, DOCUMENT_ID, CLAIM_ETAG);
     }
 
     @Test
@@ -257,7 +258,7 @@ class DocumentIngestionFunctionTest {
         documentIngestionFunction.run(queueMessage(metadata), 3);
 
         // then
-        verify(documentIngestionOrchestrator).processQueueMessageFailed(metadata, new ClaimToken(DOCUMENT_ID, CLAIM_ETAG));
+        verify(documentIngestionOrchestrator).processQueueMessageFailed(metadata, new ClaimToken(null, DOCUMENT_ID, CLAIM_ETAG));
     }
 
     @Test

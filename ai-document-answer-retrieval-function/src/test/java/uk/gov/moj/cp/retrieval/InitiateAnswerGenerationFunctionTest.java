@@ -6,6 +6,7 @@ import static com.microsoft.azure.functions.HttpStatus.ACCEPTED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -81,7 +82,7 @@ class InitiateAnswerGenerationFunctionTest {
 
         assertEquals(ACCEPTED, result.getStatus());
         verify(outputBinding).setValue(anyString());
-        verify(answerGenerationTableService).saveAnswerGenerationRequest(anyString(),
+        verify(answerGenerationTableService).saveAnswerGenerationRequest(isNull(), anyString(),
                 eq(userQuery), eq(queryPrompt),
                 eq(ANSWER_GENERATION_PENDING));
 

@@ -16,7 +16,7 @@ import org.slf4j.Logger;
 /**
  * Effectively-once guard for queue-triggered work (design: docs/idempotency-rag-service.md).
  * <p>
- * {@code runOnce(key, work)} reads the status row for the key; skips if the status is already
+ * {@code runOnce(clientId, key, work)} reads the status row for the (clientId, key); skips if the status is already
  * terminal; otherwise claims an in-progress lease via an ETag-conditioned write (the first
  * worker wins, a concurrent duplicate loses with {@link LeaseConflictException}) and runs the
  * work with a {@link ClaimToken}. The token's ETag fences the work's terminal write: a worker
@@ -49,8 +49,8 @@ public class IdempotencyGuard {
      * @throws Exception              whatever the work throws; the lease is released first so
      *                                the next delivery can re-claim immediately
      */
-    public GuardOutcome runOnce(final String key, final IdempotentWork work) throws Exception {
-        final ClaimToken token = claim(key);
+    public GuardOutcome runOnce(final String clientId, final String key, final IdempotentWork work) throws Exception {
+        final ClaimToken token = claim(clientId, key);
         if (token == null) {
             return GuardOutcome.SKIPPED_TERMINAL;
         }
@@ -61,7 +61,7 @@ public class IdempotencyGuard {
             // On a fence loss the claim etag is already stale — a release would be a
             // guaranteed 412 and only produce a misleading "release failed" warning.
             if (!(e instanceof EtagMismatchException)) {
-                store.releaseLease(key, token.etag());
+                store.releaseLease(clientId, key, token.etag());
             }
             throw e;
         }
@@ -69,18 +69,18 @@ public class IdempotencyGuard {
     }
 
     /** Returns the winning claim, or {@code null} when the row is terminal (skip). */
-    private ClaimToken claim(final String key) throws EntityRetrievalException {
+    private ClaimToken claim(final String clientId, final String key) throws EntityRetrievalException {
         final String owner = UUID.randomUUID().toString();
 
-        LeaseSnapshot snapshot = store.readForClaim(key);
+        LeaseSnapshot snapshot = store.readForClaim(clientId, key);
 
         if (snapshot == null) {
             try {
-                final String etag = store.createClaimedRow(key, owner, expiry());
+                final String etag = store.createClaimedRow(clientId, key, owner, expiry());
                 LOGGER.warn("Status row was missing for key={} — created claimed row defensively", key);
-                return new ClaimToken(key, etag);
+                return new ClaimToken(clientId, key, etag);
             } catch (DuplicateRecordException e) {
-                snapshot = store.readForClaim(key);
+                snapshot = store.readForClaim(clientId, key);
                 if (snapshot == null) {
                     throw new LeaseConflictException("Status row for key '" + key + "' appeared then vanished during claim", e);
                 }
@@ -99,9 +99,9 @@ public class IdempotencyGuard {
         }
 
         try {
-            final String etag = store.claimLease(key, snapshot.etag(), owner, expiry());
+            final String etag = store.claimLease(clientId, key, snapshot.etag(), owner, expiry());
             LOGGER.info("Claimed idempotency lease for key={} (owner={})", key, owner);
-            return new ClaimToken(key, etag);
+            return new ClaimToken(clientId, key, etag);
         } catch (EtagMismatchException e) {
             throw new LeaseConflictException("Lost the claim race for key '" + key + "'", e);
         }

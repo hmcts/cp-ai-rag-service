@@ -144,7 +144,7 @@ public class DocumentIngestionOrchestrator {
     public void processQueueMessageFailedIfSafe(final QueueIngestionMetadata queueIngestionMetadata) {
         final String documentId = queueIngestionMetadata.documentId();
         try {
-            final LeaseSnapshot snapshot = documentIngestionOutcomeTableService.readForClaim(documentId);
+            final LeaseSnapshot snapshot = documentIngestionOutcomeTableService.readForClaim(null, documentId);
             if (snapshot == null) {
                 LOGGER.error("Not recording INGESTION_FAILED for documentId: {} — status row is missing.", documentId);
                 return;
@@ -158,7 +158,7 @@ public class DocumentIngestionOrchestrator {
                 return;
             }
             documentIngestionOutcomeTableService.recordOutcomeFenced(
-                    documentId, INGESTION_FAILED.name(), INGESTION_FAILED_REASON, snapshot.etag());
+                    null, documentId, INGESTION_FAILED.name(), INGESTION_FAILED_REASON, snapshot.etag());
 
         } catch (EtagMismatchException e) {
             LOGGER.warn("Not recording INGESTION_FAILED for documentId: {} — row changed concurrently; leaving the outcome to its owner.", documentId, e);
@@ -169,7 +169,7 @@ public class DocumentIngestionOrchestrator {
 
     private void markSupersededDocumentsInactive(final String documentId) throws DocumentProcessingException {
         try {
-            final DocumentIngestionOutcome document = documentIngestionOutcomeTableService.getDocumentById(documentId);
+            final DocumentIngestionOutcome document = documentIngestionOutcomeTableService.getDocumentById(null, documentId);
             if (nonNull(document) && !isNullOrEmpty(document.getSupersededDocuments())) {
                 final List<String> supersededDocs = Arrays.stream(document.getSupersededDocuments().split(","))
                         .map(String::trim)
@@ -186,7 +186,7 @@ public class DocumentIngestionOrchestrator {
     private void recordOutcome(final String documentName, final String documentId,
                                final String status, final String reason, final ClaimToken token) throws DocumentProcessingException {
         try {
-            documentIngestionOutcomeTableService.recordOutcomeFenced(documentId, status, reason, token.etag());
+            documentIngestionOutcomeTableService.recordOutcomeFenced(null, documentId, status, reason, token.etag());
             LOGGER.info("event=outcome_recorded status={} documentName={} documentId={}", status, documentName, documentId);
         } catch (EtagMismatchException fenceLoss) {
             // Never convert a fence loss into a retry or a FAILED write — the reclaimer owns the outcome.

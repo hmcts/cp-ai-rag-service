@@ -169,7 +169,7 @@ public class AnswerGenerationFunction {
 
             LOGGER.info("Starting answer generation for transactionId '{}'", transactionId);
 
-            idempotencyGuard.runOnce(transactionId.toString(), token ->
+            idempotencyGuard.runOnce(null, transactionId.toString(), token ->
                     processWithClaim(validPayload, token, scoringMessage, dequeueCount, maxDequeueCount, startTime));
 
         } catch (RedeliveryException e) {
@@ -299,6 +299,7 @@ public class AnswerGenerationFunction {
     private void upsertTerminalFenced(final AnswerGenerationQueuePayload payload, final LlmResponse llmResponse,
                                       final String inputChunksFilename, final long durationMs, final ClaimToken token) {
         answerGenerationTableService.upsertTerminalFenced(
+                null,
                 payload.transactionId().toString(),
                 payload.userQuery(),
                 payload.queryPrompt(),
@@ -366,6 +367,7 @@ public class AnswerGenerationFunction {
     private void recordAnswerGenerationFailed(final AnswerGenerationQueuePayload payload, final String errorMessage,
                                               final long durationMs, final ClaimToken token) {
         answerGenerationTableService.upsertTerminalFenced(
+                null,
                 payload.transactionId().toString(),
                 payload.userQuery(),
                 payload.queryPrompt(),
@@ -389,7 +391,7 @@ public class AnswerGenerationFunction {
     private void recordAnswerGenerationFailedIfSafe(final AnswerGenerationQueuePayload payload, final String errorMessage, final long durationMs) {
         final String transactionId = payload.transactionId().toString();
         try {
-            final var snapshot = answerGenerationTableService.readForClaim(transactionId);
+            final var snapshot = answerGenerationTableService.readForClaim(null, transactionId);
             if (snapshot == null) {
                 answerGenerationTableService.upsertIntoTable(
                         transactionId, payload.userQuery(), payload.queryPrompt(),
@@ -405,7 +407,7 @@ public class AnswerGenerationFunction {
                 return;
             }
             answerGenerationTableService.upsertTerminalFenced(
-                    transactionId, payload.userQuery(), payload.queryPrompt(),
+                    null, transactionId, payload.userQuery(), payload.queryPrompt(),
                     null, null, ANSWER_GENERATION_FAILED, errorMessage, OffsetDateTime.now(), durationMs,
                     snapshot.etag());
         } catch (EtagMismatchException e) {

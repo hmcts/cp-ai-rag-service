@@ -48,11 +48,11 @@ public class AnswerGenerationTableService implements IdempotencyStatusStore {
         this.tableService = tableService;
     }
 
-    public void saveAnswerGenerationRequest(final String transactionId, final String userQuery,
+    public void saveAnswerGenerationRequest(final String clientId, final String transactionId, final String userQuery,
                                             final String queryPrompt, final AnswerGenerationStatus status) throws DuplicateRecordException {
 
         final TableEntity entity = buildEntity(
-                transactionId, userQuery, queryPrompt,
+                clientId, transactionId, userQuery, queryPrompt,
                 null, null, status,
                 null, null, null
         );
@@ -68,6 +68,7 @@ public class AnswerGenerationTableService implements IdempotencyStatusStore {
     ) {
 
         final TableEntity entity = buildEntity(
+                null,
                 transactionId,
                 userQuery,
                 queryPrompt,
@@ -84,9 +85,9 @@ public class AnswerGenerationTableService implements IdempotencyStatusStore {
         LOGGER.info("Answer generation record UPSERTED with status={} for transactionId={}", status, transactionId);
     }
 
-    public GeneratedAnswer getGeneratedAnswer(final String transactionId) throws EntityRetrievalException {
+    public GeneratedAnswer getGeneratedAnswer(final String clientId, final String transactionId) throws EntityRetrievalException {
 
-        final TableEntity entity = tableService.getFirstDocumentMatching(transactionId, transactionId);
+        final TableEntity entity = tableService.getFirstDocumentMatching(partitionKey(clientId, transactionId), transactionId);
         if (null == entity) {
             return null;
         }
@@ -105,8 +106,8 @@ public class AnswerGenerationTableService implements IdempotencyStatusStore {
 
     }
 
-    public void recordGroundednessScore(final String transactionId, final BigDecimal bigDecimal) {
-        final TableEntity entity = new TableEntity(transactionId, transactionId);
+    public void recordGroundednessScore(final String clientId, final String transactionId, final BigDecimal bigDecimal) {
+        final TableEntity entity = new TableEntity(partitionKey(clientId, transactionId), transactionId);
         entity.addProperty(TC_RESPONSE_GROUNDEDNESS_SCORE, bigDecimal);
         tableService.upsertIntoTable(entity);
     }
@@ -116,13 +117,14 @@ public class AnswerGenerationTableService implements IdempotencyStatusStore {
      * MERGE) — the fenced terminal write of the idempotency guard. Throws
      * {@link uk.gov.moj.cp.ai.exception.EtagMismatchException} if the lease was reclaimed.
      */
-    public void upsertTerminalFenced(final String transactionId, final String userQuery,
+    public void upsertTerminalFenced(final String clientId, final String transactionId, final String userQuery,
                                      final String queryPrompt, final String chunkedEntriesFile, final String llmResponse,
                                      final AnswerGenerationStatus status, final String reason,
                                      final OffsetDateTime responseGenerationTime, final Long responseGenerationDuration,
                                      final String etag
     ) {
         final TableEntity entity = buildEntity(
+                clientId,
                 transactionId,
                 userQuery,
                 queryPrompt,
@@ -140,8 +142,8 @@ public class AnswerGenerationTableService implements IdempotencyStatusStore {
     }
 
     @Override
-    public LeaseSnapshot readForClaim(final String key) throws EntityRetrievalException {
-        final TableEntity entity = tableService.getFirstDocumentMatching(key, key);
+    public LeaseSnapshot readForClaim(final String clientId, final String key) throws EntityRetrievalException {
+        final TableEntity entity = tableService.getFirstDocumentMatching(partitionKey(clientId, key), key);
         if (null == entity) {
             return null;
         }
@@ -160,16 +162,16 @@ public class AnswerGenerationTableService implements IdempotencyStatusStore {
     }
 
     @Override
-    public String claimLease(final String key, final String expectedEtag, final String owner, final OffsetDateTime expiresAt) {
-        final TableEntity entity = new TableEntity(key, key);
+    public String claimLease(final String clientId, final String key, final String expectedEtag, final String owner, final OffsetDateTime expiresAt) {
+        final TableEntity entity = new TableEntity(partitionKey(clientId, key), key);
         entity.addProperty(TC_LEASE_OWNER, owner);
         entity.addProperty(TC_LEASE_EXPIRES_AT, expiresAt);
         return tableService.updateEntityIfUnchanged(entity, expectedEtag);
     }
 
     @Override
-    public String createClaimedRow(final String key, final String owner, final OffsetDateTime expiresAt) throws DuplicateRecordException {
-        final TableEntity entity = new TableEntity(key, key);
+    public String createClaimedRow(final String clientId, final String key, final String owner, final OffsetDateTime expiresAt) throws DuplicateRecordException {
+        final TableEntity entity = new TableEntity(partitionKey(clientId, key), key);
         entity.addProperty(TC_TRANSACTION_ID, key);
         entity.addProperty(TC_ANSWER_STATUS, AnswerGenerationStatus.ANSWER_GENERATION_PENDING.name());
         entity.addProperty(TC_LEASE_OWNER, owner);
@@ -178,9 +180,9 @@ public class AnswerGenerationTableService implements IdempotencyStatusStore {
     }
 
     @Override
-    public void releaseLease(final String key, final String etag) {
+    public void releaseLease(final String clientId, final String key, final String etag) {
         try {
-            final TableEntity entity = new TableEntity(key, key);
+            final TableEntity entity = new TableEntity(partitionKey(clientId, key), key);
             entity.addProperty(TC_LEASE_EXPIRES_AT, LEASE_RELEASED);
             tableService.updateEntityIfUnchanged(entity, etag);
         } catch (Exception e) {
@@ -189,6 +191,7 @@ public class AnswerGenerationTableService implements IdempotencyStatusStore {
     }
 
     private TableEntity buildEntity(
+            final String clientId,
             final String transactionId,
             final String userQuery,
             final String queryPrompt,
@@ -199,7 +202,7 @@ public class AnswerGenerationTableService implements IdempotencyStatusStore {
             final OffsetDateTime responseGenerationTime,
             final Long responseGenerationDuration
     ) {
-        final TableEntity entity = new TableEntity(transactionId, transactionId);
+        final TableEntity entity = new TableEntity(partitionKey(clientId, transactionId), transactionId);
 
         entity.addProperty(TC_TRANSACTION_ID, transactionId);
         entity.addProperty(TC_USER_QUERY, userQuery);
@@ -220,5 +223,13 @@ public class AnswerGenerationTableService implements IdempotencyStatusStore {
 
     private Long getPropertyAsLong(final Object value) {
         return value instanceof Number number ? number.longValue() : null;
+    }
+
+    /**
+     * Effective partition key for a {@code (clientId, key)} row. Keys on the row key only for now;
+     * a subsequent change swaps in {@code clientId} as the partition when it is present.
+     */
+    private static String partitionKey(final String clientId, final String key) {
+        return key;
     }
 }

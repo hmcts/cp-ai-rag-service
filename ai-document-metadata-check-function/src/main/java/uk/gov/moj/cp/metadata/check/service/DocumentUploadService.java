@@ -44,8 +44,8 @@ public class DocumentUploadService {
     /**
      * Check if documentId already recorded in Table Storage.
      */
-    public boolean isDocumentAlreadyProcessed(final String documentId) {
-        final DocumentIngestionOutcome firstDocumentMatching = getDocument(documentId);
+    public boolean isDocumentAlreadyProcessed(final String clientId, final String documentId) {
+        final DocumentIngestionOutcome firstDocumentMatching = getDocument(clientId, documentId);
         if (nonNull(firstDocumentMatching)) {
             LOGGER.info("Document '{}' is already processed and has status '{}'.", documentId, firstDocumentMatching.getStatus());
             return true;
@@ -59,22 +59,29 @@ public class DocumentUploadService {
     public void addDocumentAwaitingUpload(final String documentId, final String documentName, final Map<String, String> metadataMap,
                                           final String supersededDocuments) throws DuplicateRecordException {
         final String metadataString = convert(metadataMap);
-        documentIngestionOutcomeTableService.insert(documentId, documentName, metadataString, supersededDocuments, AWAITING_UPLOAD.name(), AWAITING_UPLOAD_REASON);
+        documentIngestionOutcomeTableService.insert(null, documentId, documentName, metadataString, supersededDocuments, AWAITING_UPLOAD.name(), AWAITING_UPLOAD_REASON);
     }
 
     /**
      * upsert the document record in the table storage with status AWAITING_INGESTION.
      */
     public void updateDocumentAwaitingIngestion(final String documentId) {
-        documentIngestionOutcomeTableService.upsertDocument(documentId, AWAITING_INGESTION.name(), AWAITING_INGESTION_REASON);
+        documentIngestionOutcomeTableService.upsertDocument(null, documentId, AWAITING_INGESTION.name(), AWAITING_INGESTION_REASON);
     }
 
     /**
-     * Get Document by documentId from the Table Storage.
+     * Get Document by documentId from the Table Storage (legacy keying).
      */
     public DocumentIngestionOutcome getDocument(final String documentId) {
+        return getDocument(null, documentId);
+    }
+
+    /**
+     * Get Document by the {@code (clientId, documentId)} pair from the Table Storage.
+     */
+    public DocumentIngestionOutcome getDocument(final String clientId, final String documentId) {
         try {
-            return documentIngestionOutcomeTableService.getDocumentById(documentId);
+            return documentIngestionOutcomeTableService.getDocumentById(clientId, documentId);
         } catch (EntityRetrievalException e) {
             throw new DataRetrievalException("Unable to check status of document in table storage", e);
         }
@@ -84,7 +91,7 @@ public class DocumentUploadService {
      * upsert the document record in the table storage with status FILE_SIZE_OVER_LIMIT and reason to include blobSize and maxFileSizeLimit.
      */
     public void updateDocumentFileSizeOverLimit(final String documentId, final long documentSize, final long maxFileSizeLimit) {
-        documentIngestionOutcomeTableService.upsertDocument(documentId, FILE_SIZE_OVER_LIMIT.name(),
+        documentIngestionOutcomeTableService.upsertDocument(null, documentId, FILE_SIZE_OVER_LIMIT.name(),
                 format(FILE_SIZE_OVER_LIMIT_REASON, documentSize, maxFileSizeLimit));
     }
 }
