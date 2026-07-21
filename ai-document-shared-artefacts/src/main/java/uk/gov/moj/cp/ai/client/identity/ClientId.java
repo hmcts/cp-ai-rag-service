@@ -1,5 +1,7 @@
 package uk.gov.moj.cp.ai.client.identity;
 
+import uk.gov.moj.cp.ai.util.UuidUtil;
+
 /**
  * Worker-side helper to defensively re-validate a payload-carried {@code clientId} using the same
  * UUID-shape check ({@code UuidUtil.isValid}) and the same exception type ({@link ClientIdentityException})
@@ -19,6 +21,9 @@ public final class ClientId {
      * @throws ClientIdentityException when {@code clientId} is null, blank or not a valid UUID.
      */
     public static String requireValid(final String clientId) {
-        throw new UnsupportedOperationException("Not implemented — MTDI01");
+        if (!UuidUtil.isValid(clientId)) {
+            throw new ClientIdentityException("Missing or invalid client identity");
+        }
+        return clientId;
     }
 }

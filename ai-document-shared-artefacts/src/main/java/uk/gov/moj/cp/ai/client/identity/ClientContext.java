@@ -25,19 +25,19 @@ public final class ClientContext {
 
     /** Flag off: identity optional, never populated. */
     public static ClientContext unenforced() {
-        throw new UnsupportedOperationException("Not implemented — MTDI01");
+        return new ClientContext(null, false);
     }
 
     /** Flag on and identity resolved. */
     public static ClientContext of(final String clientId) {
-        throw new UnsupportedOperationException("Not implemented — MTDI01");
+        return new ClientContext(clientId, true);
     }
 
     public Optional<String> clientId() {
-        throw new UnsupportedOperationException("Not implemented — MTDI01");
+        return Optional.ofNullable(clientId);
     }
 
     public boolean enforced() {
-        throw new UnsupportedOperationException("Not implemented — MTDI01");
+        return enforced;
     }
 }
