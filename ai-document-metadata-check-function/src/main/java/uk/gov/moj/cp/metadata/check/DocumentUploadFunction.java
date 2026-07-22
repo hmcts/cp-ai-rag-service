@@ -20,9 +20,12 @@ import static uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer.listT
 import uk.gov.hmcts.cp.openapi.model.DocumentUploadRequest;
 import uk.gov.hmcts.cp.openapi.model.FileStorageLocationReturnedSuccessfully;
 import uk.gov.hmcts.cp.openapi.model.RequestErrored;
+import uk.gov.moj.cp.ai.client.identity.ClientContext;
+import uk.gov.moj.cp.ai.client.identity.ClientIdentityException;
 import uk.gov.moj.cp.ai.client.identity.ClientIdentityResolver;
 import uk.gov.moj.cp.ai.client.identity.HeaderClientIdentityResolver;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
+import uk.gov.moj.cp.ai.http.HttpResponses;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.ai.util.StringUtil;
 import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
@@ -106,12 +109,17 @@ public class DocumentUploadFunction {
                     authLevel = FUNCTION, route = "document-upload") HttpRequestMessage<DocumentUploadRequest> request,
             final ExecutionContext context) {
 
+        final ClientContext clientContext;
         try {
-            // Client-identity resolution seam: the resolved context is not yet threaded into the
-            // dedup lookup / blob name (that wiring is driven by the pending tests). Flag off →
-            // an empty context, so behaviour is unchanged today.
-            clientIdentityResolver.resolve(request);
+            // Enforcement on: reject a missing/invalid client identity before any work.
+            // Flag off: an empty context, so behaviour is unchanged and the clientId stays null.
+            clientContext = clientIdentityResolver.resolve(request);
+        } catch (ClientIdentityException e) {
+            return HttpResponses.unauthorized(request);
+        }
+        final String clientId = clientContext.clientId().orElse(null);
 
+        try {
             final DocumentUploadRequest documentUploadRequest = request.getBody();
             final List<String> errors = validate(documentUploadRequest);
             if (!errors.isEmpty()) {
@@ -129,15 +137,19 @@ public class DocumentUploadFunction {
 
             LOGGER.info("Initiating document upload for the documentId: {} documentName: {} supersededDocuments: {}", documentId, documentName, supersededDocuments);
 
-            if (documentUploadService.isDocumentAlreadyProcessed(null, documentId)) {
+            if (documentUploadService.isDocumentAlreadyProcessed(clientId, documentId)) {
                 final String errorMessage = "An upload request has already been initiated for documentId: " + documentId;
                 return generateResponse(request, HttpStatus.BAD_REQUEST, convert(new RequestErrored(errorMessage)));
             }
 
-            final String blobName = documentBlobNameResolver.getBlobName(documentId, uploadFileExtension);
+            // Flag off (clientId null) keeps the legacy flat blob name; enforcement on prepends the
+            // client namespace prefix via the client-scoped overload.
+            final String blobName = clientId == null
+                    ? documentBlobNameResolver.getBlobName(documentId, uploadFileExtension)
+                    : documentBlobNameResolver.getBlobName(clientId, documentId, uploadFileExtension);
             final String storageSasUrl = blobClientService.getSasUrl(blobName, urlExpiryMinutes);
 
-            documentUploadService.addDocumentAwaitingUpload(documentId, documentName, listToMap(documentUploadRequest.getMetadataFilter()), supersededDocuments);
+            documentUploadService.addDocumentAwaitingUpload(clientId, documentId, documentName, listToMap(documentUploadRequest.getMetadataFilter()), supersededDocuments);
 
             LOGGER.info("Successfully initiated document upload for the documentId: {} documentName: {}", documentId, documentName);
             final FileStorageLocationReturnedSuccessfully fileStorageLocationReturnedSuccessfully = new FileStorageLocationReturnedSuccessfully(storageSasUrl, documentId);

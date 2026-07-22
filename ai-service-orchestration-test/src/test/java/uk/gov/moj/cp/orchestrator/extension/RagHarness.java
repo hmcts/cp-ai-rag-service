@@ -47,6 +47,17 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RagHarness.class);
 
+    /** Header carrying the caller's client identity (matches the {@code CLIENT_IDENTITY_HEADER} default). */
+    static final String CLIENT_IDENTITY_HEADER = "X-Client-Id";
+
+    /**
+     * Deterministic client identity applied to every request the suite sends. The function hosts
+     * run with client filtering off (default), so the resolver ignores this header and behaviour is
+     * unchanged — the suite stays compatible with a flag-off environment. The enforcement-on matrix
+     * is a later story.
+     */
+    static final String TEST_CLIENT_ID = "00000000-0000-0000-0000-0000000000aa";
+
     private static final String ANSWER_RETRIEVAL_FUNCTION_DIRECTORY = "../ai-document-answer-retrieval-function/target/azure-functions/fa-ste-ai-document-answer-retrieval";
     private static final String ANSWER_SCORING_FUNCTION_DIRECTORY = "../ai-document-answer-scoring-function/target/azure-functions/fa-ste-ai-document-answer-scoring";
     private static final String DOCUMENT_STATUS_CHECK_FUNCTION_DIRECTORY = "../ai-document-status-check-function/target/azure-functions/fa-ste-ai-document-status-check";
@@ -262,7 +273,8 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
         return Pair.of(new FunctionHostManager(appDirectory, port), given()
                 .baseUri("http://localhost")
                 .port(port)
-                .basePath("/api"));
+                .basePath("/api")
+                .header(CLIENT_IDENTITY_HEADER, TEST_CLIENT_ID));
     }
 
     private static int getAvailablePort() {

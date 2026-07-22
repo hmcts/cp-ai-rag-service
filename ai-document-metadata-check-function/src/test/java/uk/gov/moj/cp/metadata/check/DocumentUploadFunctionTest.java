@@ -3,8 +3,11 @@ package uk.gov.moj.cp.metadata.check;
 import static java.util.UUID.randomUUID;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doThrow;
@@ -93,7 +96,7 @@ public class DocumentUploadFunctionTest {
 
         assertThat(response, is(result));
         verify(blobClientService, never()).getSasUrl(any(), anyInt());
-        verify(documentUploadService, never()).addDocumentAwaitingUpload(anyString(), anyString(), anyMap(), anyString());
+        verify(documentUploadService, never()).addDocumentAwaitingUpload(any(), anyString(), anyString(), anyMap(), anyString());
     }
 
     @Test
@@ -109,7 +112,7 @@ public class DocumentUploadFunctionTest {
         final HttpResponseMessage result = function.run(request, context);
 
         assertThat(response, is(result));
-        verify(documentUploadService).addDocumentAwaitingUpload(body.getDocumentId(), body.getDocumentName(), listToMap(body.getMetadataFilter()), "");
+        verify(documentUploadService).addDocumentAwaitingUpload(isNull(), eq(body.getDocumentId()), eq(body.getDocumentName()), eq(listToMap(body.getMetadataFilter())), eq(""));
     }
 
     @Test
@@ -129,8 +132,8 @@ public class DocumentUploadFunctionTest {
         final HttpResponseMessage result = function.run(request, context);
 
         assertThat(response, is(result));
-        verify(documentUploadService).addDocumentAwaitingUpload(body.getDocumentId(), body.getDocumentName(),
-                listToMap(body.getMetadataFilter()), String.format("%s,%s", doc1, doc2));
+        verify(documentUploadService).addDocumentAwaitingUpload(isNull(), eq(body.getDocumentId()), eq(body.getDocumentName()),
+                eq(listToMap(body.getMetadataFilter())), eq(String.format("%s,%s", doc1, doc2)));
     }
 
     @Test
@@ -144,7 +147,7 @@ public class DocumentUploadFunctionTest {
 
         mockResponseBuilder(HttpStatus.BAD_REQUEST);
         doThrow(new DuplicateRecordException("Duplicate record error!"))
-                .when(documentUploadService).addDocumentAwaitingUpload(body.getDocumentId(), body.getDocumentName(), listToMap(body.getMetadataFilter()), "");
+                .when(documentUploadService).addDocumentAwaitingUpload(isNull(), eq(body.getDocumentId()), eq(body.getDocumentName()), eq(listToMap(body.getMetadataFilter())), eq(""));
 
         final HttpResponseMessage result = function.run(request, context);
 

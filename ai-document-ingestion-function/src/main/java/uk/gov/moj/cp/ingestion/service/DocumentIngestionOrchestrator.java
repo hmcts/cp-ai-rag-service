@@ -186,7 +186,7 @@ public class DocumentIngestionOrchestrator {
     private void recordOutcome(final String documentName, final String documentId,
                                final String status, final String reason, final ClaimToken token) throws DocumentProcessingException {
         try {
-            documentIngestionOutcomeTableService.recordOutcomeFenced(null, documentId, status, reason, token.etag());
+            documentIngestionOutcomeTableService.recordOutcomeFenced(token.clientId(), documentId, status, reason, token.etag());
             LOGGER.info("event=outcome_recorded status={} documentName={} documentId={}", status, documentName, documentId);
         } catch (EtagMismatchException fenceLoss) {
             // Never convert a fence loss into a retry or a FAILED write — the reclaimer owns the outcome.

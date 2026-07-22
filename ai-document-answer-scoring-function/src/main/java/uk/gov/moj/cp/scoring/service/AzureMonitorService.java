@@ -64,14 +64,23 @@ public class AzureMonitorService {
 
     /**
      * Two-dimension variant: records the score with an additional attribute so a metric series can
-     * be segmented on a second dimension (e.g. per client) independently of the first. The second
-     * attribute is wired into the recorded {@link Attributes} at implementation time; this seam
-     * delegates to the single-dimension recording for now.
+     * be segmented on a second dimension (e.g. per client) independently of the first.
      */
     public void publishHistogramScore(final String metricName, final String metricDescription, final double score,
                                       final String keyDimension, final String valueDimension,
                                       final String secondKeyDimension, final String secondValueDimension) {
-        publishHistogramScore(metricName, metricDescription, score, keyDimension, valueDimension);
+        if (secondValueDimension == null) {
+            // No second-dimension value (e.g. legacy, unscoped score) — record the single dimension.
+            publishHistogramScore(metricName, metricDescription, score, keyDimension, valueDimension);
+            return;
+        }
+        final DoubleHistogram histogram = getDoubleHistogram(metricName, metricDescription);
+        final Attributes attributes = Attributes.builder()
+                .put(AttributeKey.stringKey(keyDimension), valueDimension)
+                .put(AttributeKey.stringKey(secondKeyDimension), secondValueDimension)
+                .build();
+        histogram.record(score, attributes);
+        LOGGER.info("Metrics have been exported successfully for query type: {} with score: {}", keyDimension, score);
     }
 
     private DoubleHistogram getDoubleHistogram(final String metricName, final String metricDescription) {

@@ -75,7 +75,7 @@ class DocumentUploadFunctionClientIdentityTest {
 
         verify(request).createResponseBuilder(HttpStatus.UNAUTHORIZED);
         verify(blobClientService, never()).getSasUrl(any(), anyInt());
-        verify(documentUploadService, never()).addDocumentAwaitingUpload(any(), any(), any(), any());
+        verify(documentUploadService, never()).addDocumentAwaitingUpload(any(), any(), any(), any(), any());
     }
 
     @Test

@@ -17,8 +17,11 @@ import static uk.gov.moj.cp.ai.validation.RequestValidator.validate;
 import uk.gov.hmcts.cp.openapi.model.AnswerUserQueryRequest;
 import uk.gov.hmcts.cp.openapi.model.RequestErrored;
 import uk.gov.hmcts.cp.openapi.model.UserQueryAnswerRequestAccepted;
+import uk.gov.moj.cp.ai.client.identity.ClientContext;
+import uk.gov.moj.cp.ai.client.identity.ClientIdentityException;
 import uk.gov.moj.cp.ai.client.identity.ClientIdentityResolver;
 import uk.gov.moj.cp.ai.client.identity.HeaderClientIdentityResolver;
+import uk.gov.moj.cp.ai.http.HttpResponses;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
@@ -81,12 +84,17 @@ public class InitiateAnswerGenerationFunction {
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING) OutputBinding<String> message,
             final ExecutionContext context) {
 
+        final ClientContext clientContext;
         try {
-            // Client-identity resolution seam: the resolved context is not yet copied onto the
-            // queue payload / pending row (that wiring is driven by the pending tests). Flag off →
-            // an empty context, so behaviour is unchanged today.
-            clientIdentityResolver.resolve(request);
+            // Enforcement on: reject a missing/invalid client identity before enqueuing or persisting.
+            // Flag off: an empty context, so the payload / pending row stay legacy null-scoped.
+            clientContext = clientIdentityResolver.resolve(request);
+        } catch (ClientIdentityException e) {
+            return HttpResponses.unauthorized(request);
+        }
+        final String clientId = clientContext.clientId().orElse(null);
 
+        try {
             final AnswerUserQueryRequest userQueryRequest = request.getBody();
             final List<String> errors = new ArrayList<>(validate(userQueryRequest));
             if (userQueryRequest != null && userQueryRequest.getMetadataFilter() != null) {
@@ -105,10 +113,10 @@ public class InitiateAnswerGenerationFunction {
             final UUID transactionId = randomUUID();
             LOGGER.info("Initiating answer generation async process for the query: {} with transactionId: {}", userQuery, transactionId);
 
-            final AnswerGenerationQueuePayload answerGenerationQueuePayload = new AnswerGenerationQueuePayload(transactionId, userQuery, userQueryPrompt, metadataFilters);
+            final AnswerGenerationQueuePayload answerGenerationQueuePayload = new AnswerGenerationQueuePayload(transactionId, userQuery, userQueryPrompt, metadataFilters, clientId);
             message.setValue(convert(answerGenerationQueuePayload));
 
-            answerGenerationTableService.saveAnswerGenerationRequest(null, transactionId.toString(), userQuery, userQueryPrompt, ANSWER_GENERATION_PENDING);
+            answerGenerationTableService.saveAnswerGenerationRequest(clientId, transactionId.toString(), userQuery, userQueryPrompt, ANSWER_GENERATION_PENDING);
             LOGGER.info("Successfully initiated answer retrieval processing for the query: {} with transactionId: {}", userQuery, transactionId);
 
             return generateResponse(request, ACCEPTED, convert(new UserQueryAnswerRequestAccepted(transactionId.toString())));

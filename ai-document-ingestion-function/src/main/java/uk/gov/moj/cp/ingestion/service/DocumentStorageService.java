@@ -91,6 +91,11 @@ public class DocumentStorageService {
                 searchDocument.put(CHUNK_INDEX, chunkedEntry.chunkIndex());
                 searchDocument.put(DOCUMENT_FILE_URL, chunkedEntry.documentFileUrl());
                 searchDocument.put(CUSTOM_METADATA, chunkedEntry.customMetadata());
+                // Emit the client-scoping column only when the chunk carries one — writing it
+                // unconditionally would break indexing against a live index that lacks the field.
+                if (!isNullOrEmpty(chunkedEntry.clientId())) {
+                    searchDocument.put(CLIENT_ID, chunkedEntry.clientId());
+                }
 
                 batch.add(searchDocument);
             }

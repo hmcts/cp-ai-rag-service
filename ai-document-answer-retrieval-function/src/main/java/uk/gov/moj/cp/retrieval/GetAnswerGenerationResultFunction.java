@@ -20,9 +20,12 @@ import static uk.gov.moj.cp.retrieval.util.ChunkUtil.transformChunkEntries;
 import uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus;
 import uk.gov.hmcts.cp.openapi.model.RequestErrored;
 import uk.gov.hmcts.cp.openapi.model.UserQueryAnswerReturnedSuccessfullyAsynchronously;
+import uk.gov.moj.cp.ai.client.identity.ClientContext;
+import uk.gov.moj.cp.ai.client.identity.ClientIdentityException;
 import uk.gov.moj.cp.ai.client.identity.ClientIdentityResolver;
 import uk.gov.moj.cp.ai.client.identity.HeaderClientIdentityResolver;
 import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
+import uk.gov.moj.cp.ai.http.HttpResponses;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.InputChunksPayload;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
@@ -89,26 +92,30 @@ public class GetAnswerGenerationResultFunction {
             final ExecutionContext context
     ) {
 
+        final ClientContext clientContext;
         try {
+            // Enforcement on: reject a missing/invalid client identity before any lookup.
+            // Flag off: an empty context, so the lookup / blob path stay legacy null-scoped.
+            clientContext = clientIdentityResolver.resolve(request);
+        } catch (ClientIdentityException e) {
+            return HttpResponses.unauthorized(request);
+        }
+        final String clientId = clientContext.clientId().orElse(null);
 
-            // Client-identity resolution seam: the resolved context is not yet used as the lookup
-            // partition key / input-chunks blob path (cross-client 404 wiring is driven by the
-            // pending tests). Flag off → an empty context, so behaviour is unchanged today.
-            clientIdentityResolver.resolve(request);
-
+        try {
             if (!isValid(transactionId)) {
                 LOGGER.error("Error: transactionId is required");
                 final String errorMessage = convert(new RequestErrored("Error: transactionId is required"));
                 return generateResponse(request, BAD_REQUEST, errorMessage);
             }
 
-            final GeneratedAnswer generatedAnswer = answerGenerationTableService.getGeneratedAnswer(null, transactionId);
+            final GeneratedAnswer generatedAnswer = answerGenerationTableService.getGeneratedAnswer(clientId, transactionId);
 
             if (nonNull(generatedAnswer)) {
                 final boolean withChunkedEntries = parseBoolean(request.getQueryParameters().getOrDefault(PARAM_WITH_CHUNKED_ENTRIES, "false"));
                 final List<ChunkedEntry> chunkedEntriesFromBlobContainer =
                         (withChunkedEntries && !isNullOrEmpty(generatedAnswer.getChunkedEntriesFile()))
-                                ? blobPersistenceInputChunksService.readBlob(getInputChunksFilename(null, fromString(transactionId)), InputChunksPayload.class).chunkedEntries()
+                                ? blobPersistenceInputChunksService.readBlob(getInputChunksFilename(clientId, fromString(transactionId)), InputChunksPayload.class).chunkedEntries()
                                 : null;
 
                 return generateResponse(request, OK, convert(toQueryResponse(generatedAnswer, chunkedEntriesFromBlobContainer)));

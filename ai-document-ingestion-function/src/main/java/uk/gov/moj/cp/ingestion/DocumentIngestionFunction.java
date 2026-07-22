@@ -10,6 +10,7 @@ import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
+import uk.gov.moj.cp.ai.client.identity.ClientId;
 import uk.gov.moj.cp.ai.exception.EtagMismatchException;
 import uk.gov.moj.cp.ai.idempotency.ClaimToken;
 import uk.gov.moj.cp.ai.idempotency.IdempotencyGuard;
@@ -86,7 +87,10 @@ public class DocumentIngestionFunction {
                     queueIngestionMetadata.documentName(),
                     queueIngestionMetadata.blobUrl());
 
-            idempotencyGuard.runOnce(null, documentId, token ->
+            // A message-carried clientId is re-validated defensively before use; a legacy message
+            // without one keeps the null-scoped (legacy) claim and token.
+            final String clientId = validatedClientId(queueIngestionMetadata.clientId());
+            idempotencyGuard.runOnce(clientId, documentId, token ->
                     processUnderClaim(queueIngestionMetadata, token, dequeueCount, maxDequeueCount));
 
         } catch (EtagMismatchException e) {
@@ -145,6 +149,11 @@ public class DocumentIngestionFunction {
         }
         LOGGER.error("Document ingestion failed during idempotency claim for documentId='{}'", queueIngestionMetadata.documentId(), e);
         documentIngestionOrchestrator.processQueueMessageFailedIfSafe(queueIngestionMetadata);
+    }
+
+    /** Legacy null clientId stays null; a present one is re-validated as a UUID before use. */
+    private static String validatedClientId(final String clientId) {
+        return isNullOrEmpty(clientId) ? null : ClientId.requireValid(clientId);
     }
 
     private QueueIngestionMetadata toQueueIngestionMetadata(final String queueMessage) {
