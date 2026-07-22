@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
+import uk.gov.moj.cp.ai.model.KeyValuePair;
 
 import java.util.Collections;
 import java.util.List;
@@ -156,11 +157,106 @@ class IndexCopierTest {
         verify(source).search(any(), any(), any()); // resume count query executed (countProcessedBefore)
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void copyAllDocumentsStampsEveryUploadedChunkWithTheConfiguredClientIdWhenOverrideSet() {
+        final DocumentUploader uploader = mock(DocumentUploader.class);
+        final String override = "consumer-abc";
+        final IndexCopier copier = spy(new IndexCopier(mock(SearchClient.class), uploader, 5, 1, 0, override));
+
+        final ChunkedEntry source1 = populatedChunk("id-1");
+        final ChunkedEntry source2 = populatedChunk("id-2");
+        doReturn(List.of(source1, source2)).when(copier).readPage(any(), any());
+
+        copier.copyAllDocuments(null);
+
+        final ArgumentCaptor<List<ChunkedEntry>> uploaded = ArgumentCaptor.forClass(List.class);
+        verify(uploader).upload(uploaded.capture());
+        // The copy carries the override clientId; every other field is unchanged from the source (record equality).
+        assertThat(uploaded.getValue())
+                .allSatisfy(entry -> assertThat(entry.clientId()).isEqualTo(override))
+                .containsExactly(withClientId(source1, override), withClientId(source2, override));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void copyAllDocumentsLeavesClientIdUntouchedWhenNoOverrideConfigured() {
+        final DocumentUploader uploader = mock(DocumentUploader.class);
+        // Convenience constructor (no override) — the pre-existing verbatim copy behaviour.
+        final IndexCopier copier = spy(new IndexCopier(mock(SearchClient.class), uploader, 5, 1, 0));
+
+        final ChunkedEntry source1 = populatedChunk("id-1");
+        doReturn(List.of(source1)).when(copier).readPage(any(), any());
+
+        copier.copyAllDocuments(null);
+
+        final ArgumentCaptor<List<ChunkedEntry>> uploaded = ArgumentCaptor.forClass(List.class);
+        verify(uploader).upload(uploaded.capture());
+        assertThat(uploaded.getValue()).containsExactly(source1); // verbatim
+        assertThat(uploaded.getValue().get(0).clientId()).isNull();
+    }
+
+    @Test
+    void copyAllDocumentsStampsTheSamePageIdenticallyOnEveryRun() {
+        final String override = "consumer-abc";
+        final ChunkedEntry source1 = populatedChunk("id-1");
+        final ChunkedEntry source2 = populatedChunk("id-2");
+
+        final List<ChunkedEntry> firstRun = uploadedFor(override, List.of(source1, source2));
+        final List<ChunkedEntry> secondRun = uploadedFor(override, List.of(source1, source2));
+
+        // Re-processing the same page yields byte-identical stamped copies, so a re-run is a safe idempotent upsert.
+        assertThat(firstRun).isEqualTo(secondRun);
+        assertThat(firstRun).containsExactly(withClientId(source1, override), withClientId(source2, override));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<ChunkedEntry> uploadedFor(final String override, final List<ChunkedEntry> page) {
+        final DocumentUploader uploader = mock(DocumentUploader.class);
+        final IndexCopier copier = spy(new IndexCopier(mock(SearchClient.class), uploader, 5, 1, 0, override));
+        doReturn(page).when(copier).readPage(any(), any());
+        copier.copyAllDocuments(null);
+        final ArgumentCaptor<List<ChunkedEntry>> uploaded = ArgumentCaptor.forClass(List.class);
+        verify(uploader).upload(uploaded.capture());
+        return uploaded.getValue();
+    }
+
     private static ChunkedEntry chunk(final String id) {
         return chunkWithVector(id, Collections.nCopies(IndexCopier.VECTOR_DIMENSIONS, 0.0f));
     }
 
     private static ChunkedEntry chunkWithVector(final String id, final List<Float> vector) {
         return ChunkedEntry.builder().id(id).chunkVector(vector).build();
+    }
+
+    /** A chunk with every field populated, a valid-size vector, and no clientId set (as a legacy source row). */
+    private static ChunkedEntry populatedChunk(final String id) {
+        return ChunkedEntry.builder()
+                .id(id)
+                .documentId("doc-" + id)
+                .chunk("content of " + id)
+                .chunkVector(Collections.nCopies(IndexCopier.VECTOR_DIMENSIONS, 0.1f))
+                .documentFileName("file-" + id + ".pdf")
+                .pageNumber(2)
+                .chunkIndex(4)
+                .documentFileUrl("https://store/file-" + id + ".pdf")
+                .customMetadata(List.of(new KeyValuePair("k", "v")))
+                .build();
+    }
+
+    /** The source chunk with only its clientId replaced — every other field preserved. */
+    private static ChunkedEntry withClientId(final ChunkedEntry source, final String clientId) {
+        return ChunkedEntry.builder()
+                .id(source.id())
+                .documentId(source.documentId())
+                .chunk(source.chunk())
+                .chunkVector(source.chunkVector())
+                .documentFileName(source.documentFileName())
+                .pageNumber(source.pageNumber())
+                .chunkIndex(source.chunkIndex())
+                .documentFileUrl(source.documentFileUrl())
+                .customMetadata(source.customMetadata())
+                .clientId(clientId)
+                .build();
     }
 }

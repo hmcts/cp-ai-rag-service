@@ -23,6 +23,7 @@ import com.azure.data.tables.models.TableErrorCode;
 import com.azure.data.tables.models.TableServiceError;
 import com.azure.data.tables.models.TableServiceException;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 /**
  * Unit tests for {@link TableCopier} with the source/target {@link TableClient}s mocked — no live service.
@@ -153,6 +154,26 @@ class TableCopierTest {
         verify(source, never()).upsertEntity(any());
         verify(source, never()).createEntity(any());
         verify(source, never()).deleteEntity(any());
+    }
+
+    @Test
+    void upsertsRowsUnderTheOverridePartitionKeyPreservingRowKeyAndDataColumns() {
+        // Closes the loop at the upsert boundary: with an override every copied row lands under the fixed
+        // partition key while its RowKey and data columns are preserved verbatim (no production change needed).
+        final TableClient source = sourceWith(entity("old-pk-1", "rk-1"), entity("old-pk-2", "rk-2"));
+        final TableClient target = mock(TableClient.class);
+
+        new TableCopier(source, target, OVERRIDE, 0).copyAllRows();
+
+        final ArgumentCaptor<TableEntity> upserted = ArgumentCaptor.forClass(TableEntity.class);
+        verify(target, times(2)).upsertEntity(upserted.capture());
+        assertThat(upserted.getAllValues())
+                .allSatisfy(row -> {
+                    assertThat(row.getPartitionKey()).isEqualTo(OVERRIDE);
+                    assertThat(row.getProperties()).containsEntry("DocumentStatus", "INGESTED");
+                })
+                .extracting(TableEntity::getRowKey)
+                .containsExactly("rk-1", "rk-2");
     }
 
     @Test

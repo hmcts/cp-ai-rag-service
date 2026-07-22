@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
  * or unrecognised tool name prints the usage (listing both tools and their argument signatures) and fails.</p>
  *
  * <pre>
- *   index  &lt;endpoint&gt; &lt;sourceIndex&gt; &lt;targetIndex&gt; &lt;aliasName&gt; &lt;schemaResourcePath&gt; [workers] [maxRecords] [startAfterId]
+ *   index  &lt;endpoint&gt; &lt;sourceIndex&gt; &lt;targetIndex&gt; &lt;aliasName&gt; &lt;schemaResourcePath&gt; [workers] [maxRecords] [startAfterId] [clientIdOverride]
  *   table  &lt;sourceTable&gt; &lt;targetTable&gt; [partitionKeyOverride] [maxRecords]
  *
  *   # via the packaged jar / container (ENTRYPOINT is "java -jar app.jar")
@@ -33,7 +33,7 @@ public final class MigrationTool {
 
     private static final String USAGE = """
             Usage: <tool> <tool-args...>  (no default — name the tool explicitly)
-              index  <endpoint> <sourceIndex> <targetIndex> <aliasName> <schemaResourcePath> [workers] [maxRecords] [startAfterId]
+              index  <endpoint> <sourceIndex> <targetIndex> <aliasName> <schemaResourcePath> [workers] [maxRecords] [startAfterId] [clientIdOverride]
               table  <sourceTable> <targetTable> [partitionKeyOverride] [maxRecords]""";
 
     private MigrationTool() {

@@ -51,6 +51,8 @@ final class IndexCopier {
     private final int pageSize;
     private final int workers;
     private final long maxRecords; // <= 0 means copy everything; otherwise a global cap (sample copy)
+    /** Fixed clientId stamped onto every copied chunk before upload, or {@code null} to copy verbatim. */
+    private final String clientIdOverride;
 
     // Shared across worker threads for aggregate progress / ETA.
     private final AtomicLong submitted = new AtomicLong();
@@ -59,16 +61,27 @@ final class IndexCopier {
     private long baseProcessed;  // docs already copied before this run (resume), for the ETA
     private long startNanos;     // set before workers start -> happens-before via task submission
 
+    /** Convenience constructor for a verbatim copy — no clientId is stamped onto the copies. */
     IndexCopier(final SearchClient source,
                 final DocumentUploader uploader,
                 final int pageSize,
                 final int workers,
                 final long maxRecords) {
+        this(source, uploader, pageSize, workers, maxRecords, null);
+    }
+
+    IndexCopier(final SearchClient source,
+                final DocumentUploader uploader,
+                final int pageSize,
+                final int workers,
+                final long maxRecords,
+                final String clientIdOverride) {
         this.source = source;
         this.uploader = uploader;
         this.pageSize = pageSize;
         this.workers = Math.max(1, workers);
         this.maxRecords = maxRecords;
+        this.clientIdOverride = clientIdOverride;
     }
 
     private boolean limited() {
@@ -154,11 +167,39 @@ final class IndexCopier {
         }
         final long take = claim(valid.size()); // bumps submitted; trims to the remaining cap when limited
         if (take > 0) {
+            final List<ChunkedEntry> claimed = take == valid.size() ? valid : valid.subList(0, (int) take);
             // The uploader is either async (buffered sender) or sync (per-page, memory-bounded); either way a
             // transient per-doc error is counted, not fatal.
-            uploader.upload(take == valid.size() ? valid : valid.subList(0, (int) take));
+            uploader.upload(stampForUpload(claimed));
         }
         return take < valid.size();
+    }
+
+    /**
+     * Maps the claimed slice to the entries handed to the uploader. When a fixed clientId is configured each
+     * entry is copied with that value set; with no override configured the entries are copied verbatim.
+     */
+    private List<ChunkedEntry> stampForUpload(final List<ChunkedEntry> entries) {
+        if (clientIdOverride == null) {
+            return entries; // no override — copy verbatim
+        }
+        return entries.stream().map(this::withClientId).toList();
+    }
+
+    /** Copies an entry with the configured clientId set and every other field preserved. */
+    private ChunkedEntry withClientId(final ChunkedEntry source) {
+        return ChunkedEntry.builder()
+                .id(source.id())
+                .documentId(source.documentId())
+                .chunk(source.chunk())
+                .chunkVector(source.chunkVector())
+                .documentFileName(source.documentFileName())
+                .pageNumber(source.pageNumber())
+                .chunkIndex(source.chunkIndex())
+                .documentFileUrl(source.documentFileUrl())
+                .customMetadata(source.customMetadata())
+                .clientId(clientIdOverride)
+                .build();
     }
 
     private void recordSkips(final long pageSkipped, final String label) {
