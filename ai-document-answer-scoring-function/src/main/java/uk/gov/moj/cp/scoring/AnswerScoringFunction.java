@@ -80,7 +80,7 @@ public class AnswerScoringFunction {
 
             if(null != scoringPayload.transactionId()) {
                 LOGGER.info("Recording groundedness score against transaction id: {}", scoringPayload.transactionId());
-                answerGenerationTableService.recordGroundednessScore(scoringPayload.transactionId(), modelScore.groundednessScore());
+                answerGenerationTableService.recordGroundednessScore(null, scoringPayload.transactionId(), modelScore.groundednessScore());
             }
 
             LOGGER.info("Answer scoring processing completed successfully for message with score : {}", modelScore.groundednessScore());

@@ -105,7 +105,7 @@ class GetAnswerGenerationResultFunctionTest {
                 "LLM response", ANSWER_GENERATED.name(), null, OffsetDateTime.now(), 123L);
 
         when(request.getQueryParameters()).thenReturn(Map.of(PARAM_WITH_CHUNKED_ENTRIES, "true"));
-        when(tableStorageService.getGeneratedAnswer(transactionId)).thenReturn(generatedAnswer);
+        when(tableStorageService.getGeneratedAnswer(null, transactionId)).thenReturn(generatedAnswer);
         when(blobPersistenceInputChunksService.readBlob(eq(getInputChunksFilename(fromString(transactionId))), any())).thenReturn(new InputChunksPayload(List.of(builder()
                 .id(randomUUID().toString()).chunk("").documentFileName("doc2").pageNumber(2).documentId(randomUUID().toString()).build())));
 
@@ -137,7 +137,7 @@ class GetAnswerGenerationResultFunctionTest {
         when(generatedAnswer.getResponseGenerationDuration()).thenReturn(123L);
         when(request.getQueryParameters()).thenReturn(Map.of(PARAM_WITH_CHUNKED_ENTRIES, "false"));
 
-        when(tableStorageService.getGeneratedAnswer(transactionId)).thenReturn(generatedAnswer);
+        when(tableStorageService.getGeneratedAnswer(null, transactionId)).thenReturn(generatedAnswer);
 
         function.run(request, transactionId, context);
 
@@ -157,7 +157,7 @@ class GetAnswerGenerationResultFunctionTest {
         when(generatedAnswer.getTransactionId()).thenReturn(transactionId);
         when(generatedAnswer.getAnswerStatus()).thenReturn(ANSWER_GENERATION_PENDING.name());
 
-        when(tableStorageService.getGeneratedAnswer(transactionId)).thenReturn(generatedAnswer);
+        when(tableStorageService.getGeneratedAnswer(null, transactionId)).thenReturn(generatedAnswer);
 
         function.run(request, transactionId, context);
 
@@ -174,7 +174,7 @@ class GetAnswerGenerationResultFunctionTest {
     void shouldReturnNotFoundWhenNoAnswerExists() throws EntityRetrievalException {
         final String transactionId = randomUUID().toString();
 
-        when(tableStorageService.getGeneratedAnswer(transactionId)).thenReturn(null);
+        when(tableStorageService.getGeneratedAnswer(null, transactionId)).thenReturn(null);
 
         function.run(request, transactionId, context);
 
@@ -185,7 +185,7 @@ class GetAnswerGenerationResultFunctionTest {
     void shouldReturnInternalServerErrorOnException() throws EntityRetrievalException {
         final String transactionId = randomUUID().toString();
 
-        when(tableStorageService.getGeneratedAnswer(transactionId)).thenThrow(new RuntimeException("DB failure"));
+        when(tableStorageService.getGeneratedAnswer(null, transactionId)).thenThrow(new RuntimeException("DB failure"));
 
         function.run(request, transactionId, context);
 

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -47,33 +48,33 @@ public class DocumentUploadServiceTest {
 
         final DocumentIngestionOutcome outcome = mock(DocumentIngestionOutcome.class);
         when(outcome.getStatus()).thenReturn("COMPLETED");
-        when(tableService.getDocumentById(documentId)).thenReturn(outcome);
+        when(tableService.getDocumentById(null, documentId)).thenReturn(outcome);
 
-        final boolean result = documentUploadService.isDocumentAlreadyProcessed(documentId);
+        final boolean result = documentUploadService.isDocumentAlreadyProcessed(null, documentId);
 
         assertThat(result, is(true));
-        verify(tableService).getDocumentById(documentId);
+        verify(tableService).getDocumentById(null, documentId);
     }
 
     @Test
     void shouldReturnFalse_whenDocumentDoesNotExist() throws Exception {
         final String documentId = "doc-123";
 
-        when(tableService.getDocumentById(documentId)).thenReturn(null);
+        when(tableService.getDocumentById(null, documentId)).thenReturn(null);
 
-        final boolean result = documentUploadService.isDocumentAlreadyProcessed(documentId);
+        final boolean result = documentUploadService.isDocumentAlreadyProcessed(null, documentId);
 
         assertThat(result, is(false));
-        verify(tableService).getDocumentById(documentId);
+        verify(tableService).getDocumentById(null, documentId);
     }
 
     @Test
     void shouldThrowDataRetrievalException_whenEntityRetrievalFails() throws Exception {
         final String documentId = "doc-123";
 
-        when(tableService.getDocumentById(documentId)).thenThrow(new EntityRetrievalException("error"));
+        when(tableService.getDocumentById(null, documentId)).thenThrow(new EntityRetrievalException("error"));
 
-        assertThrows(DataRetrievalException.class, () -> documentUploadService.isDocumentAlreadyProcessed(documentId));
+        assertThrows(DataRetrievalException.class, () -> documentUploadService.isDocumentAlreadyProcessed(null, documentId));
     }
 
     @Test
@@ -85,7 +86,7 @@ public class DocumentUploadServiceTest {
 
         documentUploadService.addDocumentAwaitingUpload(documentId, documentName, metadataMap, supersededDocuments);
 
-        verify(tableService).insert(eq(documentId), eq(documentName), eq("{\"k1\":\"v1\"}"), eq(supersededDocuments), eq(AWAITING_UPLOAD.name()), eq(AWAITING_UPLOAD_REASON));
+        verify(tableService).insert(isNull(), eq(documentId), eq(documentName), eq("{\"k1\":\"v1\"}"), eq(supersededDocuments), eq(AWAITING_UPLOAD.name()), eq(AWAITING_UPLOAD_REASON));
     }
 
     @Test
@@ -96,7 +97,7 @@ public class DocumentUploadServiceTest {
 
         documentUploadService.updateDocumentFileSizeOverLimit(documentId, documentSize, maxFileSize);
 
-        verify(tableService).upsertDocument(documentId, FILE_SIZE_OVER_LIMIT.name(), "Document Uploaded with size=1500 is over the configured size limit=1200");
+        verify(tableService).upsertDocument(null, documentId, FILE_SIZE_OVER_LIMIT.name(), "Document Uploaded with size=1500 is over the configured size limit=1200");
     }
 
     @Test
@@ -106,10 +107,23 @@ public class DocumentUploadServiceTest {
         final Map<String, String> metadataMap = Map.of("k1", "v1");
         final String supersededDocuments = "doc1,doc2";
 
-        doThrow(new DuplicateRecordException("duplicate")).when(tableService).insert(any(), any(), any(), any(), any(), any());
+        doThrow(new DuplicateRecordException("duplicate")).when(tableService).insert(any(), any(), any(), any(), any(), any(), any());
 
         assertThrows(DuplicateRecordException.class, () -> documentUploadService.addDocumentAwaitingUpload(documentId, documentName, metadataMap, supersededDocuments));
 
-        verify(tableService).insert(eq(documentId), eq(documentName), anyString(), anyString(),anyString(), anyString());
+        verify(tableService).insert(isNull(), eq(documentId), eq(documentName), anyString(), anyString(),anyString(), anyString());
+    }
+
+    @Test
+    void shouldScopeDedupLookupToTheSuppliedClient() throws Exception {
+        final String clientId = "11111111-1111-1111-1111-111111111111";
+        final String documentId = "doc-123";
+        final DocumentIngestionOutcome outcome = mock(DocumentIngestionOutcome.class);
+        when(tableService.getDocumentById(clientId, documentId)).thenReturn(outcome);
+
+        final boolean result = documentUploadService.isDocumentAlreadyProcessed(clientId, documentId);
+
+        assertThat(result, is(true));
+        verify(tableService).getDocumentById(clientId, documentId);
     }
 }

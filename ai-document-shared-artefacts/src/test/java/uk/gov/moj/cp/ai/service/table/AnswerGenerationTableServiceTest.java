@@ -34,7 +34,9 @@ import uk.gov.moj.cp.ai.exception.EtagMismatchException;
 import uk.gov.moj.cp.ai.idempotency.IdempotencyStatusStore;
 import uk.gov.moj.cp.ai.idempotency.LeaseSnapshot;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 import com.azure.data.tables.models.TableEntity;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,7 +64,7 @@ class AnswerGenerationTableServiceTest {
     @Test
     @DisplayName("Successfully saves answer generation request")
     void successfullySavesAnswerGenerationRequest() throws DuplicateRecordException {
-        service.saveAnswerGenerationRequest("tx1", "query", "prompt", ANSWER_GENERATED);
+        service.saveAnswerGenerationRequest(null, "tx1", "query", "prompt", ANSWER_GENERATED);
         verify(tableService).insertIntoTable(any(TableEntity.class));
     }
 
@@ -71,7 +73,7 @@ class AnswerGenerationTableServiceTest {
     void throwsExceptionWhenSaveFailsDueToDuplicateRecord() throws DuplicateRecordException {
         doThrow(new DuplicateRecordException("Insert failed")).when(tableService).insertIntoTable(any(TableEntity.class));
         assertThrows(DuplicateRecordException.class, () ->
-                service.saveAnswerGenerationRequest("tx2", "query", "prompt", ANSWER_GENERATED));
+                service.saveAnswerGenerationRequest(null, "tx2", "query", "prompt", ANSWER_GENERATED));
     }
 
     @Test
@@ -90,7 +92,7 @@ class AnswerGenerationTableServiceTest {
         entity.addProperty(TC_RESPONSE_GENERATION_DURATION, null);
         when(tableService.getFirstDocumentMatching(transactionId, transactionId)).thenReturn(entity);
 
-        GeneratedAnswer answer = service.getGeneratedAnswer(transactionId);
+        GeneratedAnswer answer = service.getGeneratedAnswer(null, transactionId);
         assertNotNull(answer);
         assertEquals(transactionId, answer.getTransactionId());
         assertEquals("query", answer.getUserQuery());
@@ -102,7 +104,7 @@ class AnswerGenerationTableServiceTest {
     @DisplayName("Returns null when no matching entity is found")
     void returnsNullWhenNoMatchingEntityIsFound() throws EntityRetrievalException {
         when(tableService.getFirstDocumentMatching("tx4", "tx4")).thenReturn(null);
-        assertNull(service.getGeneratedAnswer("tx4"));
+        assertNull(service.getGeneratedAnswer(null, "tx4"));
     }
 
     @Test
@@ -110,7 +112,7 @@ class AnswerGenerationTableServiceTest {
     void handlesNullPropertiesGracefullyWhenMappingEntityToGeneratedAnswer() throws EntityRetrievalException {
         TableEntity entity = new TableEntity("tx5", "tx5");
         when(tableService.getFirstDocumentMatching("tx5", "tx5")).thenReturn(entity);
-        GeneratedAnswer answer = service.getGeneratedAnswer("tx5");
+        GeneratedAnswer answer = service.getGeneratedAnswer(null, "tx5");
         assertNotNull(answer);
         assertNull(answer.getTransactionId());
         assertNull(answer.getUserQuery());
@@ -130,7 +132,7 @@ class AnswerGenerationTableServiceTest {
     @Test
     @DisplayName("Fenced terminal write carries the full row and the claim etag")
     void fencedTerminalWriteCarriesFullRowAndClaimEtag() {
-        service.upsertTerminalFenced("tx7", "query", "prompt", "chunks.json", "answer",
+        service.upsertTerminalFenced(null, "tx7", "query", "prompt", "chunks.json", "answer",
                 ANSWER_GENERATED, null, OffsetDateTime.now(), 42L, "W/\"claimed\"");
 
         final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
@@ -153,7 +155,7 @@ class AnswerGenerationTableServiceTest {
         when(entity.getETag()).thenReturn("W/\"read\"");
         when(tableService.getFirstDocumentMatching("tx8", "tx8")).thenReturn(entity);
 
-        final LeaseSnapshot snapshot = service.readForClaim("tx8");
+        final LeaseSnapshot snapshot = service.readForClaim(null, "tx8");
 
         assertEquals(new LeaseSnapshot("ANSWER_GENERATION_PENDING", "W/\"read\"", expiry, "owner-1"), snapshot);
     }
@@ -162,7 +164,7 @@ class AnswerGenerationTableServiceTest {
     @DisplayName("readForClaim returns null when the row is missing")
     void readForClaimReturnsNullWhenRowMissing() throws EntityRetrievalException {
         when(tableService.getFirstDocumentMatching("tx9", "tx9")).thenReturn(null);
-        assertNull(service.readForClaim("tx9"));
+        assertNull(service.readForClaim(null, "tx9"));
     }
 
     @Test
@@ -180,7 +182,7 @@ class AnswerGenerationTableServiceTest {
         final OffsetDateTime expiry = OffsetDateTime.parse("2026-07-14T12:10:00Z");
         when(tableService.updateEntityIfUnchanged(any(TableEntity.class), eq("W/\"read\""))).thenReturn("W/\"claimed\"");
 
-        final String newEtag = service.claimLease("tx10", "W/\"read\"", "owner-1", expiry);
+        final String newEtag = service.claimLease(null, "tx10", "W/\"read\"", "owner-1", expiry);
 
         assertEquals("W/\"claimed\"", newEtag);
         final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
@@ -198,7 +200,7 @@ class AnswerGenerationTableServiceTest {
         final OffsetDateTime expiry = OffsetDateTime.parse("2026-07-14T12:10:00Z");
         when(tableService.insertReturningEtag(any(TableEntity.class))).thenReturn("W/\"created\"");
 
-        final String etag = service.createClaimedRow("tx11", "owner-1", expiry);
+        final String etag = service.createClaimedRow(null, "tx11", "owner-1", expiry);
 
         assertEquals("W/\"created\"", etag);
         final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
@@ -212,7 +214,7 @@ class AnswerGenerationTableServiceTest {
     @Test
     @DisplayName("releaseLease marks the lease reclaimable via the epoch sentinel")
     void releaseLeaseMarksLeaseReclaimable() {
-        service.releaseLease("tx12", "W/\"claimed\"");
+        service.releaseLease(null, "tx12", "W/\"claimed\"");
 
         final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
         verify(tableService).updateEntityIfUnchanged(captor.capture(), eq("W/\"claimed\""));
@@ -225,9 +227,116 @@ class AnswerGenerationTableServiceTest {
         doThrow(new EtagMismatchException("etag changed"))
                 .when(tableService).updateEntityIfUnchanged(any(TableEntity.class), any());
 
-        assertDoesNotThrow(() -> service.releaseLease("tx13", "W/\"stale\""));
+        assertDoesNotThrow(() -> service.releaseLease(null, "tx13", "W/\"stale\""));
 
         verify(tableService).updateEntityIfUnchanged(any(TableEntity.class), eq("W/\"stale\""));
+    }
+
+    // ---- Client-aware partition keying ----
+
+    private static final String CLIENT_A = "11111111-1111-1111-1111-111111111111";
+    private static final String CLIENT_B = "22222222-2222-2222-2222-222222222222";
+
+    @Test
+    @DisplayName("saveAnswerGenerationRequest writes the row under the clientId partition")
+    void saveRequestPartitionsByClientId() throws DuplicateRecordException {
+        service.saveAnswerGenerationRequest(CLIENT_A, "tx", "query", "prompt", ANSWER_GENERATED);
+
+        final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
+        verify(tableService).insertIntoTable(captor.capture());
+        assertEquals(CLIENT_A, captor.getValue().getPartitionKey());
+        assertEquals("tx", captor.getValue().getRowKey());
+    }
+
+    @Test
+    @DisplayName("Two clients sharing one transactionId are stored under distinct partition keys")
+    void twoClientsSharingTransactionIdCoexistUnderDistinctPartitions() throws DuplicateRecordException {
+        service.saveAnswerGenerationRequest(CLIENT_A, "shared-tx", "q", "p", ANSWER_GENERATED);
+        service.saveAnswerGenerationRequest(CLIENT_B, "shared-tx", "q", "p", ANSWER_GENERATED);
+
+        final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
+        verify(tableService, org.mockito.Mockito.times(2)).insertIntoTable(captor.capture());
+        final List<TableEntity> entities = captor.getAllValues();
+        assertEquals(CLIENT_A, entities.get(0).getPartitionKey());
+        assertEquals(CLIENT_B, entities.get(1).getPartitionKey());
+        assertEquals(entities.get(0).getRowKey(), entities.get(1).getRowKey());
+    }
+
+    @Test
+    @DisplayName("getGeneratedAnswer scopes the lookup to the supplied client partition")
+    void getGeneratedAnswerScopesToClientPartition() throws EntityRetrievalException {
+        service.getGeneratedAnswer(CLIENT_A, "tx");
+
+        verify(tableService).getFirstDocumentMatching(CLIENT_A, "tx");
+    }
+
+    @Test
+    @DisplayName("readForClaim scopes the lookup to the supplied client partition")
+    void readForClaimScopesToClientPartition() throws EntityRetrievalException {
+        service.readForClaim(CLIENT_A, "tx");
+
+        verify(tableService).getFirstDocumentMatching(CLIENT_A, "tx");
+    }
+
+    @Test
+    @DisplayName("upsertTerminalFenced writes the fenced terminal row into the supplied client partition")
+    void upsertTerminalFencedPartitionsByClientId() {
+        service.upsertTerminalFenced(CLIENT_A, "tx", "query", "prompt", "chunks.json", "answer",
+                ANSWER_GENERATED, null, OffsetDateTime.now(), 42L, "W/\"claimed\"");
+
+        final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
+        verify(tableService).updateEntityIfUnchanged(captor.capture(), eq("W/\"claimed\""));
+        assertEquals(CLIENT_A, captor.getValue().getPartitionKey());
+    }
+
+    @Test
+    @DisplayName("recordGroundednessScore writes the score into the supplied client partition")
+    void recordGroundednessScorePartitionsByClientId() {
+        service.recordGroundednessScore(CLIENT_A, "tx", new BigDecimal("0.87"));
+
+        final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
+        verify(tableService).upsertIntoTable(captor.capture());
+        assertEquals(CLIENT_A, captor.getValue().getPartitionKey());
+    }
+
+    @Test
+    @DisplayName("claimLease writes the lease into the supplied client partition")
+    void claimLeasePartitionsByClientId() {
+        service.claimLease(CLIENT_A, "tx", "W/\"read\"", "owner-1", OffsetDateTime.parse("2026-07-14T12:10:00Z"));
+
+        final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
+        verify(tableService).updateEntityIfUnchanged(captor.capture(), eq("W/\"read\""));
+        assertEquals(CLIENT_A, captor.getValue().getPartitionKey());
+    }
+
+    @Test
+    @DisplayName("createClaimedRow writes the defensive row into the supplied client partition")
+    void createClaimedRowPartitionsByClientId() throws DuplicateRecordException {
+        service.createClaimedRow(CLIENT_A, "tx", "owner-1", OffsetDateTime.parse("2026-07-14T12:10:00Z"));
+
+        final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
+        verify(tableService).insertReturningEtag(captor.capture());
+        assertEquals(CLIENT_A, captor.getValue().getPartitionKey());
+    }
+
+    @Test
+    @DisplayName("releaseLease marks the reclaimable sentinel in the supplied client partition")
+    void releaseLeasePartitionsByClientId() {
+        service.releaseLease(CLIENT_A, "tx", "W/\"claimed\"");
+
+        final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
+        verify(tableService).updateEntityIfUnchanged(captor.capture(), eq("W/\"claimed\""));
+        assertEquals(CLIENT_A, captor.getValue().getPartitionKey());
+    }
+
+    @Test
+    @DisplayName("A blank clientId falls back to the row key as the partition key")
+    void blankClientIdFallsBackToRowKeyPartition() throws DuplicateRecordException {
+        service.saveAnswerGenerationRequest("", "tx", "query", "prompt", ANSWER_GENERATED);
+
+        final ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
+        verify(tableService).insertIntoTable(captor.capture());
+        assertEquals("tx", captor.getValue().getPartitionKey());
     }
 }
 

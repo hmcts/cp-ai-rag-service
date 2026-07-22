@@ -10,8 +10,9 @@ import java.time.ZoneOffset;
 
 /**
  * Flow-specific persistence operations the {@link IdempotencyGuard} needs against a status
- * table whose rows are keyed PartitionKey == RowKey == key. Implemented by the existing
- * status-table services.
+ * table. Rows are keyed on {@code (clientId, key)}: the partition key is the {@code clientId}
+ * namespace and the row key is the {@code key}. A null or blank {@code clientId} means legacy
+ * keying (PartitionKey == RowKey == key). Implemented by the existing status-table services.
  */
 public interface IdempotencyStatusStore {
 
@@ -21,8 +22,8 @@ public interface IdempotencyStatusStore {
      */
     OffsetDateTime LEASE_RELEASED = Instant.EPOCH.atOffset(ZoneOffset.UTC);
 
-    /** Current status/etag/lease state for the key, or {@code null} if the row is missing. */
-    LeaseSnapshot readForClaim(String key) throws EntityRetrievalException;
+    /** Current status/etag/lease state for the (clientId, key) row, or {@code null} if the row is missing. */
+    LeaseSnapshot readForClaim(String clientId, String key) throws EntityRetrievalException;
 
     /** Whether this status value means the work is already done (success or exhausted failure). */
     boolean isTerminal(String status);
@@ -33,7 +34,7 @@ public interface IdempotencyStatusStore {
      * @return the row's new ETag — the winner's fencing token
      * @throws EtagMismatchException if another worker changed the row first (claim lost)
      */
-    String claimLease(String key, String expectedEtag, String owner, OffsetDateTime expiresAt);
+    String claimLease(String clientId, String key, String expectedEtag, String owner, OffsetDateTime expiresAt);
 
     /**
      * Defensive path for a missing status row: creates a minimal non-terminal row with the
@@ -41,12 +42,12 @@ public interface IdempotencyStatusStore {
      *
      * @return the created row's ETag
      */
-    String createClaimedRow(String key, String owner, OffsetDateTime expiresAt) throws DuplicateRecordException;
+    String createClaimedRow(String clientId, String key, String owner, OffsetDateTime expiresAt) throws DuplicateRecordException;
 
     /**
      * Best-effort release: marks the lease reclaimable ({@link #LEASE_RELEASED}) via a
      * conditional write on {@code etag}. A rejection (someone reclaimed) or any other
      * failure is swallowed — the lease then simply expires by TTL.
      */
-    void releaseLease(String key, String etag);
+    void releaseLease(String clientId, String key, String etag);
 }

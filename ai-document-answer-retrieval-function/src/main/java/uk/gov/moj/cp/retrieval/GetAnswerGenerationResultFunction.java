@@ -85,7 +85,7 @@ public class GetAnswerGenerationResultFunction {
                 return generateResponse(request, BAD_REQUEST, errorMessage);
             }
 
-            final GeneratedAnswer generatedAnswer = answerGenerationTableService.getGeneratedAnswer(transactionId);
+            final GeneratedAnswer generatedAnswer = answerGenerationTableService.getGeneratedAnswer(null, transactionId);
 
             if (nonNull(generatedAnswer)) {
                 final boolean withChunkedEntries = parseBoolean(request.getQueryParameters().getOrDefault(PARAM_WITH_CHUNKED_ENTRIES, "false"));

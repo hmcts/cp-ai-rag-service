@@ -45,9 +45,9 @@ public class DocumentIngestionOutcomeTableService implements IdempotencyStatusSt
         this.tableService = tableService;
     }
 
-    public void insert(final String documentId, final String documentName, final String metadata, final String supersededDocuments,
+    public void insert(final String clientId, final String documentId, final String documentName, final String metadata, final String supersededDocuments,
                        final String status, final String reason) throws DuplicateRecordException {
-        final TableEntity entity = new TableEntity(documentId, documentId);
+        final TableEntity entity = new TableEntity(partitionKey(clientId, documentId), documentId);
         entity.addProperty(TC_DOCUMENT_FILE_NAME, documentName);
         entity.addProperty(TC_DOCUMENT_ID, documentId);
         entity.addProperty(TC_DOCUMENT_METADATA, metadata);
@@ -60,10 +60,10 @@ public class DocumentIngestionOutcomeTableService implements IdempotencyStatusSt
         LOGGER.info("Document upload record INSERTED into table with status '{}' for document '{}' with ID '{}'", status, documentName, documentId);
     }
 
-    public void upsertDocument(final String documentId, final String status, final String reason) {
+    public void upsertDocument(final String clientId, final String documentId, final String status, final String reason) {
 
         try {
-            final TableEntity entity = tableService.getFirstDocumentMatching(documentId, documentId);
+            final TableEntity entity = tableService.getFirstDocumentMatching(partitionKey(clientId, documentId), documentId);
 
             entity.addProperty(TC_DOCUMENT_STATUS, status);
             entity.addProperty(TC_REASON, reason);
@@ -82,8 +82,8 @@ public class DocumentIngestionOutcomeTableService implements IdempotencyStatusSt
      * no read-modify-write — MERGE preserves the other columns by definition. Throws
      * {@link uk.gov.moj.cp.ai.exception.EtagMismatchException} if the lease was reclaimed.
      */
-    public void recordOutcomeFenced(final String documentId, final String status, final String reason, final String etag) {
-        final TableEntity entity = new TableEntity(documentId, documentId);
+    public void recordOutcomeFenced(final String clientId, final String documentId, final String status, final String reason, final String etag) {
+        final TableEntity entity = new TableEntity(partitionKey(clientId, documentId), documentId);
         entity.addProperty(TC_DOCUMENT_STATUS, status);
         entity.addProperty(TC_REASON, reason);
 
@@ -93,8 +93,8 @@ public class DocumentIngestionOutcomeTableService implements IdempotencyStatusSt
     }
 
     @Override
-    public LeaseSnapshot readForClaim(final String key) throws EntityRetrievalException {
-        final TableEntity entity = tableService.getFirstDocumentMatching(key, key);
+    public LeaseSnapshot readForClaim(final String clientId, final String key) throws EntityRetrievalException {
+        final TableEntity entity = tableService.getFirstDocumentMatching(partitionKey(clientId, key), key);
         if (null == entity) {
             return null;
         }
@@ -114,16 +114,16 @@ public class DocumentIngestionOutcomeTableService implements IdempotencyStatusSt
     }
 
     @Override
-    public String claimLease(final String key, final String expectedEtag, final String owner, final OffsetDateTime expiresAt) {
-        final TableEntity entity = new TableEntity(key, key);
+    public String claimLease(final String clientId, final String key, final String expectedEtag, final String owner, final OffsetDateTime expiresAt) {
+        final TableEntity entity = new TableEntity(partitionKey(clientId, key), key);
         entity.addProperty(TC_LEASE_OWNER, owner);
         entity.addProperty(TC_LEASE_EXPIRES_AT, expiresAt);
         return tableService.updateEntityIfUnchanged(entity, expectedEtag);
     }
 
     @Override
-    public String createClaimedRow(final String key, final String owner, final OffsetDateTime expiresAt) throws DuplicateRecordException {
-        final TableEntity entity = new TableEntity(key, key);
+    public String createClaimedRow(final String clientId, final String key, final String owner, final OffsetDateTime expiresAt) throws DuplicateRecordException {
+        final TableEntity entity = new TableEntity(partitionKey(clientId, key), key);
         entity.addProperty(TC_DOCUMENT_ID, key);
         entity.addProperty(TC_DOCUMENT_STATUS, DocumentIngestionStatus.AWAITING_INGESTION.name());
         entity.addProperty(TC_LEASE_OWNER, owner);
@@ -132,9 +132,9 @@ public class DocumentIngestionOutcomeTableService implements IdempotencyStatusSt
     }
 
     @Override
-    public void releaseLease(final String key, final String etag) {
+    public void releaseLease(final String clientId, final String key, final String etag) {
         try {
-            final TableEntity entity = new TableEntity(key, key);
+            final TableEntity entity = new TableEntity(partitionKey(clientId, key), key);
             entity.addProperty(TC_LEASE_EXPIRES_AT, LEASE_RELEASED);
             tableService.updateEntityIfUnchanged(entity, etag);
         } catch (Exception e) {
@@ -142,12 +142,21 @@ public class DocumentIngestionOutcomeTableService implements IdempotencyStatusSt
         }
     }
 
-    public DocumentIngestionOutcome getDocumentById(String documentId) throws EntityRetrievalException {
-        final TableEntity entity = tableService.getFirstDocumentMatching(documentId, documentId);
+    public DocumentIngestionOutcome getDocumentById(final String clientId, final String documentId) throws EntityRetrievalException {
+        final TableEntity entity = tableService.getFirstDocumentMatching(partitionKey(clientId, documentId), documentId);
         if (null == entity) {
             return null;
         }
         return getDocumentIngestionOutcome(entity);
+    }
+
+    /**
+     * Effective partition key for a {@code (clientId, key)} row. When a {@code clientId} is present
+     * it becomes the partition, isolating rows per client; a null or blank {@code clientId} falls
+     * back to the row key as the partition (legacy PK == RK == key layout).
+     */
+    private static String partitionKey(final String clientId, final String key) {
+        return isNullOrEmpty(clientId) ? key : clientId;
     }
 
     private String getPropertyAsString(final Object value) {

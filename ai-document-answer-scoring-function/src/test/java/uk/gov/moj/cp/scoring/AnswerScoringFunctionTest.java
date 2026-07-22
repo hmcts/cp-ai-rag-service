@@ -61,7 +61,7 @@ class AnswerScoringFunctionTest {
 
         verify(scoringServiceMock).evaluateGroundedness(scoringPayload.llmResponse(), scoringPayload.userQuery(), scoringPayload.queryPrompt(), List.of());
         verify(publishScoreService).publishGroundednessScore(llmScore, scoringPayload.userQuery());
-        verify(answerGenerationTableService).recordGroundednessScore(scoringPayload.transactionId(), llmScore);
+        verify(answerGenerationTableService).recordGroundednessScore(null, scoringPayload.transactionId(), llmScore);
     }
 
     @Test

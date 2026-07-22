@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNotNull;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -100,10 +101,10 @@ class AnswerGenerationFunctionTest {
 
     /** The status row is claimable: PENDING, no live lease; the claim returns CLAIM_ETAG. */
     private void stubClaimableRow(final UUID transactionId) throws Exception {
-        when(mockAnswerGenerationTableService.readForClaim(transactionId.toString()))
+        when(mockAnswerGenerationTableService.readForClaim(null, transactionId.toString()))
                 .thenReturn(new LeaseSnapshot("ANSWER_GENERATION_PENDING", READ_ETAG, null, null));
         when(mockAnswerGenerationTableService.claimLease(
-                eq(transactionId.toString()), eq(READ_ETAG), anyString(), any(OffsetDateTime.class)))
+                isNull(), eq(transactionId.toString()), eq(READ_ETAG), anyString(), any(OffsetDateTime.class)))
                 .thenReturn(CLAIM_ETAG);
     }
 
@@ -117,7 +118,7 @@ class AnswerGenerationFunctionTest {
         verify(mockEmbedDataService, never()).getEmbedding(anyString());
         verify(mockScoringOutputBinding, never()).setValue(anyString());
         verify(mockAnswerGenerationTableService, never()).upsertTerminalFenced(
-                anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+                any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any()
         );
     }
 
@@ -138,7 +139,7 @@ class AnswerGenerationFunctionTest {
         verify(mockEmbedDataService, never()).getEmbedding(anyString());
         verify(mockScoringOutputBinding, never()).setValue(anyString());
         verify(mockAnswerGenerationTableService, never()).upsertTerminalFenced(
-                anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+                any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any()
         );
     }
 
@@ -181,6 +182,7 @@ class AnswerGenerationFunctionTest {
         function.run(queueMessage, mockScoringOutputBinding, 1, context);
 
         verify(mockAnswerGenerationTableService).upsertTerminalFenced(
+                isNull(),
                 eq(transactionId.toString()),
                 eq("query"),
                 eq("prompt"),
@@ -214,7 +216,7 @@ class AnswerGenerationFunctionTest {
         );
 
         // completed successfully — the lease must not be released
-        verify(mockAnswerGenerationTableService, never()).releaseLease(anyString(), anyString());
+        verify(mockAnswerGenerationTableService, never()).releaseLease(any(), anyString(), anyString());
     }
 
     @Test
@@ -256,6 +258,7 @@ class AnswerGenerationFunctionTest {
         function.run(queueMessage, mockScoringOutputBinding, 1, context);
 
         verify(mockAnswerGenerationTableService).upsertTerminalFenced(
+                isNull(),
                 eq(transactionId.toString()),
                 eq("query"),
                 eq("prompt"),
@@ -283,7 +286,7 @@ class AnswerGenerationFunctionTest {
                 transactionId, "query", "prompt", List.of(new KeyValuePair("key", "value")));
         final String queueMessage = objectMapper.writeValueAsString(payload);
 
-        when(mockAnswerGenerationTableService.readForClaim(transactionId.toString()))
+        when(mockAnswerGenerationTableService.readForClaim(null, transactionId.toString()))
                 .thenReturn(new LeaseSnapshot("ANSWER_GENERATED", READ_ETAG, null, null));
         when(mockAnswerGenerationTableService.isTerminal("ANSWER_GENERATED")).thenReturn(true);
 
@@ -292,9 +295,9 @@ class AnswerGenerationFunctionTest {
         // no expensive work, no writes, no scoring re-enqueue
         verify(mockEmbedDataService, never()).getEmbedding(anyString());
         verify(mockScoringOutputBinding, never()).setValue(anyString());
-        verify(mockAnswerGenerationTableService, never()).claimLease(anyString(), anyString(), anyString(), any());
+        verify(mockAnswerGenerationTableService, never()).claimLease(any(), anyString(), anyString(), anyString(), any());
         verify(mockAnswerGenerationTableService, never()).upsertTerminalFenced(
-                anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+                any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -304,7 +307,7 @@ class AnswerGenerationFunctionTest {
                 transactionId, "query", "prompt", List.of(new KeyValuePair("key", "value")));
         final String queueMessage = objectMapper.writeValueAsString(payload);
 
-        when(mockAnswerGenerationTableService.readForClaim(transactionId.toString()))
+        when(mockAnswerGenerationTableService.readForClaim(null, transactionId.toString()))
                 .thenReturn(new LeaseSnapshot("ANSWER_GENERATION_PENDING", READ_ETAG,
                         OffsetDateTime.now().plusMinutes(5), "other-worker"));
 
@@ -313,7 +316,7 @@ class AnswerGenerationFunctionTest {
 
         assertThat(ex.getMessage(), is(format("Retrying AnswerGeneration for transactionId='%s' (lease held)", transactionId)));
         verify(mockEmbedDataService, never()).getEmbedding(anyString());
-        verify(mockAnswerGenerationTableService, never()).claimLease(anyString(), anyString(), anyString(), any());
+        verify(mockAnswerGenerationTableService, never()).claimLease(any(), anyString(), anyString(), anyString(), any());
     }
 
     @Test
@@ -323,7 +326,7 @@ class AnswerGenerationFunctionTest {
                 transactionId, "query", "prompt", List.of(new KeyValuePair("key", "value")));
         final String queueMessage = objectMapper.writeValueAsString(payload);
 
-        when(mockAnswerGenerationTableService.readForClaim(transactionId.toString()))
+        when(mockAnswerGenerationTableService.readForClaim(null, transactionId.toString()))
                 .thenReturn(new LeaseSnapshot("ANSWER_GENERATION_PENDING", READ_ETAG,
                         OffsetDateTime.now().plusMinutes(5), "other-worker"));
 
@@ -331,7 +334,7 @@ class AnswerGenerationFunctionTest {
 
         // never overwrite a possibly-completing leaseholder with FAILED
         verify(mockAnswerGenerationTableService, never()).upsertTerminalFenced(
-                anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+                any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any());
         verify(mockAnswerGenerationTableService, never()).upsertIntoTable(
                 anyString(), any(), any(), any(), any(), any(), any(), any(), any());
         verify(mockScoringOutputBinding, never()).setValue(anyString());
@@ -349,11 +352,11 @@ class AnswerGenerationFunctionTest {
                 .id("1").chunk("Sample content").documentFileName("doc.pdf").pageNumber(1).documentId("doc1")
                 .build());
 
-        when(mockAnswerGenerationTableService.readForClaim(transactionId.toString()))
+        when(mockAnswerGenerationTableService.readForClaim(null, transactionId.toString()))
                 .thenReturn(new LeaseSnapshot("ANSWER_GENERATION_PENDING", READ_ETAG,
                         OffsetDateTime.now().minusMinutes(5), "crashed-worker"));
         when(mockAnswerGenerationTableService.claimLease(
-                eq(transactionId.toString()), eq(READ_ETAG), anyString(), any(OffsetDateTime.class)))
+                isNull(), eq(transactionId.toString()), eq(READ_ETAG), anyString(), any(OffsetDateTime.class)))
                 .thenReturn(CLAIM_ETAG);
 
         when(mockEmbedDataService.getEmbedding("query")).thenReturn(embeddings);
@@ -364,6 +367,7 @@ class AnswerGenerationFunctionTest {
         function.run(queueMessage, mockScoringOutputBinding, 2, context);
 
         verify(mockAnswerGenerationTableService).upsertTerminalFenced(
+                isNull(),
                 eq(transactionId.toString()), eq("query"), eq("prompt"), any(), eq("generated response"),
                 eq(ANSWER_GENERATED), eq(null), any(OffsetDateTime.class), any(Long.class), eq(CLAIM_ETAG));
         verify(mockScoringOutputBinding).setValue(anyString());
@@ -389,7 +393,7 @@ class AnswerGenerationFunctionTest {
 
         doThrow(new EtagMismatchException("etag changed"))
                 .when(mockAnswerGenerationTableService).upsertTerminalFenced(
-                        anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+                        any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any());
 
         // completes silently: no rethrow, result discarded
         assertDoesNotThrow(() -> function.run(queueMessage, mockScoringOutputBinding, 1, context));
@@ -400,7 +404,7 @@ class AnswerGenerationFunctionTest {
         verify(mockAnswerGenerationTableService, never()).upsertIntoTable(
                 anyString(), any(), any(), any(), any(), any(), any(), any(), any());
         // and the guard skips the (pointless) release of an already-stale lease
-        verify(mockAnswerGenerationTableService, never()).releaseLease(anyString(), anyString());
+        verify(mockAnswerGenerationTableService, never()).releaseLease(any(), anyString(), anyString());
     }
 
     // ---- citation guard: retry via queue redelivery, policy at exhaustion ----
@@ -431,11 +435,11 @@ class AnswerGenerationFunctionTest {
                 () -> function.run(queueMessage, mockScoringOutputBinding, 1, context));
 
         assertThat(ex.getMessage(), is(format("Retrying AnswerGeneration for transactionId='%s' (citation-degraded)", transactionId)));
-        verify(mockAnswerGenerationTableService, never()).upsertTerminalFenced(anyString(), anyString(), anyString(),
+        verify(mockAnswerGenerationTableService, never()).upsertTerminalFenced(any(), anyString(), anyString(), anyString(),
                 any(), any(), any(), any(), any(OffsetDateTime.class), any(Long.class), any());
         verify(mockScoringOutputBinding, never()).setValue(anyString());
         // the lease is released before the rethrow so the intentional retry re-claims immediately
-        verify(mockAnswerGenerationTableService).releaseLease(transactionId.toString(), CLAIM_ETAG);
+        verify(mockAnswerGenerationTableService).releaseLease(null, transactionId.toString(), CLAIM_ETAG);
     }
 
     @Test
@@ -447,6 +451,7 @@ class AnswerGenerationFunctionTest {
         function.run(queueMessage, mockScoringOutputBinding, 3, context);
 
         verify(mockAnswerGenerationTableService).upsertTerminalFenced(
+                isNull(),
                 eq(transactionId.toString()),
                 eq("query"),
                 eq("prompt"),
@@ -475,6 +480,7 @@ class AnswerGenerationFunctionTest {
         function.run(queueMessage, mockScoringOutputBinding, 3, context);
 
         verify(mockAnswerGenerationTableService).upsertTerminalFenced(
+                isNull(),
                 eq(transactionId.toString()),
                 eq("query"),
                 eq("prompt"),
@@ -511,6 +517,7 @@ class AnswerGenerationFunctionTest {
         function.run(queueMessage, mockScoringOutputBinding, 3, context);
 
         verify(mockAnswerGenerationTableService).upsertTerminalFenced(
+                isNull(),
                 eq(transactionId.toString()),
                 eq("query"),
                 eq("prompt"),
@@ -549,7 +556,7 @@ class AnswerGenerationFunctionTest {
 
         assertThat(exception.getMessage(), is("Retrying AnswerGeneration for transactionId='" + transactionId + "'"));
         // the lease is released before the rethrow so the redelivery can re-claim immediately
-        verify(mockAnswerGenerationTableService).releaseLease(transactionId.toString(), CLAIM_ETAG);
+        verify(mockAnswerGenerationTableService).releaseLease(null, transactionId.toString(), CLAIM_ETAG);
     }
 
     @Test
@@ -559,10 +566,10 @@ class AnswerGenerationFunctionTest {
                 transactionId, "query", "prompt", List.of(new KeyValuePair("key", "value")));
         final String queueMessage = objectMapper.writeValueAsString(payload);
 
-        when(mockAnswerGenerationTableService.readForClaim(transactionId.toString()))
+        when(mockAnswerGenerationTableService.readForClaim(null, transactionId.toString()))
                 .thenReturn(new LeaseSnapshot("ANSWER_GENERATION_PENDING", READ_ETAG, null, null));
         when(mockAnswerGenerationTableService.claimLease(
-                eq(transactionId.toString()), eq(READ_ETAG), anyString(), any(OffsetDateTime.class)))
+                isNull(), eq(transactionId.toString()), eq(READ_ETAG), anyString(), any(OffsetDateTime.class)))
                 .thenThrow(new EtagMismatchException("etag changed"));
 
         final RuntimeException ex = assertThrows(RuntimeException.class,
