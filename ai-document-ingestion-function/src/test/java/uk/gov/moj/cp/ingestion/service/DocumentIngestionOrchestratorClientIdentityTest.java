@@ -72,4 +72,33 @@ class DocumentIngestionOrchestratorClientIdentityTest {
         verify(documentIngestionOutcomeTableService).recordOutcomeFenced(
                 eq(CLIENT_ID), eq(DOCUMENT_ID), eq("INGESTION_FAILED"), anyString(), eq(TOKEN.etag()));
     }
+
+    @Test
+    @DisplayName("resolves and supersedes overwritten documents under the claim token's client namespace")
+    void shouldScopeSupersedeReadAndWriteToTokenClientId() throws Exception {
+        final var outcome = new uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome();
+        outcome.setDocumentId(DOCUMENT_ID);
+        outcome.setSupersededDocuments("old-doc-1, old-doc-2");
+        org.mockito.Mockito.when(documentIngestionOutcomeTableService.getDocumentById(CLIENT_ID, DOCUMENT_ID)).thenReturn(outcome);
+        doNothing().when(documentIngestionOutcomeTableService).recordOutcomeFenced(any(), anyString(), anyString(), anyString(), anyString());
+
+        orchestrator.processQueueMessage(metadata(), TOKEN);
+
+        verify(documentIngestionOutcomeTableService).getDocumentById(CLIENT_ID, DOCUMENT_ID);
+        verify(documentStorageService).markDocumentsInActive(eq(CLIENT_ID), eq(java.util.List.of("old-doc-1", "old-doc-2")));
+    }
+
+    @Test
+    @DisplayName("the no-claim failure fallback reads and writes under the supplied client namespace")
+    void shouldScopeNoClaimFallbackToClientId() throws Exception {
+        final var snapshot = new uk.gov.moj.cp.ai.idempotency.LeaseSnapshot("AWAITING_INGESTION", "W/\"etag2\"", null, null);
+        org.mockito.Mockito.when(documentIngestionOutcomeTableService.readForClaim(CLIENT_ID, DOCUMENT_ID)).thenReturn(snapshot);
+        org.mockito.Mockito.when(documentIngestionOutcomeTableService.isTerminal("AWAITING_INGESTION")).thenReturn(false);
+
+        orchestrator.processQueueMessageFailedIfSafe(metadata(), CLIENT_ID);
+
+        verify(documentIngestionOutcomeTableService).readForClaim(CLIENT_ID, DOCUMENT_ID);
+        verify(documentIngestionOutcomeTableService).recordOutcomeFenced(
+                eq(CLIENT_ID), eq(DOCUMENT_ID), eq("INGESTION_FAILED"), anyString(), eq("W/\"etag2\""));
+    }
 }

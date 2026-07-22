@@ -290,7 +290,7 @@ class DocumentIngestionOrchestratorTest {
         when(documentIngestionOutcomeTableService.isTerminal("AWAITING_INGESTION")).thenReturn(false);
 
         // when
-        orchestrator.processQueueMessageFailedIfSafe(metadata);
+        orchestrator.processQueueMessageFailedIfSafe(metadata, null);
 
         // then
         verify(documentIngestionOutcomeTableService).recordOutcomeFenced(
@@ -318,7 +318,7 @@ class DocumentIngestionOrchestratorTest {
         when(documentIngestionOutcomeTableService.isTerminal("INGESTION_SUCCESS")).thenReturn(true);
 
         // when
-        orchestrator.processQueueMessageFailedIfSafe(metadata);
+        orchestrator.processQueueMessageFailedIfSafe(metadata, null);
 
         // then
         verify(documentIngestionOutcomeTableService, times(0)).recordOutcomeFenced(any(), anyString(), anyString(), anyString(), anyString());
@@ -342,7 +342,7 @@ class DocumentIngestionOrchestratorTest {
         when(documentIngestionOutcomeTableService.isTerminal("AWAITING_INGESTION")).thenReturn(false);
 
         // when
-        orchestrator.processQueueMessageFailedIfSafe(metadata);
+        orchestrator.processQueueMessageFailedIfSafe(metadata, null);
 
         // then
         verify(documentIngestionOutcomeTableService, times(0)).recordOutcomeFenced(any(), anyString(), anyString(), anyString(), anyString());

@@ -148,7 +148,8 @@ public class DocumentIngestionFunction {
             throw new DocumentProcessingException("Error processing queueMessage", e);
         }
         LOGGER.error("Document ingestion failed during idempotency claim for documentId='{}'", queueIngestionMetadata.documentId(), e);
-        documentIngestionOrchestrator.processQueueMessageFailedIfSafe(queueIngestionMetadata);
+        documentIngestionOrchestrator.processQueueMessageFailedIfSafe(queueIngestionMetadata,
+                validatedClientId(queueIngestionMetadata.clientId()));
     }
 
     /** Legacy null clientId stays null; a present one is re-validated as a UUID before use. */
