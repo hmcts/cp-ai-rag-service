@@ -268,7 +268,7 @@ public final class TestHarness {
                                                  final String userQuery, final String documentId) {
         try {
             final List<Float> vectorisedUserQuery = embeddingService.embedData(userQuery);
-            return searchService.search(userQuery, vectorisedUserQuery,
+            return searchService.search(null, userQuery, vectorisedUserQuery,
                     List.of(new KeyValuePair(DOCUMENT_ID_FILTER_KEY, documentId)));
         } catch (final EmbeddingServiceException | SearchServiceException e) {
             throw new RuntimeException(e);

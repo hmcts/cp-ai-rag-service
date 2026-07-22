@@ -232,7 +232,7 @@ public class AnswerGenerationFunction {
         List<ChunkedEntry> chunkedEntries = null;
         try {
             final List<Float> embeddings = embedDataService.getEmbedding(payload.userQuery());
-            chunkedEntries = searchService.search(payload.userQuery(), embeddings, payload.metadataFilter());
+            chunkedEntries = searchService.search(null, payload.userQuery(), embeddings, payload.metadataFilter());
             final LlmResponse llmResponse = responseGenerationService.generateResponse(payload.userQuery(), chunkedEntries, payload.queryPrompt());
 
             persistAnswer(payload, llmResponse, chunkedEntries, currentTimeMillis() - startTime, scoringMessage, token);

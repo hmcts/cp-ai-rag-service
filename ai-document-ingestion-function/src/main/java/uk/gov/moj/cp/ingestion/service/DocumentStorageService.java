@@ -6,6 +6,7 @@ import static java.util.stream.Collectors.joining;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK_INDEX;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CHUNK_VECTOR;
+import static uk.gov.moj.cp.ai.index.IndexConstants.CLIENT_ID;
 import static uk.gov.moj.cp.ai.index.IndexConstants.CUSTOM_METADATA;
 import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_FILE_NAME;
 import static uk.gov.moj.cp.ai.index.IndexConstants.DOCUMENT_FILE_URL;
@@ -14,6 +15,7 @@ import static uk.gov.moj.cp.ai.index.IndexConstants.FALSE_VALUE;
 import static uk.gov.moj.cp.ai.index.IndexConstants.ID;
 import static uk.gov.moj.cp.ai.index.IndexConstants.IS_ACTIVE;
 import static uk.gov.moj.cp.ai.index.IndexConstants.PAGE_NUMBER;
+import static uk.gov.moj.cp.ai.util.StringUtil.escapeODataStringLiteral;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.client.AISearchClientFactory;
@@ -108,10 +110,10 @@ public class DocumentStorageService {
     }
 
     @SuppressWarnings("unchecked")
-    public void markDocumentsInActive(final List<String> supersededDocuments) {
+    public void markDocumentsInActive(final String clientId, final List<String> supersededDocuments) {
         final List<SearchDocument> allUpdates = new ArrayList<>();
 
-        final SearchPagedIterable searchResults = getSearchResults(supersededDocuments);
+        final SearchPagedIterable searchResults = getSearchResults(clientId, supersededDocuments);
 
         for (SearchResult result : searchResults) {
             final SearchDocument searchDocument = result.getDocument(SearchDocument.class);
@@ -132,10 +134,17 @@ public class DocumentStorageService {
         }
     }
 
-    private SearchPagedIterable getSearchResults(final List<String> supersededDocuments) {
-        final String filter = supersededDocuments.stream()
+    SearchPagedIterable getSearchResults(final String clientId, final List<String> supersededDocuments) {
+        final String documentFilter = supersededDocuments.stream()
                 .map(id -> format("%s/any(m: m/key eq '%s' and m/value eq '%s')", CUSTOM_METADATA, DOCUMENT_ID, id))
                 .collect(joining(" or "));
+
+        // When a client id is supplied, scope the supersede match to that client by leading with a
+        // client-equality clause and grouping the document clauses, so one client cannot mark
+        // another client's chunks inactive. When it is null/empty the filter is unchanged.
+        final String filter = isNullOrEmpty(clientId)
+                ? documentFilter
+                : format("%s eq '%s' and (%s)", CLIENT_ID, escapeODataStringLiteral(clientId), documentFilter);
 
         LOGGER.info("Find search results matching filter criteria: {}", filter);
 

@@ -169,7 +169,7 @@ class DocumentIngestionOrchestratorTest {
         orchestrator.processQueueMessage(metadata, TOKEN);
 
         // then
-        verify(documentStorageService).markDocumentsInActive(any());
+        verify(documentStorageService).markDocumentsInActive(any(), any());
         verify(documentIngestionOutcomeTableService).recordOutcomeFenced(
                 null,
                 documentId,

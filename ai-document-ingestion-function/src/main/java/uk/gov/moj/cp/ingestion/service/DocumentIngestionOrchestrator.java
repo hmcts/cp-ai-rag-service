@@ -175,7 +175,7 @@ public class DocumentIngestionOrchestrator {
                         .map(String::trim)
                         .filter(s -> !s.isEmpty())
                         .toList();
-                documentStorageService.markDocumentsInActive(supersededDocs);
+                documentStorageService.markDocumentsInActive(null, supersededDocs);
             }
         } catch (EntityRetrievalException e) {
             final String message = String.format("Unable to mark documents as Inactive in search index which were to be superseded by document with ID: %s", documentId);

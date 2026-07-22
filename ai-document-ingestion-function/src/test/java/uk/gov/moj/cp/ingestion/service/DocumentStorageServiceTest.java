@@ -125,7 +125,7 @@ class DocumentStorageServiceTest {
         when(searchClient.search(anyString(), any(SearchOptions.class), any())).thenReturn(iterable);
 
         // when
-        documentStorageService.markDocumentsInActive(ids);
+        documentStorageService.markDocumentsInActive(null, ids);
 
         // then
         final ArgumentCaptor<List<SearchDocument>> captor = ArgumentCaptor.forClass(List.class);
@@ -158,7 +158,7 @@ class DocumentStorageServiceTest {
                 .thenReturn(iterable);
 
         // when
-        documentStorageService.markDocumentsInActive(ids);
+        documentStorageService.markDocumentsInActive(null, ids);
 
         // then
         verify(searchClient, never()).mergeDocuments(anyList());
@@ -185,7 +185,7 @@ class DocumentStorageServiceTest {
         when(searchClient.search(anyString(), any(SearchOptions.class), any())).thenReturn(iterable);
 
         // when
-        documentStorageService.markDocumentsInActive(ids);
+        documentStorageService.markDocumentsInActive(null, ids);
 
         // then
         final ArgumentCaptor<List<SearchDocument>> captor = ArgumentCaptor.forClass(List.class);
@@ -212,7 +212,7 @@ class DocumentStorageServiceTest {
         when(searchClient.search(anyString(), optionsCaptor.capture(), any())).thenReturn(iterable);
 
         // when
-        documentStorageService.markDocumentsInActive(ids);
+        documentStorageService.markDocumentsInActive(null, ids);
 
         // then
         final String filter = optionsCaptor.getValue().getFilter();
@@ -220,5 +220,54 @@ class DocumentStorageServiceTest {
         assertThat(filter.contains("customMetadata/any(m: m/key eq 'documentId' and m/value eq 'doc1'"), is(true));
         assertThat(filter.contains("customMetadata/any(m: m/key eq 'documentId' and m/value eq 'doc2'"), is(true));
         assertThat(filter.contains("or"), is(true));
+    }
+
+    @Test
+    @DisplayName("Supersede filter is scoped by the client id when provided")
+    void shouldScopeSupersedeFilterByClientId() {
+        // given
+        final SearchClient searchClient = mock(SearchClient.class);
+        when(searchClient.getIndexName()).thenReturn("test-index");
+        final DocumentStorageService documentStorageService = new DocumentStorageService(searchClient);
+
+        final List<String> ids = List.of("doc1", "doc2");
+
+        final SearchPagedIterable iterable = mock(SearchPagedIterable.class);
+        when(iterable.iterator()).thenReturn(Collections.emptyIterator());
+
+        final ArgumentCaptor<SearchOptions> optionsCaptor = ArgumentCaptor.forClass(SearchOptions.class);
+        when(searchClient.search(anyString(), optionsCaptor.capture(), any())).thenReturn(iterable);
+
+        // when
+        documentStorageService.markDocumentsInActive("client-a", ids);
+
+        // then
+        final String filter = optionsCaptor.getValue().getFilter();
+        assertThat(filter.startsWith("clientId eq 'client-a' and "), is(true));
+    }
+
+    @Test
+    @DisplayName("Supersede filter is unchanged when no client id is provided")
+    void shouldNotScopeSupersedeFilterWhenClientIdNull() {
+        // given
+        final SearchClient searchClient = mock(SearchClient.class);
+        when(searchClient.getIndexName()).thenReturn("test-index");
+        final DocumentStorageService documentStorageService = new DocumentStorageService(searchClient);
+
+        final List<String> ids = List.of("doc1", "doc2");
+
+        final SearchPagedIterable iterable = mock(SearchPagedIterable.class);
+        when(iterable.iterator()).thenReturn(Collections.emptyIterator());
+
+        final ArgumentCaptor<SearchOptions> optionsCaptor = ArgumentCaptor.forClass(SearchOptions.class);
+        when(searchClient.search(anyString(), optionsCaptor.capture(), any())).thenReturn(iterable);
+
+        // when
+        documentStorageService.markDocumentsInActive(null, ids);
+
+        // then
+        final String filter = optionsCaptor.getValue().getFilter();
+        assertThat(filter.startsWith("customMetadata/any(m: m/key eq 'documentId'"), is(true));
+        assertThat(filter.contains("clientId eq"), is(false));
     }
 }

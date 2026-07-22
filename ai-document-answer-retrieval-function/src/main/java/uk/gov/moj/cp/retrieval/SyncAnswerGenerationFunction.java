@@ -13,6 +13,7 @@ import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERA
 import static uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus.ANSWER_GENERATION_FAILED;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.ObjectToJsonConverter.convert;
+import static uk.gov.moj.cp.ai.validation.MetadataFilterValidator.validateReservedKeys;
 import static uk.gov.moj.cp.ai.validation.RequestValidator.validate;
 import static uk.gov.moj.cp.retrieval.service.ResponseGenerationService.LLM_RESPONSE_FAILURE_TO_GENERATE;
 import static uk.gov.moj.cp.retrieval.util.ChunkUtil.getAnswerWithChunksFilename;
@@ -33,6 +34,7 @@ import uk.gov.moj.cp.retrieval.service.BlobPersistenceService;
 import uk.gov.moj.cp.retrieval.service.EmbedDataService;
 import uk.gov.moj.cp.retrieval.service.ResponseGenerationService;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.microsoft.azure.functions.ExecutionContext;
@@ -100,7 +102,11 @@ public class SyncAnswerGenerationFunction {
 
         try {
             final AnswerUserQueryRequest userQueryRequest = request.getBody();
-            final List<String> errors = validate(userQueryRequest);
+            final List<String> errors = new ArrayList<>(validate(userQueryRequest));
+            if (userQueryRequest != null && userQueryRequest.getMetadataFilter() != null) {
+                errors.addAll(validateReservedKeys(userQueryRequest.getMetadataFilter().stream()
+                        .map(mf -> new KeyValuePair(mf.getKey(), mf.getValue())).toList()));
+            }
             if (!errors.isEmpty()) {
                 final String errorMessage = convert(new RequestErrored(join(", ", errors)));
                 return generateResponse(request, BAD_REQUEST, errorMessage);
@@ -114,7 +120,7 @@ public class SyncAnswerGenerationFunction {
 
             final List<Float> queryEmbeddings = embedDataService.getEmbedding(userQuery);
 
-            final List<ChunkedEntry> chunkedEntries = searchService.search(userQuery, queryEmbeddings, metadataFilters);
+            final List<ChunkedEntry> chunkedEntries = searchService.search(null, userQuery, queryEmbeddings, metadataFilters);
 
             LlmResponse llmResponse;
             try {

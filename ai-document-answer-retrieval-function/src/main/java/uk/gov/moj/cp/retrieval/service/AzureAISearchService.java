@@ -73,6 +73,7 @@ public class AzureAISearchService {
     }
 
     public List<ChunkedEntry> search(
+            final String clientId,
             final String userQuery,
             final List<Float> vectorizedUserQuery,
             final List<KeyValuePair> metadataFilters) throws SearchServiceException {
@@ -83,7 +84,7 @@ public class AzureAISearchService {
 
         LOGGER.info("Retrieving documents for query with filters: {}", metadataFilters);
 
-        final String filterExpression = generateFilterExpression(metadataFilters);
+        final String filterExpression = generateFilterExpression(clientId, metadataFilters);
         LOGGER.info("Retrieving documents for query with filters: {}", filterExpression);
 
 
@@ -101,7 +102,7 @@ public class AzureAISearchService {
                 .setFilter(filterExpression) // Apply the OData filter
                 .setVectorSearchOptions(vectorSearchOptions) // Add the vector query
                 .setQueryType(QueryType.FULL) // Use SEMANTIC for hybrid search with semantic ranking
-                .setSelect(getColumnsToRetrieve()) // Select all fields needed for LLM context and citation
+                .setSelect(getColumnsToRetrieve(clientId)) // Select all fields needed for LLM context and citation
                 .setTop(topResultsCount); // Number of top results to return after filtering and ranking
 
 
@@ -130,8 +131,15 @@ public class AzureAISearchService {
         }
     }
 
-    String generateFilterExpression(final List<KeyValuePair> metadataFilters) {
+    String generateFilterExpression(final String clientId, final List<KeyValuePair> metadataFilters) {
         final StringBuilder filterBuilder = new StringBuilder();
+
+        // When a client id is supplied, lead with a non-optional equality clause on the top-level
+        // client field, and-joined with the metadata clauses and the security-trimming trailer. When
+        // it is null/empty the expression is byte-for-byte identical to the unscoped output.
+        if (!isNullOrEmpty(clientId)) {
+            filterBuilder.append(format("%s eq '%s'", IndexConstants.CLIENT_ID, escapeODataStringLiteral(clientId)));
+        }
 
         if (metadataFilters != null && !metadataFilters.isEmpty()) {
             for (KeyValuePair pair : metadataFilters) {
@@ -162,11 +170,14 @@ public class AzureAISearchService {
     }
 
 
-    String[] getColumnsToRetrieve() {
+    String[] getColumnsToRetrieve(final String clientId) {
         // The chunk vector is always retrieved; whether it is used for cosine comparisons is decided
         // by the downstream services (DeduplicationService / DiversificationService) based on their
         // own toggles. This search service stays agnostic of those toggles.
-        return new String[]{
+        // The client column is selected only when a client scope is supplied: Azure AI Search rejects
+        // a $select naming a field the index does not define, and the field only exists once the
+        // rebuilt index is live — the same condition under which a client scope starts arriving.
+        final List<String> columns = new ArrayList<>(List.of(
                 IndexConstants.ID,
                 IndexConstants.CHUNK,
                 IndexConstants.DOCUMENT_FILE_NAME,
@@ -174,8 +185,11 @@ public class AzureAISearchService {
                 IndexConstants.PAGE_NUMBER,
                 IndexConstants.DOCUMENT_FILE_URL,
                 CUSTOM_METADATA,
-                IndexConstants.CHUNK_VECTOR
-        };
+                IndexConstants.CHUNK_VECTOR));
+        if (!isNullOrEmpty(clientId)) {
+            columns.add(4, IndexConstants.CLIENT_ID);
+        }
+        return columns.toArray(new String[0]);
     }
 
 }
