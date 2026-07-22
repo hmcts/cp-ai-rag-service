@@ -228,8 +228,11 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
         runCleanupStep(failures, () -> deleteTable(TABLE_STORAGE_ACCOUNT_ENDPOINT, documentStatusOutcomeTable));
         runCleanupStep(failures, () -> deleteTable(TABLE_STORAGE_ACCOUNT_ENDPOINT, answerGenerationTable));
 
-        runCleanupStep(failures, () -> deleteIndex(SEARCH_SERVICE_ENDPOINT, searchIndexV1));
-        runCleanupStep(failures, () -> deleteIndex(SEARCH_SERVICE_ENDPOINT, searchIndexV2));
+        // Best-effort: index deletion needs delete rights on the search service, which not every
+        // runner's identity has yet. A missing grant must not fail an otherwise-green run — but the
+        // orphaned index names are logged loudly so they can be cleaned up manually.
+        runBestEffortCleanupStep(() -> deleteIndex(SEARCH_SERVICE_ENDPOINT, searchIndexV1), searchIndexV1);
+        runBestEffortCleanupStep(() -> deleteIndex(SEARCH_SERVICE_ENDPOINT, searchIndexV2), searchIndexV2);
 
         if (!failures.isEmpty()) {
             final RuntimeException teardownFailure = new RuntimeException(failures.size() + " teardown step(s) failed; see suppressed exceptions");
@@ -240,6 +243,15 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
 
     private void stopAllHosts(final List<RuntimeException> failures) {
         functionConfigMap.values().forEach(pair -> runCleanupStep(failures, () -> pair.getLeft().stop()));
+    }
+
+    private static void runBestEffortCleanupStep(final Runnable step, final String resourceName) {
+        try {
+            step.run();
+        } catch (RuntimeException e) {
+            LOGGER.warn("ORPHANED TEST RESOURCE — could not delete '{}' (likely missing delete rights "
+                    + "on the search service); remove it manually.", resourceName, e);
+        }
     }
 
     private static void runCleanupStep(final List<RuntimeException> failures, final Runnable step) {
