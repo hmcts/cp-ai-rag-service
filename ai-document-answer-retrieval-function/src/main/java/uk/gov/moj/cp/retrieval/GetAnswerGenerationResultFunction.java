@@ -20,6 +20,8 @@ import static uk.gov.moj.cp.retrieval.util.ChunkUtil.transformChunkEntries;
 import uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus;
 import uk.gov.hmcts.cp.openapi.model.RequestErrored;
 import uk.gov.hmcts.cp.openapi.model.UserQueryAnswerReturnedSuccessfullyAsynchronously;
+import uk.gov.moj.cp.ai.client.identity.ClientIdentityResolver;
+import uk.gov.moj.cp.ai.client.identity.HeaderClientIdentityResolver;
 import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.InputChunksPayload;
@@ -50,16 +52,26 @@ public class GetAnswerGenerationResultFunction {
 
     private final AnswerGenerationTableService answerGenerationTableService;
     private final BlobPersistenceService blobPersistenceInputChunksService;
+    private final ClientIdentityResolver clientIdentityResolver;
 
     public GetAnswerGenerationResultFunction() {
         final String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION);
         answerGenerationTableService = new AnswerGenerationTableService(tableName);
         blobPersistenceInputChunksService = new BlobPersistenceService(getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS));
+        clientIdentityResolver = HeaderClientIdentityResolver.fromEnvironment();
     }
 
     public GetAnswerGenerationResultFunction(final AnswerGenerationTableService answerGenerationTableService, final BlobPersistenceService blobPersistenceInputChunksService) {
+        this(answerGenerationTableService, blobPersistenceInputChunksService, null);
+    }
+
+    public GetAnswerGenerationResultFunction(final AnswerGenerationTableService answerGenerationTableService,
+                                             final BlobPersistenceService blobPersistenceInputChunksService,
+                                             final ClientIdentityResolver clientIdentityResolver) {
         this.answerGenerationTableService = answerGenerationTableService;
         this.blobPersistenceInputChunksService = blobPersistenceInputChunksService;
+        this.clientIdentityResolver = clientIdentityResolver != null
+                ? clientIdentityResolver : HeaderClientIdentityResolver.fromEnvironment();
     }
 
     /**
@@ -78,6 +90,11 @@ public class GetAnswerGenerationResultFunction {
     ) {
 
         try {
+
+            // Client-identity resolution seam: the resolved context is not yet used as the lookup
+            // partition key / input-chunks blob path (cross-client 404 wiring is driven by the
+            // pending tests). Flag off → an empty context, so behaviour is unchanged today.
+            clientIdentityResolver.resolve(request);
 
             if (!isValid(transactionId)) {
                 LOGGER.error("Error: transactionId is required");

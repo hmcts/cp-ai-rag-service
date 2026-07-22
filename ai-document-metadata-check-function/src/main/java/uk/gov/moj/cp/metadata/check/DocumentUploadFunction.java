@@ -20,6 +20,8 @@ import static uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer.listT
 import uk.gov.hmcts.cp.openapi.model.DocumentUploadRequest;
 import uk.gov.hmcts.cp.openapi.model.FileStorageLocationReturnedSuccessfully;
 import uk.gov.hmcts.cp.openapi.model.RequestErrored;
+import uk.gov.moj.cp.ai.client.identity.ClientIdentityResolver;
+import uk.gov.moj.cp.ai.client.identity.HeaderClientIdentityResolver;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.ai.util.StringUtil;
@@ -55,6 +57,7 @@ public class DocumentUploadFunction {
     private final DocumentUploadService documentUploadService;
     private final BlobClientService blobClientService;
     private final DocumentBlobNameResolver documentBlobNameResolver;
+    private final ClientIdentityResolver clientIdentityResolver;
 
     private final int urlExpiryMinutes;
     private final String uploadFileExtension;
@@ -67,17 +70,27 @@ public class DocumentUploadFunction {
         this.blobClientService = new BlobClientService(documentContainerName);
         this.documentUploadService = new DocumentUploadService();
         this.documentBlobNameResolver = new DocumentBlobNameResolver();
+        this.clientIdentityResolver = HeaderClientIdentityResolver.fromEnvironment();
     }
 
     public DocumentUploadFunction(final BlobClientService blobClientService,
                                   final DocumentUploadService documentUploadService,
                                   final DocumentBlobNameResolver documentBlobNameResolver) {
+        this(blobClientService, documentUploadService, documentBlobNameResolver, null);
+    }
+
+    public DocumentUploadFunction(final BlobClientService blobClientService,
+                                  final DocumentUploadService documentUploadService,
+                                  final DocumentBlobNameResolver documentBlobNameResolver,
+                                  final ClientIdentityResolver clientIdentityResolver) {
         this.urlExpiryMinutes = parseInt(DEFAULT_URL_EXPIRY_MINUTES);
         this.uploadFileExtension = FILE_EXTENSION_PDF;
 
         this.blobClientService = blobClientService;
         this.documentUploadService = documentUploadService;
         this.documentBlobNameResolver = documentBlobNameResolver;
+        this.clientIdentityResolver = clientIdentityResolver != null
+                ? clientIdentityResolver : HeaderClientIdentityResolver.fromEnvironment();
     }
 
     /**
@@ -94,6 +107,11 @@ public class DocumentUploadFunction {
             final ExecutionContext context) {
 
         try {
+            // Client-identity resolution seam: the resolved context is not yet threaded into the
+            // dedup lookup / blob name (that wiring is driven by the pending tests). Flag off →
+            // an empty context, so behaviour is unchanged today.
+            clientIdentityResolver.resolve(request);
+
             final DocumentUploadRequest documentUploadRequest = request.getBody();
             final List<String> errors = validate(documentUploadRequest);
             if (!errors.isEmpty()) {

@@ -17,6 +17,8 @@ import static uk.gov.moj.cp.ai.validation.RequestValidator.validate;
 import uk.gov.hmcts.cp.openapi.model.AnswerUserQueryRequest;
 import uk.gov.hmcts.cp.openapi.model.RequestErrored;
 import uk.gov.hmcts.cp.openapi.model.UserQueryAnswerRequestAccepted;
+import uk.gov.moj.cp.ai.client.identity.ClientIdentityResolver;
+import uk.gov.moj.cp.ai.client.identity.HeaderClientIdentityResolver;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
@@ -46,14 +48,23 @@ public class InitiateAnswerGenerationFunction {
     private static final Logger LOGGER = LoggerFactory.getLogger(InitiateAnswerGenerationFunction.class);
 
     private final AnswerGenerationTableService answerGenerationTableService;
+    private final ClientIdentityResolver clientIdentityResolver;
 
     public InitiateAnswerGenerationFunction() {
         final String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION);
         answerGenerationTableService = new AnswerGenerationTableService(tableName);
+        clientIdentityResolver = HeaderClientIdentityResolver.fromEnvironment();
     }
 
     public InitiateAnswerGenerationFunction(final AnswerGenerationTableService answerGenerationTableService) {
+        this(answerGenerationTableService, null);
+    }
+
+    public InitiateAnswerGenerationFunction(final AnswerGenerationTableService answerGenerationTableService,
+                                            final ClientIdentityResolver clientIdentityResolver) {
         this.answerGenerationTableService = answerGenerationTableService;
+        this.clientIdentityResolver = clientIdentityResolver != null
+                ? clientIdentityResolver : HeaderClientIdentityResolver.fromEnvironment();
     }
 
     /**
@@ -71,6 +82,11 @@ public class InitiateAnswerGenerationFunction {
             final ExecutionContext context) {
 
         try {
+            // Client-identity resolution seam: the resolved context is not yet copied onto the
+            // queue payload / pending row (that wiring is driven by the pending tests). Flag off →
+            // an empty context, so behaviour is unchanged today.
+            clientIdentityResolver.resolve(request);
+
             final AnswerUserQueryRequest userQueryRequest = request.getBody();
             final List<String> errors = new ArrayList<>(validate(userQueryRequest));
             if (userQueryRequest != null && userQueryRequest.getMetadataFilter() != null) {

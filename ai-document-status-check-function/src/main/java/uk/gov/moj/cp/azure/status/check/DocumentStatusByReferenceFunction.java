@@ -12,6 +12,8 @@ import static uk.gov.moj.cp.ai.util.UuidUtil.isValid;
 
 import uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatusReturnedSuccessfully;
 import uk.gov.hmcts.cp.openapi.model.RequestErrored;
+import uk.gov.moj.cp.ai.client.identity.ClientIdentityResolver;
+import uk.gov.moj.cp.ai.client.identity.HeaderClientIdentityResolver;
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
 
@@ -36,14 +38,23 @@ public class DocumentStatusByReferenceFunction {
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentStatusByReferenceFunction.class);
 
     private final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService;
+    private final ClientIdentityResolver clientIdentityResolver;
 
     public DocumentStatusByReferenceFunction() {
         String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
         this.documentIngestionOutcomeTableService = new DocumentIngestionOutcomeTableService(tableName);
+        this.clientIdentityResolver = HeaderClientIdentityResolver.fromEnvironment();
     }
 
     public DocumentStatusByReferenceFunction(final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService) {
+        this(documentIngestionOutcomeTableService, null);
+    }
+
+    public DocumentStatusByReferenceFunction(final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService,
+                                             final ClientIdentityResolver clientIdentityResolver) {
         this.documentIngestionOutcomeTableService = documentIngestionOutcomeTableService;
+        this.clientIdentityResolver = clientIdentityResolver != null
+                ? clientIdentityResolver : HeaderClientIdentityResolver.fromEnvironment();
     }
 
     /**
@@ -62,6 +73,11 @@ public class DocumentStatusByReferenceFunction {
             final ExecutionContext context) {
 
         try {
+            // Client-identity resolution seam: the resolved context is not yet used as the lookup
+            // partition key (cross-client 404 wiring is driven by the pending tests). Flag off →
+            // an empty context, so behaviour is unchanged today.
+            clientIdentityResolver.resolve(request);
+
             if (!isValid(documentReference)) {
                 final String errorMessage = format("Received invalid documentReference '%s'", documentReference);
                 return generateResponse(request, HttpStatus.BAD_REQUEST, convert(new RequestErrored(errorMessage)));

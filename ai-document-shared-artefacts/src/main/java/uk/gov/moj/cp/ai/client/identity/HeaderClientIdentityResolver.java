@@ -53,7 +53,7 @@ public final class HeaderClientIdentityResolver implements ClientIdentityResolve
             return ClientContext.unenforced();                       // flag off → identity optional
         }
         final String raw = request.getHeaders().get(headerName.toLowerCase(Locale.ROOT)); // host lower-cases keys
-        if (!UuidUtil.isValid(raw)) {                                // null/blank-safe; UUID-shape validated at the boundary
+        if (!UuidUtil.isValidQuietly(raw)) {                         // null/blank-safe boundary check; a bad header is a client 401, not a server error
             throw new ClientIdentityException("Missing or invalid client identity");
         }
         return ClientContext.of(raw);

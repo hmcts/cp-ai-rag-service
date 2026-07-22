@@ -85,6 +85,35 @@ public class AnswerGenerationTableService implements IdempotencyStatusStore {
         LOGGER.info("Answer generation record UPSERTED with status={} for transactionId={}", status, transactionId);
     }
 
+    /**
+     * Client-scoped variant of {@link #upsertIntoTable}: the row is written under the client's
+     * partition (or the legacy partition==key when {@code clientId} is null/blank). Used by the
+     * no-claim FAILED fallback so a defensively-created failure row lands in the caller's partition.
+     */
+    public void upsertIntoTable(final String clientId, final String transactionId, final String userQuery,
+                                final String queryPrompt, final String chunkedEntriesFile, final String llmResponse,
+                                final AnswerGenerationStatus status, final String reason,
+                                final OffsetDateTime responseGenerationTime, final Long responseGenerationDuration
+    ) {
+
+        final TableEntity entity = buildEntity(
+                clientId,
+                transactionId,
+                userQuery,
+                queryPrompt,
+                chunkedEntriesFile,
+                llmResponse,
+                status,
+                reason,
+                responseGenerationTime,
+                responseGenerationDuration
+        );
+
+        tableService.upsertIntoTable(entity);
+
+        LOGGER.info("Answer generation record UPSERTED with status={} for transactionId={}", status, transactionId);
+    }
+
     public GeneratedAnswer getGeneratedAnswer(final String clientId, final String transactionId) throws EntityRetrievalException {
 
         final TableEntity entity = tableService.getFirstDocumentMatching(partitionKey(clientId, transactionId), transactionId);

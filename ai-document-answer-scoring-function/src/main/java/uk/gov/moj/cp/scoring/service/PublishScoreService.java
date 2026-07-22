@@ -38,4 +38,13 @@ public class PublishScoreService {
         LOGGER.info("Finished publishing Groundedness score for message");
 
     }
+
+    /**
+     * Client-scoped variant: publishes the groundedness score with an additional per-client
+     * telemetry dimension so scores can be segmented per client. {@code clientId} threading into
+     * the published dimension is wired at implementation time; this seam delegates for now.
+     */
+    public void publishGroundednessScore(BigDecimal score, String userQuery, String clientId) {
+        publishGroundednessScore(score, userQuery);
+    }
 }

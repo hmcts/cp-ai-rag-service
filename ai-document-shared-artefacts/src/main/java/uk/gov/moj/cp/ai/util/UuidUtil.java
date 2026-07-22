@@ -22,4 +22,24 @@ public class UuidUtil {
             return false;
         }
     }
+
+    /**
+     * Boundary-validation variant that reports validity without logging at ERROR. A caller
+     * supplying a malformed identity value at the request edge is an expected, client-driven
+     * rejection (mapped to 401), not a server-side fault, so it must not pollute error logs.
+     *
+     * @return {@code true} when {@code uuidString} is a well-formed UUID, {@code false} otherwise
+     *         (including null/blank) — with no ERROR-level log emitted for the invalid case.
+     */
+    public static boolean isValidQuietly(final String uuidString) {
+        if (isNullOrEmpty(uuidString)) {
+            return false;
+        }
+        try {
+            fromString(uuidString);
+            return true;
+        } catch (IllegalArgumentException iae) {
+            return false;
+        }
+    }
 }

@@ -22,6 +22,8 @@ import static uk.gov.moj.cp.retrieval.util.ChunkUtil.transformChunkEntries;
 import uk.gov.hmcts.cp.openapi.model.AnswerUserQueryRequest;
 import uk.gov.hmcts.cp.openapi.model.RequestErrored;
 import uk.gov.hmcts.cp.openapi.model.UserQueryAnswerReturnedSuccessfullySynchronously;
+import uk.gov.moj.cp.ai.client.identity.ClientIdentityResolver;
+import uk.gov.moj.cp.ai.client.identity.HeaderClientIdentityResolver;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.model.ScoringPayload;
@@ -67,23 +69,36 @@ public class SyncAnswerGenerationFunction {
 
     private final CitationGuardMode guardMode;
 
+    private final ClientIdentityResolver clientIdentityResolver;
+
     public SyncAnswerGenerationFunction() {
         embedDataService = new EmbedDataService();
         searchService = new AzureAISearchService();
         responseGenerationService = new ResponseGenerationService();
         blobPersistenceService = new BlobPersistenceService(getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS));
         guardMode = CitationGuardMode.fromEnv();
+        clientIdentityResolver = HeaderClientIdentityResolver.fromEnvironment();
     }
 
     SyncAnswerGenerationFunction(final EmbedDataService embedDataService, final AzureAISearchService searchService,
                                  final ResponseGenerationService responseGenerationService,
                                  final BlobPersistenceService blobPersistenceService,
                                  final CitationGuardMode guardMode) {
+        this(embedDataService, searchService, responseGenerationService, blobPersistenceService, guardMode, null);
+    }
+
+    SyncAnswerGenerationFunction(final EmbedDataService embedDataService, final AzureAISearchService searchService,
+                                 final ResponseGenerationService responseGenerationService,
+                                 final BlobPersistenceService blobPersistenceService,
+                                 final CitationGuardMode guardMode,
+                                 final ClientIdentityResolver clientIdentityResolver) {
         this.embedDataService = embedDataService;
         this.searchService = searchService;
         this.responseGenerationService = responseGenerationService;
         this.blobPersistenceService = blobPersistenceService;
         this.guardMode = guardMode;
+        this.clientIdentityResolver = clientIdentityResolver != null
+                ? clientIdentityResolver : HeaderClientIdentityResolver.fromEnvironment();
     }
 
     /**
@@ -101,6 +116,11 @@ public class SyncAnswerGenerationFunction {
             final ExecutionContext context) {
 
         try {
+            // Client-identity resolution seam: the resolved context is not yet threaded into
+            // search / the scoring payload / the answer blob name (that wiring is driven by the
+            // pending tests). Flag off → an empty context, so behaviour is unchanged today.
+            clientIdentityResolver.resolve(request);
+
             final AnswerUserQueryRequest userQueryRequest = request.getBody();
             final List<String> errors = new ArrayList<>(validate(userQueryRequest));
             if (userQueryRequest != null && userQueryRequest.getMetadataFilter() != null) {
