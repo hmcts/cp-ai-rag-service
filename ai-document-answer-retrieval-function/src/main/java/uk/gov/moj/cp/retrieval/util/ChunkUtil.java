@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.retrieval.util;
 
 import static java.lang.String.format;
+import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.hmcts.cp.openapi.model.DocumentChunk;
 import uk.gov.hmcts.cp.openapi.model.MetadataFilter;
@@ -33,8 +34,8 @@ public class ChunkUtil {
      * a clientId is supplied; falls back to the unprefixed name otherwise. Prefixing is not yet built.
      */
     public static String getInputChunksFilename(final String clientId, final UUID transactionId) {
-        // TODO: prepend the c={clientId}/ prefix when clientId is non-empty
-        return getInputChunksFilename(transactionId);
+        final String flat = getInputChunksFilename(transactionId);
+        return isNullOrEmpty(clientId) ? flat : format("c=%s/%s", clientId, flat);
     }
 
     /**
@@ -42,8 +43,8 @@ public class ChunkUtil {
      * when a clientId is supplied; falls back to the unprefixed name otherwise. Prefixing is not yet built.
      */
     public static String getAnswerWithChunksFilename(final String clientId, final UUID id) {
-        // TODO: prepend the c={clientId}/ prefix when clientId is non-empty
-        return getAnswerWithChunksFilename(id);
+        final String flat = getAnswerWithChunksFilename(id);
+        return isNullOrEmpty(clientId) ? flat : format("c=%s/%s", clientId, flat);
     }
     public static List<DocumentChunk> transformChunkEntries(final List<ChunkedEntry> chunkedEntries) {
         if (null == chunkedEntries || chunkedEntries.isEmpty()) {
