@@ -21,22 +21,7 @@ public class PublishScoreService {
     }
 
     public void publishGroundednessScore(BigDecimal score, String userQuery) {
-
-        LOGGER.info("Publishing Groundedness score for message: {}", score);
-
-        if (Objects.isNull(score) || Objects.isNull(userQuery) || userQuery.isBlank()) {
-            LOGGER.warn("Score or user query is null/empty, skipping publishing.");
-            return;
-        }
-
-        azureMonitorService.publishHistogramScore(
-                "ai_rag_response_groundedness_score",
-                "Distribution of groundedness scores for LLM responses",
-                score.doubleValue(),
-                "query_type",
-                userQuery);
-        LOGGER.info("Finished publishing Groundedness score for message");
-
+        publishGroundednessScore(score, userQuery, null);
     }
 
     /**

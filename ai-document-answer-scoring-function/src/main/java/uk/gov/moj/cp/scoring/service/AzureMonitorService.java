@@ -55,31 +55,21 @@ public class AzureMonitorService {
         return SingletonHolder.INSTANCE;
     }
 
-    public void publishHistogramScore(final String metricName, final String metricDescription, final double score, final String keyDimension, final String valueDimension) {
-        final DoubleHistogram histogram = getDoubleHistogram(metricName, metricDescription);
-        Attributes attributes = Attributes.of(AttributeKey.stringKey(keyDimension), valueDimension);
-        histogram.record(score, attributes);
-        LOGGER.info("Metrics have been exported successfully for query type: {} with score: {}", keyDimension, score);
-    }
-
     /**
-     * Two-dimension variant: records the score with an additional attribute so a metric series can
-     * be segmented on a second dimension (e.g. per client) independently of the first.
+     * Records the score against the primary dimension, plus an optional second dimension so a
+     * metric series can be segmented independently (e.g. per client). A null second value records
+     * the primary dimension only.
      */
     public void publishHistogramScore(final String metricName, final String metricDescription, final double score,
                                       final String keyDimension, final String valueDimension,
                                       final String secondKeyDimension, final String secondValueDimension) {
-        if (secondValueDimension == null) {
-            // No second-dimension value (e.g. legacy, unscoped score) — record the single dimension.
-            publishHistogramScore(metricName, metricDescription, score, keyDimension, valueDimension);
-            return;
-        }
         final DoubleHistogram histogram = getDoubleHistogram(metricName, metricDescription);
-        final Attributes attributes = Attributes.builder()
-                .put(AttributeKey.stringKey(keyDimension), valueDimension)
-                .put(AttributeKey.stringKey(secondKeyDimension), secondValueDimension)
-                .build();
-        histogram.record(score, attributes);
+        final var attributesBuilder = Attributes.builder()
+                .put(AttributeKey.stringKey(keyDimension), valueDimension);
+        if (secondValueDimension != null) {
+            attributesBuilder.put(AttributeKey.stringKey(secondKeyDimension), secondValueDimension);
+        }
+        histogram.record(score, attributesBuilder.build());
         LOGGER.info("Metrics have been exported successfully for query type: {} with score: {}", keyDimension, score);
     }
 
