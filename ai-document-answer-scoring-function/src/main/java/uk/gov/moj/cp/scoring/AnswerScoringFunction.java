@@ -76,13 +76,7 @@ public class AnswerScoringFunction {
 
             LOGGER.info("Score now available for the answer : {}", modelScore.groundednessScore());
 
-            // Flag off (no clientId on the payload) keeps the single-dimension publish; a
-            // client-scoped payload adds the client_id telemetry dimension.
-            if (scoringPayload.clientId() == null) {
-                publishScoreService.publishGroundednessScore(modelScore.groundednessScore(), scoringPayload.userQuery());
-            } else {
-                publishScoreService.publishGroundednessScore(modelScore.groundednessScore(), scoringPayload.userQuery(), scoringPayload.clientId());
-            }
+            publishScoreService.publishGroundednessScore(modelScore.groundednessScore(), scoringPayload.userQuery(), scoringPayload.clientId());
 
             if(null != scoringPayload.transactionId()) {
                 LOGGER.info("Recording groundedness score against transaction id: {}", scoringPayload.transactionId());

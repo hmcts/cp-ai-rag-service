@@ -22,10 +22,6 @@ public class PublishScoreService {
         this.azureMonitorService = azureMonitorService;
     }
 
-    public void publishGroundednessScore(BigDecimal score, String userQuery) {
-        publishGroundednessScore(score, userQuery, null);
-    }
-
     /**
      * Client-scoped variant: publishes the groundedness score with an additional per-client
      * telemetry dimension ({@code client_id}) alongside {@code query_type}, so scores can be

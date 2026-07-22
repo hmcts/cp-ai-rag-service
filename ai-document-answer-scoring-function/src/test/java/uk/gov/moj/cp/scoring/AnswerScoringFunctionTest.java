@@ -60,7 +60,7 @@ class AnswerScoringFunctionTest {
         answerScoringFunction.run(queueMessage, contextMock);
 
         verify(scoringServiceMock).evaluateGroundedness(scoringPayload.llmResponse(), scoringPayload.userQuery(), scoringPayload.queryPrompt(), List.of());
-        verify(publishScoreService).publishGroundednessScore(llmScore, scoringPayload.userQuery());
+        verify(publishScoreService).publishGroundednessScore(llmScore, scoringPayload.userQuery(), null);
         verify(answerGenerationTableService).recordGroundednessScore(null, scoringPayload.transactionId(), llmScore);
     }
 

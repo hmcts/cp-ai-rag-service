@@ -39,7 +39,7 @@ class PublishScoreServiceTest {
     @Test
     @DisplayName("Publishes groundedness score successfully with valid inputs")
     void publishesGroundednessScoreSuccessfullyWithValidInputs() {
-        publishScoreService.publishGroundednessScore(new BigDecimal("4.5"), "factual");
+        publishScoreService.publishGroundednessScore(new BigDecimal("4.5"), "factual", null);
 
         verify(azureMonitorServiceMock).publishHistogramScore(
                 eq("ai_rag_response_groundedness_score"),
@@ -52,7 +52,7 @@ class PublishScoreServiceTest {
     @Test
     @DisplayName("Handles null score gracefully without publishing")
     void handlesNullScoreGracefullyWithoutPublishing() {
-        publishScoreService.publishGroundednessScore(null, "factual");
+        publishScoreService.publishGroundednessScore(null, "factual", null);
 
         verifyNoInteractions(azureMonitorServiceMock);
     }
@@ -60,7 +60,7 @@ class PublishScoreServiceTest {
     @Test
     @DisplayName("Handles null query type gracefully without publishing")
     void handlesNullQueryTypeGracefullyWithoutPublishing() {
-        publishScoreService.publishGroundednessScore(new BigDecimal("4.5"), null);
+        publishScoreService.publishGroundednessScore(new BigDecimal("4.5"), null, null);
 
         verifyNoInteractions(azureMonitorServiceMock);
     }
@@ -68,7 +68,7 @@ class PublishScoreServiceTest {
     @Test
     @DisplayName("Handles empty query type gracefully without publishing")
     void handlesEmptyQueryTypeGracefullyWithoutPublishing() {
-        publishScoreService.publishGroundednessScore(new BigDecimal("4.5"), "");
+        publishScoreService.publishGroundednessScore(new BigDecimal("4.5"), "", null);
 
         verifyNoInteractions(azureMonitorServiceMock);
     }
