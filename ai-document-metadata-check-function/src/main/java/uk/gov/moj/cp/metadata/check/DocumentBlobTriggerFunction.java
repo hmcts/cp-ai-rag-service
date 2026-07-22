@@ -78,7 +78,8 @@ public class DocumentBlobTriggerFunction {
             }
 
             final String documentId = documentBlobNameResolver.getDocumentId(blobName);
-            final DocumentIngestionOutcome document = documentUploadService.getDocument(documentId);
+            final String clientId = documentBlobNameResolver.getClientId(blobName);
+            final DocumentIngestionOutcome document = documentUploadService.getDocument(clientId, documentId);
 
             final long blobSize = blobClientService.getBlobClient(blobName).getProperties().getBlobSize();
             LOGGER.info("Document blob size={} for blobName:{}", blobSize, blobName);
@@ -91,7 +92,7 @@ public class DocumentBlobTriggerFunction {
             }
 
             final Map<String, String> metadataMap = stringToMap(document.getMetadata());
-            final QueueIngestionMetadata queueIngestionMetadata = createQueueMessage(blobName, document.getDocumentName(), flatten(documentId, metadataMap));
+            final QueueIngestionMetadata queueIngestionMetadata = createQueueMessage(blobName, document.getDocumentName(), flatten(documentId, metadataMap), clientId);
             queueMessage.setValue(convert(queueIngestionMetadata));
 
             LOGGER.info("Document blob trigger function processed a request for document with blobName: {}", blobName);
@@ -100,14 +101,14 @@ public class DocumentBlobTriggerFunction {
         }
     }
 
-    private QueueIngestionMetadata createQueueMessage(final String blobName, final String documentName, final Map<String, String> metadata) {
+    private QueueIngestionMetadata createQueueMessage(final String blobName, final String documentName, final Map<String, String> metadata, final String clientId) {
         final String documentId = metadata.get(DOCUMENT_ID_NEW);
         final String blobStorageEndpoint = removeTrailingSlash(getRequiredEnv(AI_RAG_SERVICE_BLOB_STORAGE_ENDPOINT));
         final String containerName = getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_DOCUMENT_UPLOAD);
         final String blobUrl = format("%s/%s/%s", blobStorageEndpoint, containerName, blobName);
         final String currentTimestamp = Instant.now().toString();
 
-        return new QueueIngestionMetadata(documentId, documentName, metadata, blobUrl, currentTimestamp);
+        return new QueueIngestionMetadata(documentId, documentName, metadata, blobUrl, currentTimestamp, clientId);
     }
 
     private static Map<String, String> flatten(final String documentId, final Map<String, String> metadataMap) {

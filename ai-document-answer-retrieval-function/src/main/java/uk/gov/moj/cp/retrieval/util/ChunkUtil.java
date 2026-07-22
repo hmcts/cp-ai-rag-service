@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.retrieval.util;
 
 import static java.lang.String.format;
+import static uk.gov.moj.cp.ai.storage.BlobNamespace.applyClientPrefix;
 
 import uk.gov.hmcts.cp.openapi.model.DocumentChunk;
 import uk.gov.hmcts.cp.openapi.model.MetadataFilter;
@@ -27,6 +28,25 @@ public class ChunkUtil {
     public static String getAnswerWithChunksFilename(final UUID id) {
         return format(LLM_ANSWER_WITH_CHUNKS, id);
     }
+
+    /**
+     * Client-scoped variant of {@link #getInputChunksFilename(UUID)}. Prepends the client prefix when
+     * a clientId is supplied; falls back to the unprefixed name otherwise (callers currently pass null
+     * until the HTTP functions resolve a real client identity).
+     */
+    public static String getInputChunksFilename(final String clientId, final UUID transactionId) {
+        return applyClientPrefix(clientId, getInputChunksFilename(transactionId));
+    }
+
+    /**
+     * Client-scoped variant of {@link #getAnswerWithChunksFilename(UUID)}. Prepends the client prefix
+     * when a clientId is supplied; falls back to the unprefixed name otherwise (callers currently pass
+     * null until the HTTP functions resolve a real client identity).
+     */
+    public static String getAnswerWithChunksFilename(final String clientId, final UUID id) {
+        return applyClientPrefix(clientId, getAnswerWithChunksFilename(id));
+    }
+
     public static List<DocumentChunk> transformChunkEntries(final List<ChunkedEntry> chunkedEntries) {
         if (null == chunkedEntries || chunkedEntries.isEmpty()) {
             return Collections.emptyList();

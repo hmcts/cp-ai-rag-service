@@ -2,6 +2,8 @@ package uk.gov.moj.cp.retrieval.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static uk.gov.moj.cp.retrieval.util.ChunkUtil.getAnswerWithChunksFilename;
+import static uk.gov.moj.cp.retrieval.util.ChunkUtil.getInputChunksFilename;
 import static uk.gov.moj.cp.retrieval.util.ChunkUtil.transformChunkEntries;
 
 import uk.gov.hmcts.cp.openapi.model.DocumentChunk;
@@ -11,6 +13,7 @@ import uk.gov.moj.cp.ai.model.KeyValuePair;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,6 +63,46 @@ class ChunkUtilTest {
         assertEquals("value1", chunk.getCustomMetadata().getFirst().getValue());
     }
 
+
+    @Test
+    @DisplayName("Prefixes input-chunks filename when clientId present")
+    void prefixesInputChunksFilenameWhenClientIdPresent() {
+        final UUID transactionId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
+        final String filename = getInputChunksFilename("client-1", transactionId);
+
+        assertEquals("c=client-1/llm-input-chunks-00000000-0000-0000-0000-000000000001.json", filename);
+    }
+
+    @Test
+    @DisplayName("Leaves input-chunks filename unchanged when clientId is null")
+    void leavesInputChunksFilenameUnchangedWhenClientIdIsNull() {
+        final UUID transactionId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
+        final String filename = getInputChunksFilename(null, transactionId);
+
+        assertEquals("llm-input-chunks-00000000-0000-0000-0000-000000000001.json", filename);
+    }
+
+    @Test
+    @DisplayName("Prefixes answer-with-chunks filename when clientId present")
+    void prefixesAnswerWithChunksFilenameWhenClientIdPresent() {
+        final UUID transactionId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+
+        final String filename = getAnswerWithChunksFilename("client-1", transactionId);
+
+        assertEquals("c=client-1/llm-answer-with-chunks-00000000-0000-0000-0000-000000000002.json", filename);
+    }
+
+    @Test
+    @DisplayName("Leaves answer-with-chunks filename unchanged when clientId is null")
+    void leavesAnswerWithChunksFilenameUnchangedWhenClientIdIsNull() {
+        final UUID transactionId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+
+        final String filename = getAnswerWithChunksFilename(null, transactionId);
+
+        assertEquals("llm-answer-with-chunks-00000000-0000-0000-0000-000000000002.json", filename);
+    }
 
     private List<ChunkedEntry> createChunkedEntries(int count) {
         List<ChunkedEntry> entries = new ArrayList<>();

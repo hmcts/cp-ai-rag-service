@@ -419,7 +419,7 @@ public class AnswerGenerationFunction {
 
     private String saveLlmResponseToTheBlobContainer(final UUID transactionId, final String userQuery, final String queryPrompt,
                                                      final String llmResponse, final List<ChunkedEntry> chunkedEntries) throws JsonProcessingException {
-        final String filename = getAnswerWithChunksFilename(transactionId);
+        final String filename = getAnswerWithChunksFilename(null, transactionId);
         final ScoringPayload scoringPayload = new ScoringPayload(userQuery,
                 llmResponse, queryPrompt, chunkedEntries, transactionId.toString());
         blobPersistenceEvalPayloadsService.saveBlob(filename, convert(scoringPayload));
@@ -427,7 +427,7 @@ public class AnswerGenerationFunction {
     }
 
     private String saveInputChunksToTheBlobContainer(final UUID transactionId, final List<ChunkedEntry> chunkedEntries) throws JsonProcessingException {
-        final String inputChunksFilename = getInputChunksFilename(transactionId);
+        final String inputChunksFilename = getInputChunksFilename(null, transactionId);
         final InputChunksPayload inputChunksPayload = new InputChunksPayload(chunkedEntries);
 
         blobPersistenceInputChunksService.saveBlob(inputChunksFilename, convert(inputChunksPayload));

@@ -142,7 +142,7 @@ public class SyncAnswerGenerationFunction {
                 return generateResponse(request, OK, responseAsString);
             }
 
-            final String filename = getAnswerWithChunksFilename(randomUUID());
+            final String filename = getAnswerWithChunksFilename(null, randomUUID());
             final ScoringPayload scoringPayload = new ScoringPayload(
                     userQuery, llmResponse.formattedLlmResponse(), userQueryPrompt, chunkedEntries, null);
             blobPersistenceService.saveBlob(filename, convert(scoringPayload));
