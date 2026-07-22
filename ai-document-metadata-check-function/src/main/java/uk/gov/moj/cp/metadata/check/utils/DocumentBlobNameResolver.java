@@ -2,6 +2,8 @@ package uk.gov.moj.cp.metadata.check.utils;
 
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ofPattern;
+import static uk.gov.moj.cp.ai.storage.BlobNamespace.CLIENT_PREFIX_MARKER;
+import static uk.gov.moj.cp.ai.storage.BlobNamespace.applyClientPrefix;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.metadata.check.service.DocumentMetadataVariables.UPLOAD_FILE_DATE_FORMAT;
@@ -14,8 +16,8 @@ import java.util.regex.Pattern;
 public class DocumentBlobNameResolver {
 
     private static final Pattern BLOB_PATTERN = Pattern.compile("^([^_]+)_([0-9]{8})\\.[^.]+$");
-    private static final Pattern PREFIXED_BLOB_PATTERN = Pattern.compile("^c=([^/]+)/([^/_]+)_([0-9]{8})\\.[^.]+$");
-    private static final String CLIENT_PREFIX_MARKER = "c=";
+    private static final Pattern PREFIXED_BLOB_PATTERN =
+            Pattern.compile("^" + Pattern.quote(CLIENT_PREFIX_MARKER) + "([^/]+)/([^/_]+)_([0-9]{8})\\.[^.]+$");
     private static final String INVALID_BLOB_NAME_ERROR_MSG = "Invalid blobName: '%s' format, expected format is documentId_yyyyMMdd.fileExtension";
     private static final String DEFAULT_DATETIME_FORMAT = "yyyyMMdd";
 
@@ -36,8 +38,7 @@ public class DocumentBlobNameResolver {
      * a null/empty clientId yields the flat shape.
      */
     public String getBlobName(final String clientId, final String documentId, final String uploadFileExtension) {
-        final String flat = getBlobName(documentId, uploadFileExtension);
-        return isNullOrEmpty(clientId) ? flat : format("c=%s/%s", clientId, flat);
+        return applyClientPrefix(clientId, getBlobName(documentId, uploadFileExtension));
     }
 
     public String getDocumentId(final String blobName) {
