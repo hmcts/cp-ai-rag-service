@@ -14,7 +14,8 @@ import java.util.regex.Pattern;
 public class DocumentBlobNameResolver {
 
     private static final Pattern BLOB_PATTERN = Pattern.compile("^([^_]+)_([0-9]{8})\\.[^.]+$");
-    private static final Pattern PREFIXED_BLOB_PATTERN = Pattern.compile("^c=([^/]+)/([^_]+)_([0-9]{8})\\.[^.]+$");
+    private static final Pattern PREFIXED_BLOB_PATTERN = Pattern.compile("^c=([^/]+)/([^/_]+)_([0-9]{8})\\.[^.]+$");
+    private static final String CLIENT_PREFIX_MARKER = "c=";
     private static final String INVALID_BLOB_NAME_ERROR_MSG = "Invalid blobName: '%s' format, expected format is documentId_yyyyMMdd.fileExtension";
     private static final String DEFAULT_DATETIME_FORMAT = "yyyyMMdd";
 
@@ -47,6 +48,11 @@ public class DocumentBlobNameResolver {
         final Matcher prefixedMatcher = PREFIXED_BLOB_PATTERN.matcher(blobName);
         if (prefixedMatcher.matches()) {
             return prefixedMatcher.group(2);
+        }
+        // A name that announces a client prefix must parse as one — the flat pattern's permissive
+        // documentId group would otherwise swallow the whole prefixed path as a garbage documentId.
+        if (blobName.startsWith(CLIENT_PREFIX_MARKER)) {
+            throw new IllegalArgumentException(format(INVALID_BLOB_NAME_ERROR_MSG, blobName));
         }
 
         final Matcher matcher = BLOB_PATTERN.matcher(blobName);

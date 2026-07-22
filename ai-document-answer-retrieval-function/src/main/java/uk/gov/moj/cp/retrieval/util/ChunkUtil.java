@@ -31,7 +31,8 @@ public class ChunkUtil {
 
     /**
      * Client-scoped variant of {@link #getInputChunksFilename(UUID)}. Prepends the client prefix when
-     * a clientId is supplied; falls back to the unprefixed name otherwise. Prefixing is not yet built.
+     * a clientId is supplied; falls back to the unprefixed name otherwise (callers currently pass null
+     * until the HTTP functions resolve a real client identity).
      */
     public static String getInputChunksFilename(final String clientId, final UUID transactionId) {
         final String flat = getInputChunksFilename(transactionId);
@@ -40,12 +41,14 @@ public class ChunkUtil {
 
     /**
      * Client-scoped variant of {@link #getAnswerWithChunksFilename(UUID)}. Prepends the client prefix
-     * when a clientId is supplied; falls back to the unprefixed name otherwise. Prefixing is not yet built.
+     * when a clientId is supplied; falls back to the unprefixed name otherwise (callers currently pass
+     * null until the HTTP functions resolve a real client identity).
      */
     public static String getAnswerWithChunksFilename(final String clientId, final UUID id) {
         final String flat = getAnswerWithChunksFilename(id);
         return isNullOrEmpty(clientId) ? flat : format("c=%s/%s", clientId, flat);
     }
+
     public static List<DocumentChunk> transformChunkEntries(final List<ChunkedEntry> chunkedEntries) {
         if (null == chunkedEntries || chunkedEntries.isEmpty()) {
             return Collections.emptyList();

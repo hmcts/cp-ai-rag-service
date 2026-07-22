@@ -136,4 +136,22 @@ public class DocumentBlobNameResolverTest {
 
         assertThat(result, is(nullValue()));
     }
+
+    @Test
+    void getDocumentId_shouldThrowException_whenNestedPrefixedBlobName() {
+        // A name announcing a client prefix must parse as exactly one prefix segment — the permissive
+        // flat pattern must not swallow a malformed prefixed path as a garbage documentId.
+        final String blobName = "c=client-a/c=client-b/doc123_20240101.pdf";
+
+        assertThrows(IllegalArgumentException.class, () -> resolver.getDocumentId(blobName));
+    }
+
+    @Test
+    void getClientId_shouldReturnNull_whenNestedPrefixedBlobName() {
+        final String blobName = "c=client-a/c=client-b/doc123_20240101.pdf";
+
+        final String result = resolver.getClientId(blobName);
+
+        assertThat(result, is(nullValue()));
+    }
 }

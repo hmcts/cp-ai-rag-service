@@ -87,11 +87,11 @@ class DocumentBlobTriggerFunctionTest {
             when(document.getDocumentName()).thenReturn("doc.json");
             when(document.getMetadata()).thenReturn("{\"version\":\"1.0\"}");
 
-            when(documentUploadService.getDocument(documentId)).thenReturn(document);
+            when(documentUploadService.getDocument(null, documentId)).thenReturn(document);
 
             function.run(new byte[]{}, blobName, outputBinding);
 
-            verify(documentUploadService).getDocument(documentId);
+            verify(documentUploadService).getDocument(null, documentId);
             verify(documentUploadService).updateDocumentAwaitingIngestion(documentId);
 
             final ArgumentCaptor<String> queueMessageCaptor = ArgumentCaptor.forClass(String.class);
@@ -123,7 +123,7 @@ class DocumentBlobTriggerFunctionTest {
             when(document.getDocumentId()).thenReturn(documentId);
             when(document.getDocumentName()).thenReturn("doc.json");
             when(document.getMetadata()).thenReturn("{\"version\":\"1.0\"}");
-            when(documentUploadService.getDocument(documentId)).thenReturn(document);
+            when(documentUploadService.getDocument(null, documentId)).thenReturn(document);
 
             final long maxSizeLimit = 80L * 1024 * 1024;
             final long documentSize = 81L * 1024 * 1024;
@@ -131,7 +131,7 @@ class DocumentBlobTriggerFunctionTest {
 
             function.run(new byte[]{}, blobName, outputBinding);
 
-            verify(documentUploadService).getDocument(documentId);
+            verify(documentUploadService).getDocument(null, documentId);
             verify(documentUploadService).updateDocumentFileSizeOverLimit(documentId, documentSize, maxSizeLimit);
             verifyNoInteractions(outputBinding);
         }
@@ -156,7 +156,7 @@ class DocumentBlobTriggerFunctionTest {
             when(document.getDocumentId()).thenReturn(documentId);
             when(document.getDocumentName()).thenReturn("doc.json");
             when(document.getMetadata()).thenReturn("{\"version\":\"1.0\"}");
-            when(documentUploadService.getDocument(documentId)).thenReturn(document);
+            when(documentUploadService.getDocument("client-1", documentId)).thenReturn(document);
 
             function.run(new byte[]{}, prefixedBlobName, outputBinding);
 
@@ -183,7 +183,7 @@ class DocumentBlobTriggerFunctionTest {
             when(document.getDocumentId()).thenReturn(documentId);
             when(document.getDocumentName()).thenReturn("doc.json");
             when(document.getMetadata()).thenReturn("{\"version\":\"1.0\"}");
-            when(documentUploadService.getDocument(documentId)).thenReturn(document);
+            when(documentUploadService.getDocument(null, documentId)).thenReturn(document);
 
             function.run(new byte[]{}, blobName, outputBinding);
 
@@ -208,7 +208,7 @@ class DocumentBlobTriggerFunctionTest {
         // invalid JSON to trigger stringToMap failure
         when(document.getMetadata()).thenReturn("invalid-json");
 
-        when(documentUploadService.getDocument(documentId)).thenReturn(document);
+        when(documentUploadService.getDocument(null, documentId)).thenReturn(document);
 
         final IllegalStateException exception = assertThrows(IllegalStateException.class,
                 () -> function.run(new byte[]{}, blobName, outputBinding));

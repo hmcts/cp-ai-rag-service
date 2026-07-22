@@ -79,7 +79,7 @@ public class DocumentBlobTriggerFunction {
 
             final String documentId = documentBlobNameResolver.getDocumentId(blobName);
             final String clientId = documentBlobNameResolver.getClientId(blobName);
-            final DocumentIngestionOutcome document = documentUploadService.getDocument(documentId);
+            final DocumentIngestionOutcome document = documentUploadService.getDocument(clientId, documentId);
 
             final long blobSize = blobClientService.getBlobClient(blobName).getProperties().getBlobSize();
             LOGGER.info("Document blob size={} for blobName:{}", blobSize, blobName);
