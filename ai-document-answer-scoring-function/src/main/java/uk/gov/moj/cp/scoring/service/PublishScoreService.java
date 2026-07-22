@@ -1,6 +1,8 @@
 package uk.gov.moj.cp.scoring.service;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 
 import org.slf4j.Logger;
@@ -38,14 +40,16 @@ public class PublishScoreService {
             return;
         }
 
+        final Map<String, String> dimensions = new LinkedHashMap<>();
+        dimensions.put("query_type", userQuery);
+        if (clientId != null) {
+            dimensions.put("client_id", clientId);
+        }
         azureMonitorService.publishHistogramScore(
                 "ai_rag_response_groundedness_score",
                 "Distribution of groundedness scores for LLM responses",
                 score.doubleValue(),
-                "query_type",
-                userQuery,
-                "client_id",
-                clientId);
+                dimensions);
         LOGGER.info("Finished publishing Groundedness score for message");
     }
 }

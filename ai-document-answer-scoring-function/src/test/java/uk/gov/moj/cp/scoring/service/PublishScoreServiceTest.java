@@ -1,6 +1,5 @@
 package uk.gov.moj.cp.scoring.service;
 
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -46,10 +45,7 @@ class PublishScoreServiceTest {
                 eq("ai_rag_response_groundedness_score"),
                 eq("Distribution of groundedness scores for LLM responses"),
                 eq(4.5),
-                eq("query_type"),
-                eq("factual"),
-                eq("client_id"),
-                isNull()
+                eq(java.util.Map.of("query_type", "factual"))
         );
     }
 

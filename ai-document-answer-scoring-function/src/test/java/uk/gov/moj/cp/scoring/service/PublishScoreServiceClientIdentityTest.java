@@ -47,9 +47,6 @@ class PublishScoreServiceClientIdentityTest {
                 eq("ai_rag_response_groundedness_score"),
                 eq("Distribution of groundedness scores for LLM responses"),
                 eq(4.5),
-                eq("query_type"),
-                eq("factual"),
-                eq("client_id"),
-                eq(CLIENT_ID));
+                eq(java.util.Map.of("query_type", "factual", "client_id", CLIENT_ID)));
     }
 }

@@ -2,12 +2,14 @@ package uk.gov.moj.cp.scoring.service;
 
 import uk.gov.moj.cp.ai.coverage.Generated;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.azure.monitor.opentelemetry.autoconfigure.AzureMonitorAutoConfigure;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.metrics.DoubleHistogram;
 import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
@@ -56,21 +58,21 @@ public class AzureMonitorService {
     }
 
     /**
-     * Records the score against the primary dimension, plus an optional second dimension so a
-     * metric series can be segmented independently (e.g. per client). A null second value records
-     * the primary dimension only.
+     * Records the score against the supplied dimensions — one attribute per map entry, so a metric
+     * series can gain further segmentation without a signature change. Entries with a null value
+     * are skipped (an absent dimension, e.g. an unscoped legacy score).
      */
     public void publishHistogramScore(final String metricName, final String metricDescription, final double score,
-                                      final String keyDimension, final String valueDimension,
-                                      final String secondKeyDimension, final String secondValueDimension) {
+                                      final Map<String, String> dimensions) {
         final DoubleHistogram histogram = getDoubleHistogram(metricName, metricDescription);
-        final var attributesBuilder = Attributes.builder()
-                .put(AttributeKey.stringKey(keyDimension), valueDimension);
-        if (secondValueDimension != null) {
-            attributesBuilder.put(AttributeKey.stringKey(secondKeyDimension), secondValueDimension);
-        }
+        final AttributesBuilder attributesBuilder = Attributes.builder();
+        dimensions.forEach((key, value) -> {
+            if (value != null) {
+                attributesBuilder.put(AttributeKey.stringKey(key), value);
+            }
+        });
         histogram.record(score, attributesBuilder.build());
-        LOGGER.info("Metrics have been exported successfully for query type: {} with score: {}", keyDimension, score);
+        LOGGER.info("Metrics have been exported successfully for dimensions: {} with score: {}", dimensions.keySet(), score);
     }
 
     private DoubleHistogram getDoubleHistogram(final String metricName, final String metricDescription) {
