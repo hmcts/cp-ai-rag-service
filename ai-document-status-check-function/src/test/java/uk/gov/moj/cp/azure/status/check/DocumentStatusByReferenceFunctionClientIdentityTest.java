@@ -102,7 +102,7 @@ class DocumentStatusByReferenceFunctionClientIdentityTest {
     @DisplayName("flag off (default resolver) keeps the legacy null-scoped lookup")
     void shouldUseLegacyLookup_whenEnforcementOff() throws Exception {
         final String reference = randomUUID().toString();
-        final DocumentStatusByReferenceFunction defaultFunction = new DocumentStatusByReferenceFunction(tableService);
+        final DocumentStatusByReferenceFunction defaultFunction = new DocumentStatusByReferenceFunction(tableService, null);
 
         defaultFunction.run(request, reference, context);
 

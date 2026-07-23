@@ -69,6 +69,51 @@ class ChunkedEntryTest {
     }
 
     @Test
+    @DisplayName("toBuilder().build() copies every field, producing an equal entry")
+    void shouldRoundTripAllFields_viaToBuilder() {
+        final ChunkedEntry original = fullyPopulated(randomUUID().toString());
+
+        final ChunkedEntry copy = original.toBuilder().build();
+
+        assertEquals(original, copy);
+    }
+
+    @Test
+    @DisplayName("toBuilder().clientId(...).build() changes only the clientId")
+    void shouldOverrideOnlyClientId_viaToBuilder() {
+        final ChunkedEntry original = fullyPopulated(randomUUID().toString());
+        final String newClientId = randomUUID().toString();
+
+        final ChunkedEntry overridden = original.toBuilder().clientId(newClientId).build();
+
+        assertEquals(newClientId, overridden.clientId());
+        assertEquals(original.id(), overridden.id());
+        assertEquals(original.documentId(), overridden.documentId());
+        assertEquals(original.chunk(), overridden.chunk());
+        assertEquals(original.chunkVector(), overridden.chunkVector());
+        assertEquals(original.documentFileName(), overridden.documentFileName());
+        assertEquals(original.pageNumber(), overridden.pageNumber());
+        assertEquals(original.chunkIndex(), overridden.chunkIndex());
+        assertEquals(original.documentFileUrl(), overridden.documentFileUrl());
+        assertEquals(original.customMetadata(), overridden.customMetadata());
+    }
+
+    private ChunkedEntry fullyPopulated(final String clientId) {
+        return ChunkedEntry.builder()
+                .id(randomUUID().toString())
+                .documentId(randomUUID().toString())
+                .chunk("some content")
+                .chunkVector(List.of(0.1f, 0.2f, 0.3f))
+                .documentFileName("file.pdf")
+                .pageNumber(1)
+                .chunkIndex(0)
+                .documentFileUrl("https://storage/file.pdf")
+                .customMetadata(List.of(new KeyValuePair("key", "value")))
+                .clientId(clientId)
+                .build();
+    }
+
+    @Test
     @DisplayName("legacy JSON without a clientId property deserialises with clientId == null")
     void shouldDeserialiseLegacyJsonWithNullClientId() throws Exception {
         final String legacyJson = """

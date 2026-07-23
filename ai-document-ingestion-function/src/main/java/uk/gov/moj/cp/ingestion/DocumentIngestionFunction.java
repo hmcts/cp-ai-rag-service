@@ -84,7 +84,7 @@ public class DocumentIngestionFunction {
         // Validated once, before anything else: a legacy message without a clientId keeps the
         // null-scoped claim; an invalid value fails the invocation here (redelivery, then poison)
         // so a corrupt message never enters the pipeline.
-        final String clientId = validatedClientId(queueIngestionMetadata.clientId());
+        final String clientId = ClientId.requireValidOrNull(queueIngestionMetadata.clientId());
         try {
             LOGGER.info("Parsed ingestion metadata - ID: {}, Name: {}, Blob URL: {}",
                     documentId,
@@ -150,11 +150,6 @@ public class DocumentIngestionFunction {
         }
         LOGGER.error("Document ingestion failed during idempotency claim for documentId='{}'", queueIngestionMetadata.documentId(), e);
         documentIngestionOrchestrator.processQueueMessageFailedIfSafe(queueIngestionMetadata, clientId);
-    }
-
-    /** Legacy null clientId stays null; a present one is re-validated as a UUID before use. */
-    private static String validatedClientId(final String clientId) {
-        return isNullOrEmpty(clientId) ? null : ClientId.requireValid(clientId);
     }
 
     private QueueIngestionMetadata toQueueIngestionMetadata(final String queueMessage) {

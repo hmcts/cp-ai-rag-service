@@ -188,16 +188,7 @@ final class IndexCopier {
 
     /** Copies an entry with the configured clientId set and every other field preserved. */
     private ChunkedEntry withClientId(final ChunkedEntry source) {
-        return ChunkedEntry.builder()
-                .id(source.id())
-                .documentId(source.documentId())
-                .chunk(source.chunk())
-                .chunkVector(source.chunkVector())
-                .documentFileName(source.documentFileName())
-                .pageNumber(source.pageNumber())
-                .chunkIndex(source.chunkIndex())
-                .documentFileUrl(source.documentFileUrl())
-                .customMetadata(source.customMetadata())
+        return source.toBuilder()
                 .clientId(clientIdOverride)
                 .build();
     }

@@ -47,7 +47,7 @@ class DocumentStatusByReferenceFunctionTest {
 
     @BeforeEach
     void setUp() {
-        function = new DocumentStatusByReferenceFunction(documentIngestionOutcomeTableService);
+        function = new DocumentStatusByReferenceFunction(documentIngestionOutcomeTableService, null);
 
         when(request.createResponseBuilder(any(HttpStatus.class))).thenReturn(responseBuilder);
         when(responseBuilder.header(anyString(), anyString())).thenReturn(responseBuilder);

@@ -118,7 +118,7 @@ class DocumentUploadFunctionClientIdentityTest {
         // A default, environment-built resolver with the flag unset resolves to an unenforced context,
         // so the legacy null-scoped lookup and success path are preserved byte-for-byte.
         final DocumentUploadFunction defaultFunction =
-                new DocumentUploadFunction(blobClientService, documentUploadService, documentBlobNameResolver);
+                new DocumentUploadFunction(blobClientService, documentUploadService, documentBlobNameResolver, null);
         final DocumentUploadRequest body = validRequest();
         when(request.getBody()).thenReturn(body);
         when(documentBlobNameResolver.getBlobName(any(), any())).thenReturn("blob.pdf");

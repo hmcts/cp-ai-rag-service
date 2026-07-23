@@ -68,7 +68,7 @@ public class DocumentUploadFunctionTest {
 
     @BeforeEach
     void setup() {
-        function = new DocumentUploadFunction(blobClientService, documentUploadService, documentBlobNameResolver);
+        function = new DocumentUploadFunction(blobClientService, documentUploadService, documentBlobNameResolver, null);
     }
 
     @Test

@@ -49,10 +49,6 @@ public class DocumentStatusByReferenceFunction {
         this.clientIdentityResolver = HeaderClientIdentityResolver.fromEnvironment();
     }
 
-    public DocumentStatusByReferenceFunction(final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService) {
-        this(documentIngestionOutcomeTableService, null);
-    }
-
     public DocumentStatusByReferenceFunction(final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService,
                                              final ClientIdentityResolver clientIdentityResolver) {
         this.documentIngestionOutcomeTableService = documentIngestionOutcomeTableService;

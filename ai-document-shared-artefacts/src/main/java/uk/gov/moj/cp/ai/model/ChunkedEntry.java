@@ -115,4 +115,25 @@ public record ChunkedEntry(
     public static Builder builder() {
         return new Builder();
     }
+
+    /**
+     * A {@link Builder} pre-populated with every field of this entry, for copy-with-override sites.
+     * Copy sites MUST use this rather than rebuilding the entry field-by-field: a field-by-field
+     * rebuild silently drops any field the author forgot to carry over (a class of bug that has
+     * bitten this record before), whereas {@code toBuilder()} copies all fields by construction so
+     * only the fields explicitly overridden can change.
+     */
+    public Builder toBuilder() {
+        return new Builder()
+                .id(id)
+                .documentId(documentId)
+                .chunk(chunk)
+                .chunkVector(chunkVector)
+                .documentFileName(documentFileName)
+                .pageNumber(pageNumber)
+                .chunkIndex(chunkIndex)
+                .documentFileUrl(documentFileUrl)
+                .customMetadata(customMetadata)
+                .clientId(clientId);
+    }
 }

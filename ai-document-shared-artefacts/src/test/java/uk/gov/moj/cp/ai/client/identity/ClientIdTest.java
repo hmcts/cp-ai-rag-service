@@ -2,6 +2,7 @@ package uk.gov.moj.cp.ai.client.identity;
 
 import static java.util.UUID.randomUUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.DisplayName;
@@ -44,5 +45,37 @@ class ClientIdTest {
         final String clientId = randomUUID().toString();
 
         assertEquals(clientId, ClientId.requireValid(clientId));
+    }
+
+    @Test
+    @DisplayName("requireValidOrNull(null) → null")
+    void shouldReturnNull_whenNull() {
+        assertNull(ClientId.requireValidOrNull(null));
+    }
+
+    @Test
+    @DisplayName("requireValidOrNull(\"\") → null")
+    void shouldReturnNull_whenEmpty() {
+        assertNull(ClientId.requireValidOrNull(""));
+    }
+
+    @Test
+    @DisplayName("requireValidOrNull(blank) → null")
+    void shouldReturnNull_whenBlank() {
+        assertNull(ClientId.requireValidOrNull("   "));
+    }
+
+    @Test
+    @DisplayName("requireValidOrNull(valid UUID) → returns the value unchanged")
+    void shouldReturnValue_whenValidUuidOrNull() {
+        final String clientId = randomUUID().toString();
+
+        assertEquals(clientId, ClientId.requireValidOrNull(clientId));
+    }
+
+    @Test
+    @DisplayName("requireValidOrNull(non-UUID) → ClientIdentityException")
+    void shouldThrow_whenPresentButNotUuid() {
+        assertThrows(ClientIdentityException.class, () -> ClientId.requireValidOrNull("not-a-uuid"));
     }
 }

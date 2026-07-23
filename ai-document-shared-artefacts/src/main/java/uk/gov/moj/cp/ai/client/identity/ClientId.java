@@ -1,5 +1,7 @@
 package uk.gov.moj.cp.ai.client.identity;
 
+import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
+
 import uk.gov.moj.cp.ai.util.UuidUtil;
 
 /**
@@ -22,5 +24,10 @@ public final class ClientId {
             throw new ClientIdentityException("Missing or invalid client identity");
         }
         return clientId;
+    }
+
+    /** Legacy null/empty clientId stays null; a present one is validated as a UUID before use. */
+    public static String requireValidOrNull(final String clientId) {
+        return isNullOrEmpty(clientId) ? null : requireValid(clientId);
     }
 }

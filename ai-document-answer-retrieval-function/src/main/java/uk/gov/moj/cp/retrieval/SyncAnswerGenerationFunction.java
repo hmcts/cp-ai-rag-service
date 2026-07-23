@@ -86,13 +86,6 @@ public class SyncAnswerGenerationFunction {
     SyncAnswerGenerationFunction(final EmbedDataService embedDataService, final AzureAISearchService searchService,
                                  final ResponseGenerationService responseGenerationService,
                                  final BlobPersistenceService blobPersistenceService,
-                                 final CitationGuardMode guardMode) {
-        this(embedDataService, searchService, responseGenerationService, blobPersistenceService, guardMode, null);
-    }
-
-    SyncAnswerGenerationFunction(final EmbedDataService embedDataService, final AzureAISearchService searchService,
-                                 final ResponseGenerationService responseGenerationService,
-                                 final BlobPersistenceService blobPersistenceService,
                                  final CitationGuardMode guardMode,
                                  final ClientIdentityResolver clientIdentityResolver) {
         this.embedDataService = embedDataService;

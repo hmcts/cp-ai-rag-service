@@ -64,10 +64,6 @@ public class GetAnswerGenerationResultFunction {
         clientIdentityResolver = HeaderClientIdentityResolver.fromEnvironment();
     }
 
-    public GetAnswerGenerationResultFunction(final AnswerGenerationTableService answerGenerationTableService, final BlobPersistenceService blobPersistenceInputChunksService) {
-        this(answerGenerationTableService, blobPersistenceInputChunksService, null);
-    }
-
     public GetAnswerGenerationResultFunction(final AnswerGenerationTableService answerGenerationTableService,
                                              final BlobPersistenceService blobPersistenceInputChunksService,
                                              final ClientIdentityResolver clientIdentityResolver) {
