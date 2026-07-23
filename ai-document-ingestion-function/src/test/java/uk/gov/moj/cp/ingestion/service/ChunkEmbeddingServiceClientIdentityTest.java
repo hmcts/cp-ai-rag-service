@@ -39,14 +39,14 @@ class ChunkEmbeddingServiceClientIdentityTest {
     @Test
     @DisplayName("Should preserve the client id when enriching chunks with embeddings")
     void shouldPreserveClientIdWhenEnrichingChunks() throws EmbeddingServiceException, DocumentProcessingException {
-        List<ChunkedEntry> mutableEntries = new ArrayList<>(List.of(createChunkedEntry(0, CLIENT_ID)));
-        List<Float> embedding = List.of(0.1f, 0.2f, 0.3f);
+        final List<ChunkedEntry> mutableEntries = new ArrayList<>(List.of(createChunkedEntry(0, CLIENT_ID)));
+        final List<Float> embedding = List.of(0.1f, 0.2f, 0.3f);
 
         when(mockEmbeddingService.embedCollectionData(anyList())).thenReturn(List.of(embedding));
 
         chunkEmbeddingService.enrichChunksWithEmbeddings(mutableEntries);
 
-        ChunkedEntry enriched = mutableEntries.get(0);
+        final ChunkedEntry enriched = mutableEntries.get(0);
         assertEquals(embedding, enriched.chunkVector());
         assertEquals(CLIENT_ID, enriched.clientId());
     }
@@ -54,14 +54,14 @@ class ChunkEmbeddingServiceClientIdentityTest {
     @Test
     @DisplayName("Should keep a null client id null when enriching chunks with embeddings")
     void shouldKeepNullClientIdNullWhenEnrichingChunks() throws EmbeddingServiceException, DocumentProcessingException {
-        List<ChunkedEntry> mutableEntries = new ArrayList<>(List.of(createChunkedEntry(0, null)));
-        List<Float> embedding = List.of(0.1f, 0.2f, 0.3f);
+        final List<ChunkedEntry> mutableEntries = new ArrayList<>(List.of(createChunkedEntry(0, null)));
+        final List<Float> embedding = List.of(0.1f, 0.2f, 0.3f);
 
         when(mockEmbeddingService.embedCollectionData(anyList())).thenReturn(List.of(embedding));
 
         chunkEmbeddingService.enrichChunksWithEmbeddings(mutableEntries);
 
-        ChunkedEntry enriched = mutableEntries.get(0);
+        final ChunkedEntry enriched = mutableEntries.get(0);
         assertEquals(embedding, enriched.chunkVector());
         assertNull(enriched.clientId());
     }
@@ -69,14 +69,14 @@ class ChunkEmbeddingServiceClientIdentityTest {
     @Test
     @DisplayName("Should preserve every non-vector field when enriching chunks with embeddings")
     void shouldPreserveAllFieldsWhenEnrichingChunks() throws EmbeddingServiceException, DocumentProcessingException {
-        ChunkedEntry original = createChunkedEntry(3, CLIENT_ID);
-        List<ChunkedEntry> mutableEntries = new ArrayList<>(List.of(original));
+        final ChunkedEntry original = createChunkedEntry(3, CLIENT_ID);
+        final List<ChunkedEntry> mutableEntries = new ArrayList<>(List.of(original));
 
         when(mockEmbeddingService.embedCollectionData(anyList())).thenReturn(List.of(List.of(0.5f)));
 
         chunkEmbeddingService.enrichChunksWithEmbeddings(mutableEntries);
 
-        ChunkedEntry enriched = mutableEntries.get(0);
+        final ChunkedEntry enriched = mutableEntries.get(0);
         assertEquals(original.id(), enriched.id());
         assertEquals(original.documentId(), enriched.documentId());
         assertEquals(original.chunk(), enriched.chunk());
@@ -88,7 +88,7 @@ class ChunkEmbeddingServiceClientIdentityTest {
         assertEquals(original.clientId(), enriched.clientId());
     }
 
-    private ChunkedEntry createChunkedEntry(int index, String clientId) {
+    private ChunkedEntry createChunkedEntry(final int index, final String clientId) {
         return ChunkedEntry.builder()
                 .id("id-" + index)
                 .documentId("doc-123")
