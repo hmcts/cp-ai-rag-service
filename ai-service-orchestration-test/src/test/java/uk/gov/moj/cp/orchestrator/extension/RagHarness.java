@@ -53,12 +53,19 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
     static final String CLIENT_IDENTITY_HEADER = "X-Client-Id";
 
     /**
-     * Deterministic client identity applied to every request the suite sends. The function hosts
-     * run with client filtering off (default), so the resolver ignores this header and behaviour is
-     * unchanged — the suite stays compatible with a flag-off environment. The enforcement-on matrix
-     * is a later story.
+     * The suite's default (client A) identity, applied to every request built by the header-bearing
+     * request specification. The function hosts run with client filtering ON, so this identity is
+     * enforced: rows, blobs, search results and telemetry for the default requests are all scoped to
+     * it. A second identity ({@link #SECOND_TEST_CLIENT_ID}) drives the cross-client isolation checks.
      */
     static final String TEST_CLIENT_ID = "00000000-0000-0000-0000-0000000000aa";
+
+    /**
+     * A second, distinct client identity used by the isolation checks to prove that data ingested or
+     * queried under one client is invisible to another (cross-client 404, no query leakage, and the
+     * same {@code documentId} coexisting across clients).
+     */
+    static final String SECOND_TEST_CLIENT_ID = "00000000-0000-0000-0000-0000000000bb";
 
     private static final String ANSWER_RETRIEVAL_FUNCTION_DIRECTORY = "../ai-document-answer-retrieval-function/target/azure-functions/fa-ste-ai-document-answer-retrieval";
     private static final String ANSWER_SCORING_FUNCTION_DIRECTORY = "../ai-document-answer-scoring-function/target/azure-functions/fa-ste-ai-document-answer-scoring";
@@ -98,6 +105,7 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
     private final String searchIndexV2;
 
     private final Map<FunctionAppName, Pair<FunctionHostManager, RequestSpecification>> functionConfigMap;
+    private final Map<FunctionAppName, Integer> functionPorts;
 
     RagHarness() {
         LOGGER.info("RAG harness: creating Azure test resources and starting function hosts (once per test run)");
@@ -131,12 +139,23 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
         createIndexFromSchema(SEARCH_SERVICE_ENDPOINT, searchIndexV1, V1_SCHEMA_RESOURCE);
         createIndexFromSchema(SEARCH_SERVICE_ENDPOINT, searchIndexV2, V2_SCHEMA_RESOURCE);
 
+        // Ports are allocated up front and retained so per-client request specifications (default
+        // client, a second client, or no client header at all) can be built on demand against the
+        // same hosts.
+        functionPorts = Map.of(
+                DOCUMENT_METADATA_CHECK_FUNCTION, getAvailablePort(),
+                DOCUMENT_STATUS_CHECK_FUNCTION, getAvailablePort(),
+                DOCUMENT_INGESTION_FUNCTION, getAvailablePort(),
+                ANSWER_RETRIEVAL_FUNCTION, getAvailablePort(),
+                ANSWER_SCORING_FUNCTION, getAvailablePort()
+        );
+
         functionConfigMap = Map.of(
-                DOCUMENT_METADATA_CHECK_FUNCTION, getFunctionConfig(getAvailablePort(), DOCUMENT_METADATA_CHECK_FUNCTION_DIRECTORY),
-                DOCUMENT_STATUS_CHECK_FUNCTION, getFunctionConfig(getAvailablePort(), DOCUMENT_STATUS_CHECK_FUNCTION_DIRECTORY),
-                DOCUMENT_INGESTION_FUNCTION, getFunctionConfig(getAvailablePort(), DOCUMENT_INGESTION_FUNCTION_DIRECTORY),
-                ANSWER_RETRIEVAL_FUNCTION, getFunctionConfig(getAvailablePort(), ANSWER_RETRIEVAL_FUNCTION_DIRECTORY),
-                ANSWER_SCORING_FUNCTION, getFunctionConfig(getAvailablePort(), ANSWER_SCORING_FUNCTION_DIRECTORY)
+                DOCUMENT_METADATA_CHECK_FUNCTION, getFunctionConfig(functionPorts.get(DOCUMENT_METADATA_CHECK_FUNCTION), DOCUMENT_METADATA_CHECK_FUNCTION_DIRECTORY),
+                DOCUMENT_STATUS_CHECK_FUNCTION, getFunctionConfig(functionPorts.get(DOCUMENT_STATUS_CHECK_FUNCTION), DOCUMENT_STATUS_CHECK_FUNCTION_DIRECTORY),
+                DOCUMENT_INGESTION_FUNCTION, getFunctionConfig(functionPorts.get(DOCUMENT_INGESTION_FUNCTION), DOCUMENT_INGESTION_FUNCTION_DIRECTORY),
+                ANSWER_RETRIEVAL_FUNCTION, getFunctionConfig(functionPorts.get(ANSWER_RETRIEVAL_FUNCTION), ANSWER_RETRIEVAL_FUNCTION_DIRECTORY),
+                ANSWER_SCORING_FUNCTION, getFunctionConfig(functionPorts.get(ANSWER_SCORING_FUNCTION), ANSWER_SCORING_FUNCTION_DIRECTORY)
         );
 
         // Launch every host first, then await readiness — the hosts boot concurrently instead of
@@ -165,6 +184,39 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
 
     public RequestSpecification requestSpecification(final FunctionAppName functionAppName) {
         return functionConfigMap.get(functionAppName).getRight();
+    }
+
+    /** The default (client A) identity carried by {@link #requestSpecification(FunctionAppName)}. */
+    public String testClientId() {
+        return TEST_CLIENT_ID;
+    }
+
+    /** The second client identity used by the cross-client isolation checks. */
+    public String secondTestClientId() {
+        return SECOND_TEST_CLIENT_ID;
+    }
+
+    /**
+     * A fresh request specification for the given host carrying the supplied client identity header,
+     * for driving requests as a client other than the default one.
+     */
+    public RequestSpecification requestSpecification(final FunctionAppName functionAppName, final String clientId) {
+        return baseRequestSpecification(functionAppName).header(CLIENT_IDENTITY_HEADER, clientId);
+    }
+
+    /**
+     * A fresh request specification for the given host with no client identity header at all, for
+     * asserting the enforcement rejection (401) when the header is absent.
+     */
+    public RequestSpecification requestSpecificationWithoutClientHeader(final FunctionAppName functionAppName) {
+        return baseRequestSpecification(functionAppName);
+    }
+
+    private RequestSpecification baseRequestSpecification(final FunctionAppName functionAppName) {
+        return given()
+                .baseUri("http://localhost")
+                .port(functionPorts.get(functionAppName))
+                .basePath("/api");
     }
 
     public String queueStorageAccountEndpoint() {
@@ -289,6 +341,13 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
 
                 Map.entry("RESPONSE_GENERATION_SYSTEM_PROMPT", RESPONSE_GENERATION_SYSTEM_PROMPT),
                 Map.entry("CITATION_GUARD_MODE", "OFF"),
+
+                // Client-identity enforcement ON: the HTTP functions require the identity header
+                // (else 401), rows/blobs/search/telemetry are scoped to the resolved client, and
+                // cross-client lookups resolve to 404. Safe per-run because the harness owns all of
+                // its own indexes/tables/queues/blob folders.
+                Map.entry("CLIENT_FILTERING_ENABLED", "true"),
+                Map.entry("CLIENT_IDENTITY_HEADER", CLIENT_IDENTITY_HEADER),
 
                 // 1 MiB (prod default 80): small enough for NegativePathIT to trip
                 // FILE_SIZE_OVER_LIMIT with a 2 MiB blob, while the ~16 KB PDF fixtures pass

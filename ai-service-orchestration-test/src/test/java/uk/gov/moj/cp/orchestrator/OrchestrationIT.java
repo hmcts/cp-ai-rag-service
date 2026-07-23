@@ -15,7 +15,6 @@ import static uk.gov.moj.cp.orchestrator.util.ContractValidator.assertMatchesCon
 import static uk.gov.moj.cp.orchestrator.util.RestPoller.pollForResponse;
 import static uk.gov.moj.cp.orchestrator.util.RestPoller.postRequest;
 
-import uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatusReturnedSuccessfully;
 import uk.gov.hmcts.cp.openapi.model.DocumentUploadRequest;
 import uk.gov.hmcts.cp.openapi.model.FileStorageLocationReturnedSuccessfully;
 import uk.gov.hmcts.cp.openapi.model.MetadataFilter;
@@ -61,9 +60,6 @@ public class OrchestrationIT extends FunctionTestBase {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OrchestrationIT.class);
 
-    /** Ingestion (Document Intelligence → chunk → embed → index) needs more headroom than the default poll timeout. */
-    private static final Duration INGESTION_TIMEOUT = Duration.ofMinutes(3);
-
     private static final String TRIBUNAL_CASE_DOCUMENT = "test-doc-tribunal-case.pdf";
     private static final String APPEAL_V1_DOCUMENT = "test-doc-tribunal-appeal-v1.pdf";
     private static final String APPEAL_V2_DOCUMENT = "test-doc-tribunal-appeal-v2.pdf";
@@ -92,7 +88,13 @@ public class OrchestrationIT extends FunctionTestBase {
                 }
             """;
 
-    /** Shape of the worker's queue message (AnswerGenerationQueuePayload) — used to simulate a duplicate delivery. */
+    /**
+     * Shape of the worker's queue message (AnswerGenerationQueuePayload) — used to simulate a
+     * duplicate delivery. Under enforcement the worker recovers the client identity from the
+     * payload's {@code clientId} field and scopes its fenced write to it, so the duplicate must
+     * carry the same client identity the original request used or the idempotency guard would look
+     * in the wrong partition and re-generate.
+     */
     private static final String ANSWER_GENERATION_QUEUE_MESSAGE = """
                 {
                   "transactionId": "%s",
@@ -103,11 +105,16 @@ public class OrchestrationIT extends FunctionTestBase {
                       "key": "%s",
                       "value": "%s"
                     }
-                  ]
+                  ],
+                  "clientId": "%s"
                 }
             """;
 
-    /** Shape of the ingestion worker's queue message (QueueIngestionMetadata) — used to simulate a duplicate delivery. */
+    /**
+     * Shape of the ingestion worker's queue message (QueueIngestionMetadata) — used to simulate a
+     * duplicate delivery. Carries the {@code clientId} for the same reason as the answer-generation
+     * message above: the guard partitions on it under enforcement.
+     */
     private static final String INGESTION_QUEUE_MESSAGE = """
                 {
                   "documentId": "%s",
@@ -118,7 +125,8 @@ public class OrchestrationIT extends FunctionTestBase {
                     "caseName": "%s"
                   },
                   "blobUrl": "%s",
-                  "currentTimestamp": "%s"
+                  "currentTimestamp": "%s",
+                  "clientId": "%s"
                 }
             """;
 
@@ -138,7 +146,7 @@ public class OrchestrationIT extends FunctionTestBase {
         }
 
         String queueMessage(final String transactionId) {
-            return ANSWER_GENERATION_QUEUE_MESSAGE.formatted(transactionId, userQuery, QUERY_PROMPT_INSTRUCTION, filterKey, filterValue);
+            return ANSWER_GENERATION_QUEUE_MESSAGE.formatted(transactionId, userQuery, QUERY_PROMPT_INSTRUCTION, filterKey, filterValue, harness().testClientId());
         }
 
         boolean isGroundedAnswer(final Response response) {
@@ -232,7 +240,7 @@ public class OrchestrationIT extends FunctionTestBase {
                 + "/" + harness().documentLandingFolder() + "/" + documentId + ".pdf";
         QueueUtil.sendMessage(harness().queueStorageAccountEndpoint(), harness().documentIngestionQueue(),
                 INGESTION_QUEUE_MESSAGE.formatted(documentId, TRIBUNAL_CASE_DOCUMENT, documentId, documentId,
-                        sharedDocument.apostropheCaseName(), blobUrl, Instant.now().toString()));
+                        sharedDocument.apostropheCaseName(), blobUrl, Instant.now().toString(), harness().testClientId()));
 
         QueueUtil.awaitQueueDrained(harness().queueStorageAccountEndpoint(), harness().documentIngestionQueue(), Duration.ofSeconds(60));
 
@@ -316,8 +324,10 @@ public class OrchestrationIT extends FunctionTestBase {
                 .atMost(Duration.ofMinutes(3))
                 .pollInterval(Duration.ofSeconds(5))
                 .until(() -> {
+                    // Under enforcement the answer-generation row is partitioned by clientId (not the
+                    // transactionId), so read it back with the default client identity as the partition key.
                     score.set(TableUtil.getEntityProperty(harness().tableStorageAccountEndpoint(), harness().answerGenerationTable(),
-                            transactionId, transactionId, TC_RESPONSE_GROUNDEDNESS_SCORE));
+                            harness().testClientId(), transactionId, TC_RESPONSE_GROUNDEDNESS_SCORE));
                     return score.get() != null;
                 });
         final double groundednessScore = new BigDecimal(score.get().toString()).doubleValue();
@@ -348,25 +358,11 @@ public class OrchestrationIT extends FunctionTestBase {
     }
 
     private static FileStorageLocationReturnedSuccessfully initiateDocumentUpload(final DocumentUploadRequest documentUploadRequest) {
-        final RequestSpecification metadataSubmissionRequestSpecification = harness().requestSpecification(DOCUMENT_METADATA_CHECK_FUNCTION)
-                .body(documentUploadRequest)
-                .contentType("application/json");
-        final Response metadataSubmissionResponse = postRequest(metadataSubmissionRequestSpecification, "/document-upload",
-                response -> response.getStatusCode() == 200);
-        assertNotNull(metadataSubmissionResponse);
-        return assertMatchesContract(metadataSubmissionResponse, FileStorageLocationReturnedSuccessfully.class);
+        return DocumentIngestionFlow.initiateUpload(harness().requestSpecification(DOCUMENT_METADATA_CHECK_FUNCTION), documentUploadRequest);
     }
 
     private static void checkDocumentIngestionSuccessful(final String documentReference) throws TimeoutException {
-        final RequestSpecification documentUploadStatusRequestSpecification = harness().requestSpecification(DOCUMENT_STATUS_CHECK_FUNCTION)
-                .contentType("application/json");
-
-        final Response documentStatusResponse = pollForResponse(documentUploadStatusRequestSpecification, RestOperation.GET, "/document-upload/" + documentReference,
-                response -> response.getStatusCode() == 200 &&
-                        response.jsonPath().getString("status").equals("INGESTION_SUCCESS"),
-                INGESTION_TIMEOUT);
-        assertNotNull(documentStatusResponse);
-        assertMatchesContract(documentStatusResponse, DocumentIngestionStatusReturnedSuccessfully.class);
+        DocumentIngestionFlow.awaitIngestionSuccess(harness().requestSpecification(DOCUMENT_STATUS_CHECK_FUNCTION), documentReference);
     }
 
     /**
