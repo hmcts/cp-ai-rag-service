@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import uk.gov.moj.cp.ai.exception.EmbeddingServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
+import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.service.EmbeddingService;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 
@@ -96,7 +97,7 @@ class ChunkEmbeddingServiceClientIdentityTest {
                 .pageNumber(1)
                 .chunkIndex(index)
                 .documentFileUrl("https://example.com/test.pdf")
-                .customMetadata(List.of())
+                .customMetadata(List.of(new KeyValuePair("caseId", "case-" + index)))
                 .clientId(clientId)
                 .build();
     }

@@ -154,8 +154,8 @@ public class ClientIsolationIT extends FunctionTestBase {
     @Test
     @DisplayName("A client cannot read another client's async answer transaction, which resolves to 404")
     void crossClientAnswerStatusReturns404() {
-        // A random-documentId filter retrieves nothing, so the worker never calls the LLM — the
-        // pending row (owned by client A) is still written, which is all this check needs.
+        // A random-documentId filter keeps the fixture cheap; the 404 rests solely on the
+        // transaction row being owned by client A.
         final String asyncBody = ANSWER_PAYLOAD.formatted(PENALTY_QUERY, QUERY_PROMPT_INSTRUCTION, "documentId", randomUUID());
         final Response accepted = harness().requestSpecification(ANSWER_RETRIEVAL_FUNCTION, harness().testClientId())
                 .body(asyncBody).contentType("application/json").post("/answer-user-query-async");
