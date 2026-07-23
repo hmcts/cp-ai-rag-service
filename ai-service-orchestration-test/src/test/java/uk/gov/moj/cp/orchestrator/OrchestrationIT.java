@@ -90,10 +90,9 @@ public class OrchestrationIT extends FunctionTestBase {
 
     /**
      * Shape of the worker's queue message (AnswerGenerationQueuePayload) — used to simulate a
-     * duplicate delivery. Under enforcement the worker recovers the client identity from the
-     * payload's {@code clientId} field and scopes its fenced write to it, so the duplicate must
-     * carry the same client identity the original request used or the idempotency guard would look
-     * in the wrong partition and re-generate.
+     * duplicate delivery. The {@code clientId} value must mirror what the initiate step put on the
+     * real payload in the current mode (the client identity under enforcement, JSON null in the
+     * legacy flow), or the idempotency guard would look in the wrong partition and re-generate.
      */
     private static final String ANSWER_GENERATION_QUEUE_MESSAGE = """
                 {
@@ -106,14 +105,14 @@ public class OrchestrationIT extends FunctionTestBase {
                       "value": "%s"
                     }
                   ],
-                  "clientId": "%s"
+                  "clientId": %s
                 }
             """;
 
     /**
      * Shape of the ingestion worker's queue message (QueueIngestionMetadata) — used to simulate a
-     * duplicate delivery. Carries the {@code clientId} for the same reason as the answer-generation
-     * message above: the guard partitions on it under enforcement.
+     * duplicate delivery. The {@code clientId} value mirrors the real payload of the current mode
+     * for the same reason as the answer-generation message above.
      */
     private static final String INGESTION_QUEUE_MESSAGE = """
                 {
@@ -126,12 +125,19 @@ public class OrchestrationIT extends FunctionTestBase {
                   },
                   "blobUrl": "%s",
                   "currentTimestamp": "%s",
-                  "clientId": "%s"
+                  "clientId": %s
                 }
             """;
 
     /** The sync endpoint's no-evidence sentinel (ResponseGenerationService.LLM_RESPONSE_NO_DATA_AVAILABLE). */
     private static final String NO_DATA_SENTINEL = "No data available matching the query.";
+
+    /** JSON value mirroring the {@code clientId} the initiate step put on the real payload in this mode. */
+    private static String payloadClientIdJson() {
+        return harness().clientFilteringEnabled()
+                ? "\"" + harness().testClientId() + "\""
+                : "null";
+    }
 
     /**
      * One answer-retrieval scenario: what to ask, how to filter, which fictional token the
@@ -146,7 +152,7 @@ public class OrchestrationIT extends FunctionTestBase {
         }
 
         String queueMessage(final String transactionId) {
-            return ANSWER_GENERATION_QUEUE_MESSAGE.formatted(transactionId, userQuery, QUERY_PROMPT_INSTRUCTION, filterKey, filterValue, harness().testClientId());
+            return ANSWER_GENERATION_QUEUE_MESSAGE.formatted(transactionId, userQuery, QUERY_PROMPT_INSTRUCTION, filterKey, filterValue, payloadClientIdJson());
         }
 
         boolean isGroundedAnswer(final Response response) {
@@ -240,7 +246,7 @@ public class OrchestrationIT extends FunctionTestBase {
                 + "/" + harness().documentLandingFolder() + "/" + documentId + ".pdf";
         QueueUtil.sendMessage(harness().queueStorageAccountEndpoint(), harness().documentIngestionQueue(),
                 INGESTION_QUEUE_MESSAGE.formatted(documentId, TRIBUNAL_CASE_DOCUMENT, documentId, documentId,
-                        sharedDocument.apostropheCaseName(), blobUrl, Instant.now().toString(), harness().testClientId()));
+                        sharedDocument.apostropheCaseName(), blobUrl, Instant.now().toString(), payloadClientIdJson()));
 
         QueueUtil.awaitQueueDrained(harness().queueStorageAccountEndpoint(), harness().documentIngestionQueue(), Duration.ofSeconds(60));
 
@@ -319,15 +325,16 @@ public class OrchestrationIT extends FunctionTestBase {
     }
 
     private void verifyGroundednessScoreRecorded(final String transactionId) {
+        // Under enforcement the answer-generation row is partitioned by the client identity;
+        // in the legacy flow the transactionId doubles as the partition key.
+        final String partitionKey = harness().clientFilteringEnabled() ? harness().testClientId() : transactionId;
         final AtomicReference<Object> score = new AtomicReference<>();
         await()
                 .atMost(Duration.ofMinutes(3))
                 .pollInterval(Duration.ofSeconds(5))
                 .until(() -> {
-                    // Under enforcement the answer-generation row is partitioned by clientId (not the
-                    // transactionId), so read it back with the default client identity as the partition key.
                     score.set(TableUtil.getEntityProperty(harness().tableStorageAccountEndpoint(), harness().answerGenerationTable(),
-                            harness().testClientId(), transactionId, TC_RESPONSE_GROUNDEDNESS_SCORE));
+                            partitionKey, transactionId, TC_RESPONSE_GROUNDEDNESS_SCORE));
                     return score.get() != null;
                 });
         final double groundednessScore = new BigDecimal(score.get().toString()).doubleValue();

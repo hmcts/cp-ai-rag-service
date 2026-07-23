@@ -69,17 +69,54 @@
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
+            <properties>
+                <it.enforcement.skip>false</it.enforcement.skip>
+                <it.legacy.skip>false</it.legacy.skip>
+            </properties>
             <build>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-failsafe-plugin</artifactId>
+                        <!-- Two sequential legs, each a fresh forked JVM with its own harness and
+                             per-run Azure resources. The env var below overrides anything inherited
+                             from .env, so the legs are deterministic under Maven. Skip one leg
+                             locally with -Dit.legacy.skip=true / -Dit.enforcement.skip=true. -->
                         <executions>
                             <execution>
+                                <id>enforcement-on</id>
                                 <goals>
                                     <goal>integration-test</goal>
                                     <goal>verify</goal>
                                 </goals>
+                                <configuration>
+                                    <skip>${it.enforcement.skip}</skip>
+                                    <environmentVariables>
+                                        <CLIENT_FILTERING_ENABLED>true</CLIENT_FILTERING_ENABLED>
+                                    </environmentVariables>
+                                    <reportsDirectory>${project.build.directory}/failsafe-reports/enforcement-on</reportsDirectory>
+                                    <summaryFile>${project.build.directory}/failsafe-reports/enforcement-on/failsafe-summary.xml</summaryFile>
+                                </configuration>
+                            </execution>
+                            <!-- The pre-cut-over production flow: no client identity anywhere.
+                                 Delete this execution at cut-over to decommission the legacy leg. -->
+                            <execution>
+                                <id>legacy-flag-off</id>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                                <configuration>
+                                    <skip>${it.legacy.skip}</skip>
+                                    <environmentVariables>
+                                        <CLIENT_FILTERING_ENABLED>false</CLIENT_FILTERING_ENABLED>
+                                    </environmentVariables>
+                                    <excludes>
+                                        <exclude>**/ClientIsolationIT.java</exclude>
+                                    </excludes>
+                                    <reportsDirectory>${project.build.directory}/failsafe-reports/legacy-flag-off</reportsDirectory>
+                                    <summaryFile>${project.build.directory}/failsafe-reports/legacy-flag-off/failsafe-summary.xml</summaryFile>
+                                </configuration>
                             </execution>
                         </executions>
                     </plugin>

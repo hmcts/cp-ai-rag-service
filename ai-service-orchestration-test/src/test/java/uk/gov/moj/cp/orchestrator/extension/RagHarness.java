@@ -53,10 +53,21 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
     static final String CLIENT_IDENTITY_HEADER = "X-Client-Id";
 
     /**
+     * Enforcement mode for this run. Read once from the JVM environment — each failsafe execution
+     * (leg) injects its own value, and the harness forwards it verbatim to every function host, so
+     * the harness, the hosts, and the tests always agree on the mode. Defaults to enforcement-on
+     * for ad-hoc runs outside Maven. The legacy (flag-off) leg exists until cut-over; the
+     * enforcement-on leg is the target state.
+     */
+    private static final boolean CLIENT_FILTERING_ENABLED =
+            Boolean.parseBoolean(System.getenv().getOrDefault("CLIENT_FILTERING_ENABLED", "true"));
+
+    /**
      * The suite's default (client A) identity, applied to every request built by the header-bearing
-     * request specification. The function hosts run with client filtering ON, so this identity is
-     * enforced: rows, blobs, search results and telemetry for the default requests are all scoped to
-     * it. A second identity ({@link #SECOND_TEST_CLIENT_ID}) drives the cross-client isolation checks.
+     * request specification. When the hosts run with client filtering ON this identity is enforced:
+     * rows, blobs, search results and telemetry for the default requests are all scoped to it; when
+     * OFF the hosts ignore the header entirely and the flow is the legacy single-client one. A
+     * second identity ({@link #SECOND_TEST_CLIENT_ID}) drives the cross-client isolation checks.
      */
     static final String TEST_CLIENT_ID = "00000000-0000-0000-0000-0000000000aa";
 
@@ -184,6 +195,11 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
 
     public RequestSpecification requestSpecification(final FunctionAppName functionAppName) {
         return functionConfigMap.get(functionAppName).getRight();
+    }
+
+    /** Whether the function hosts of this run enforce client identity (see {@link #CLIENT_FILTERING_ENABLED}). */
+    public boolean clientFilteringEnabled() {
+        return CLIENT_FILTERING_ENABLED;
     }
 
     /** The default (client A) identity carried by {@link #requestSpecification(FunctionAppName)}. */
@@ -346,7 +362,7 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
                 // (else 401), rows/blobs/search/telemetry are scoped to the resolved client, and
                 // cross-client lookups resolve to 404. Safe per-run because the harness owns all of
                 // its own indexes/tables/queues/blob folders.
-                Map.entry("CLIENT_FILTERING_ENABLED", "true"),
+                Map.entry("CLIENT_FILTERING_ENABLED", String.valueOf(CLIENT_FILTERING_ENABLED)),
                 Map.entry("CLIENT_IDENTITY_HEADER", CLIENT_IDENTITY_HEADER),
 
                 // 1 MiB (prod default 80): small enough for NegativePathIT to trip

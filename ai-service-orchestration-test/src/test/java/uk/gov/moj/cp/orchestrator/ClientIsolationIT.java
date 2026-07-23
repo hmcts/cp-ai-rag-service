@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.ANSWER_RETRIEVAL_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_METADATA_CHECK_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_STATUS_CHECK_FUNCTION;
@@ -78,10 +79,14 @@ public class ClientIsolationIT extends FunctionTestBase {
 
     /**
      * Ingests the two fixtures once — one per client, under the same documentId. Runs after
-     * FunctionTestBase's lifecycle, so the hosts are up.
+     * FunctionTestBase's lifecycle, so the hosts are up. The whole class is skipped when the
+     * hosts run without client filtering: every assertion here is about enforcement behaviour.
      */
     @BeforeAll
     static void ingestPerClientFixtures() throws TimeoutException {
+        assumeTrue(harness().clientFilteringEnabled(),
+                "Client-isolation checks are only meaningful when client filtering is enforced");
+
         sharedDocumentId = randomUUID().toString();
 
         ingestFixture(harness().testClientId(), TRIBUNAL_CASE_DOCUMENT);

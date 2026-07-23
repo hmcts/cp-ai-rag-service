@@ -12,6 +12,11 @@
 #     ./run-integration-test.sh                 # package the function apps, then run the tests
 #     SKIP_BUILD=true ./run-integration-test.sh # reuse already-packaged function apps
 #
+# The suite runs twice (two failsafe executions): once with client filtering enforced and once
+# in the legacy no-client mode, until the production cut-over decommissions the legacy leg.
+# Run a single leg while iterating by appending -Dit.legacy.skip=true or -Dit.enforcement.skip=true
+# to MAVEN_EXTRA_ARGS (or run mvn -P ai-rag-integration-test directly with the flag).
+#
 set -euo pipefail
 
 MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -70,4 +75,5 @@ if [[ "${SKIP_BUILD:-false}" != "true" ]]; then
   mvn -q clean install -DskipTests
 fi
 
-mvn verify -P ai-rag-integration-test -pl "${MODULE}"
+# shellcheck disable=SC2086
+mvn verify -P ai-rag-integration-test -pl "${MODULE}" ${MAVEN_EXTRA_ARGS:-}
