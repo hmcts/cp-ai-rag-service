@@ -322,11 +322,19 @@ Rationale grounded in the code: `clientId` is a **top-level** Search field, wher
 
 ## H. OQ-3 recommendation — eval harness (FR-18)
 
-**Recommend: harness supplies a configured incumbent `clientId` via its `.env` and threads it into the search path it already exercises, with enforcement on.**
+**Resolved (stakeholder decision, 2026-07-23): the harness stays client-unscoped — no changes to `ai-document-system-prompt-harness-eval` at all.** This supersedes the original recommendation below.
+
+The harness exists to evaluate **prompt and model quality** (system/user prompts × LLMs × queries → citation/verbosity/coverage metrics), not data isolation. It keeps calling `search(null, …)`: a null clientId generates no filter clause and never references the `clientId` column (the conditional column-select), so the harness works unchanged against both the current v1 index and the migrated v2 index — parity with today's behaviour is exact, before and after cut-over. Isolation proof is the integration suite's job (MTDI-08), not the harness's.
+
+*Accepted trade-off:* post-cutover the unscoped harness sees the whole corpus across clients. In particular, once two clients ingest the **same** `documentId` (uniqueness is per-client), a harness run filtering on that `documentId` retrieves both clients' copies. Acceptable for an offline, operator-run eval tool; revisit only if multi-client corpora start distorting eval metrics.
+
+<details><summary>Original (superseded) recommendation — EVAL_CLIENT_ID threading</summary>
 
 `ai-document-system-prompt-harness-eval` runs the embed→search→generate→cite pipeline directly against `AzureAISearchService` (not via HTTP), and its `.env.sample` already sets `AZURE_SEARCH_SERVICE_INDEX_NAME`. Simplest: add `EVAL_CLIENT_ID` (set to the incumbent clientId the corpus is stamped with) and `CLIENT_FILTERING_ENABLED=true` to the harness `.env`, and pass `EVAL_CLIENT_ID` into the `search(clientId, …)` call. This exercises the **real filtered path**, so eval metrics reflect production.
 - *Alternative — run the harness with the flag off (no filter):* rejected — eval would no longer mirror prod behaviour once enforcement is on.
 - *Alternative — dedicated eval client with its own corpus:* rejected as heavier and unnecessary; the incumbent-stamped corpus is exactly what prod queries.
+
+</details>
 
 ---
 
@@ -346,7 +354,7 @@ Rationale grounded in the code: `clientId` is a **top-level** Search field, wher
 - **New env vars** (document in each module's `Azure/local.settings.sample.json` **and** root `CLAUDE.md`):
   - `CLIENT_FILTERING_ENABLED` (default `false`) — enforcement flag (FR-3), all five HTTP functions + both workers + retrieval + scoring.
   - `CLIENT_IDENTITY_HEADER` (default `X-Client-Id`) — internal header name, HTTP functions only (D4 single point of change).
-  - `EVAL_CLIENT_ID` — harness `.env` only (OQ-3).
+  - ~~`EVAL_CLIENT_ID`~~ — dropped (OQ-3 resolved 2026-07-23: harness stays client-unscoped, see §H).
   - No new **infra** env vars: the new table names reuse `STORAGE_ACCOUNT_TABLE_*` (repointed at cut-over); the alias reuses `AZURE_SEARCH_SERVICE_INDEX_NAME`; incumbent clientId is a migration-tool argument (OQ-4).
 - **Validation:** UUID at the HTTP boundary (`UuidUtil.isValid`, NFR-4/D7); OData escaping via existing `escapeODataStringLiteral` (DD-3); worker-side `ClientId.requireValid` on payload values; blob-name parse validated by `DocumentBlobNameResolver`.
 - **Logging (`context.getLogger()`/slf4j):** `clientId` (a UUID, non-PII) may be logged for traceability; never log the raw header alongside request bodies. No new PII surface.
@@ -382,7 +390,7 @@ Rationale grounded in the code: `clientId` is a **top-level** Search field, wher
 - **DD-10 — 404 (not 403) on cross-client lookup as a natural consequence of partition scoping** (FR-14/NFR-3), no special-case check.
 - **DD-11 — Flag + table-name env vars are the reversible levers; alias repoint is independent** and may remain on v2 during rollback (NFR-2).
 - **DD-12 — metadataFilter allow-list deferred; reserved-key rejection added, always-on (not flag-gated)** (OQ-2, stakeholder decision 2026-07-20) — isolation does not depend on it.
-- **DD-13 — Eval harness runs enforcement-on with an incumbent `EVAL_CLIENT_ID`** (OQ-3).
+- **DD-13 (revised 2026-07-23) — Eval harness stays client-unscoped: no harness changes** (OQ-3, stakeholder decision — the harness evaluates prompt/model quality, not isolation; `search(null, …)` keeps exact parity against v1 and v2 indexes; see §H).
 
 ---
 
@@ -437,7 +445,7 @@ Rationale grounded in the code: `clientId` is a **top-level** Search field, wher
 - `index/IndexCopier.java` (and `uploadPage`) — stamp `ChunkedEntry.clientId` when override set
 - README/SCHEMA_CHANGES doc updates
 
-**`ai-document-system-prompt-harness-eval`** — `.env.sample` adds `EVAL_CLIENT_ID`, `CLIENT_FILTERING_ENABLED`; search call passes clientId.
+**`ai-document-system-prompt-harness-eval`** — **no changes** (DD-13 revised: harness stays client-unscoped, `search(null, …)`).
 
 **`ai-service-orchestration-test`** — `x-client-id`/`X-Client-Id` header on all request helpers; second-client fixture; new tests (cross-client 404, filter clause, header 401, spoof override).
 
@@ -466,7 +474,7 @@ Rationale grounded in the code: `clientId` is a **top-level** Search field, wher
 
 **Phase 3 — Migration tooling & harness**
 - `clientIdOverride` in the index copier; verify table copier run recipe (AC-15/AC-16).
-- Harness `.env` + search-path clientId (OQ-3).
+- ~~Harness `.env` + search-path clientId~~ — dropped (OQ-3 resolved: no harness changes, see §H).
 
 **Phase 4 — Cut-over (per environment, operator-run)**
 - Execute the runbook (§F) per environment; validate; keep old tables/v1 index for the reversibility window.
