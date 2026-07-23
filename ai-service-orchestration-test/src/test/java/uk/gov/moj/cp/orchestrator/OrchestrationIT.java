@@ -24,6 +24,7 @@ import uk.gov.hmcts.cp.openapi.model.UserQueryAnswerReturnedSuccessfullySynchron
 import uk.gov.moj.cp.orchestrator.extension.FunctionTestBase;
 import uk.gov.moj.cp.orchestrator.util.QueueUtil;
 import uk.gov.moj.cp.orchestrator.util.RestOperation;
+import uk.gov.moj.cp.orchestrator.util.RestPoller;
 import uk.gov.moj.cp.orchestrator.util.TableUtil;
 
 import java.math.BigDecimal;
@@ -331,7 +332,7 @@ public class OrchestrationIT extends FunctionTestBase {
         final AtomicReference<Object> score = new AtomicReference<>();
         await()
                 .atMost(Duration.ofMinutes(3))
-                .pollInterval(Duration.ofSeconds(5))
+                .pollInterval(Duration.ofSeconds(2))
                 .until(() -> {
                     score.set(TableUtil.getEntityProperty(harness().tableStorageAccountEndpoint(), harness().answerGenerationTable(),
                             partitionKey, transactionId, TC_RESPONSE_GROUNDEDNESS_SCORE));
@@ -350,7 +351,8 @@ public class OrchestrationIT extends FunctionTestBase {
 
         final Response response = pollForResponse(llmQueryRequestSpecification, RestOperation.POST, "/answer-user-query",
                 r -> r.getStatusCode() == 200 &&
-                        NO_DATA_SENTINEL.equals(r.jsonPath().getString("llmResponse")));
+                        NO_DATA_SENTINEL.equals(r.jsonPath().getString("llmResponse")),
+                Duration.ofSeconds(60), RestPoller.LLM_POLL_INTERVAL);
         assertMatchesContract(response, UserQueryAnswerReturnedSuccessfullySynchronously.class);
     }
 
@@ -386,7 +388,8 @@ public class OrchestrationIT extends FunctionTestBase {
 
         final Response llmAnswerResponse = pollForResponse(llmQueryRequestSpecification, RestOperation.POST, "/answer-user-query",
                 response -> response.getStatusCode() == 200 &&
-                        query.isGroundedAnswer(response));
+                        query.isGroundedAnswer(response),
+                Duration.ofSeconds(60), RestPoller.LLM_POLL_INTERVAL);
         assertNotNull(llmAnswerResponse);
         assertMatchesContract(llmAnswerResponse, UserQueryAnswerReturnedSuccessfullySynchronously.class);
     }

@@ -96,8 +96,7 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
 
     private static final String SEARCH_SERVICE_ENDPOINT = getRequiredEnv("AZURE_SEARCH_SERVICE_ENDPOINT");
 
-    /** Schema resources from the shared artefacts jar — the live (v1) shape and the rebuilt (v2) shape. */
-    private static final String V1_SCHEMA_RESOURCE = "/vector-db-index-schema.json";
+    /** Schema resource from the shared artefacts jar — the rebuilt (v2) index shape. */
     private static final String V2_SCHEMA_RESOURCE = "/vector-db-index-schema-v2.json";
 
     private static final String BLOB_STORAGE_ACCOUNT_ENDPOINT = String.format("https://%s.blob.core.windows.net/", STORAGE_ACCOUNT_NAME);
@@ -112,7 +111,6 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
     private final String documentIngestionQueue;
     private final String scoringQueue;
     private final String answerGenerationQueue;
-    private final String searchIndexV1;
     private final String searchIndexV2;
 
     private final Map<FunctionAppName, Pair<FunctionHostManager, RequestSpecification>> functionConfigMap;
@@ -130,7 +128,6 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
         documentIngestionQueue = "test-ingestion-queue-" + testRandomKey;
         scoringQueue = "test-scoring-queue-" + testRandomKey;
         answerGenerationQueue = "test-answer-generation-" + testRandomKey;
-        searchIndexV1 = "test-index-v1-" + testRandomKey;
         searchIndexV2 = "test-index-v2-" + testRandomKey;
 
         ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, documentLandingFolder);
@@ -144,10 +141,11 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
         ensureTableExists(TABLE_STORAGE_ACCOUNT_ENDPOINT, documentStatusOutcomeTable);
         ensureTableExists(TABLE_STORAGE_ACCOUNT_ENDPOINT, answerGenerationTable);
 
-        // Per-run, initially-empty indexes in both schema shapes, so tests exercise their own
-        // ingestion end-to-end and can target either version explicitly, instead of reusing a
-        // shared pre-existing index that only carries one version's schema.
-        createIndexFromSchema(SEARCH_SERVICE_ENDPOINT, searchIndexV1, V1_SCHEMA_RESOURCE);
+        // A per-run, initially-empty v2-schema index, so tests exercise their own ingestion
+        // end-to-end instead of reusing a shared pre-existing index. Only v2 is provisioned:
+        // no test consumes a v1-shaped index, and each index is an orphan-risk while the
+        // runner identity lacks delete rights on the search service. Recreate a v1 index here
+        // if a migration-shaped test ever needs one.
         createIndexFromSchema(SEARCH_SERVICE_ENDPOINT, searchIndexV2, V2_SCHEMA_RESOURCE);
 
         // Ports are allocated up front and retained so per-client request specifications (default
@@ -263,11 +261,6 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
         return documentIngestionQueue;
     }
 
-    /** The per-run index built from the live (v1) schema — empty unless a test targets it explicitly. */
-    public String searchIndexV1() {
-        return searchIndexV1;
-    }
-
     /** The per-run index built from the rebuilt (v2) schema — the one the function hosts point at. */
     public String searchIndexV2() {
         return searchIndexV2;
@@ -299,7 +292,6 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
         // Best-effort: index deletion needs delete rights on the search service, which not every
         // runner's identity has yet. A missing grant must not fail an otherwise-green run — but the
         // orphaned index names are logged loudly so they can be cleaned up manually.
-        runBestEffortCleanupStep(() -> deleteIndex(SEARCH_SERVICE_ENDPOINT, searchIndexV1), searchIndexV1);
         runBestEffortCleanupStep(() -> deleteIndex(SEARCH_SERVICE_ENDPOINT, searchIndexV2), searchIndexV2);
 
         if (!failures.isEmpty()) {
@@ -354,6 +346,11 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
                 Map.entry("STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION", documentIngestionQueue),
                 Map.entry("STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING", scoringQueue),
                 Map.entry("STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION", answerGenerationQueue),
+
+                // Test hosts only: cut the queue-scan backoff (host.json ships 10s) so each queue
+                // hop — ingestion, answer generation, scoring, and the blob trigger's internal
+                // receipt scan — picks work up within ~2s. Production host.json is untouched.
+                Map.entry("AzureFunctionsJobHost__extensions__queues__maxPollingInterval", "00:00:02"),
 
                 Map.entry("RESPONSE_GENERATION_SYSTEM_PROMPT", RESPONSE_GENERATION_SYSTEM_PROMPT),
                 Map.entry("CITATION_GUARD_MODE", "OFF"),

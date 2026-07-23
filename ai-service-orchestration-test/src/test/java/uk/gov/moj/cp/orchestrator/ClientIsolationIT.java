@@ -20,6 +20,9 @@ import uk.gov.hmcts.cp.openapi.model.RequestErrored;
 import uk.gov.hmcts.cp.openapi.model.UserQueryAnswerReturnedSuccessfullySynchronously;
 import uk.gov.moj.cp.orchestrator.extension.FunctionTestBase;
 import uk.gov.moj.cp.orchestrator.util.RestOperation;
+import uk.gov.moj.cp.orchestrator.util.RestPoller;
+
+import java.time.Duration;
 
 import java.util.concurrent.TimeoutException;
 
@@ -89,8 +92,13 @@ public class ClientIsolationIT extends FunctionTestBase {
 
         sharedDocumentId = randomUUID().toString();
 
-        ingestFixture(harness().testClientId(), TRIBUNAL_CASE_DOCUMENT);
-        ingestFixture(harness().secondTestClientId(), APPEAL_DOCUMENT);
+        // Kick off both uploads before awaiting either: the ingestion pipeline behind them is
+        // asynchronous and the documents belong to different clients, so the two runs overlap
+        // and the total wait is roughly the slower of the two rather than their sum.
+        final String referenceA = initiateAndUpload(harness().testClientId(), TRIBUNAL_CASE_DOCUMENT);
+        final String referenceB = initiateAndUpload(harness().secondTestClientId(), APPEAL_DOCUMENT);
+        awaitIngestion(harness().testClientId(), referenceA);
+        awaitIngestion(harness().secondTestClientId(), referenceB);
 
         LOGGER.info("Client-isolation fixtures ingested under shared documentId {} for clients A and B", sharedDocumentId);
     }
@@ -233,7 +241,8 @@ public class ClientIsolationIT extends FunctionTestBase {
                 "A body-planted clientId must not surface client B's content: " + answer);
     }
 
-    private static void ingestFixture(final String clientId, final String documentName) throws TimeoutException {
+    /** Initiates the upload and PUTs the file for the given client; ingestion continues asynchronously. */
+    private static String initiateAndUpload(final String clientId, final String documentName) {
         final FileStorageLocationReturnedSuccessfully location = DocumentIngestionFlow.initiateUpload(
                 harness().requestSpecification(DOCUMENT_METADATA_CHECK_FUNCTION, clientId),
                 new DocumentUploadRequest()
@@ -242,9 +251,13 @@ public class ClientIsolationIT extends FunctionTestBase {
                         .addMetadataFilterItem(new MetadataFilter("caseId", randomUUID().toString())));
 
         uploadFile(location.getStorageUrl(), documentName);
+        return location.getDocumentReference();
+    }
+
+    private static void awaitIngestion(final String clientId, final String documentReference) throws TimeoutException {
         DocumentIngestionFlow.awaitIngestionSuccess(
                 harness().requestSpecification(DOCUMENT_STATUS_CHECK_FUNCTION, clientId),
-                location.getDocumentReference());
+                documentReference);
     }
 
     private Response pollForGroundedAnswer(final String clientId, final String userQuery, final String filterKey,
@@ -262,7 +275,8 @@ public class ClientIsolationIT extends FunctionTestBase {
                 .contentType("application/json");
 
         final Response response = pollForResponse(spec, RestOperation.POST, "/answer-user-query",
-                r -> r.getStatusCode() == 200 && isGrounded(r, expectedToken, forbiddenToken));
+                r -> r.getStatusCode() == 200 && isGrounded(r, expectedToken, forbiddenToken),
+                Duration.ofSeconds(60), RestPoller.LLM_POLL_INTERVAL);
         assertNotNull(response);
         assertMatchesContract(response, UserQueryAnswerReturnedSuccessfullySynchronously.class);
         return response;
