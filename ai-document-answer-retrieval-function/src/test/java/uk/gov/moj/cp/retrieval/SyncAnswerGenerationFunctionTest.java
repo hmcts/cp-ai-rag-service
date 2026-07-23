@@ -80,7 +80,7 @@ class SyncAnswerGenerationFunctionTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        function = new SyncAnswerGenerationFunction(mockEmbedDataService, mockSearchService, mockResponseGenerationService, mockBlobPersistenceService, DELIVER);
+        function = new SyncAnswerGenerationFunction(mockEmbedDataService, mockSearchService, mockResponseGenerationService, mockBlobPersistenceService, DELIVER, null);
     }
 
     @Test
@@ -199,7 +199,7 @@ class SyncAnswerGenerationFunctionTest {
     @Test
     void run_DeliversDegradedAnswerAndScores_WhenGuardTrips_InDeliverMode() throws SearchServiceException, ChatServiceException {
         function = new SyncAnswerGenerationFunction(mockEmbedDataService, mockSearchService,
-                mockResponseGenerationService, mockBlobPersistenceService, DELIVER);
+                mockResponseGenerationService, mockBlobPersistenceService, DELIVER, null);
         stubDegradedGeneration();
 
         function.run(mockRequest, mockOutputBinding, mockContext);
@@ -215,7 +215,7 @@ class SyncAnswerGenerationFunctionTest {
     @Test
     void run_ReturnsSentinelAndSkipsScoring_WhenGuardTrips_InRejectMode() throws SearchServiceException, ChatServiceException {
         function = new SyncAnswerGenerationFunction(mockEmbedDataService, mockSearchService,
-                mockResponseGenerationService, mockBlobPersistenceService, CitationGuardMode.REJECT);
+                mockResponseGenerationService, mockBlobPersistenceService, CitationGuardMode.REJECT, null);
         stubDegradedGeneration();
 
         function.run(mockRequest, mockOutputBinding, mockContext);

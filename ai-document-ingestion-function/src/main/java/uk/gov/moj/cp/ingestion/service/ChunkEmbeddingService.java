@@ -107,17 +107,8 @@ public class ChunkEmbeddingService {
                     int chunkSize = chunkedEntry.chunk().length();
                     int estimatedTokens = chunkSize / 4;
 
-                    ChunkedEntry enrichedEntry = ChunkedEntry.builder()
-                            .id(chunkedEntry.id())
-                            .documentId(chunkedEntry.documentId())
-                            .chunk(chunkedEntry.chunk())
+                    ChunkedEntry enrichedEntry = chunkedEntry.toBuilder()
                             .chunkVector(vector)
-                            .documentFileName(chunkedEntry.documentFileName())
-                            .pageNumber(chunkedEntry.pageNumber())
-                            .chunkIndex(chunkedEntry.chunkIndex())
-                            .documentFileUrl(chunkedEntry.documentFileUrl())
-                            .customMetadata(chunkedEntry.customMetadata())
-                            .clientId(chunkedEntry.clientId())
                             .build();
 
                     chunkedEntries.set(originalIndex, enrichedEntry);

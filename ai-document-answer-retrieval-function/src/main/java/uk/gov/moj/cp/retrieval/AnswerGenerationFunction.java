@@ -170,8 +170,8 @@ public class AnswerGenerationFunction {
             final AnswerGenerationQueuePayload validPayload = payload;
             // A payload-carried clientId is re-validated defensively before use; a legacy message
             // without one keeps the null-scoped (legacy) claim, search and writes.
-            clientId = validatedClientId(validPayload.clientId());
-            final String claimClientId = clientId;
+            final String claimClientId = ClientId.requireValidOrNull(payload.clientId());
+            clientId = claimClientId;
 
             LOGGER.info("Starting answer generation for transactionId '{}'", transactionId);
 
@@ -191,11 +191,6 @@ public class AnswerGenerationFunction {
         } catch (Exception e) {
             handleClaimFailure(payload, clientId, e, dequeueCount, maxDequeueCount, startTime);
         }
-    }
-
-    /** Legacy null clientId stays null; a present one is re-validated as a UUID before use. */
-    private static String validatedClientId(final String clientId) {
-        return isNullOrEmpty(clientId) ? null : ClientId.requireValid(clientId);
     }
 
     /**

@@ -135,7 +135,7 @@ class SyncAnswerGenerationFunctionClientIdentityTest {
     @DisplayName("flag off (default resolver) keeps the legacy null-scoped search")
     void shouldSearchWithoutScope_whenEnforcementOff() throws Exception {
         final SyncAnswerGenerationFunction defaultFunction = new SyncAnswerGenerationFunction(
-                embedDataService, searchService, responseGenerationService, blobPersistenceService, DELIVER);
+                embedDataService, searchService, responseGenerationService, blobPersistenceService, DELIVER, null);
         stubHappyPath();
 
         defaultFunction.run(request, outputBinding, context);

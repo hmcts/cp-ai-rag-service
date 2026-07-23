@@ -78,12 +78,6 @@ public class DocumentUploadFunction {
 
     public DocumentUploadFunction(final BlobClientService blobClientService,
                                   final DocumentUploadService documentUploadService,
-                                  final DocumentBlobNameResolver documentBlobNameResolver) {
-        this(blobClientService, documentUploadService, documentBlobNameResolver, null);
-    }
-
-    public DocumentUploadFunction(final BlobClientService blobClientService,
-                                  final DocumentUploadService documentUploadService,
                                   final DocumentBlobNameResolver documentBlobNameResolver,
                                   final ClientIdentityResolver clientIdentityResolver) {
         this.urlExpiryMinutes = parseInt(DEFAULT_URL_EXPIRY_MINUTES);

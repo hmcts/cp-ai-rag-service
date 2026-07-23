@@ -106,7 +106,7 @@ class GetAnswerGenerationResultFunctionClientIdentityTest {
     void shouldUseLegacyLookup_whenEnforcementOff() throws Exception {
         final String transactionId = randomUUID().toString();
         final GetAnswerGenerationResultFunction defaultFunction =
-                new GetAnswerGenerationResultFunction(tableService, blobPersistenceInputChunksService);
+                new GetAnswerGenerationResultFunction(tableService, blobPersistenceInputChunksService, null);
 
         defaultFunction.run(request, transactionId, context);
 

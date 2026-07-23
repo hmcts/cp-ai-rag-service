@@ -118,7 +118,7 @@ class InitiateAnswerGenerationFunctionClientIdentityTest {
     @DisplayName("flag off (default resolver) keeps the legacy null-scoped pending row")
     void shouldPersistLegacyRow_whenEnforcementOff() throws Exception {
         final InitiateAnswerGenerationFunction defaultFunction =
-                new InitiateAnswerGenerationFunction(answerGenerationTableService);
+                new InitiateAnswerGenerationFunction(answerGenerationTableService, null);
         when(request.getBody()).thenReturn(validRequest());
         mockResponse();
 

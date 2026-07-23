@@ -59,10 +59,6 @@ public class InitiateAnswerGenerationFunction {
         clientIdentityResolver = HeaderClientIdentityResolver.fromEnvironment();
     }
 
-    public InitiateAnswerGenerationFunction(final AnswerGenerationTableService answerGenerationTableService) {
-        this(answerGenerationTableService, null);
-    }
-
     public InitiateAnswerGenerationFunction(final AnswerGenerationTableService answerGenerationTableService,
                                             final ClientIdentityResolver clientIdentityResolver) {
         this.answerGenerationTableService = answerGenerationTableService;
