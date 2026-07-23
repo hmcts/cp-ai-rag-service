@@ -10,6 +10,8 @@ import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_METADATA_CHECK
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_STATUS_CHECK_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.util.BlobUtil.deleteContainer;
 import static uk.gov.moj.cp.orchestrator.util.BlobUtil.ensureContainerExists;
+import static uk.gov.moj.cp.orchestrator.util.IndexUtil.createIndexFromSchema;
+import static uk.gov.moj.cp.orchestrator.util.IndexUtil.deleteIndex;
 import static uk.gov.moj.cp.orchestrator.util.QueueUtil.deleteQueue;
 import static uk.gov.moj.cp.orchestrator.util.QueueUtil.ensureQueueExists;
 import static uk.gov.moj.cp.orchestrator.util.TableUtil.deleteTable;
@@ -33,7 +35,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The expensive cross-class fixture: five local Azure Function hosts plus the per-run blob
- * containers, queues and tables they use. Created once per test run by
+ * containers, queues, tables and AI Search indexes (one per schema version) they use. Created once per test run by
  * {@link RagHarnessExtension} (the first test class to start pays for it, later classes reuse
  * it) and closed automatically by JUnit when the root extension context ends — after ALL tests,
  * regardless of failures — via {@link ExtensionContext.Store.CloseableResource}.
@@ -46,6 +48,17 @@ import org.slf4j.LoggerFactory;
 public final class RagHarness implements ExtensionContext.Store.CloseableResource {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RagHarness.class);
+
+    /** Header carrying the caller's client identity (matches the {@code CLIENT_IDENTITY_HEADER} default). */
+    static final String CLIENT_IDENTITY_HEADER = "X-Client-Id";
+
+    /**
+     * Deterministic client identity applied to every request the suite sends. The function hosts
+     * run with client filtering off (default), so the resolver ignores this header and behaviour is
+     * unchanged — the suite stays compatible with a flag-off environment. The enforcement-on matrix
+     * is a later story.
+     */
+    static final String TEST_CLIENT_ID = "00000000-0000-0000-0000-0000000000aa";
 
     private static final String ANSWER_RETRIEVAL_FUNCTION_DIRECTORY = "../ai-document-answer-retrieval-function/target/azure-functions/fa-ste-ai-document-answer-retrieval";
     private static final String ANSWER_SCORING_FUNCTION_DIRECTORY = "../ai-document-answer-scoring-function/target/azure-functions/fa-ste-ai-document-answer-scoring";
@@ -63,6 +76,12 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
 
     private static final String STORAGE_ACCOUNT_NAME = getRequiredEnv("AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING__accountName");
 
+    private static final String SEARCH_SERVICE_ENDPOINT = getRequiredEnv("AZURE_SEARCH_SERVICE_ENDPOINT");
+
+    /** Schema resources from the shared artefacts jar — the live (v1) shape and the rebuilt (v2) shape. */
+    private static final String V1_SCHEMA_RESOURCE = "/vector-db-index-schema.json";
+    private static final String V2_SCHEMA_RESOURCE = "/vector-db-index-schema-v2.json";
+
     private static final String BLOB_STORAGE_ACCOUNT_ENDPOINT = String.format("https://%s.blob.core.windows.net/", STORAGE_ACCOUNT_NAME);
     private static final String TABLE_STORAGE_ACCOUNT_ENDPOINT = String.format("https://%s.table.core.windows.net/", STORAGE_ACCOUNT_NAME);
     private static final String QUEUE_STORAGE_ACCOUNT_ENDPOINT = String.format("https://%s.queue.core.windows.net/", STORAGE_ACCOUNT_NAME);
@@ -75,6 +94,8 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
     private final String documentIngestionQueue;
     private final String scoringQueue;
     private final String answerGenerationQueue;
+    private final String searchIndexV1;
+    private final String searchIndexV2;
 
     private final Map<FunctionAppName, Pair<FunctionHostManager, RequestSpecification>> functionConfigMap;
 
@@ -90,6 +111,8 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
         documentIngestionQueue = "test-ingestion-queue-" + testRandomKey;
         scoringQueue = "test-scoring-queue-" + testRandomKey;
         answerGenerationQueue = "test-answer-generation-" + testRandomKey;
+        searchIndexV1 = "test-index-v1-" + testRandomKey;
+        searchIndexV2 = "test-index-v2-" + testRandomKey;
 
         ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, documentLandingFolder);
         ensureContainerExists(BLOB_STORAGE_ACCOUNT_ENDPOINT, llmEvalPayloadsFolder);
@@ -101,6 +124,12 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
 
         ensureTableExists(TABLE_STORAGE_ACCOUNT_ENDPOINT, documentStatusOutcomeTable);
         ensureTableExists(TABLE_STORAGE_ACCOUNT_ENDPOINT, answerGenerationTable);
+
+        // Per-run, initially-empty indexes in both schema shapes, so tests exercise their own
+        // ingestion end-to-end and can target either version explicitly, instead of reusing a
+        // shared pre-existing index that only carries one version's schema.
+        createIndexFromSchema(SEARCH_SERVICE_ENDPOINT, searchIndexV1, V1_SCHEMA_RESOURCE);
+        createIndexFromSchema(SEARCH_SERVICE_ENDPOINT, searchIndexV2, V2_SCHEMA_RESOURCE);
 
         functionConfigMap = Map.of(
                 DOCUMENT_METADATA_CHECK_FUNCTION, getFunctionConfig(getAvailablePort(), DOCUMENT_METADATA_CHECK_FUNCTION_DIRECTORY),
@@ -166,6 +195,16 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
         return documentIngestionQueue;
     }
 
+    /** The per-run index built from the live (v1) schema — empty unless a test targets it explicitly. */
+    public String searchIndexV1() {
+        return searchIndexV1;
+    }
+
+    /** The per-run index built from the rebuilt (v2) schema — the one the function hosts point at. */
+    public String searchIndexV2() {
+        return searchIndexV2;
+    }
+
     /**
      * Invoked by JUnit when the root extension context closes (after all tests). Every cleanup
      * step runs even if an earlier one throws, so a single failure cannot leak the remaining
@@ -189,6 +228,12 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
         runCleanupStep(failures, () -> deleteTable(TABLE_STORAGE_ACCOUNT_ENDPOINT, documentStatusOutcomeTable));
         runCleanupStep(failures, () -> deleteTable(TABLE_STORAGE_ACCOUNT_ENDPOINT, answerGenerationTable));
 
+        // Best-effort: index deletion needs delete rights on the search service, which not every
+        // runner's identity has yet. A missing grant must not fail an otherwise-green run — but the
+        // orphaned index names are logged loudly so they can be cleaned up manually.
+        runBestEffortCleanupStep(() -> deleteIndex(SEARCH_SERVICE_ENDPOINT, searchIndexV1), searchIndexV1);
+        runBestEffortCleanupStep(() -> deleteIndex(SEARCH_SERVICE_ENDPOINT, searchIndexV2), searchIndexV2);
+
         if (!failures.isEmpty()) {
             final RuntimeException teardownFailure = new RuntimeException(failures.size() + " teardown step(s) failed; see suppressed exceptions");
             failures.forEach(teardownFailure::addSuppressed);
@@ -198,6 +243,15 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
 
     private void stopAllHosts(final List<RuntimeException> failures) {
         functionConfigMap.values().forEach(pair -> runCleanupStep(failures, () -> pair.getLeft().stop()));
+    }
+
+    private static void runBestEffortCleanupStep(final Runnable step, final String resourceName) {
+        try {
+            step.run();
+        } catch (RuntimeException e) {
+            LOGGER.warn("ORPHANED TEST RESOURCE — could not delete '{}' (likely missing delete rights "
+                    + "on the search service); remove it manually.", resourceName, e);
+        }
     }
 
     private static void runCleanupStep(final List<RuntimeException> failures, final Runnable step) {
@@ -242,8 +296,10 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
 
                 Map.entry("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", getRequiredEnv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")),
 
-                Map.entry("AZURE_SEARCH_SERVICE_ENDPOINT", getRequiredEnv("AZURE_SEARCH_SERVICE_ENDPOINT")),
-                Map.entry("AZURE_SEARCH_SERVICE_INDEX_NAME", getRequiredEnv("AZURE_SEARCH_SERVICE_INDEX_NAME")),
+                Map.entry("AZURE_SEARCH_SERVICE_ENDPOINT", SEARCH_SERVICE_ENDPOINT),
+                // The hosts point at the per-run v2 index (the future production shape); flag-off
+                // code never references the client field, so behaviour matches a v1 index exactly.
+                Map.entry("AZURE_SEARCH_SERVICE_INDEX_NAME", searchIndexV2),
 
                 Map.entry("AZURE_EMBEDDING_SERVICE_ENDPOINT", getRequiredEnv("AZURE_EMBEDDING_SERVICE_ENDPOINT")),
                 Map.entry("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME", getRequiredEnv("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME")),
@@ -262,7 +318,8 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
         return Pair.of(new FunctionHostManager(appDirectory, port), given()
                 .baseUri("http://localhost")
                 .port(port)
-                .basePath("/api"));
+                .basePath("/api")
+                .header(CLIENT_IDENTITY_HEADER, TEST_CLIENT_ID));
     }
 
     private static int getAvailablePort() {

@@ -76,11 +76,11 @@ public class AnswerScoringFunction {
 
             LOGGER.info("Score now available for the answer : {}", modelScore.groundednessScore());
 
-            publishScoreService.publishGroundednessScore(modelScore.groundednessScore(), scoringPayload.userQuery());
+            publishScoreService.publishGroundednessScore(modelScore.groundednessScore(), scoringPayload.userQuery(), scoringPayload.clientId());
 
             if(null != scoringPayload.transactionId()) {
                 LOGGER.info("Recording groundedness score against transaction id: {}", scoringPayload.transactionId());
-                answerGenerationTableService.recordGroundednessScore(null, scoringPayload.transactionId(), modelScore.groundednessScore());
+                answerGenerationTableService.recordGroundednessScore(scoringPayload.clientId(), scoringPayload.transactionId(), modelScore.groundednessScore());
             }
 
             LOGGER.info("Answer scoring processing completed successfully for message with score : {}", modelScore.groundednessScore());

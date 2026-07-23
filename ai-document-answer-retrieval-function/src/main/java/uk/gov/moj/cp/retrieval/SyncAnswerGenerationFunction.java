@@ -22,6 +22,11 @@ import static uk.gov.moj.cp.retrieval.util.ChunkUtil.transformChunkEntries;
 import uk.gov.hmcts.cp.openapi.model.AnswerUserQueryRequest;
 import uk.gov.hmcts.cp.openapi.model.RequestErrored;
 import uk.gov.hmcts.cp.openapi.model.UserQueryAnswerReturnedSuccessfullySynchronously;
+import uk.gov.moj.cp.ai.client.identity.ClientContext;
+import uk.gov.moj.cp.ai.client.identity.ClientIdentityException;
+import uk.gov.moj.cp.ai.client.identity.ClientIdentityResolver;
+import uk.gov.moj.cp.ai.client.identity.HeaderClientIdentityResolver;
+import uk.gov.moj.cp.ai.http.HttpResponses;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.model.ScoringPayload;
@@ -67,23 +72,36 @@ public class SyncAnswerGenerationFunction {
 
     private final CitationGuardMode guardMode;
 
+    private final ClientIdentityResolver clientIdentityResolver;
+
     public SyncAnswerGenerationFunction() {
         embedDataService = new EmbedDataService();
         searchService = new AzureAISearchService();
         responseGenerationService = new ResponseGenerationService();
         blobPersistenceService = new BlobPersistenceService(getRequiredEnv(STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_EVAL_PAYLOADS));
         guardMode = CitationGuardMode.fromEnv();
+        clientIdentityResolver = HeaderClientIdentityResolver.fromEnvironment();
     }
 
     SyncAnswerGenerationFunction(final EmbedDataService embedDataService, final AzureAISearchService searchService,
                                  final ResponseGenerationService responseGenerationService,
                                  final BlobPersistenceService blobPersistenceService,
                                  final CitationGuardMode guardMode) {
+        this(embedDataService, searchService, responseGenerationService, blobPersistenceService, guardMode, null);
+    }
+
+    SyncAnswerGenerationFunction(final EmbedDataService embedDataService, final AzureAISearchService searchService,
+                                 final ResponseGenerationService responseGenerationService,
+                                 final BlobPersistenceService blobPersistenceService,
+                                 final CitationGuardMode guardMode,
+                                 final ClientIdentityResolver clientIdentityResolver) {
         this.embedDataService = embedDataService;
         this.searchService = searchService;
         this.responseGenerationService = responseGenerationService;
         this.blobPersistenceService = blobPersistenceService;
         this.guardMode = guardMode;
+        this.clientIdentityResolver = clientIdentityResolver != null
+                ? clientIdentityResolver : HeaderClientIdentityResolver.fromEnvironment();
     }
 
     /**
@@ -99,6 +117,16 @@ public class SyncAnswerGenerationFunction {
             @QueueOutput(name = "message", queueName = "%" + STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING + "%",
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING) OutputBinding<String> message,
             final ExecutionContext context) {
+
+        final ClientContext clientContext;
+        try {
+            // Enforcement on: reject a missing/invalid client identity before any search.
+            // Flag off: an empty context, so search / scoring stay legacy null-scoped.
+            clientContext = clientIdentityResolver.resolve(request);
+        } catch (ClientIdentityException e) {
+            return HttpResponses.unauthorized(request);
+        }
+        final String clientId = clientContext.clientId().orElse(null);
 
         try {
             final AnswerUserQueryRequest userQueryRequest = request.getBody();
@@ -120,7 +148,7 @@ public class SyncAnswerGenerationFunction {
 
             final List<Float> queryEmbeddings = embedDataService.getEmbedding(userQuery);
 
-            final List<ChunkedEntry> chunkedEntries = searchService.search(null, userQuery, queryEmbeddings, metadataFilters);
+            final List<ChunkedEntry> chunkedEntries = searchService.search(clientId, userQuery, queryEmbeddings, metadataFilters);
 
             LlmResponse llmResponse;
             try {
@@ -142,9 +170,9 @@ public class SyncAnswerGenerationFunction {
                 return generateResponse(request, OK, responseAsString);
             }
 
-            final String filename = getAnswerWithChunksFilename(null, randomUUID());
+            final String filename = getAnswerWithChunksFilename(clientId, randomUUID());
             final ScoringPayload scoringPayload = new ScoringPayload(
-                    userQuery, llmResponse.formattedLlmResponse(), userQueryPrompt, chunkedEntries, null);
+                    userQuery, llmResponse.formattedLlmResponse(), userQueryPrompt, chunkedEntries, null, clientId);
             blobPersistenceService.saveBlob(filename, convert(scoringPayload));
             message.setValue(convert(new ScoringQueuePayload(filename)));
 

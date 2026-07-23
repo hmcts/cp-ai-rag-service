@@ -18,7 +18,7 @@ public final class ClientId {
      * @throws ClientIdentityException when {@code clientId} is null, blank or not a valid UUID.
      */
     public static String requireValid(final String clientId) {
-        if (!UuidUtil.isValid(clientId)) {
+        if (!UuidUtil.isValidQuietly(clientId)) {
             throw new ClientIdentityException("Missing or invalid client identity");
         }
         return clientId;

@@ -108,7 +108,7 @@ public class DocumentIngestionOrchestrator {
         documentStorageService.uploadChunks(Collections.unmodifiableList(chunkedEntries));
 
         // Step 5: Mark superseded documents inactive
-        markSupersededDocumentsInactive(documentId);
+        markSupersededDocumentsInactive(documentId, token);
 
         // Step 6: Record success (fenced on the claim-time ETag)
         recordOutcome(documentName, documentId, INGESTION_SUCCESS.name(), INGESTION_SUCCESS_REASON, token);
@@ -141,10 +141,10 @@ public class DocumentIngestionOrchestrator {
      * never overwrite a terminal outcome or a live leaseholder's in-progress work. If even the
      * re-check fails, nothing is written (the row surfaces via alerting instead).
      */
-    public void processQueueMessageFailedIfSafe(final QueueIngestionMetadata queueIngestionMetadata) {
+    public void processQueueMessageFailedIfSafe(final QueueIngestionMetadata queueIngestionMetadata, final String clientId) {
         final String documentId = queueIngestionMetadata.documentId();
         try {
-            final LeaseSnapshot snapshot = documentIngestionOutcomeTableService.readForClaim(null, documentId);
+            final LeaseSnapshot snapshot = documentIngestionOutcomeTableService.readForClaim(clientId, documentId);
             if (snapshot == null) {
                 LOGGER.error("Not recording INGESTION_FAILED for documentId: {} — status row is missing.", documentId);
                 return;
@@ -158,7 +158,7 @@ public class DocumentIngestionOrchestrator {
                 return;
             }
             documentIngestionOutcomeTableService.recordOutcomeFenced(
-                    null, documentId, INGESTION_FAILED.name(), INGESTION_FAILED_REASON, snapshot.etag());
+                    clientId, documentId, INGESTION_FAILED.name(), INGESTION_FAILED_REASON, snapshot.etag());
 
         } catch (EtagMismatchException e) {
             LOGGER.warn("Not recording INGESTION_FAILED for documentId: {} — row changed concurrently; leaving the outcome to its owner.", documentId, e);
@@ -167,15 +167,15 @@ public class DocumentIngestionOrchestrator {
         }
     }
 
-    private void markSupersededDocumentsInactive(final String documentId) throws DocumentProcessingException {
+    private void markSupersededDocumentsInactive(final String documentId, final ClaimToken token) throws DocumentProcessingException {
         try {
-            final DocumentIngestionOutcome document = documentIngestionOutcomeTableService.getDocumentById(null, documentId);
+            final DocumentIngestionOutcome document = documentIngestionOutcomeTableService.getDocumentById(token.clientId(), documentId);
             if (nonNull(document) && !isNullOrEmpty(document.getSupersededDocuments())) {
                 final List<String> supersededDocs = Arrays.stream(document.getSupersededDocuments().split(","))
                         .map(String::trim)
                         .filter(s -> !s.isEmpty())
                         .toList();
-                documentStorageService.markDocumentsInActive(null, supersededDocs);
+                documentStorageService.markDocumentsInActive(token.clientId(), supersededDocs);
             }
         } catch (EntityRetrievalException e) {
             final String message = String.format("Unable to mark documents as Inactive in search index which were to be superseded by document with ID: %s", documentId);
@@ -186,7 +186,7 @@ public class DocumentIngestionOrchestrator {
     private void recordOutcome(final String documentName, final String documentId,
                                final String status, final String reason, final ClaimToken token) throws DocumentProcessingException {
         try {
-            documentIngestionOutcomeTableService.recordOutcomeFenced(null, documentId, status, reason, token.etag());
+            documentIngestionOutcomeTableService.recordOutcomeFenced(token.clientId(), documentId, status, reason, token.etag());
             LOGGER.info("event=outcome_recorded status={} documentName={} documentId={}", status, documentName, documentId);
         } catch (EtagMismatchException fenceLoss) {
             // Never convert a fence loss into a retry or a FAILED write — the reclaimer owns the outcome.

@@ -225,7 +225,7 @@ class DocumentIngestionFunctionTest {
 
         // then
         verify(documentIngestionOrchestrator, never()).processQueueMessageFailed(any(), any());
-        verify(documentIngestionOrchestrator, never()).processQueueMessageFailedIfSafe(any());
+        verify(documentIngestionOrchestrator, never()).processQueueMessageFailedIfSafe(any(), any());
         // the guard skips releasing an already-stale lease (a release would be a guaranteed 412)
         verify(outcomeTableService, never()).releaseLease(any(), anyString(), anyString());
     }

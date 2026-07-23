@@ -12,7 +12,12 @@ import static uk.gov.moj.cp.ai.util.UuidUtil.isValid;
 
 import uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatusReturnedSuccessfully;
 import uk.gov.hmcts.cp.openapi.model.RequestErrored;
+import uk.gov.moj.cp.ai.client.identity.ClientContext;
+import uk.gov.moj.cp.ai.client.identity.ClientIdentityException;
+import uk.gov.moj.cp.ai.client.identity.ClientIdentityResolver;
+import uk.gov.moj.cp.ai.client.identity.HeaderClientIdentityResolver;
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
+import uk.gov.moj.cp.ai.http.HttpResponses;
 import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
 
 import java.util.Optional;
@@ -36,14 +41,23 @@ public class DocumentStatusByReferenceFunction {
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentStatusByReferenceFunction.class);
 
     private final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService;
+    private final ClientIdentityResolver clientIdentityResolver;
 
     public DocumentStatusByReferenceFunction() {
         String tableName = System.getenv(STORAGE_ACCOUNT_TABLE_DOCUMENT_INGESTION_OUTCOME);
         this.documentIngestionOutcomeTableService = new DocumentIngestionOutcomeTableService(tableName);
+        this.clientIdentityResolver = HeaderClientIdentityResolver.fromEnvironment();
     }
 
     public DocumentStatusByReferenceFunction(final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService) {
+        this(documentIngestionOutcomeTableService, null);
+    }
+
+    public DocumentStatusByReferenceFunction(final DocumentIngestionOutcomeTableService documentIngestionOutcomeTableService,
+                                             final ClientIdentityResolver clientIdentityResolver) {
         this.documentIngestionOutcomeTableService = documentIngestionOutcomeTableService;
+        this.clientIdentityResolver = clientIdentityResolver != null
+                ? clientIdentityResolver : HeaderClientIdentityResolver.fromEnvironment();
     }
 
     /**
@@ -61,13 +75,23 @@ public class DocumentStatusByReferenceFunction {
             @BindingName("documentReference") String documentReference,
             final ExecutionContext context) {
 
+        final ClientContext clientContext;
+        try {
+            // Enforcement on: reject a missing/invalid client identity before any lookup.
+            // Flag off: an empty context, so the lookup stays legacy null-scoped.
+            clientContext = clientIdentityResolver.resolve(request);
+        } catch (ClientIdentityException e) {
+            return HttpResponses.unauthorized(request);
+        }
+        final String clientId = clientContext.clientId().orElse(null);
+
         try {
             if (!isValid(documentReference)) {
                 final String errorMessage = format("Received invalid documentReference '%s'", documentReference);
                 return generateResponse(request, HttpStatus.BAD_REQUEST, convert(new RequestErrored(errorMessage)));
             }
 
-            final DocumentIngestionOutcome document = documentIngestionOutcomeTableService.getDocumentById(null, documentReference);
+            final DocumentIngestionOutcome document = documentIngestionOutcomeTableService.getDocumentById(clientId, documentReference);
 
             if (isNull(document)) {
                 return generateResponse(request, NOT_FOUND, convert(new RequestErrored(format("No Document found for the documentReference=%s", documentReference))));

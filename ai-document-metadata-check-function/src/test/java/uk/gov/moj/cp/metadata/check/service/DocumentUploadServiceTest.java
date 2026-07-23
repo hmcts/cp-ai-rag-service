@@ -84,7 +84,7 @@ public class DocumentUploadServiceTest {
         final Map<String, String> metadataMap = Map.of("k1", "v1");
         final String supersededDocuments = "doc1,doc2";
 
-        documentUploadService.addDocumentAwaitingUpload(documentId, documentName, metadataMap, supersededDocuments);
+        documentUploadService.addDocumentAwaitingUpload(null, documentId, documentName, metadataMap, supersededDocuments);
 
         verify(tableService).insert(isNull(), eq(documentId), eq(documentName), eq("{\"k1\":\"v1\"}"), eq(supersededDocuments), eq(AWAITING_UPLOAD.name()), eq(AWAITING_UPLOAD_REASON));
     }
@@ -95,7 +95,7 @@ public class DocumentUploadServiceTest {
         final long documentSize = 1500L;
         final long maxFileSize = 1200L;
 
-        documentUploadService.updateDocumentFileSizeOverLimit(documentId, documentSize, maxFileSize);
+        documentUploadService.updateDocumentFileSizeOverLimit(null, documentId, documentSize, maxFileSize);
 
         verify(tableService).upsertDocument(null, documentId, FILE_SIZE_OVER_LIMIT.name(), "Document Uploaded with size=1500 is over the configured size limit=1200");
     }
@@ -109,7 +109,7 @@ public class DocumentUploadServiceTest {
 
         doThrow(new DuplicateRecordException("duplicate")).when(tableService).insert(any(), any(), any(), any(), any(), any(), any());
 
-        assertThrows(DuplicateRecordException.class, () -> documentUploadService.addDocumentAwaitingUpload(documentId, documentName, metadataMap, supersededDocuments));
+        assertThrows(DuplicateRecordException.class, () -> documentUploadService.addDocumentAwaitingUpload(null, documentId, documentName, metadataMap, supersededDocuments));
 
         verify(tableService).insert(isNull(), eq(documentId), eq(documentName), anyString(), anyString(),anyString(), anyString());
     }

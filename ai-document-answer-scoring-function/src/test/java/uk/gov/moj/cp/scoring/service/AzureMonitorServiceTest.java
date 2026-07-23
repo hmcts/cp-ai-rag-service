@@ -8,6 +8,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Map;
+
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.DoubleHistogram;
@@ -47,7 +49,7 @@ class AzureMonitorServiceTest {
         String keyDimension = "queryType";
         String valueDimension = "search";
 
-        azureMonitorService.publishHistogramScore(metricName, metricDescription, score, keyDimension, valueDimension);
+        azureMonitorService.publishHistogramScore(metricName, metricDescription, score, Map.of(keyDimension, valueDimension));
 
         verify(histogramMock).record(score, Attributes.of(AttributeKey.stringKey(keyDimension), valueDimension));
         verify(histogramBuilderMock).setUnit("1");
@@ -59,7 +61,7 @@ class AzureMonitorServiceTest {
         String metricName = "responseTime";
         String metricDescription = "Time taken to respond";
 
-        azureMonitorService.publishHistogramScore(metricName, metricDescription, 1.0, "key", "value");
+        azureMonitorService.publishHistogramScore(metricName, metricDescription, 1.0, Map.of("key", "value"));
 
         verify(meterMock).histogramBuilder(metricName);
         verify(histogramBuilderMock).setDescription(metricDescription);
@@ -73,8 +75,8 @@ class AzureMonitorServiceTest {
         String metricName = "responseTime";
         String metricDescription = "Time taken to respond";
 
-        azureMonitorService.publishHistogramScore(metricName, metricDescription, 1.0, "key", "value");
-        azureMonitorService.publishHistogramScore(metricName, metricDescription, 2.0, "key", "value2");
+        azureMonitorService.publishHistogramScore(metricName, metricDescription, 1.0, Map.of("key", "value"));
+        azureMonitorService.publishHistogramScore(metricName, metricDescription, 2.0, Map.of("key", "value2"));
 
         // Should only build once
         verify(histogramBuilderMock, times(1)).build();
@@ -92,8 +94,8 @@ class AzureMonitorServiceTest {
         when(anotherBuilderMock.setUnit("1")).thenReturn(anotherBuilderMock);
         when(anotherBuilderMock.build()).thenReturn(anotherHistogramMock);
 
-        azureMonitorService.publishHistogramScore("metric1", "desc1", 1.0, "key", "value");
-        azureMonitorService.publishHistogramScore("metric2", "desc2", 2.0, "key", "value2");
+        azureMonitorService.publishHistogramScore("metric1", "desc1", 1.0, Map.of("key", "value"));
+        azureMonitorService.publishHistogramScore("metric2", "desc2", 2.0, Map.of("key", "value2"));
 
         verify(histogramBuilderMock).build();
         verify(anotherBuilderMock).build();

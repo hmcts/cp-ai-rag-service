@@ -84,9 +84,9 @@ public class DocumentBlobTriggerFunction {
             final long blobSize = blobClientService.getBlobClient(blobName).getProperties().getBlobSize();
             LOGGER.info("Document blob size={} for blobName:{}", blobSize, blobName);
             if (blobSize < maxDocumentUploadSize) {
-                documentUploadService.updateDocumentAwaitingIngestion(document.getDocumentId());
+                documentUploadService.updateDocumentAwaitingIngestion(clientId, document.getDocumentId());
             } else {
-                documentUploadService.updateDocumentFileSizeOverLimit(document.getDocumentId(), blobSize, maxDocumentUploadSize);
+                documentUploadService.updateDocumentFileSizeOverLimit(clientId, document.getDocumentId(), blobSize, maxDocumentUploadSize);
                 LOGGER.info("Document NOT Published for Ingestion - blobName:{} with blobSize={} has exceeded maxDocumentUploadSize={}", blobName, blobSize, maxDocumentUploadSize);
                 return;
             }

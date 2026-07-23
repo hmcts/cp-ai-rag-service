@@ -133,6 +133,7 @@ public class DocumentChunkingService {
                 .chunkIndex(chunkIndex)
                 .documentFileUrl(queueMetadata.blobUrl())
                 .customMetadata(customMetadataList)
+                .clientId(queueMetadata.clientId())
                 .build();
 
         LOGGER.debug("Created chunk [{}] for page {} of document {}",

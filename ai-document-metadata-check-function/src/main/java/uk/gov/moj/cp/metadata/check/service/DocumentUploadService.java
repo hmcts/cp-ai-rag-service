@@ -56,17 +56,17 @@ public class DocumentUploadService {
     /**
      * A new document record is added to the table storage with status AWAITING_UPLOAD.
      */
-    public void addDocumentAwaitingUpload(final String documentId, final String documentName, final Map<String, String> metadataMap,
+    public void addDocumentAwaitingUpload(final String clientId, final String documentId, final String documentName, final Map<String, String> metadataMap,
                                           final String supersededDocuments) throws DuplicateRecordException {
         final String metadataString = convert(metadataMap);
-        documentIngestionOutcomeTableService.insert(null, documentId, documentName, metadataString, supersededDocuments, AWAITING_UPLOAD.name(), AWAITING_UPLOAD_REASON);
+        documentIngestionOutcomeTableService.insert(clientId, documentId, documentName, metadataString, supersededDocuments, AWAITING_UPLOAD.name(), AWAITING_UPLOAD_REASON);
     }
 
     /**
      * upsert the document record in the table storage with status AWAITING_INGESTION.
      */
-    public void updateDocumentAwaitingIngestion(final String documentId) {
-        documentIngestionOutcomeTableService.upsertDocument(null, documentId, AWAITING_INGESTION.name(), AWAITING_INGESTION_REASON);
+    public void updateDocumentAwaitingIngestion(final String clientId, final String documentId) {
+        documentIngestionOutcomeTableService.upsertDocument(clientId, documentId, AWAITING_INGESTION.name(), AWAITING_INGESTION_REASON);
     }
 
     /**
@@ -90,8 +90,8 @@ public class DocumentUploadService {
     /**
      * upsert the document record in the table storage with status FILE_SIZE_OVER_LIMIT and reason to include blobSize and maxFileSizeLimit.
      */
-    public void updateDocumentFileSizeOverLimit(final String documentId, final long documentSize, final long maxFileSizeLimit) {
-        documentIngestionOutcomeTableService.upsertDocument(null, documentId, FILE_SIZE_OVER_LIMIT.name(),
+    public void updateDocumentFileSizeOverLimit(final String clientId, final String documentId, final long documentSize, final long maxFileSizeLimit) {
+        documentIngestionOutcomeTableService.upsertDocument(clientId, documentId, FILE_SIZE_OVER_LIMIT.name(),
                 format(FILE_SIZE_OVER_LIMIT_REASON, documentSize, maxFileSizeLimit));
     }
 }

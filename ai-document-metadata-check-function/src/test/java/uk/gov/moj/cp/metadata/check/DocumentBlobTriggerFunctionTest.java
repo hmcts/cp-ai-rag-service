@@ -92,7 +92,7 @@ class DocumentBlobTriggerFunctionTest {
             function.run(new byte[]{}, blobName, outputBinding);
 
             verify(documentUploadService).getDocument(null, documentId);
-            verify(documentUploadService).updateDocumentAwaitingIngestion(documentId);
+            verify(documentUploadService).updateDocumentAwaitingIngestion(null, documentId);
 
             final ArgumentCaptor<String> queueMessageCaptor = ArgumentCaptor.forClass(String.class);
             verify(outputBinding).setValue(queueMessageCaptor.capture());
@@ -132,7 +132,7 @@ class DocumentBlobTriggerFunctionTest {
             function.run(new byte[]{}, blobName, outputBinding);
 
             verify(documentUploadService).getDocument(null, documentId);
-            verify(documentUploadService).updateDocumentFileSizeOverLimit(documentId, documentSize, maxSizeLimit);
+            verify(documentUploadService).updateDocumentFileSizeOverLimit(null, documentId, documentSize, maxSizeLimit);
             verifyNoInteractions(outputBinding);
         }
     }

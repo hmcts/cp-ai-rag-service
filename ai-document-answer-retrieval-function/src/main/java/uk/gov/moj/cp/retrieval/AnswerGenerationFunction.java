@@ -21,6 +21,7 @@ import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.retrieval.util.ChunkUtil.getAnswerWithChunksFilename;
 import static uk.gov.moj.cp.retrieval.util.ChunkUtil.getInputChunksFilename;
 
+import uk.gov.moj.cp.ai.client.identity.ClientId;
 import uk.gov.moj.cp.ai.exception.EtagMismatchException;
 import uk.gov.moj.cp.ai.idempotency.ClaimToken;
 import uk.gov.moj.cp.ai.idempotency.IdempotencyGuard;
@@ -147,6 +148,7 @@ public class AnswerGenerationFunction {
 
         long startTime = currentTimeMillis();
         AnswerGenerationQueuePayload payload = null;
+        String clientId = null;
 
         try {
             if (isNullOrEmpty(queueMessage)) {
@@ -166,10 +168,14 @@ public class AnswerGenerationFunction {
 
             final UUID transactionId = payload.transactionId();
             final AnswerGenerationQueuePayload validPayload = payload;
+            // A payload-carried clientId is re-validated defensively before use; a legacy message
+            // without one keeps the null-scoped (legacy) claim, search and writes.
+            clientId = validatedClientId(validPayload.clientId());
+            final String claimClientId = clientId;
 
             LOGGER.info("Starting answer generation for transactionId '{}'", transactionId);
 
-            idempotencyGuard.runOnce(null, transactionId.toString(), token ->
+            idempotencyGuard.runOnce(claimClientId, transactionId.toString(), token ->
                     processWithClaim(validPayload, token, scoringMessage, dequeueCount, maxDequeueCount, startTime));
 
         } catch (RedeliveryException e) {
@@ -183,8 +189,13 @@ public class AnswerGenerationFunction {
         } catch (LeaseConflictException e) {
             rethrowOrWarnOnLiveLease(payload, e, dequeueCount, maxDequeueCount);
         } catch (Exception e) {
-            handleClaimFailure(payload, e, dequeueCount, maxDequeueCount, startTime);
+            handleClaimFailure(payload, clientId, e, dequeueCount, maxDequeueCount, startTime);
         }
+    }
+
+    /** Legacy null clientId stays null; a present one is re-validated as a UUID before use. */
+    private static String validatedClientId(final String clientId) {
+        return isNullOrEmpty(clientId) ? null : ClientId.requireValid(clientId);
     }
 
     /**
@@ -202,14 +213,14 @@ public class AnswerGenerationFunction {
     }
 
     /** Failures before or during the claim (message parsing, status-row reads). */
-    private void handleClaimFailure(final AnswerGenerationQueuePayload payload, final Exception e,
+    private void handleClaimFailure(final AnswerGenerationQueuePayload payload, final String clientId, final Exception e,
                                     final long dequeueCount, final int maxDequeueCount, final long startTime) {
         if (dequeueCount < maxDequeueCount) {
             throw redeliveryException(payload, "", e);
         }
         LOGGER.error("Answer generation failed", e);
         if (nonNull(payload) && nonNull(payload.transactionId())) {
-            recordAnswerGenerationFailedIfSafe(payload, e.getMessage(), currentTimeMillis() - startTime);
+            recordAnswerGenerationFailedIfSafe(payload, clientId, e.getMessage(), currentTimeMillis() - startTime);
         }
     }
 
@@ -232,7 +243,7 @@ public class AnswerGenerationFunction {
         List<ChunkedEntry> chunkedEntries = null;
         try {
             final List<Float> embeddings = embedDataService.getEmbedding(payload.userQuery());
-            chunkedEntries = searchService.search(null, payload.userQuery(), embeddings, payload.metadataFilter());
+            chunkedEntries = searchService.search(token.clientId(), payload.userQuery(), embeddings, payload.metadataFilter());
             final LlmResponse llmResponse = responseGenerationService.generateResponse(payload.userQuery(), chunkedEntries, payload.queryPrompt());
 
             persistAnswer(payload, llmResponse, chunkedEntries, currentTimeMillis() - startTime, scoringMessage, token);
@@ -271,7 +282,8 @@ public class AnswerGenerationFunction {
                                final OutputBinding<String> scoringMessage,
                                final ClaimToken token) throws JsonProcessingException {
         final UUID transactionId = payload.transactionId();
-        final String inputChunksFilename = saveInputChunksToTheBlobContainer(transactionId, chunkedEntries);
+        final String clientId = token.clientId();
+        final String inputChunksFilename = saveInputChunksToTheBlobContainer(clientId, transactionId, chunkedEntries);
 
         if (llmResponse.status() == ANSWER_GENERATION_FAILED) {
             upsertTerminalFenced(payload, llmResponse, inputChunksFilename, durationMs, token);
@@ -283,7 +295,7 @@ public class AnswerGenerationFunction {
         // Everything fallible happens BEFORE the fenced terminal write: once the row flips to a
         // terminal status a redelivery is skipped as already-done, so a tail step failing after
         // it could never be retried. Blob writes before a lost fence are benign overwrites.
-        final String filename = saveLlmResponseToTheBlobContainer(transactionId, payload.userQuery(), payload.queryPrompt(),
+        final String filename = saveLlmResponseToTheBlobContainer(clientId, transactionId, payload.userQuery(), payload.queryPrompt(),
                 llmResponse.formattedLlmResponse(), chunkedEntries);
         final String scoringMessageBody = getObjectMapper().writeValueAsString(new ScoringQueuePayload(filename));
 
@@ -299,7 +311,7 @@ public class AnswerGenerationFunction {
     private void upsertTerminalFenced(final AnswerGenerationQueuePayload payload, final LlmResponse llmResponse,
                                       final String inputChunksFilename, final long durationMs, final ClaimToken token) {
         answerGenerationTableService.upsertTerminalFenced(
-                null,
+                token.clientId(),
                 payload.transactionId().toString(),
                 payload.userQuery(),
                 payload.queryPrompt(),
@@ -367,7 +379,7 @@ public class AnswerGenerationFunction {
     private void recordAnswerGenerationFailed(final AnswerGenerationQueuePayload payload, final String errorMessage,
                                               final long durationMs, final ClaimToken token) {
         answerGenerationTableService.upsertTerminalFenced(
-                null,
+                token.clientId(),
                 payload.transactionId().toString(),
                 payload.userQuery(),
                 payload.queryPrompt(),
@@ -388,13 +400,13 @@ public class AnswerGenerationFunction {
      * belong to a completed or still-running duplicate). If even the re-check fails, nothing is
      * written and the row is left for the leaseholder / alerting.
      */
-    private void recordAnswerGenerationFailedIfSafe(final AnswerGenerationQueuePayload payload, final String errorMessage, final long durationMs) {
+    private void recordAnswerGenerationFailedIfSafe(final AnswerGenerationQueuePayload payload, final String clientId, final String errorMessage, final long durationMs) {
         final String transactionId = payload.transactionId().toString();
         try {
-            final var snapshot = answerGenerationTableService.readForClaim(null, transactionId);
+            final var snapshot = answerGenerationTableService.readForClaim(clientId, transactionId);
             if (snapshot == null) {
                 answerGenerationTableService.upsertIntoTable(
-                        transactionId, payload.userQuery(), payload.queryPrompt(),
+                        clientId, transactionId, payload.userQuery(), payload.queryPrompt(),
                         null, null, ANSWER_GENERATION_FAILED, errorMessage, OffsetDateTime.now(), durationMs);
                 return;
             }
@@ -407,7 +419,7 @@ public class AnswerGenerationFunction {
                 return;
             }
             answerGenerationTableService.upsertTerminalFenced(
-                    null, transactionId, payload.userQuery(), payload.queryPrompt(),
+                    clientId, transactionId, payload.userQuery(), payload.queryPrompt(),
                     null, null, ANSWER_GENERATION_FAILED, errorMessage, OffsetDateTime.now(), durationMs,
                     snapshot.etag());
         } catch (EtagMismatchException e) {
@@ -417,17 +429,17 @@ public class AnswerGenerationFunction {
         }
     }
 
-    private String saveLlmResponseToTheBlobContainer(final UUID transactionId, final String userQuery, final String queryPrompt,
+    private String saveLlmResponseToTheBlobContainer(final String clientId, final UUID transactionId, final String userQuery, final String queryPrompt,
                                                      final String llmResponse, final List<ChunkedEntry> chunkedEntries) throws JsonProcessingException {
-        final String filename = getAnswerWithChunksFilename(null, transactionId);
+        final String filename = getAnswerWithChunksFilename(clientId, transactionId);
         final ScoringPayload scoringPayload = new ScoringPayload(userQuery,
-                llmResponse, queryPrompt, chunkedEntries, transactionId.toString());
+                llmResponse, queryPrompt, chunkedEntries, transactionId.toString(), clientId);
         blobPersistenceEvalPayloadsService.saveBlob(filename, convert(scoringPayload));
         return filename;
     }
 
-    private String saveInputChunksToTheBlobContainer(final UUID transactionId, final List<ChunkedEntry> chunkedEntries) throws JsonProcessingException {
-        final String inputChunksFilename = getInputChunksFilename(null, transactionId);
+    private String saveInputChunksToTheBlobContainer(final String clientId, final UUID transactionId, final List<ChunkedEntry> chunkedEntries) throws JsonProcessingException {
+        final String inputChunksFilename = getInputChunksFilename(clientId, transactionId);
         final InputChunksPayload inputChunksPayload = new InputChunksPayload(chunkedEntries);
 
         blobPersistenceInputChunksService.saveBlob(inputChunksFilename, convert(inputChunksPayload));

@@ -10,6 +10,7 @@ import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
+import uk.gov.moj.cp.ai.client.identity.ClientId;
 import uk.gov.moj.cp.ai.exception.EtagMismatchException;
 import uk.gov.moj.cp.ai.idempotency.ClaimToken;
 import uk.gov.moj.cp.ai.idempotency.IdempotencyGuard;
@@ -80,13 +81,17 @@ public class DocumentIngestionFunction {
         }
 
         final String documentId = queueIngestionMetadata.documentId();
+        // Validated once, before anything else: a legacy message without a clientId keeps the
+        // null-scoped claim; an invalid value fails the invocation here (redelivery, then poison)
+        // so a corrupt message never enters the pipeline.
+        final String clientId = validatedClientId(queueIngestionMetadata.clientId());
         try {
             LOGGER.info("Parsed ingestion metadata - ID: {}, Name: {}, Blob URL: {}",
                     documentId,
                     queueIngestionMetadata.documentName(),
                     queueIngestionMetadata.blobUrl());
 
-            idempotencyGuard.runOnce(null, documentId, token ->
+            idempotencyGuard.runOnce(clientId, documentId, token ->
                     processUnderClaim(queueIngestionMetadata, token, dequeueCount, maxDequeueCount));
 
         } catch (EtagMismatchException e) {
@@ -99,7 +104,7 @@ public class DocumentIngestionFunction {
             // Redelivery decision already made inside the work (lease released by the guard).
             throw e;
         } catch (Exception e) {
-            handleClaimFailure(queueIngestionMetadata, e, dequeueCount, maxDequeueCount);
+            handleClaimFailure(queueIngestionMetadata, clientId, e, dequeueCount, maxDequeueCount);
         }
     }
 
@@ -138,13 +143,18 @@ public class DocumentIngestionFunction {
     }
 
     /** Failures during the claim itself (status-row reads etc.) — no claim obtained. */
-    private void handleClaimFailure(final QueueIngestionMetadata queueIngestionMetadata, final Exception e,
-                                    final long dequeueCount, final int maxDequeueCount) throws DocumentProcessingException {
+    private void handleClaimFailure(final QueueIngestionMetadata queueIngestionMetadata, final String clientId,
+                                    final Exception e, final long dequeueCount, final int maxDequeueCount) throws DocumentProcessingException {
         if (dequeueCount < maxDequeueCount) {
             throw new DocumentProcessingException("Error processing queueMessage", e);
         }
         LOGGER.error("Document ingestion failed during idempotency claim for documentId='{}'", queueIngestionMetadata.documentId(), e);
-        documentIngestionOrchestrator.processQueueMessageFailedIfSafe(queueIngestionMetadata);
+        documentIngestionOrchestrator.processQueueMessageFailedIfSafe(queueIngestionMetadata, clientId);
+    }
+
+    /** Legacy null clientId stays null; a present one is re-validated as a UUID before use. */
+    private static String validatedClientId(final String clientId) {
+        return isNullOrEmpty(clientId) ? null : ClientId.requireValid(clientId);
     }
 
     private QueueIngestionMetadata toQueueIngestionMetadata(final String queueMessage) {
