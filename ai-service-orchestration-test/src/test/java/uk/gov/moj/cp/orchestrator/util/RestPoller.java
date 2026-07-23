@@ -18,7 +18,15 @@ public class RestPoller {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RestPoller.class);
 
-    private static final Duration POLL_INTERVAL = Duration.ofSeconds(5);
+    /** Interval for cheap polls (status GETs and other reads costing nothing but the request). */
+    private static final Duration POLL_INTERVAL = Duration.ofSeconds(2);
+
+    /**
+     * Interval for polls whose every attempt is a full embed → search → LLM round trip (the sync
+     * answer endpoint): the wider spacing protects model spend, not wall-clock time.
+     */
+    public static final Duration LLM_POLL_INTERVAL = Duration.ofSeconds(5);
+
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(60);
 
     public static Response pollForResponse(final RequestSpecification requestSpec,
@@ -33,6 +41,15 @@ public class RestPoller {
                                            final String path,
                                            final Predicate<Response> successCondition,
                                            final Duration timeout) throws TimeoutException {
+        return pollForResponse(requestSpec, operation, path, successCondition, timeout, POLL_INTERVAL);
+    }
+
+    public static Response pollForResponse(final RequestSpecification requestSpec,
+                                           final RestOperation operation,
+                                           final String path,
+                                           final Predicate<Response> successCondition,
+                                           final Duration timeout,
+                                           final Duration pollInterval) throws TimeoutException {
 
         LOGGER.info("Starting HTTP polling on path {} for custom condition (timeout {})...", path, timeout);
         final AtomicReference<Response> lastResponse = new AtomicReference<>();
@@ -41,7 +58,7 @@ public class RestPoller {
         try {
             await()
                     .atMost(timeout)
-                    .pollInterval(POLL_INTERVAL)
+                    .pollInterval(pollInterval)
                     .until(() -> {
                         try {
                             lastResponse.set((operation == RestOperation.POST) ? requestSpec.post(path) : requestSpec.get(path));

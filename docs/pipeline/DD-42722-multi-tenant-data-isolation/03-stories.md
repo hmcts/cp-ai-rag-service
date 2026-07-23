@@ -35,12 +35,12 @@ Parent ticket: [DD-42722](https://tools.hmcts.net/jira/browse/DD-42722) — "Imp
 | MTDI-05 | Blob path prefixing with dual-path (legacy) resolution | Phase 1 | M | MTDI-02 | MTDI-03, MTDI-04, MTDI-07 |
 | MTDI-06 | Wire the five HTTP functions, two queue workers and scorer to client identity | Phase 2 | L | MTDI-01…05 | — (integration point; sequential) |
 | MTDI-07 | Migration-tool `clientIdOverride` + documentation updates | Phase 3 | S | MTDI-02 | MTDI-03, MTDI-04, MTDI-05, MTDI-06 |
-| MTDI-08 | Eval harness client scoping + integration-test suite additions | Phase 3 | M | MTDI-06 (and MTDI-04 for the filter-injection regression) | MTDI-07 |
+| MTDI-08 | Enforcement-on integration-test suite additions (eval harness descoped 2026-07-23, DD-13 revised) | Phase 3 | M | MTDI-06 (and MTDI-04 for the filter-injection regression) | MTDI-07 |
 | MTDI-09 | **[OPS — not a code story]** Per-environment cut-over runbook execution | Phase 4 | S (ops) | MTDI-06, MTDI-07, MTDI-08 all merged & deployed | — (sequential, per environment) |
 
 **Estimation legend:** S = fits comfortably in a few days within one sprint; M = most of a sprint for one engineer/pair; L = a full sprint, or split across two engineers working sub-slices in the same story (kept as one story because the change is not independently shippable in smaller pieces without breaking a single interface's contract — e.g. `IdempotencyStatusStore`'s signature).
 
-**Parallelisation:** MTDI-01 and MTDI-02 (Phase 0) have no interdependency and should be started together. Once both land, MTDI-03, MTDI-04, MTDI-05 (Phase 1) and MTDI-07 (Phase 3, different module — `ai-document-migration-tool`) can all proceed in parallel, since they touch disjoint modules/classes. MTDI-06 is the integration point and must wait for MTDI-01–05 to land (it is intentionally the widest-fan-in story). MTDI-08 needs MTDI-06 merged (it exercises the full flag-on path end to end) but can start test-scaffolding work (fixtures, harness `.env` wiring) as soon as MTDI-04 lands. MTDI-09 is strictly sequential and last, run once per environment by the release operator.
+**Parallelisation:** MTDI-01 and MTDI-02 (Phase 0) have no interdependency and should be started together. Once both land, MTDI-03, MTDI-04, MTDI-05 (Phase 1) and MTDI-07 (Phase 3, different module — `ai-document-migration-tool`) can all proceed in parallel, since they touch disjoint modules/classes. MTDI-06 is the integration point and must wait for MTDI-01–05 to land (it is intentionally the widest-fan-in story). MTDI-08 needs MTDI-06 merged (it exercises the full flag-on path end to end) but can start test-scaffolding work (fixtures, request helpers) as soon as MTDI-04 lands. MTDI-09 is strictly sequential and last, run once per environment by the release operator.
 
 ---
 
@@ -286,7 +286,7 @@ FR-2, FR-7 (call-site half), FR-11, FR-12, FR-13, FR-14. The integration story: 
 - NFR-7 (Contract stability): confirm via the `api-contract-check` skill that no request/response schema in `api-cp-ai-rag` changed.
 
 ### Out of scope for this story
-- The migration tool and eval harness (MTDI-07/MTDI-08).
+- The migration tool (MTDI-07). (The eval harness, once also listed here, needs no changes at all — DD-13 revised 2026-07-23.)
 - The general `metadataFilter` allow-list beyond MTDI-04's reserved-key rejection.
 - Actually flipping `CLIENT_FILTERING_ENABLED=true` in any deployed environment (MTDI-09).
 
@@ -331,7 +331,7 @@ FR-15, FR-16, DD-9. Depends only on MTDI-02 (`ChunkedEntry.clientId`, schema v2 
 ### Out of scope for this story
 - Actually running the tool against any live/deployed environment (MTDI-09).
 - The alias repoint (`az rest`) or any cut-over scripting (MTDI-09/runbook).
-- The eval harness's own `.env` changes (MTDI-08).
+- The eval harness (no changes needed — DD-13 revised 2026-07-23, design §H).
 
 ### Definition of done
 - [ ] Code reviewed and approved.
@@ -348,19 +348,21 @@ FR-15, FR-16, DD-9. Depends only on MTDI-02 (`ChunkedEntry.clientId`, schema v2 
 
 ---
 
-## MTDI-08: Eval harness client scoping + integration-test suite additions
+## MTDI-08: Enforcement-on integration-test suite additions
+
+> **Scope change (2026-07-23, stakeholder decision — DD-13 revised):** the eval-harness client scoping originally in this story (AC-046/AC-047, `EVAL_CLIENT_ID`) is **descoped**. The harness evaluates prompt/model quality, not isolation; it stays client-unscoped (`search(null, …)`) with exact behavioural parity before and after cut-over. See design §H. Isolation proof is delivered entirely by the integration-test additions below.
 
 ### User story
 As a **QA/platform engineer validating the isolation guarantees before cut-over**,
-I want **the eval harness updated to run against the client-scoped search path, and the integration-test suite extended with a second-client fixture, cross-client 404 checks, a filter-injection regression, and a spoof-resistance test**,
+I want **the integration-test suite extended to run enforcement-on with a second-client fixture, cross-client 404 checks, a filter-injection regression, and a spoof-resistance test**,
 so that **we have automated, repeatable proof that isolation holds end-to-end before any environment's `CLIENT_FILTERING_ENABLED` flag is flipped**.
 
 ### Background
 FR-18, OQ-3/DD-13, AC-6 (end-to-end), AC-14 (end-to-end). Depends on MTDI-06 being merged, and on MTDI-04 for the filter-injection regression specifically.
 
 ### Acceptance criteria
-- [ ] AC-046: Given the harness's `.env` gains `EVAL_CLIENT_ID` and `CLIENT_FILTERING_ENABLED=true`, when the harness runs its embed→search→generate→cite pipeline, then it passes `EVAL_CLIENT_ID` into `search(clientId, ...)`, exercising the real filtered path.
-- [ ] AC-047: Given the harness's existing citation/verbosity/coverage metrics, when run against the client-scoped index with `EVAL_CLIENT_ID` set to the incumbent stamped value, then metrics are comparable to pre-change baselines (no unexplained coverage drop attributable to the filter clause).
+- [x] ~~AC-046~~ **Descoped** (2026-07-23): no `EVAL_CLIENT_ID`, no harness changes — DD-13 revised, design §H.
+- [x] ~~AC-047~~ **Descoped** (2026-07-23): no harness metrics comparison needed — harness behaviour is unchanged by this initiative.
 - [ ] AC-048: Given `ai-service-orchestration-test`'s request helpers, when any test constructs a request, then an `X-Client-Id` header can be supplied via a shared helper, defaulting to a documented test client fixture.
 - [ ] AC-049: Given a second-client fixture, when a document is ingested for client A and another for client B with the **same `documentId`**, then both ingest successfully and coexist (integration-level proof of AC-7).
 - [ ] AC-050 (delivers AC-14, integration): Given client B polls/queries a `documentReference`/`transactionId` created by client A, when the request completes, then the response is `404`.
@@ -369,26 +371,23 @@ FR-18, OQ-3/DD-13, AC-6 (end-to-end), AC-14 (end-to-end). Depends on MTDI-06 bei
 
 ### NFR links
 - NFR-3 (Confidentiality): AC-050/AC-051 are the acceptance-level proof of no existence/data leakage.
-- NFR-5 (Backward compatibility): harness changes must not break existing single-client eval runs with the flag off.
+- NFR-5 (Backward compatibility): the eval harness is untouched (descoped) — its single-client runs are unchanged by construction.
 - NFR-6 (Idempotency): the second-client duplicate-documentId fixture is a natural place to assert AC-8 end-to-end if a redelivery is simulated.
 
 ### Out of scope for this story
-- Any change to the harness's core evaluation logic beyond threading `clientId` into the search call.
-- Running the harness or integration suite against a cut-over production environment (MTDI-09 validation).
+- **Any change to `ai-document-system-prompt-harness-eval`** (descoped 2026-07-23; DD-13 revised — the harness stays client-unscoped).
+- Running the integration suite against a cut-over production environment (MTDI-09 validation).
 
 ### Definition of done
 - [ ] Code reviewed and approved.
-- [ ] `ai-document-system-prompt-harness-eval/.env.sample` updated with `EVAL_CLIENT_ID` and `CLIENT_FILTERING_ENABLED`; harness search invocation updated.
 - [ ] `ai-service-orchestration-test` request helpers updated with header injection; second-client fixture added; new tests for cross-client 404, filter-injection regression, and spoof resistance added.
-- [ ] `mvn test` passes for touched modules; harness changes verified via its own `run-harness.sh` (documented run — the harness is offline/on-demand).
+- [ ] `mvn test` passes for touched modules.
 - [ ] Full integration-test run via `./ai-service-orchestration-test/run-integration-test.sh` passes, including all new client-isolation tests.
 - [ ] `mvn verify` JaCoCo coverage maintained on any production code touched incidentally (expected none/minimal).
 - [ ] SonarQube quality gate passes on the Azure Pipelines PR build.
-- [ ] Harness metrics comparison (AC-047) recorded as evidence.
 
 ### Notes / open questions
-- OQ-3 is resolved by this story's approach (DD-13) — confirm it satisfies the eval team's expectations before closing OQ-3.
-- If AC-047 shows any metrics regression, investigate whether it's the filter clause narrowing recall versus an unrelated cause — don't silently absorb a coverage drop.
+- OQ-3 **closed** (2026-07-23): stakeholder confirmed the harness's purpose is prompt/model-quality evaluation, not isolation — it stays client-unscoped with no changes (DD-13 revised, design §H).
 
 ---
 

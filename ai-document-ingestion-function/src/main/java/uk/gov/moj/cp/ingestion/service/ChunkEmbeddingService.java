@@ -117,6 +117,7 @@ public class ChunkEmbeddingService {
                             .chunkIndex(chunkedEntry.chunkIndex())
                             .documentFileUrl(chunkedEntry.documentFileUrl())
                             .customMetadata(chunkedEntry.customMetadata())
+                            .clientId(chunkedEntry.clientId())
                             .build();
 
                     chunkedEntries.set(originalIndex, enrichedEntry);
