@@ -130,9 +130,11 @@ public final class TestHarness {
      * One model under evaluation. {@code provider} is empty for the default path (the production
      * {@link ChatServiceFactory}, honouring {@code LLM_CHAT_SERVICE_PROVIDER} and
      * {@code AZURE_OPENAI_ENDPOINT}) or {@code "anthropic"} for Claude models on Azure AI Foundry
-     * via the harness-local {@link AnthropicChatService}.
+     * via the harness-local {@link AnthropicChatService}. {@code endpoint} is empty for the
+     * provider's default (the global env var), or a per-model endpoint URL given inline in
+     * {@code HARNESS_LLM_DEPLOYMENTS} after an {@code @} separator.
      */
-    record LlmConfig(String label, String provider, String deployment) {
+    record LlmConfig(String label, String provider, String deployment, String endpoint) {
     }
 
     /** Provider prefix in HARNESS_LLM_DEPLOYMENTS routing a model to {@link AnthropicChatService}. */
@@ -266,11 +268,11 @@ public final class TestHarness {
         final ChatService chat;
         if (PROVIDER_ANTHROPIC.equals(lc.provider())) {
             // Claude on Azure AI Foundry speaks the Anthropic Messages API, not Azure OpenAI
-            // chat completions — served by the harness-local client, configured via the
-            // ANTHROPIC_FOUNDRY_* environment variables.
-            chat = new AnthropicChatService(lc.deployment());
+            // chat completions — served by the harness-local client. Endpoint comes from the
+            // entry's @endpoint suffix, or the ANTHROPIC_FOUNDRY_* environment variables.
+            chat = new AnthropicChatService(lc.deployment(), lc.endpoint());
         } else {
-            final String chatEndpoint = requireEnv("AZURE_OPENAI_ENDPOINT");
+            final String chatEndpoint = lc.endpoint().isEmpty() ? requireEnv("AZURE_OPENAI_ENDPOINT") : lc.endpoint();
             // Production path: the factory honours LLM_CHAT_SERVICE_PROVIDER and the chat
             // service applies the real isReasoningModel branch (gpt-5.1 → no temperature/top_p).
             chat = ChatServiceFactory.getInstance(chatEndpoint, lc.deployment());
@@ -318,17 +320,30 @@ public final class TestHarness {
     }
 
     private static List<LlmConfig> loadLlms() {
-        // Comma-separated deployment names, each with an optional "provider:" prefix.
-        // Unprefixed entries keep the existing behaviour (production ChatServiceFactory against
-        // the shared AZURE_OPENAI_ENDPOINT); "anthropic:claude-sonnet-4-6" routes that model to
-        // the harness-local AnthropicChatService (Claude on Azure AI Foundry), so OpenAI and
-        // Anthropic models can be compared side by side in one run.
+        // Comma-separated entries of the form [provider:]deployment[@endpoint].
+        // - No prefix keeps the existing behaviour (production ChatServiceFactory against the
+        //   shared AZURE_OPENAI_ENDPOINT); "anthropic:" routes the model to the harness-local
+        //   AnthropicChatService (Claude on Azure AI Foundry), so OpenAI and Anthropic models
+        //   can be compared side by side in one run.
+        // - An optional "@https://..." suffix gives that model its own endpoint, overriding the
+        //   provider's global env var (AZURE_OPENAI_ENDPOINT / ANTHROPIC_FOUNDRY_*), so models
+        //   hosted on different Azure resources can share one matrix.
         final String spec = env("HARNESS_LLM_DEPLOYMENTS", "gpt-4o-response-generation,gpt-5.1");
         final List<LlmConfig> out = new ArrayList<>();
         for (final String d : spec.split(",")) {
-            final String entry = d.trim();
+            String entry = d.trim();
             if (entry.isEmpty()) {
                 continue;
+            }
+            String endpoint = "";
+            final int at = entry.indexOf('@');
+            if (at >= 0) {
+                endpoint = entry.substring(at + 1).trim();
+                entry = entry.substring(0, at).trim();
+                if (!endpoint.startsWith("https://")) {
+                    throw new IllegalStateException("Per-model endpoint in HARNESS_LLM_DEPLOYMENTS entry '" + d.trim()
+                            + "' must be a full https:// URL");
+                }
             }
             final int sep = entry.indexOf(':');
             if (sep > 0) {
@@ -339,13 +354,14 @@ public final class TestHarness {
                             + "' in HARNESS_LLM_DEPLOYMENTS entry '" + entry
                             + "' (supported: '" + PROVIDER_ANTHROPIC + ":', or no prefix for the default path)");
                 }
-                out.add(new LlmConfig(deployment, provider, deployment));
+                out.add(new LlmConfig(deployment, provider, deployment, endpoint));
             } else {
-                out.add(new LlmConfig(entry, "", entry));
+                out.add(new LlmConfig(entry, "", entry, endpoint));
             }
         }
         LOGGER.info("[init] LLM deployments: {}",
-                out.stream().map(lc -> lc.provider().isEmpty() ? lc.deployment() : lc.provider() + ":" + lc.deployment()).toList());
+                out.stream().map(lc -> (lc.provider().isEmpty() ? "" : lc.provider() + ":") + lc.deployment()
+                        + (lc.endpoint().isEmpty() ? "" : " @" + lc.endpoint())).toList());
         return out;
     }
 

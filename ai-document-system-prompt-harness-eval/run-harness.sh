@@ -20,6 +20,9 @@
 #     HARNESS_LLM_DEPLOYMENTS=gpt-4o-response-generation,anthropic:claude-sonnet-4-6
 #     ANTHROPIC_FOUNDRY_RESOURCE=<res>    # or ANTHROPIC_FOUNDRY_BASE_URL (exactly one)
 #     ANTHROPIC_FOUNDRY_API_KEY=...       # optional; default is a DefaultAzureCredential token
+#   Any entry may carry its own endpoint via an "@https://..." suffix (overrides the global
+#   endpoint env var for that model only), e.g.:
+#     anthropic:claude-sonnet-4-6@https://<foundry-resource>.services.ai.azure.com/anthropic
 #   Note: the AZURE_CLIENT_* / HTTP_CLIENT_* retry+timeout vars apply to the Azure SDK
 #   clients only — the Anthropic SDK uses its own defaults (10-minute request timeout,
 #   2 retries).

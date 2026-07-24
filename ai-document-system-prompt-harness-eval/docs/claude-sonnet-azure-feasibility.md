@@ -32,6 +32,18 @@ via the **Anthropic Messages API**, not Azure OpenAI chat completions, so the ex
    `AZURE_OPENAI_ENDPOINT`), so existing `.env` files keep working. Both models run in one
    matrix and appear side by side in the same summary/consistency/detail tables.
 
+   Any entry may also carry a **per-model endpoint** via an `@https://...` suffix, overriding
+   the provider's global endpoint env var for that model only — so models hosted on different
+   Azure resources (e.g. the OpenAI resource and a separate Foundry resource, or two Foundry
+   resources) share one comparison run:
+
+   ```
+   HARNESS_LLM_DEPLOYMENTS=gpt-4o-response-generation,anthropic:claude-sonnet-4-6@https://<foundry-resource>.services.ai.azure.com/anthropic
+   ```
+
+   Anthropic endpoints given this way must be the full base URL including the `/anthropic`
+   path segment.
+
 **Everything else is provider-agnostic and unchanged**: prompts, the query set, embeddings,
 AI Search retrieval, `ChunkFormatterUtility`, `CitationProcessor`, all citation metrics
 (`match`, `jsonBlockPresent`, verbosity, coverage, stacking) and the quality-comparison
@@ -44,7 +56,7 @@ Set in `.env` (see `.env.sample`):
 
 | Variable | Purpose |
 |---|---|
-| `ANTHROPIC_FOUNDRY_RESOURCE` **or** `ANTHROPIC_FOUNDRY_BASE_URL` | Exactly one. The resource form expands to `https://<resource>.services.ai.azure.com/anthropic`. |
+| `ANTHROPIC_FOUNDRY_RESOURCE` **or** `ANTHROPIC_FOUNDRY_BASE_URL` | Exactly one (unless every Anthropic entry carries its own `@endpoint` suffix). The resource form expands to `https://<resource>.services.ai.azure.com/anthropic`. |
 | `ANTHROPIC_FOUNDRY_API_KEY` | Optional. When unset, auth falls back to a **`DefaultAzureCredential` bearer token** (`az login`) — the same credential chain as the rest of the repo. |
 | `LLM_MODEL_RESPONSE_MAX_TOKENS` | Sent as Anthropic's mandatory `max_tokens`. Shared with the answer + `<FACT_MAP_JSON>` block (and thinking, if enabled) — undersizing reproduces the gpt-5.1 truncation mode (`jsonBlockPresent=false`). |
 | `HARNESS_ANTHROPIC_TEMPERATURE` | Optional single sampling parameter. Default: no sampling parameters sent (see §3.1). |

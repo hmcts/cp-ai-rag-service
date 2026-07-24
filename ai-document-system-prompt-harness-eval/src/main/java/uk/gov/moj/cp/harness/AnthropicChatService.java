@@ -7,6 +7,7 @@ import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.ai.util.CredentialUtil;
 
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
@@ -33,8 +34,11 @@ import org.slf4j.LoggerFactory;
  *
  * <p><b>Configuration</b> (read from the environment, exported by {@code run-harness.sh}):
  * <ul>
- *   <li>{@code ANTHROPIC_FOUNDRY_RESOURCE} or {@code ANTHROPIC_FOUNDRY_BASE_URL} — exactly one.
- *       The resource form expands to {@code https://<resource>.services.ai.azure.com/anthropic}.</li>
+ *   <li>Endpoint — a per-model {@code @https://...} suffix on the model's
+ *       {@code HARNESS_LLM_DEPLOYMENTS} entry takes precedence; otherwise
+ *       {@code ANTHROPIC_FOUNDRY_RESOURCE} or {@code ANTHROPIC_FOUNDRY_BASE_URL} — exactly one.
+ *       The resource form expands to {@code https://<resource>.services.ai.azure.com/anthropic};
+ *       full URLs must include the {@code /anthropic} path segment.</li>
  *   <li>{@code ANTHROPIC_FOUNDRY_API_KEY} — optional. When unset, authentication falls back to a
  *       bearer token from {@code DefaultAzureCredential} (the same managed-identity/az-login chain
  *       every other client in this repo uses).</li>
@@ -66,34 +70,53 @@ public class AnthropicChatService implements ChatService {
 
     private static final String DEFAULT_MAX_TOKENS = "1000";
 
-    /** One client per JVM — the backend/credentials are global, only the model varies per instance. */
-    private static final class ClientHolder {
-        private static final AnthropicClient CLIENT = buildClient();
-    }
+    /** Marker key for the client built from the ANTHROPIC_FOUNDRY_* environment variables. */
+    private static final String ENV_DEFAULT_CLIENT_KEY = "<env-default>";
+
+    /**
+     * One client per endpoint — models can live on different Foundry resources (per-model
+     * {@code @endpoint} suffixes in HARNESS_LLM_DEPLOYMENTS); credentials are global.
+     */
+    private static final ConcurrentHashMap<String, AnthropicClient> CLIENT_CACHE = new ConcurrentHashMap<>();
 
     private final String model;
+    private final AnthropicClient client;
     private final long maxTokens;
 
-    public AnthropicChatService(final String model) {
+    /**
+     * @param model           the Foundry deployment name (sent as the Messages API {@code model})
+     * @param endpointOverride per-model base URL (must include the {@code /anthropic} path), or
+     *                         empty to use the ANTHROPIC_FOUNDRY_* environment variables
+     */
+    public AnthropicChatService(final String model, final String endpointOverride) {
         if (model == null || model.isBlank()) {
             throw new IllegalArgumentException("Anthropic model/deployment name must be set.");
         }
         this.model = model;
+        final String key = (endpointOverride == null || endpointOverride.isBlank())
+                ? ENV_DEFAULT_CLIENT_KEY : endpointOverride;
+        this.client = CLIENT_CACHE.computeIfAbsent(key, AnthropicChatService::buildClient);
         this.maxTokens = TestHarness.intEnv("LLM_MODEL_RESPONSE_MAX_TOKENS", Integer.parseInt(DEFAULT_MAX_TOKENS));
     }
 
-    private static AnthropicClient buildClient() {
+    private static AnthropicClient buildClient(final String endpointKey) {
         final FoundryBackend.Builder backend = FoundryBackend.builder();
 
-        final String baseUrl = TestHarness.env(ENV_BASE_URL, "");
-        final String resource = TestHarness.env(ENV_RESOURCE, "");
-        if (!baseUrl.isEmpty()) {
-            backend.baseUrl(baseUrl);
-        } else if (!resource.isEmpty()) {
-            backend.resource(resource);
+        if (!ENV_DEFAULT_CLIENT_KEY.equals(endpointKey)) {
+            LOGGER.info("[anthropic] using per-model endpoint {}", endpointKey);
+            backend.baseUrl(endpointKey);
         } else {
-            throw new IllegalStateException("One of " + ENV_RESOURCE + " or " + ENV_BASE_URL
-                    + " must be set to reach the Azure AI Foundry resource hosting the Claude deployment.");
+            final String baseUrl = TestHarness.env(ENV_BASE_URL, "");
+            final String resource = TestHarness.env(ENV_RESOURCE, "");
+            if (!baseUrl.isEmpty()) {
+                backend.baseUrl(baseUrl);
+            } else if (!resource.isEmpty()) {
+                backend.resource(resource);
+            } else {
+                throw new IllegalStateException("One of " + ENV_RESOURCE + " or " + ENV_BASE_URL
+                        + " must be set (or give the model an @endpoint suffix in HARNESS_LLM_DEPLOYMENTS)"
+                        + " to reach the Azure AI Foundry resource hosting the Claude deployment.");
+            }
         }
 
         final String apiKey = TestHarness.env(ENV_API_KEY, "");
@@ -143,7 +166,7 @@ public class AnthropicChatService implements ChatService {
         }
 
         try {
-            final Message message = ClientHolder.CLIENT.messages().create(params.build());
+            final Message message = client.messages().create(params.build());
             final String text = message.content().stream()
                     .flatMap(block -> block.text().stream())
                     .map(TextBlock::text)
