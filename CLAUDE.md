@@ -86,11 +86,11 @@ implement.
 
 | Method & path (contract) | operationId | Request | Success | Errors | Implemented by (`@FunctionName`) |
 |---|---|---|---|---|---|
-| `POST /document-upload` | `initiate-document-upload` | `documentUploadRequest` | `200` `fileStorageLocationReturnedSuccessfully` | `400`/`500` `requestErrored` | `InitiateDocumentUpload` |
-| `GET /document-upload/{documentReference}` | `document-status-by-reference` | path `documentReference` (uuid) | `200` `documentIngestionStatusReturnedSuccessfully` | `400`/`404`/`500` `requestErrored` | `DocumentStatusByReference` |
-| `POST /answer-user-query` | `answer-user-query` | `answerUserQueryRequest` | `200` `userQueryAnswerReturnedSuccessfullySynchronously` | `400`/`500` `requestErrored` | `AnswerRetrieval` |
-| `POST /answer-user-query-async` | `answer-user-query-async` | `answerUserQueryRequest` | `202` `userQueryAnswerRequestAccepted` | `400`/`500` `requestErrored` | `InitiateAnswerGeneration` |
-| `GET /answer-user-query-async-status/{transactionId}` | `answer-user-query-status` | path `transactionId` (uuid), query `withChunkedEntries` (bool) | `200` `userQueryAnswerReturnedSuccessfullyAsynchronously` | `400`/`404`/`500` `requestErrored` | `GetAnswerGeneration` |
+| `POST /document-upload` | `initiate-document-upload` | `documentUploadRequest` | `200` `fileStorageLocationReturnedSuccessfully` | `400`/`401`/`500` `requestErrored` | `InitiateDocumentUpload` |
+| `GET /document-upload/{documentReference}` | `document-status-by-reference` | path `documentReference` (uuid) | `200` `documentIngestionStatusReturnedSuccessfully` | `400`/`401`/`404`/`500` `requestErrored` | `DocumentStatusByReference` |
+| `POST /answer-user-query` | `answer-user-query` | `answerUserQueryRequest` | `200` `userQueryAnswerReturnedSuccessfullySynchronously` | `400`/`401`/`500` `requestErrored` | `AnswerRetrieval` |
+| `POST /answer-user-query-async` | `answer-user-query-async` | `answerUserQueryRequest` | `202` `userQueryAnswerRequestAccepted` | `400`/`401`/`500` `requestErrored` | `InitiateAnswerGeneration` |
+| `GET /answer-user-query-async-status/{transactionId}` | `answer-user-query-status` | path `transactionId` (uuid), query `withChunkedEntries` (bool) | `200` `userQueryAnswerReturnedSuccessfullyAsynchronously` | `400`/`401`/`404`/`500` `requestErrored` | `GetAnswerGeneration` |
 
 ### Key schemas
 - **Requests:** `documentUploadRequest` (documentId, documentName, metadataFilter[], optional overwrites[]), `answerUserQueryRequest` (userQuery, queryPrompt, metadataFilter[]).
@@ -102,7 +102,10 @@ implement.
 All HTTP functions declare explicit `route` attributes matching the contract paths
 (`AnswerRetrieval` serves `route = "answer-user-query"`). Error responses (400/404/500,
 all `requestErrored`) are documented in the spec as of the `dev/align-error-responses`
-spec change. Run the `api-contract-check` skill to re-verify after endpoint changes.
+spec change; `401` (missing/invalid client identity, enforcement-gated) is documented on
+all five operations as of spec release 0.0.15 — the identity header itself is deliberately
+NOT a documented request parameter (internal APIM→functions contract). Run the
+`api-contract-check` skill to re-verify after endpoint changes.
 
 ## Architecture & Data Flow
 
