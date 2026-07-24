@@ -377,9 +377,12 @@ public final class TestHarness {
      * HARNESS_MAX_QUERIES caps the base queries BEFORE the expansion.
      */
     private static List<UserQueryConfig> loadUserQueriesFromJson() {
+        // HARNESS_QUERY_FILE selects the query-set file under src/main/resources (file name only,
+        // e.g. user-queries-model-test.json) — no recompile needed to switch evaluation sets.
+        final String queryFile = env("HARNESS_QUERY_FILE", "user-queries.json");
         final Path[] candidates = {
-                Paths.get("ai-document-system-prompt-harness-eval/src/main/resources/user-queries.json"),
-                Paths.get("src/main/resources/user-queries.json")
+                Paths.get("ai-document-system-prompt-harness-eval/src/main/resources/" + queryFile),
+                Paths.get("src/main/resources/" + queryFile)
         };
         try {
             JsonNode root = null;
@@ -392,12 +395,12 @@ public final class TestHarness {
                 }
             }
             if (root == null) {
-                try (InputStream in = TestHarness.class.getResourceAsStream("/user-queries.json")) {
+                try (InputStream in = TestHarness.class.getResourceAsStream("/" + queryFile)) {
                     if (in == null) {
-                        throw new RuntimeException("user-queries.json not found on filesystem or classpath");
+                        throw new RuntimeException(queryFile + " not found on filesystem or classpath");
                     }
                     root = MAPPER.readTree(in);
-                    used = Paths.get("classpath:/user-queries.json");
+                    used = Paths.get("classpath:/" + queryFile);
                 }
             }
 
@@ -433,7 +436,7 @@ public final class TestHarness {
                     used, limit, DOCUMENT_IDS.size(), versions.size(), out.size(), DOCUMENT_IDS);
             return out;
         } catch (final Exception e) {
-            throw new RuntimeException("Failed to parse user-queries.json", e);
+            throw new RuntimeException("Failed to parse " + env("HARNESS_QUERY_FILE", "user-queries.json"), e);
         }
     }
 
@@ -493,7 +496,7 @@ public final class TestHarness {
     /** Per-(query, prompt, LLM) cell aggregate across the {@link #REPETITIONS} iterations. */
     private record CellStats(int ok, int jsonPresent, int matched, int substituted,
                              long proseAvg, long wordAvg, long citeAvg, long pageAvg, long stackAvg,
-                             int uncited) {
+                             int uncited, long msAvg) {
     }
 
     /** Aggregate stats per (query, prompt, LLM) cell across the {@link #REPETITIONS} iterations. */
@@ -506,18 +509,18 @@ public final class TestHarness {
 
         LOGGER.info("");
         LOGGER.info("======== CONSISTENCY ACROSS {} ITERATIONS ========", REPETITIONS);
-        LOGGER.info(String.format("%-26s | %-22s | %-22s | %-7s | %-7s | %-7s | %-7s | %8s | %7s | %5s | %5s | %6s | %7s",
-                "query", "prompt", "llm", "ok", "json", "match", "subst", "proseAvg", "wordAvg", "cites", "pages", "stacks", "uncited"));
-        LOGGER.info("-".repeat(179));
+        LOGGER.info(String.format("%-26s | %-22s | %-22s | %-7s | %-7s | %-7s | %-7s | %8s | %7s | %5s | %5s | %6s | %7s | %7s",
+                "query", "prompt", "llm", "ok", "json", "match", "subst", "proseAvg", "wordAvg", "cites", "pages", "stacks", "uncited", "msAvg"));
+        LOGGER.info("-".repeat(189));
 
         for (final List<RunResult> runs : grouped.values()) {
             final RunResult first = runs.get(0);
             final CellStats s = computeCellStats(runs);
             final int n = runs.size();
-            LOGGER.info(String.format("%-26s | %-22s | %-22s | %5d/%d | %5d/%d | %5d/%d | %5d/%d | %8d | %7d | %5d | %5d | %6d | %7d",
+            LOGGER.info(String.format("%-26s | %-22s | %-22s | %5d/%d | %5d/%d | %5d/%d | %5d/%d | %8d | %7d | %5d | %5d | %6d | %7d | %7d",
                     truncate(first.queryLabel(), 26), truncate(first.promptLabel(), 22), truncate(first.llmLabel(), 22),
                     s.ok(), n, s.jsonPresent(), n, s.matched(), n, s.substituted(), n,
-                    s.proseAvg(), s.wordAvg(), s.citeAvg(), s.pageAvg(), s.stackAvg(), s.uncited()));
+                    s.proseAvg(), s.wordAvg(), s.citeAvg(), s.pageAvg(), s.stackAvg(), s.uncited(), s.msAvg()));
         }
 
         printConsistencyLegend();
@@ -534,12 +537,14 @@ public final class TestHarness {
         long pageSum = 0;
         long stackSum = 0;
         int uncited = 0;
+        long msSum = 0;
         for (final RunResult r : runs) {
             if (r.error() != null || r.response() == null
                     || !"ANSWER_GENERATED".equals(String.valueOf(r.response().status()))) {
                 continue;
             }
             ok++;
+            msSum += r.durationMs();
             final Compliance c = computeCompliance(r.response());
             jsonPresent += c.jsonBlockPresent() ? 1 : 0;
             matched += c.inlineSubsetOfJson() ? 1 : 0;
@@ -554,7 +559,7 @@ public final class TestHarness {
         final int denom = ok > 0 ? ok : 1;
         return new CellStats(ok, jsonPresent, matched, substituted,
                 proseSum / denom, wordSum / denom, citeSum / denom, pageSum / denom, stackSum / denom,
-                uncited);
+                uncited, msSum / denom);
     }
 
     private static void printConsistencyLegend() {
@@ -574,6 +579,7 @@ public final class TestHarness {
         LOGGER.info("  stacks   = mean same-document stacked runs: adjacent [N][M] markers whose ids resolve");
         LOGGER.info("             to the SAME documentId — should be 0; the prompt requires one merged citation");
         LOGGER.info("             (adjacent markers for DIFFERENT documents are legitimate and not counted)");
+        LOGGER.info("  msAvg    = mean generation latency (ms) across the cell's OK runs — model speed at a glance");
         LOGGER.info("  uncited  = substantive answers (>= " + SUBSTANTIVE_PROSE_WORDS + " prose words) with ZERO rendered citations —");
         LOGGER.info("             the citation guard's rejection signal; legitimate short refusals do not count");
     }
