@@ -68,7 +68,7 @@ public class AnthropicChatService implements ChatService {
     /** Entra scope for Azure AI services (Foundry) — same scope the OpenAI-provider client uses. */
     private static final String AZURE_COGNITIVE_SCOPE = "https://cognitiveservices.azure.com/.default";
 
-    private static final String DEFAULT_MAX_TOKENS = "1000";
+    private static final int DEFAULT_MAX_TOKENS = 1000;
 
     /** Marker key for the client built from the ANTHROPIC_FOUNDRY_* environment variables. */
     private static final String ENV_DEFAULT_CLIENT_KEY = "<env-default>";
@@ -96,7 +96,7 @@ public class AnthropicChatService implements ChatService {
         final String key = (endpointOverride == null || endpointOverride.isBlank())
                 ? ENV_DEFAULT_CLIENT_KEY : endpointOverride;
         this.client = CLIENT_CACHE.computeIfAbsent(key, AnthropicChatService::buildClient);
-        this.maxTokens = TestHarness.intEnv("LLM_MODEL_RESPONSE_MAX_TOKENS", Integer.parseInt(DEFAULT_MAX_TOKENS));
+        this.maxTokens = HarnessEnv.intEnv("LLM_MODEL_RESPONSE_MAX_TOKENS", DEFAULT_MAX_TOKENS);
     }
 
     private static AnthropicClient buildClient(final String endpointKey) {
@@ -106,8 +106,8 @@ public class AnthropicChatService implements ChatService {
             LOGGER.info("[anthropic] using per-model endpoint {}", endpointKey);
             backend.baseUrl(endpointKey);
         } else {
-            final String baseUrl = TestHarness.env(ENV_BASE_URL, "");
-            final String resource = TestHarness.env(ENV_RESOURCE, "");
+            final String baseUrl = HarnessEnv.env(ENV_BASE_URL, "");
+            final String resource = HarnessEnv.env(ENV_RESOURCE, "");
             if (!baseUrl.isEmpty()) {
                 backend.baseUrl(baseUrl);
             } else if (!resource.isEmpty()) {
@@ -119,7 +119,7 @@ public class AnthropicChatService implements ChatService {
             }
         }
 
-        final String apiKey = TestHarness.env(ENV_API_KEY, "");
+        final String apiKey = HarnessEnv.env(ENV_API_KEY, "");
         if (!apiKey.isEmpty()) {
             LOGGER.info("[anthropic] authenticating to Foundry with an API key ({})", ENV_API_KEY);
             backend.apiKey(apiKey);
@@ -152,13 +152,13 @@ public class AnthropicChatService implements ChatService {
 
         // Claude 4.x rejects temperature and top_p together — never replicate the production
         // temperature=0 + top_p=0 pair here. Default: omit sampling entirely.
-        final String temperature = TestHarness.env(ENV_TEMPERATURE, "");
+        final String temperature = HarnessEnv.env(ENV_TEMPERATURE, "");
         if (!temperature.isEmpty()) {
             params.temperature(Double.parseDouble(temperature));
             LOGGER.info("[anthropic] applied temperature={} for model '{}'", temperature, model);
         }
 
-        final String thinking = TestHarness.env(ENV_THINKING, "").trim().toLowerCase();
+        final String thinking = HarnessEnv.env(ENV_THINKING, "").trim().toLowerCase();
         if ("adaptive".equals(thinking)) {
             params.thinking(ThinkingConfigAdaptive.builder().build());
             LOGGER.info("[anthropic] adaptive thinking enabled for model '{}' — thinking shares the max_tokens budget ({})",

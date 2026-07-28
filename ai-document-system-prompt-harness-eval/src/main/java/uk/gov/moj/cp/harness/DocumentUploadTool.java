@@ -84,10 +84,10 @@ public final class DocumentUploadTool {
             LOGGER.error("Usage: upload-document.sh <file> [more files...]  (PDF/DOCX case documents)");
             System.exit(2);
         }
-        final String uploadBase = trimTrailingSlash(requireEnv("HARNESS_UPLOAD_FUNCTION_BASE_URL"));
+        final String uploadBase = trimTrailingSlash(HarnessEnv.requireEnv("HARNESS_UPLOAD_FUNCTION_BASE_URL"));
         // One gateway (APIM) fronting every function is the common case — default the status
         // host to the upload host; "none" opts out of the ingestion wait entirely.
-        final String statusSetting = trimTrailingSlash(TestHarness.env("HARNESS_STATUS_FUNCTION_BASE_URL", uploadBase));
+        final String statusSetting = trimTrailingSlash(HarnessEnv.env("HARNESS_STATUS_FUNCTION_BASE_URL", uploadBase));
         final String statusBase = "none".equalsIgnoreCase(statusSetting) ? "" : statusSetting;
         if (statusBase.isEmpty()) {
             LOGGER.warn("Ingestion wait disabled (HARNESS_STATUS_FUNCTION_BASE_URL=none) — "
@@ -137,7 +137,7 @@ public final class DocumentUploadTool {
 
         LOGGER.info("[upload] initiating upload: {} (documentId={})", documentName, documentId);
         final JsonNode location = postJson(uploadBase + "/document-upload", MAPPER.writeValueAsString(request),
-                TestHarness.env("HARNESS_UPLOAD_FUNCTION_KEY", ""));
+                HarnessEnv.env("HARNESS_UPLOAD_FUNCTION_KEY", ""));
         final String storageUrl = location.path("storageUrl").asText("");
         final String documentReference = location.path("documentReference").asText(documentId);
         if (storageUrl.isEmpty()) {
@@ -155,9 +155,9 @@ public final class DocumentUploadTool {
 
     private static void awaitIngestion(final String statusBase, final String documentReference,
                                        final String documentName) throws Exception {
-        final long timeoutSeconds = TestHarness.intEnv("HARNESS_UPLOAD_POLL_TIMEOUT_SECONDS", 600);
+        final long timeoutSeconds = HarnessEnv.intEnv("HARNESS_UPLOAD_POLL_TIMEOUT_SECONDS", 600);
         final long deadline = System.nanoTime() + Duration.ofSeconds(timeoutSeconds).toNanos();
-        final String statusKey = TestHarness.env("HARNESS_STATUS_FUNCTION_KEY", "");
+        final String statusKey = HarnessEnv.env("HARNESS_STATUS_FUNCTION_KEY", "");
         String status = "UNKNOWN";
         while (System.nanoTime() < deadline) {
             final JsonNode body = getJson(statusBase + "/document-upload/" + documentReference, statusKey);
@@ -197,9 +197,9 @@ public final class DocumentUploadTool {
         if (!functionKey.isEmpty()) {
             builder.header("x-functions-key", functionKey);
         }
-        final String clientId = TestHarness.env("HARNESS_CLIENT_ID", "");
+        final String clientId = HarnessEnv.env("HARNESS_CLIENT_ID", "");
         if (!clientId.isEmpty()) {
-            builder.header(TestHarness.env("CLIENT_IDENTITY_HEADER", "X-Client-Id"), clientId);
+            builder.header(HarnessEnv.env("CLIENT_IDENTITY_HEADER", "X-Client-Id"), clientId);
         }
         final HttpResponse<String> response = HTTP.send(builder.build(), ofString());
         if (response.statusCode() / 100 != 2) {
@@ -211,7 +211,7 @@ public final class DocumentUploadTool {
 
     /** HARNESS_UPLOAD_METADATA ("k=v,k2=v2"); defaults to a random caseId, as the integration tests upload. */
     private static Map<String, String> metadataPairs() {
-        final String spec = TestHarness.env("HARNESS_UPLOAD_METADATA", "");
+        final String spec = HarnessEnv.env("HARNESS_UPLOAD_METADATA", "");
         final Map<String, String> out = new LinkedHashMap<>();
         if (spec.isEmpty()) {
             out.put("caseId", UUID.randomUUID().toString());
@@ -230,15 +230,6 @@ public final class DocumentUploadTool {
             throw new IllegalStateException("Malformed HARNESS_UPLOAD_METADATA entries (need key=value): " + bad);
         }
         return out;
-    }
-
-    private static String requireEnv(final String key) {
-        final String v = System.getenv(key);
-        if (v == null || v.isBlank()) {
-            throw new IllegalStateException("Required environment variable not set: " + key
-                    + " (set it in .env — see .env.sample)");
-        }
-        return v;
     }
 
     private static String trimTrailingSlash(final String url) {

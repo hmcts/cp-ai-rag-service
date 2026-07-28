@@ -109,8 +109,8 @@ final class ResponseQualityComparator {
         if (prompts.size() < 2 && versions.size() < 2 && llms.size() < 2) {
             return;
         }
-        final boolean judgeEnabled = !"false".equalsIgnoreCase(TestHarness.env("HARNESS_JUDGE", "true"));
-        final String judgeDeployment = TestHarness.env("HARNESS_JUDGE_DEPLOYMENT", "gpt-5.1");
+        final boolean judgeEnabled = !"false".equalsIgnoreCase(HarnessEnv.env("HARNESS_JUDGE", "true"));
+        final String judgeDeployment = HarnessEnv.env("HARNESS_JUDGE_DEPLOYMENT", "gpt-5.1");
         final ChatService judge = judgeEnabled ? ChatServiceFactory.getInstance(chatEndpoint, judgeDeployment) : null;
 
         final Map<String, TestHarness.UserQueryConfig> queryByLabel = new HashMap<>();
