@@ -297,6 +297,24 @@ public final class TestHarness {
                                                   final List<UserQueryConfig> queries,
                                                   final Map<String, List<ChunkedEntry>> chunksByQueryLabel)
             throws InterruptedException {
+        // Name the worker after its model so EVERY log line from this stream — including
+        // unlabelled ones from shared components (e.g. CitationProcessor) — carries the model
+        // in the %thread field, making the interleaved parallel log trivially demultiplexable.
+        final Thread current = Thread.currentThread();
+        final String originalThreadName = current.getName();
+        current.setName("llm-" + lc.label());
+        try {
+            return runModelStreamCells(lc, systemPrompts, queries, chunksByQueryLabel);
+        } finally {
+            current.setName(originalThreadName);
+        }
+    }
+
+    private static List<RunResult> runModelStreamCells(final LlmConfig lc,
+                                                       final List<SystemPromptConfig> systemPrompts,
+                                                       final List<UserQueryConfig> queries,
+                                                       final Map<String, List<ChunkedEntry>> chunksByQueryLabel)
+            throws InterruptedException {
         final List<RunResult> results = new ArrayList<>();
         for (int iter = 1; iter <= REPETITIONS; iter++) {
             Thread.sleep(Duration.ofSeconds(5).toMillis());
