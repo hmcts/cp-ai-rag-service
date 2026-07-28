@@ -43,12 +43,15 @@ import org.slf4j.LoggerFactory;
  *
  * <p><b>Configuration</b> (environment):
  * <ul>
- *   <li>{@code HARNESS_UPLOAD_FUNCTION_BASE_URL} — base URL of the metadata-check function app,
- *       INCLUDING the route prefix (e.g. {@code https://<app>.azurewebsites.net/api} or
- *       {@code http://localhost:7071/api}). Required.</li>
- *   <li>{@code HARNESS_STATUS_FUNCTION_BASE_URL} — base URL of the status-check function app,
- *       same convention. Optional: when unset, the tool uploads and exits without polling
- *       (check ingestion status yourself before using the id).</li>
+ *   <li>{@code HARNESS_UPLOAD_FUNCTION_BASE_URL} — base URL serving {@code POST /document-upload},
+ *       INCLUDING any route prefix. With an APIM gateway fronting all the functions a single
+ *       value does everything (e.g. {@code https://<gateway>/api-cp-ai-rag}); against bare
+ *       function apps it is the metadata-check host (e.g. {@code http://localhost:7071/api}).
+ *       Required.</li>
+ *   <li>{@code HARNESS_STATUS_FUNCTION_BASE_URL} — base URL serving
+ *       {@code GET /document-upload/{documentReference}}. Defaults to the upload base URL
+ *       (the APIM single-gateway case); set it only when the status function lives on a
+ *       different host, or to {@code none} to skip the ingestion wait entirely.</li>
  *   <li>{@code HARNESS_UPLOAD_FUNCTION_KEY} / {@code HARNESS_STATUS_FUNCTION_KEY} — optional
  *       {@code x-functions-key} values for function apps with key-protected routes.</li>
  *   <li>{@code HARNESS_CLIENT_ID} — optional client identity sent as the internal header
@@ -82,9 +85,12 @@ public final class DocumentUploadTool {
             System.exit(2);
         }
         final String uploadBase = trimTrailingSlash(requireEnv("HARNESS_UPLOAD_FUNCTION_BASE_URL"));
-        final String statusBase = trimTrailingSlash(TestHarness.env("HARNESS_STATUS_FUNCTION_BASE_URL", ""));
+        // One gateway (APIM) fronting every function is the common case — default the status
+        // host to the upload host; "none" opts out of the ingestion wait entirely.
+        final String statusSetting = trimTrailingSlash(TestHarness.env("HARNESS_STATUS_FUNCTION_BASE_URL", uploadBase));
+        final String statusBase = "none".equalsIgnoreCase(statusSetting) ? "" : statusSetting;
         if (statusBase.isEmpty()) {
-            LOGGER.warn("HARNESS_STATUS_FUNCTION_BASE_URL not set — will upload without waiting for ingestion; "
+            LOGGER.warn("Ingestion wait disabled (HARNESS_STATUS_FUNCTION_BASE_URL=none) — "
                     + "verify status before using the ids");
         }
 
