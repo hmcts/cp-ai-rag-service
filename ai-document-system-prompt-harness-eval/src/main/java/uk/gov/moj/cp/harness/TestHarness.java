@@ -122,13 +122,22 @@ public final class TestHarness {
 
     /**
      * System-prompt files (without the {@code .txt} suffix) under src/main/resources/prompts, in
-     * display order. Comma-separated; override with {@code HARNESS_SYSTEM_PROMPTS} — no recompile
-     * needed to change which prompts are evaluated. The quality-comparison stage compares each
-     * prompt against its predecessor in this list; with a single prompt and multiple query versions
-     * in user-queries.json, it compares query versions instead.
+     * display order. Comma-separated {@code HARNESS_SYSTEM_PROMPTS}, REQUIRED — the prompt under
+     * evaluation is an explicit choice, so there is deliberately no in-code default; configure it
+     * in .env. The quality-comparison stage compares each prompt against its predecessor in this
+     * list; with a single prompt and multiple query versions in the query set, it compares query
+     * versions instead.
      */
-    private static final String DEFAULT_SYSTEM_PROMPTS = "v4-strict-citation-grouping-compact";
-    private static final List<String> PROMPT_FILES = splitCsv(env("HARNESS_SYSTEM_PROMPTS", DEFAULT_SYSTEM_PROMPTS));
+    private static final List<String> PROMPT_FILES = requiredSystemPrompts();
+
+    private static List<String> requiredSystemPrompts() {
+        final List<String> prompts = splitCsv(requireEnv("HARNESS_SYSTEM_PROMPTS"));
+        if (prompts.isEmpty()) {
+            throw new RuntimeException("HARNESS_SYSTEM_PROMPTS contains no prompt file names"
+                    + " (comma-separated names under src/main/resources/prompts, without .txt)");
+        }
+        return prompts;
+    }
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
