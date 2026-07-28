@@ -84,14 +84,23 @@ public final class TestHarness {
 
     /**
      * The document(s) the harness queries target — retrieval is filtered per document id.
-     * Comma-separated; override with HARNESS_DOCUMENT_IDS. Every query in user-queries.json is
-     * run against EVERY id in this list, so the run matrix expands to
-     * prompts × LLMs × (queries × documentIds). With more than one id, each query label is
-     * suffixed with the id's first 8 characters so report rows stay distinguishable.
+     * Comma-separated HARNESS_DOCUMENT_IDS, REQUIRED (document ids are environment-specific, so
+     * there is deliberately no in-code default — ingest via upload-document.sh and configure the
+     * printed ids in .env). Every query in the query set is run against EVERY id in this list,
+     * so the run matrix expands to prompts × LLMs × (queries × documentIds). With more than one
+     * id, each query label is suffixed with the id's first 8 characters so report rows stay
+     * distinguishable.
      */
-    private static final String DEFAULT_DOCUMENT_IDS =
-            "4fa52386-d5f2-4b61-bc8c-c28cb02093ee,22e543b6-9f10-49db-9119-94a41fc02002";
-    private static final List<String> DOCUMENT_IDS = splitCsv(env("HARNESS_DOCUMENT_IDS", DEFAULT_DOCUMENT_IDS));
+    private static final List<String> DOCUMENT_IDS = requiredDocumentIds();
+
+    private static List<String> requiredDocumentIds() {
+        final List<String> ids = splitCsv(requireEnv("HARNESS_DOCUMENT_IDS"));
+        if (ids.isEmpty()) {
+            throw new RuntimeException("HARNESS_DOCUMENT_IDS contains no document ids"
+                    + " (ingest documents via upload-document.sh and set the printed ids in .env)");
+        }
+        return ids;
+    }
 
     /** Metadata field the AI Search index filters documents on. */
     private static final String DOCUMENT_ID_FILTER_KEY = "document_id";
