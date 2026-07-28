@@ -346,7 +346,9 @@ public final class TestHarness {
         // - An optional "@https://..." suffix gives that model its own endpoint, overriding the
         //   provider's global env var (AZURE_OPENAI_ENDPOINT / ANTHROPIC_FOUNDRY_*), so models
         //   hosted on different Azure resources can share one matrix.
-        final String spec = env("HARNESS_LLM_DEPLOYMENTS", "gpt-4o-response-generation,gpt-5.1");
+        // REQUIRED, no in-code default — the models under evaluation (and their cost profile)
+        // are an explicit choice; a silent fallback would run the wrong billable pair.
+        final String spec = requireEnv("HARNESS_LLM_DEPLOYMENTS");
         final List<LlmConfig> out = new ArrayList<>();
         for (final String d : spec.split(",")) {
             String entry = d.trim();
@@ -380,6 +382,11 @@ public final class TestHarness {
         LOGGER.info("[init] LLM deployments: {}",
                 out.stream().map(lc -> (lc.provider().isEmpty() ? "" : lc.provider() + ":") + lc.deployment()
                         + (lc.endpoint().isEmpty() ? "" : " @" + lc.endpoint())).toList());
+        if (out.isEmpty()) {
+            throw new RuntimeException("HARNESS_LLM_DEPLOYMENTS contains no model entries"
+                    + " (comma-separated [provider:]deployment[@endpoint], e.g."
+                    + " gpt-4o-response-generation,anthropic:claude-sonnet-4-6)");
+        }
         return out;
     }
 
