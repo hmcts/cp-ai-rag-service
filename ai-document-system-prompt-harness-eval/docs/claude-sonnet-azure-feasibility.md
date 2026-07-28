@@ -29,8 +29,10 @@ via the **Anthropic Messages API**, not Azure OpenAI chat completions, so the ex
    ```
 
    Unprefixed entries behave exactly as before (production `ChatServiceFactory` against
-   `AZURE_OPENAI_ENDPOINT`), so existing `.env` files keep working. Both models run in one
-   matrix and appear side by side in the same summary/consistency/detail tables.
+   `AZURE_OPENAI_ENDPOINT`). Both models run in one matrix and appear side by side in the
+   same summary/consistency/detail tables. Note that `HARNESS_LLM_DEPLOYMENTS`,
+   `HARNESS_DOCUMENT_IDS` and `HARNESS_SYSTEM_PROMPTS` are all REQUIRED in `.env` — the
+   run-defining inputs carry no in-code defaults.
 
    Any entry may also carry a **per-model endpoint** via an `@https://...` suffix, overriding
    the provider's global endpoint env var for that model only — so models hosted on different
@@ -62,11 +64,12 @@ Set in `.env` (see `.env.sample`):
 | `HARNESS_ANTHROPIC_TEMPERATURE` | Optional single sampling parameter. Default: no sampling parameters sent (see §3.1). |
 | `HARNESS_ANTHROPIC_THINKING=adaptive` | Optional. Default off — the Claude analogue of `LLM_REASONING_EFFORT=none`. |
 
-Smoke run:
+Smoke run — set the knobs **in `.env`** (the script sources `.env` with auto-export, so
+values in the file override anything exported in the shell):
 
 ```bash
-HARNESS_MAX_QUERIES=1 HARNESS_REPETITIONS=1 \
-HARNESS_LLM_DEPLOYMENTS=gpt-4o-response-generation,anthropic:claude-sonnet-4-6 \
+# in .env: HARNESS_MAX_QUERIES=1, HARNESS_REPETITIONS=1, and
+#          HARNESS_LLM_DEPLOYMENTS=gpt-4o-response-generation,anthropic:claude-sonnet-4-6
 ./run-harness.sh
 ```
 
@@ -74,8 +77,8 @@ HARNESS_LLM_DEPLOYMENTS=gpt-4o-response-generation,anthropic:claude-sonnet-4-6 \
 
 ### 3.1 The `top_p=0` determinism lever does not port
 The earlier GPT-4o evaluation's single biggest reliability lever was `temperature=0` +
-`top_p=0` constrained decoding. **Claude 4.x rejects that pair** (at most one sampling
-parameter per request), so `AnthropicChatService` omits sampling entirely by default
+`top_p=0` constrained decoding. **Claude 4.x rejects that pair** (`temperature` and `top_p`
+may not be combined), so `AnthropicChatService` omits sampling entirely by default
 (`HARNESS_ANTHROPIC_TEMPERATURE` can set temperature alone). The GPT-4o baseline keeps its
 constrained decoding; Claude cannot replicate it — **some cross-model differences are
 attributable to decoding configuration, not model quality**. Read repetition consistency
@@ -94,9 +97,9 @@ chain; the harness defaults to the bearer path (`az login`), consistent with the
 managed-identity norm. If a key is used, it lives only in the git-ignored `.env`.
 
 ### 3.4 Retry/timeout config does not apply
-`AZURE_CLIENT_*` / `HTTP_CLIENT_*` env vars and `run-harness.sh`'s timeout flooring apply to
-the Azure SDK clients only. The Anthropic SDK uses its own defaults (10-minute request
-timeout, 2 retries with backoff on 429/5xx) — adequate for the harness.
+The `AZURE_CLIENT_*` / `HTTP_CLIENT_*` env vars configure the Azure SDK clients only. The
+Anthropic SDK uses its own defaults (10-minute request timeout, 2 retries with backoff on
+429/5xx) — adequate for the harness.
 
 ### 3.5 Foundry prerequisite (outside this repo)
 Claude Sonnet 4.6 must be **deployed in the Azure AI Foundry resource** first
@@ -142,9 +145,12 @@ treating it as part of the system under test.
 | File | Change |
 |---|---|
 | `pom.xml` | `com.anthropic:anthropic-java` + `anthropic-java-foundry` (harness-only) |
-| `src/main/java/uk/gov/moj/cp/harness/AnthropicChatService.java` | New `ChatService` implementation (Messages API via `FoundryBackend`) |
-| `src/main/java/uk/gov/moj/cp/harness/TestHarness.java` | `LlmConfig` carries a provider; `HARNESS_LLM_DEPLOYMENTS` accepts an optional `anthropic:` prefix; `buildService` routes accordingly |
+| `src/main/java/uk/gov/moj/cp/harness/AnthropicChatService.java` | New `ChatService` implementation (Messages API via `FoundryBackend`), one cached client per endpoint |
+| `src/main/java/uk/gov/moj/cp/harness/TestHarness.java` | `LlmConfig` carries a provider and optional per-model endpoint; `HARNESS_LLM_DEPLOYMENTS` entries take the form `[provider:]deployment[@endpoint]`; `buildService` routes accordingly |
 | `.env.sample`, `run-harness.sh` | Foundry variables and knob documentation |
 
 Reused unchanged: `ChatService` interface, `ResponseGenerationService`, `CitationProcessor`,
-all metrics/report code, prompts, `user-queries.json`, `ResponseQualityComparator`.
+the citation metrics and prompts. (Later work on this branch extended the harness further —
+model-vs-model judging and latency stats in `ResponseQualityComparator`, parallel model
+streams, and the `HARNESS_QUERY_FILE` query-set selector — see
+`model-comparison-gpt51-claude-sonnet46.md` for the evaluation runs that used them.)
