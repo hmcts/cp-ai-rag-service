@@ -31,6 +31,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -241,16 +245,66 @@ public final class TestHarness {
                                              final List<UserQueryConfig> queries,
                                              final Map<String, List<ChunkedEntry>> chunksByQueryLabel)
             throws InterruptedException {
+        // Models are the parallel unit: each model targets its own deployment (its own TPM/RPM
+        // quota), so one worker per model — sequential WITHIN the stream, preserving the
+        // HARNESS_CALL_DELAY_SECONDS pacing per deployment — shortens the run to the slowest
+        // model's total without adding any concurrent load on a single deployment.
+        // HARNESS_PARALLEL_MODELS=false forces the old one-stream-after-another behaviour.
+        final boolean parallel = llms.size() > 1
+                && !"false".equalsIgnoreCase(env("HARNESS_PARALLEL_MODELS", "true"));
+        LOGGER.info("[matrix] {} model stream(s); parallel={}", llms.size(), parallel);
+
+        if (!parallel) {
+            final List<RunResult> results = new ArrayList<>();
+            for (final LlmConfig lc : llms) {
+                results.addAll(runModelStream(lc, systemPrompts, queries, chunksByQueryLabel));
+            }
+            return results;
+        }
+
+        final ExecutorService pool = Executors.newFixedThreadPool(llms.size());
+        try {
+            final List<Future<List<RunResult>>> futures = new ArrayList<>();
+            for (final LlmConfig lc : llms) {
+                futures.add(pool.submit(() -> runModelStream(lc, systemPrompts, queries, chunksByQueryLabel)));
+            }
+            // Merge in model order so the report sections stay deterministic regardless of
+            // which stream finishes first.
+            final List<RunResult> results = new ArrayList<>();
+            for (int i = 0; i < futures.size(); i++) {
+                try {
+                    results.addAll(futures.get(i).get());
+                } catch (final ExecutionException e) {
+                    // Per-cell failures are already absorbed inside runCell; reaching here means
+                    // the whole stream died before producing results. Keep the other model's
+                    // results — its rows still report, the comparator just skips unpaired rows.
+                    LOGGER.error("[matrix] model stream '{}' failed — its cells are missing from the report",
+                            llms.get(i).label(), e.getCause());
+                }
+            }
+            return results;
+        } finally {
+            pool.shutdown();
+        }
+    }
+
+    /**
+     * One model's full (iteration × prompt × query) sequence — deliberately sequential so the
+     * per-call delay keeps protecting that model's deployment quota.
+     */
+    private static List<RunResult> runModelStream(final LlmConfig lc,
+                                                  final List<SystemPromptConfig> systemPrompts,
+                                                  final List<UserQueryConfig> queries,
+                                                  final Map<String, List<ChunkedEntry>> chunksByQueryLabel)
+            throws InterruptedException {
         final List<RunResult> results = new ArrayList<>();
         for (int iter = 1; iter <= REPETITIONS; iter++) {
             Thread.sleep(Duration.ofSeconds(5).toMillis());
-            LOGGER.info("========= ITERATION {} / {} =========", iter, REPETITIONS);
+            LOGGER.info("[{}] ========= ITERATION {} / {} =========", lc.label(), iter, REPETITIONS);
             for (final SystemPromptConfig spc : systemPrompts) {
-                for (final LlmConfig lc : llms) {
-                    final ResponseGenerationService svc = buildService(spc, lc);
-                    for (final UserQueryConfig uqc : queries) {
-                        results.add(runCell(svc, spc, lc, uqc, iter, chunksByQueryLabel.get(uqc.label())));
-                    }
+                final ResponseGenerationService svc = buildService(spc, lc);
+                for (final UserQueryConfig uqc : queries) {
+                    results.add(runCell(svc, spc, lc, uqc, iter, chunksByQueryLabel.get(uqc.label())));
                 }
             }
         }
