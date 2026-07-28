@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
  * <ul>
  *   <li><b>System prompts</b> — with two or more entries in PROMPT_FILES, each prompt is
  *       compared against its predecessor (chain-wise), rows paired per (query, llm, iteration).</li>
- *   <li><b>Query versions</b> — with two or more versions in user-queries.json (same queries
+ *   <li><b>Query versions</b> — with two or more versions in the query-set file (same queries
  *       matched by queryId, different queryPrompt wording), each version is compared against its
  *       predecessor, rows paired per (base query, prompt, llm, iteration). This measures what a
  *       query-prompt revision changes under an identical system prompt.</li>

@@ -67,7 +67,8 @@ import org.slf4j.LoggerFactory;
  *       Messages API) so Claude models can be compared against the same baseline in one run.</li>
  *   <li><b>Prompts under test.</b> Loaded from {@code src/main/resources/prompts/*.txt}, selected
  *       by the {@code HARNESS_SYSTEM_PROMPTS} env var (comma-separated file names); the query set
- *       file is selected by {@code HARNESS_QUERY_FILE} (default {@code user-queries.json}).</li>
+ *       file is selected by {@code HARNESS_QUERY_FILE} from
+ *       {@code src/main/resources/user-queries/} (default {@code user-queries-version-test.json}).</li>
  *   <li><b>Parallel model streams.</b> With more than one model, each runs as its own worker —
  *       sequential within the stream to respect that deployment's quota — so the generation
  *       phase takes the slowest model's total, not the sum. See {@link #runMatrix}.</li>
@@ -458,10 +459,14 @@ public final class TestHarness {
         return new LlmConfig(deployment, provider, deployment, endpoint);
     }
 
+    /** Directory (under src/main/resources) holding the query-set files. */
+    private static final String QUERY_FILE_DIR = "user-queries";
+    private static final String DEFAULT_QUERY_FILE = "user-queries-version-test.json";
+
     /**
-     * Loads the query set named by {@code HARNESS_QUERY_FILE} (default {@code user-queries.json})
-     * from src/main/resources — resolved relative to the module or repo root, falling back to the
-     * classpath. JSON shape:
+     * Loads the query set named by {@code HARNESS_QUERY_FILE} (default
+     * {@value #DEFAULT_QUERY_FILE}) from src/main/resources/{@value #QUERY_FILE_DIR} — resolved
+     * relative to the module or repo root, falling back to the classpath. JSON shape:
      * <pre>{ "versions": [ { "version": "prod", "queries": [ { "queryId": "...", "label": "...",
      * "userQuery": "...", "queryPrompt": "..." }, ... ] }, ... ] }</pre>
      * Versions carry the same query set matched by {@code queryId} (differing prompts/wording).
@@ -471,10 +476,10 @@ public final class TestHarness {
      * HARNESS_MAX_QUERIES caps the base queries BEFORE the expansion.
      */
     private static List<UserQueryConfig> loadUserQueriesFromJson() {
-        final String queryFile = env("HARNESS_QUERY_FILE", "user-queries.json");
+        final String queryFile = env("HARNESS_QUERY_FILE", DEFAULT_QUERY_FILE);
         final Path[] candidates = {
-                Paths.get("ai-document-system-prompt-harness-eval/src/main/resources/" + queryFile),
-                Paths.get("src/main/resources/" + queryFile)
+                Paths.get("ai-document-system-prompt-harness-eval/src/main/resources/" + QUERY_FILE_DIR + "/" + queryFile),
+                Paths.get("src/main/resources/" + QUERY_FILE_DIR + "/" + queryFile)
         };
         try {
             JsonNode root = null;
@@ -487,12 +492,13 @@ public final class TestHarness {
                 }
             }
             if (root == null) {
-                try (InputStream in = TestHarness.class.getResourceAsStream("/" + queryFile)) {
+                try (InputStream in = TestHarness.class.getResourceAsStream("/" + QUERY_FILE_DIR + "/" + queryFile)) {
                     if (in == null) {
-                        throw new RuntimeException(queryFile + " not found on filesystem or classpath");
+                        throw new RuntimeException(queryFile + " not found under src/main/resources/"
+                                + QUERY_FILE_DIR + " (filesystem or classpath)");
                     }
                     root = MAPPER.readTree(in);
-                    used = Paths.get("classpath:/" + queryFile);
+                    used = Paths.get("classpath:/" + QUERY_FILE_DIR + "/" + queryFile);
                 }
             }
 
@@ -528,7 +534,7 @@ public final class TestHarness {
                     used, limit, DOCUMENT_IDS.size(), versions.size(), out.size(), DOCUMENT_IDS);
             return out;
         } catch (final Exception e) {
-            throw new RuntimeException("Failed to parse " + env("HARNESS_QUERY_FILE", "user-queries.json"), e);
+            throw new RuntimeException("Failed to parse " + env("HARNESS_QUERY_FILE", DEFAULT_QUERY_FILE), e);
         }
     }
 
