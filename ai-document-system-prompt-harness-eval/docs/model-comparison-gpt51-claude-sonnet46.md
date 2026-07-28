@@ -5,8 +5,7 @@
 > prompt, query instruction and retrieved chunks on both sides, so differences are attributable
 > to the model alone). Two runs: **Run 1** (14 July 2026, 2 documents, sequential) and
 > **Run 2** (28 July 2026, 5 IDPC documents, parallel model streams). Companion to
-> `claude-sonnet-azure-feasibility.md` (integration + caveats) and `idpc-document-ids.md`
-> (Run 2 corpus).
+> `claude-sonnet-azure-feasibility.md` (integration + caveats).
 
 ## 1. Configuration (common to both runs)
 
@@ -16,7 +15,8 @@
   `user-queries-model-test.json` set (single `test` version, explicit output-size caps);
   1 repetition; `CITATION_GUARD_MODE=off`; **judge:** gpt-5.1.
 - Run 1: 2 case documents → 20 rows/model, sequential model streams.
-- Run 2: 5 IDPC documents (`idpc1–idpc5`, see `idpc-document-ids.md`) → 50 rows/model,
+- Run 2: 5 IDPC documents (`idpc1–idpc5`, ingested via `upload-document.sh`; ids are
+  environment-specific and configured in the local `.env`) → 50 rows/model,
   **parallel model streams** (one worker per model, sequential within each stream).
 
 ## 2. Quality (judge verdicts, paired rows)
