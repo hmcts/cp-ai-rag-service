@@ -1,85 +1,99 @@
 # Model comparison — GPT-5.1 vs Claude Sonnet 4.6 (Azure AI Foundry)
 
-> Results of the first head-to-head model evaluation run of 14 July 2026, using the harness's
-> model-comparison dimension (`ResponseQualityComparator`, model A vs B per (query, prompt,
-> iteration) — identical system prompt, query instruction and retrieved chunks on both sides,
-> so differences are attributable to the model alone). Companion to
-> `claude-sonnet-azure-feasibility.md` (integration + caveats).
+> Results of the head-to-head model evaluations using the harness's model-comparison dimension
+> (`ResponseQualityComparator`, model A vs B per (query, prompt, iteration) — identical system
+> prompt, query instruction and retrieved chunks on both sides, so differences are attributable
+> to the model alone). Two runs: **Run 1** (14 July 2026, 2 documents, sequential) and
+> **Run 2** (28 July 2026, 5 IDPC documents, parallel model streams). Companion to
+> `claude-sonnet-azure-feasibility.md` (integration + caveats) and `idpc-document-ids.md`
+> (Run 2 corpus).
 
-## 1. Run configuration
+## 1. Configuration (common to both runs)
 
 - **Models:** `gpt-5.1` (Azure OpenAI, `reasoning_effort=none`) vs `claude-sonnet-4-6`
   (Azure AI Foundry via the Anthropic Messages API, thinking off, no sampling params).
-- **Matrix:** 10 queries (`user-queries-model-test.json`, single `test` version with explicit
-  output-size caps) × 2 case documents × 1 repetition × 1 prompt
-  (`v4-strict-citation-grouping-compact`) = 40 generation calls.
-- **Judge:** gpt-5.1 (`CITATION_GUARD_MODE=off`; 20 pairwise model judgements).
-- **Outcome:** zero call failures, zero refusals, zero truncations on either model.
+- **Prompt:** `v4-strict-citation-grouping-compact`; **queries:** the 10-query
+  `user-queries-model-test.json` set (single `test` version, explicit output-size caps);
+  1 repetition; `CITATION_GUARD_MODE=off`; **judge:** gpt-5.1.
+- Run 1: 2 case documents → 20 rows/model, sequential model streams.
+- Run 2: 5 IDPC documents (`idpc1–idpc5`, see `idpc-document-ids.md`) → 50 rows/model,
+  **parallel model streams** (one worker per model, sequential within each stream).
 
-## 2. Quality (judge verdicts, 20 paired rows)
+## 2. Quality (judge verdicts, paired rows)
 
-| Aggregate | Value |
-|---|---|
-| Verdicts | **B_RICHER (Claude) 10** • A_RICHER (GPT-5.1) 5 • DIVERGENT 3 • EQUIVALENT 2 |
-| Mean structure adherence (1–5, own instruction) | A 4.5 • B 4.5 — dead even |
-| Mean prose-embedding cosine | 0.8460 |
+| Aggregate | Run 1 (20 rows) | Run 2 (49 rows¹) |
+|---|---|---|
+| B_RICHER (Claude) | 10 (50%) | **28 (57%)** |
+| A_RICHER (GPT-5.1) | 5 (25%) | 7 (14%) |
+| EQUIVALENT | 2 | 9 |
+| DIVERGENT | 3 | 5 |
+| Mean structure adherence (A / B) | 4.5 / 4.5 | 4.5 / **4.6** |
+| Mean prose-embedding cosine | 0.8460 | 0.8432 |
 
-The split has structure that matters more than the headline:
+¹ One Claude cell lost to a transient network connection reset (see §5) — 49 of 50 pairs judged.
 
-- **Substantive summaries** (offence facts, chronology, prosecution evidence,
-  previous-convictions summary): Claude was mostly judged factually richer *while writing
-  less* — it added specific evidential detail and honoured word caps better (judgeStruct
-  B5 vs A4 on several rows).
-- **Strict `if_not_found` extraction queries:** most Claude B_RICHER verdicts here are
-  double-edged. GPT-5.1 emitted the literal sentinel exactly as instructed (judgeStruct 5);
-  Claude added unrequested PNC context — "richer" but *less* compliant (judgeStruct 4).
-  Richer ≠ better on these tasks.
-- **Witness summaries — GPT-5.1's clearest win:** it covered many more witnesses (A_RICHER
-  on both documents); Claude summarised a subset, likely over-honouring the 500-word cap at
-  the cost of coverage.
-- Judge-bias note: the judge is gpt-5.1 judging its own family vs Claude; a family bias would
-  favour A, which strengthens rather than weakens the B_RICHER majority.
+The Run 1 reading holds and strengthens over the wider corpus: Claude is judged factually
+richer on the majority of rows **while writing ~35% less prose**, with format adherence now
+slightly ahead. The Run 1 caveats also still apply: a share of Claude's B_RICHER verdicts on
+strict `if_not_found` extraction queries reflect *unrequested* added context (richer but less
+compliant), and GPT-5.1 remains stronger on witness coverage.
 
 ## 3. Citation contract (raw model output)
 
-| Metric | gpt-5.1 | claude-sonnet-4-6 |
+| Metric (Run 2, 50 rows/model) | gpt-5.1 | claude-sonnet-4-6 |
 |---|---|---|
-| Answers generated / parseable `<FACT_MAP_JSON>` | 20/20 / 20/20 | 20/20 / 20/20 |
-| Inline⇄JSON `match` | 14/20 | **18/20** |
-| Same-document stacked runs | heavy (up to 22 per answer) | **minimal (0–6)** |
-| Uncited substantive answers | 0 | 0 |
+| Answers generated | 50/50 | 49/50 (1 network error) |
+| Parseable `<FACT_MAP_JSON>` | 50/50 | 49/49 |
+| Inline⇄JSON `match` | 37/50 (74%) | **45/49 (92%)** |
+| Mean same-document stacked runs | 5.0 | **0.5** |
+| Mean distinct citations / row | 6.7 | 3.7 |
+| Mean prose (chars / words) | 3,336 / 537 | 2,150 / 344 |
 
-Both models' `match` misses are dominated by the no-findings pattern (bare sentinel answer +
-empty JSON, non-match by definition). Claude cited a source on several no-findings rows where
-GPT-5.1 returned an uncited sentinel, and follows the citation-grouping rule far better —
-GPT-5.1 leans heavily on the deterministic `CitationProcessor` merge.
+Same shape as Run 1 at larger scale: Claude honours the citation contract far more reliably in
+raw output (10× less same-document stacking — GPT-5.1 leans heavily on the deterministic
+`CitationProcessor` merge) and stays inside the prompts' length caps. GPT-5.1 cites more
+distinct sources per answer, consistent with its broader-coverage/longer-answer style.
 
-## 4. Performance (generation latency, paired rows)
+## 4. Performance
 
-| Model | Mean | Min | Max | Character |
-|---|---|---|---|---|
-| gpt-5.1 | **14.8 s** | 1.4 s | 50.2 s | Very fast on short extractions (1.4–6 s); slow on long summaries |
-| claude-sonnet-4-6 | 20.5 s | 2.0 s | 58.9 s | 2–4× slower on short extractions; comparable, sometimes faster, on the heaviest rows |
+**Per-call generation latency** (comparator, paired rows):
 
-Verbosity inverted vs the earlier GPT-4o smoke test: under the capped test prompts Claude
-consistently wrote **shorter** answers than GPT-5.1 (witness summaries ~3.3–6k chars vs
-~11–14k). Claude's earlier 2–4× verbosity appears only when the query prompt carries no
-length constraint.
+| Run | gpt-5.1 mean (min–max) | claude-sonnet-4-6 mean (min–max) |
+|---|---|---|
+| Run 1 | 14.8 s (1.4–50.2) | 20.5 s (2.0–58.9) |
+| Run 2 | 15.0 s (1.5–66.5) | 18.7 s (2.0–56.5) |
 
-## 5. Conclusions and next steps
+Stable across runs: Claude is ~15–40% slower per answer on average, dominated by the short
+extraction queries; on the heaviest summaries the two are comparable.
 
-Claude Sonnet 4.6 is a **credible candidate** on this pipeline: better raw citation
-discipline, better length-cap adherence, factually richer on most substantive summaries —
-as judged by GPT-5.1 itself. Its two weaknesses (witness coverage under tight caps;
-over-elaboration on strict `if_not_found` extractions) are both prompt-addressable.
-GPT-5.1 keeps the edge on short-query speed and exhaustive witness coverage.
+**Wall-clock — parallel model streams (Run 2):** 100 generation calls completed in
+**19.5 minutes** (14:16:41 → 14:36:11). The stream spans were gpt-5.1 ≈ 17.7 min and
+Claude ≈ 19.4 min; run sequentially those sum to ≈ 37 minutes, so parallelism delivered a
+**≈1.9× generation-phase speedup**, bounded by the slower (Claude) stream as designed.
+End-to-end run (build + retrieval + generation + 49 judge calls): 27m 49s.
+
+## 5. Reliability note
+
+One Claude call failed with a transport-level `Connection reset` (not a model or contract
+failure); the harness recorded the cell as ERROR, the stream continued, and the comparator
+skipped the unpaired row. Expected behaviour; at this failure rate (1/100) no retry logic is
+warranted — re-run the affected cell if its row matters.
+
+## 6. Conclusions and next steps
+
+The five-document run confirms Run 1 rather than revising it: **Claude Sonnet 4.6 delivers
+richer substantive answers with materially better citation discipline and length-cap
+adherence, at a modest per-call latency premium**; GPT-5.1 keeps the edge on short-query
+speed and witness coverage, and follows literal-sentinel instructions more exactly. Verdicts
+come from a gpt-5.1 judge, so family bias would favour GPT-5.1 — strengthening, not
+weakening, the Claude-favourable majority.
 
 Recommended follow-ups:
-1. Re-run at 2–3 repetitions for stability, focusing on the 3 DIVERGENT rows and the witness
-   queries (single-repetition rows must be read as indicative, not conclusive).
-2. Trial a Claude-tuned nudge: "cover every witness" weighting against the word cap, and
-   "output the sentinel only, no additional context" on extraction queries.
-3. Manual spot-check of 2–3 B_RICHER rows against the IDPC (the cross-model doc's standing
-   requirement) before drawing adoption conclusions.
+1. Prompt nudges for the two persistent Claude weaknesses (witness coverage under tight caps;
+   sentinel-only output on `if_not_found` extractions), then re-run.
+2. A 2–3 repetition run for verdict stability now that parallel streams make the cost of
+   repetitions tolerable.
+3. Manual IDPC spot-check of a sample of B_RICHER rows (standing requirement) before any
+   adoption recommendation.
 
-*Raw log: `gpt51-claude-run.log` (harness run of 14 July 2026, ~19 min end-to-end).*
+*Raw logs: `gpt51-claude-run.log` (Run 1), `parallel-run.log` (Run 2).*
