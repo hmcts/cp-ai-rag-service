@@ -260,8 +260,7 @@ public final class TestHarness {
             return results;
         }
 
-        final ExecutorService pool = Executors.newFixedThreadPool(llms.size());
-        try {
+        try (ExecutorService pool = Executors.newFixedThreadPool(llms.size())) {
             final List<Future<List<RunResult>>> futures = new ArrayList<>();
             for (final LlmConfig lc : llms) {
                 futures.add(pool.submit(() -> runModelStream(lc, systemPrompts, queries, chunksByQueryLabel)));
@@ -281,8 +280,6 @@ public final class TestHarness {
                 }
             }
             return results;
-        } finally {
-            pool.shutdown();
         }
     }
 
