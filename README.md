@@ -31,7 +31,7 @@ This mono-repo contains five independent Azure Functions, a shared library, and 
 The metadata-check module exposes an HTTP-initiated SAS upload flow that feeds the document-ingestion queue and the downstream worker.
 
 **HTTP-initiated SAS upload** (two-step):
-1. Caller calls `DocumentUploadFunction` (`POST /document-upload`, `@FunctionName("InitiateDocumentUpload")`) with a `DocumentUploadRequest` (documentId, documentName, metadata, overwrites). The function validates the request, rejects duplicates, records an "awaiting upload" row in Table Storage, and returns a write-only SAS URL (issued by `BlobClientService` against the document-upload container) together with the documentId.
+1. Caller calls `DocumentUploadFunction` (`POST /document-upload`, `@FunctionName("InitiateDocumentUpload")`) with a `DocumentUploadRequest` (documentId, documentName, metadata, overwrites). The function validates the request, rejects duplicates, records an "awaiting upload" row in Table Storage, and returns an upload SAS URL (issued by `BlobClientService` against the document-upload container) together with the documentId. The SAS URL is scoped to the **single target blob** (create/write/read — no list or delete, HTTPS only, user-delegation key rather than an account key) and is short-lived: it expires after `SAS_STORAGE_URL_EXPIRY_MINUTES` (default `120`), so the caller must complete the upload within that window or initiate a new upload.
 2. Caller PUTs the file bytes directly to the returned SAS URL.
 3. The blob landing in the upload container fires `DocumentBlobTriggerFunction` (`@FunctionName("DocumentUploadCheck")`), which checks the file size, updates the Table Storage row, and enqueues an ingestion message.
 
@@ -57,6 +57,18 @@ The answer-retrieval module exposes two HTTP invocation modes plus the queue-tri
 ### Retrieval Refinement (Deduplication & Diversification)
 
 Both invocation modes share the same retrieval path in `AzureAISearchService.search()`. It over-fetches a candidate pool from Azure AI Search (vector + keyword), then runs three **independently toggled** post-retrieval stages, **in order**, before the chunks reach the LLM. Azure AI Search has no server-side dedup/diversity operator, so this is performed client-side. `AzureAISearchService` itself is agnostic of the toggles — it always retrieves the `chunkVector` column and each stage decides whether to act:
+
+```mermaid
+flowchart LR
+    S["Azure AI Search<br/>(vector + keyword)<br/>pool: SEARCH_TOP_RESULTS_COUNT"]
+    C["1: Containment dedup<br/>ContentContainmentService<br/><i>toggle: ..._ENABLE_CONTAINMENT_DEDUP</i>"]
+    D["2: Semantic dedup<br/>DeduplicationService<br/><i>toggle: ..._ENABLE_DEDUPLICATION<br/>(off by default)</i>"]
+    M["3: MMR diversification<br/>DiversificationService<br/><i>toggle: ..._ENABLE_MMR</i><br/>truncates to SEARCH_MMR_FINAL_COUNT"]
+    L["LLM<br/>(answer generation)"]
+    S --> C --> D --> M --> L
+```
+
+Each stage passes the list through unchanged when its toggle is off.
 
 1. **`ContentContainmentService` — information-safe deduplication.** Drops a chunk only when (nearly) all of its content already appears in a higher-ranked retained chunk, using an asymmetric word n-gram *containment* test. This collapses duplicate copies of the same passage that legitimately live in different files — these cannot be deduplicated at ingestion because per-file provenance and per-file filtering must be preserved — while **never discarding a chunk that carries unique information** (for example, a "copy + extra crucial sentence" superset is kept and the plain copies drop in its favour).
 2. **`DeduplicationService` — semantic (cosine) deduplication.** A coarser, symmetric embedding-similarity filter. **Off by default**, because being symmetric it can drop a near-duplicate that actually carries unique content; it is superseded by containment dedup.
