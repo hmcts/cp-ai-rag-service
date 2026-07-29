@@ -16,6 +16,17 @@
 # (or higher) in .env — reasoning calls can run for minutes with no bytes flowing, and this
 # script no longer floors them for you.
 #
+#   Anthropic Claude on Azure AI Foundry (harness-only; see .env.sample):
+#     HARNESS_LLM_DEPLOYMENTS=gpt-4o-response-generation,anthropic:claude-sonnet-4-6
+#     ANTHROPIC_FOUNDRY_RESOURCE=<res>    # or ANTHROPIC_FOUNDRY_BASE_URL (exactly one)
+#     ANTHROPIC_FOUNDRY_API_KEY=...       # optional; default is a DefaultAzureCredential token
+#   Any entry may carry its own endpoint via an "@https://..." suffix (overrides the global
+#   endpoint env var for that model only), e.g.:
+#     anthropic:claude-sonnet-4-6@https://<foundry-resource>.services.ai.azure.com/anthropic
+#   Note: the AZURE_CLIENT_* / HTTP_CLIENT_* retry+timeout vars apply to the Azure SDK
+#   clients only — the Anthropic SDK uses its own defaults (10-minute request timeout,
+#   2 retries).
+#
 set -euo pipefail
 
 MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -36,7 +47,7 @@ set +a
 
 echo "[run-harness] module: ${MODULE_DIR}"
 echo "[run-harness] prompts: ${HARNESS_SYSTEM_PROMPTS:-<unset>}"
-echo "[run-harness] models: ${HARNESS_LLM_DEPLOYMENTS:-<unset>}  reps: ${HARNESS_REPETITIONS:-<unset>}  delay: ${HARNESS_CALL_DELAY_SECONDS:-<unset>}s"
+echo "[run-harness] models: ${HARNESS_LLM_DEPLOYMENTS:-<unset>}  reps: ${HARNESS_REPETITIONS:-<unset>}  delay: ${HARNESS_CALL_DELAY_SECONDS:-<unset>}s  parallel_models: ${HARNESS_PARALLEL_MODELS:-true}"
 echo "[run-harness] reasoning_effort: ${LLM_REASONING_EFFORT:-<unset>}  max_completion_tokens: ${LLM_MODEL_RESPONSE_MAX_TOKENS:-<unset>}  read_timeout: ${HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS:-<unset>}s"
 echo "[run-harness] guard: ${CITATION_GUARD_MODE:-<unset>}  judge: ${HARNESS_JUDGE:-<unset>}/${HARNESS_JUDGE_DEPLOYMENT:-<unset>}  knn/top/mmr-final: ${SEARCH_NEAREST_NEIGHBOURS_COUNT:-<unset>}/${SEARCH_TOP_RESULTS_COUNT:-<unset>}/${SEARCH_MMR_FINAL_COUNT:-<unset>}"
 echo "[run-harness] ensure you have run 'az login' (DefaultAzureCredential)."

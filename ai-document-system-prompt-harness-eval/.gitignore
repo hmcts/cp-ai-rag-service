@@ -1,0 +1,2 @@
+# Local evaluation inputs — case documents are uploaded via upload-document.sh, never committed
+src/main/resources/idpc-documents/

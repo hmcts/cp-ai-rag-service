@@ -1,5 +1,9 @@
 package uk.gov.moj.cp.harness;
 
+import static uk.gov.moj.cp.harness.HarnessEnv.env;
+import static uk.gov.moj.cp.harness.HarnessEnv.intEnv;
+import static uk.gov.moj.cp.harness.HarnessEnv.requireEnv;
+
 import uk.gov.moj.cp.ai.exception.EmbeddingServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
@@ -25,12 +29,17 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -52,10 +61,17 @@ import org.slf4j.LoggerFactory;
  *   <li><b>Real production path.</b> Builds the chat service via the production
  *       {@link ChatServiceFactory}, so the actual {@code isReasoningModel} branch runs
  *       (reasoning models such as gpt-5.1 omit {@code temperature}/{@code top_p} and apply
- *       {@code reasoning_effort}; gpt-4o gets {@code temperature=0}/{@code top_p=0}).</li>
+ *       {@code reasoning_effort}; gpt-4o gets {@code temperature=0}/{@code top_p=0}).
+ *       Entries prefixed {@code anthropic:} in {@code HARNESS_LLM_DEPLOYMENTS} instead use the
+ *       harness-local {@link AnthropicChatService} (Claude on Azure AI Foundry via the Anthropic
+ *       Messages API) so Claude models can be compared against the same baseline in one run.</li>
  *   <li><b>Prompts under test.</b> Loaded from {@code src/main/resources/prompts/*.txt}, selected
  *       by the {@code HARNESS_SYSTEM_PROMPTS} env var (comma-separated file names); the query set
- *       is {@code src/main/resources/user-queries.json}.</li>
+ *       file is selected by {@code HARNESS_QUERY_FILE} from
+ *       {@code src/main/resources/user-queries/} (default {@code user-queries-version-test.json}).</li>
+ *   <li><b>Parallel model streams.</b> With more than one model, each runs as its own worker —
+ *       sequential within the stream to respect that deployment's quota — so the generation
+ *       phase takes the slowest model's total, not the sum. See {@link #runMatrix}.</li>
  *   <li><b>Metrics.</b> Per cell, across {@link #REPETITIONS} repeats: {@code ok}
  *       (answer generated), {@code jsonBlockPresent} (a parseable
  *       {@code <FACT_MAP_JSON>…</FACT_MAP_JSON>} block — isolates reasoning-token truncation
@@ -81,14 +97,14 @@ public final class TestHarness {
 
     /**
      * The document(s) the harness queries target — retrieval is filtered per document id.
-     * Comma-separated; override with HARNESS_DOCUMENT_IDS. Every query in user-queries.json is
-     * run against EVERY id in this list, so the run matrix expands to
-     * prompts × LLMs × (queries × documentIds). With more than one id, each query label is
-     * suffixed with the id's first 8 characters so report rows stay distinguishable.
+     * Comma-separated, REQUIRED with no in-code default: ids are environment-specific, so a
+     * hardcoded fallback would silently target stale documents. Ingest via upload-document.sh
+     * and set the printed ids in .env. Every query runs against EVERY id, expanding the matrix
+     * to prompts × LLMs × (queries × documentIds); with more than one id, query labels carry
+     * the id's first 8 characters so report rows stay distinguishable.
      */
-    private static final String DEFAULT_DOCUMENT_IDS =
-            "4fa52386-d5f2-4b61-bc8c-c28cb02093ee,22e543b6-9f10-49db-9119-94a41fc02002";
-    private static final List<String> DOCUMENT_IDS = splitCsv(env("HARNESS_DOCUMENT_IDS", DEFAULT_DOCUMENT_IDS));
+    private static final List<String> DOCUMENT_IDS = requiredCsv("HARNESS_DOCUMENT_IDS",
+            "ingest documents via upload-document.sh and set the printed ids in .env");
 
     /** Metadata field the AI Search index filters documents on. */
     private static final String DOCUMENT_ID_FILTER_KEY = "document_id";
@@ -110,21 +126,32 @@ public final class TestHarness {
 
     /**
      * System-prompt files (without the {@code .txt} suffix) under src/main/resources/prompts, in
-     * display order. Comma-separated; override with {@code HARNESS_SYSTEM_PROMPTS} — no recompile
-     * needed to change which prompts are evaluated. The quality-comparison stage compares each
-     * prompt against its predecessor in this list; with a single prompt and multiple query versions
-     * in user-queries.json, it compares query versions instead.
+     * display order. Comma-separated, REQUIRED with no in-code default — the prompt under
+     * evaluation is an explicit choice. The quality-comparison stage compares each prompt against
+     * its predecessor in this list; with a single prompt and multiple query versions in the query
+     * set, it compares query versions instead.
      */
-    private static final String DEFAULT_SYSTEM_PROMPTS = "v4-strict-citation-grouping-compact";
-    private static final List<String> PROMPT_FILES = splitCsv(env("HARNESS_SYSTEM_PROMPTS", DEFAULT_SYSTEM_PROMPTS));
+    private static final List<String> PROMPT_FILES = requiredCsv("HARNESS_SYSTEM_PROMPTS",
+            "comma-separated file names under src/main/resources/prompts, without .txt");
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     record SystemPromptConfig(String label, String prompt) {
     }
 
-    record LlmConfig(String label, String deployment) {
+    /**
+     * One model under evaluation. {@code provider} is empty for the default path (the production
+     * {@link ChatServiceFactory}, honouring {@code LLM_CHAT_SERVICE_PROVIDER} and
+     * {@code AZURE_OPENAI_ENDPOINT}) or {@code "anthropic"} for Claude models on Azure AI Foundry
+     * via the harness-local {@link AnthropicChatService}. {@code endpoint} is empty for the
+     * provider's default (the global env var), or a per-model endpoint URL given inline in
+     * {@code HARNESS_LLM_DEPLOYMENTS} after an {@code @} separator.
+     */
+    record LlmConfig(String label, String provider, String deployment, String endpoint) {
     }
+
+    /** Provider prefix in HARNESS_LLM_DEPLOYMENTS routing a model to {@link AnthropicChatService}. */
+    private static final String PROVIDER_ANTHROPIC = "anthropic";
 
     record UserQueryConfig(String label, String userQuery, String userQueryPrompt, String documentId,
                            String version) {
@@ -154,6 +181,14 @@ public final class TestHarness {
     private static final int SUBSTANTIVE_PROSE_WORDS = 50;
 
     private static final CitationProcessor OUTCOME_PROCESSOR = new CitationProcessor();
+
+    /**
+     * Compliance per response, computed once. The summary, consistency and detail sections all
+     * need the same metrics; recomputing would also re-run {@link CitationProcessor}, whose INFO
+     * lines would then spam every report section. Reporting is single-threaded (post-join), so a
+     * plain identity map suffices.
+     */
+    private static final Map<LlmResponse, Compliance> COMPLIANCE_BY_RESPONSE = new IdentityHashMap<>();
 
     public static void main(final String[] args) throws InterruptedException {
         final List<SystemPromptConfig> systemPrompts = loadPrompts();
@@ -209,16 +244,80 @@ public final class TestHarness {
                                              final List<UserQueryConfig> queries,
                                              final Map<String, List<ChunkedEntry>> chunksByQueryLabel)
             throws InterruptedException {
+        // One worker per model: each model has its own deployment quota, so streams can run
+        // side by side while staying sequential (and delay-paced) within themselves. The run
+        // then takes the slowest model's total instead of the sum, with no added concurrent
+        // load on any single deployment. HARNESS_PARALLEL_MODELS=false forces one-after-another.
+        final boolean parallel = llms.size() > 1
+                && !"false".equalsIgnoreCase(env("HARNESS_PARALLEL_MODELS", "true"));
+        LOGGER.info("[matrix] {} model stream(s); parallel={}", llms.size(), parallel);
+
+        if (!parallel) {
+            final List<RunResult> results = new ArrayList<>();
+            for (final LlmConfig lc : llms) {
+                results.addAll(runModelStream(lc, systemPrompts, queries, chunksByQueryLabel));
+            }
+            return results;
+        }
+
+        try (ExecutorService pool = Executors.newFixedThreadPool(llms.size())) {
+            final List<Future<List<RunResult>>> futures = new ArrayList<>();
+            for (final LlmConfig lc : llms) {
+                futures.add(pool.submit(() -> runModelStream(lc, systemPrompts, queries, chunksByQueryLabel)));
+            }
+            // Merge in model order so the report sections stay deterministic regardless of
+            // which stream finishes first.
+            final List<RunResult> results = new ArrayList<>();
+            for (int i = 0; i < futures.size(); i++) {
+                try {
+                    results.addAll(futures.get(i).get());
+                } catch (final ExecutionException e) {
+                    // Per-cell failures are already absorbed inside runCell; reaching here means
+                    // the whole stream died before producing results. Keep the other model's
+                    // results — its rows still report, the comparator just skips unpaired rows.
+                    LOGGER.error("[matrix] model stream '{}' failed — its cells are missing from the report",
+                            llms.get(i).label(), e.getCause());
+                }
+            }
+            return results;
+        }
+    }
+
+    /**
+     * One model's full (iteration × prompt × query) sequence — deliberately sequential so the
+     * per-call delay keeps protecting that model's deployment quota.
+     */
+    private static List<RunResult> runModelStream(final LlmConfig lc,
+                                                  final List<SystemPromptConfig> systemPrompts,
+                                                  final List<UserQueryConfig> queries,
+                                                  final Map<String, List<ChunkedEntry>> chunksByQueryLabel)
+            throws InterruptedException {
+        // Name the worker after its model so every log line from this stream — including
+        // unlabelled ones from shared components — carries the model in the %thread field,
+        // letting a single grep demultiplex the interleaved parallel log.
+        final Thread current = Thread.currentThread();
+        final String originalThreadName = current.getName();
+        current.setName("llm-" + lc.label());
+        try {
+            return runModelStreamCells(lc, systemPrompts, queries, chunksByQueryLabel);
+        } finally {
+            current.setName(originalThreadName);
+        }
+    }
+
+    private static List<RunResult> runModelStreamCells(final LlmConfig lc,
+                                                       final List<SystemPromptConfig> systemPrompts,
+                                                       final List<UserQueryConfig> queries,
+                                                       final Map<String, List<ChunkedEntry>> chunksByQueryLabel)
+            throws InterruptedException {
         final List<RunResult> results = new ArrayList<>();
         for (int iter = 1; iter <= REPETITIONS; iter++) {
             Thread.sleep(Duration.ofSeconds(5).toMillis());
-            LOGGER.info("========= ITERATION {} / {} =========", iter, REPETITIONS);
+            LOGGER.info("[{}] ========= ITERATION {} / {} =========", lc.label(), iter, REPETITIONS);
             for (final SystemPromptConfig spc : systemPrompts) {
-                for (final LlmConfig lc : llms) {
-                    final ResponseGenerationService svc = buildService(spc, lc);
-                    for (final UserQueryConfig uqc : queries) {
-                        results.add(runCell(svc, spc, lc, uqc, iter, chunksByQueryLabel.get(uqc.label())));
-                    }
+                final ResponseGenerationService svc = buildService(spc, lc);
+                for (final UserQueryConfig uqc : queries) {
+                    results.add(runCell(svc, spc, lc, uqc, iter, chunksByQueryLabel.get(uqc.label())));
                 }
             }
         }
@@ -251,10 +350,18 @@ public final class TestHarness {
     }
 
     private static ResponseGenerationService buildService(final SystemPromptConfig spc, final LlmConfig lc) {
-        final String chatEndpoint = requireEnv("AZURE_OPENAI_ENDPOINT");
-        // Production path: the factory honours LLM_CHAT_SERVICE_PROVIDER and the chat
-        // service applies the real isReasoningModel branch (gpt-5.1 → no temperature/top_p).
-        final ChatService chat = ChatServiceFactory.getInstance(chatEndpoint, lc.deployment());
+        final ChatService chat;
+        if (PROVIDER_ANTHROPIC.equals(lc.provider())) {
+            // Claude on Azure AI Foundry speaks the Anthropic Messages API, not Azure OpenAI
+            // chat completions — served by the harness-local client. Endpoint comes from the
+            // entry's @endpoint suffix, or the ANTHROPIC_FOUNDRY_* environment variables.
+            chat = new AnthropicChatService(lc.deployment(), lc.endpoint());
+        } else {
+            final String chatEndpoint = lc.endpoint().isEmpty() ? requireEnv("AZURE_OPENAI_ENDPOINT") : lc.endpoint();
+            // Production path: the factory honours LLM_CHAT_SERVICE_PROVIDER and the chat
+            // service applies the real isReasoningModel branch (gpt-5.1 → no temperature/top_p).
+            chat = ChatServiceFactory.getInstance(chatEndpoint, lc.deployment());
+        }
         return new ResponseGenerationService(
                 chat,
                 new CitationProcessor(),
@@ -297,23 +404,66 @@ public final class TestHarness {
         }
     }
 
+    /**
+     * Parses HARNESS_LLM_DEPLOYMENTS: comma-separated entries of the form
+     * {@code [provider:]deployment[@endpoint]}, REQUIRED with no in-code default (a silent
+     * fallback would run the wrong billable model pair).
+     *
+     * <ul>
+     *   <li>No prefix — the production {@link ChatServiceFactory} against the shared
+     *       {@code AZURE_OPENAI_ENDPOINT}.</li>
+     *   <li>{@code anthropic:} — the harness-local {@link AnthropicChatService}
+     *       (Claude on Azure AI Foundry).</li>
+     *   <li>{@code @https://...} — a per-model endpoint, overriding the provider's global env
+     *       var, so models on different Azure resources share one matrix.</li>
+     * </ul>
+     */
     private static List<LlmConfig> loadLlms() {
-        // Comma-separated deployment names; both share AZURE_OPENAI_ENDPOINT.
-        final String spec = env("HARNESS_LLM_DEPLOYMENTS", "gpt-4o-response-generation,gpt-5.1");
         final List<LlmConfig> out = new ArrayList<>();
-        for (final String d : spec.split(",")) {
-            final String deployment = d.trim();
-            if (!deployment.isEmpty()) {
-                out.add(new LlmConfig(deployment, deployment));
-            }
+        for (final String entry : requiredCsv("HARNESS_LLM_DEPLOYMENTS",
+                "comma-separated [provider:]deployment[@endpoint], e.g. gpt-4o-response-generation,anthropic:claude-sonnet-4-6")) {
+            out.add(parseLlmEntry(entry));
         }
-        LOGGER.info("[init] LLM deployments: {}", out.stream().map(LlmConfig::deployment).toList());
+        LOGGER.info("[init] LLM deployments: {}",
+                out.stream().map(lc -> (lc.provider().isEmpty() ? "" : lc.provider() + ":") + lc.deployment()
+                        + (lc.endpoint().isEmpty() ? "" : " @" + lc.endpoint())).toList());
         return out;
     }
 
+    private static LlmConfig parseLlmEntry(final String rawEntry) {
+        String entry = rawEntry;
+        String endpoint = "";
+        final int at = entry.indexOf('@');
+        if (at >= 0) {
+            endpoint = entry.substring(at + 1).trim();
+            entry = entry.substring(0, at).trim();
+            if (!endpoint.startsWith("https://")) {
+                throw new IllegalStateException("Per-model endpoint in HARNESS_LLM_DEPLOYMENTS entry '" + rawEntry
+                        + "' must be a full https:// URL");
+            }
+        }
+        final int sep = entry.indexOf(':');
+        if (sep <= 0) {
+            return new LlmConfig(entry, "", entry, endpoint);
+        }
+        final String provider = entry.substring(0, sep).trim().toLowerCase(Locale.ROOT);
+        final String deployment = entry.substring(sep + 1).trim();
+        if (!PROVIDER_ANTHROPIC.equals(provider)) {
+            throw new IllegalStateException("Unsupported provider prefix '" + provider
+                    + "' in HARNESS_LLM_DEPLOYMENTS entry '" + entry
+                    + "' (supported: '" + PROVIDER_ANTHROPIC + ":', or no prefix for the default path)");
+        }
+        return new LlmConfig(deployment, provider, deployment, endpoint);
+    }
+
+    /** Directory (under src/main/resources) holding the query-set files. */
+    private static final String QUERY_FILE_DIR = "user-queries";
+    private static final String DEFAULT_QUERY_FILE = "user-queries-version-test.json";
+
     /**
-     * Load queries from src/main/resources/user-queries.json (relative to module root or repo
-     * root), falling back to the classpath. JSON shape:
+     * Loads the query set named by {@code HARNESS_QUERY_FILE} (default
+     * {@value #DEFAULT_QUERY_FILE}) from src/main/resources/{@value #QUERY_FILE_DIR} — resolved
+     * relative to the module or repo root, falling back to the classpath. JSON shape:
      * <pre>{ "versions": [ { "version": "prod", "queries": [ { "queryId": "...", "label": "...",
      * "userQuery": "...", "queryPrompt": "..." }, ... ] }, ... ] }</pre>
      * Versions carry the same query set matched by {@code queryId} (differing prompts/wording).
@@ -323,9 +473,10 @@ public final class TestHarness {
      * HARNESS_MAX_QUERIES caps the base queries BEFORE the expansion.
      */
     private static List<UserQueryConfig> loadUserQueriesFromJson() {
+        final String queryFile = env("HARNESS_QUERY_FILE", DEFAULT_QUERY_FILE);
         final Path[] candidates = {
-                Paths.get("ai-document-system-prompt-harness-eval/src/main/resources/user-queries.json"),
-                Paths.get("src/main/resources/user-queries.json")
+                Paths.get("ai-document-system-prompt-harness-eval/src/main/resources/" + QUERY_FILE_DIR + "/" + queryFile),
+                Paths.get("src/main/resources/" + QUERY_FILE_DIR + "/" + queryFile)
         };
         try {
             JsonNode root = null;
@@ -338,12 +489,13 @@ public final class TestHarness {
                 }
             }
             if (root == null) {
-                try (InputStream in = TestHarness.class.getResourceAsStream("/user-queries.json")) {
+                try (InputStream in = TestHarness.class.getResourceAsStream("/" + QUERY_FILE_DIR + "/" + queryFile)) {
                     if (in == null) {
-                        throw new RuntimeException("user-queries.json not found on filesystem or classpath");
+                        throw new RuntimeException(queryFile + " not found under src/main/resources/"
+                                + QUERY_FILE_DIR + " (filesystem or classpath)");
                     }
                     root = MAPPER.readTree(in);
-                    used = Paths.get("classpath:/user-queries.json");
+                    used = Paths.get("classpath:/" + QUERY_FILE_DIR + "/" + queryFile);
                 }
             }
 
@@ -379,7 +531,7 @@ public final class TestHarness {
                     used, limit, DOCUMENT_IDS.size(), versions.size(), out.size(), DOCUMENT_IDS);
             return out;
         } catch (final Exception e) {
-            throw new RuntimeException("Failed to parse user-queries.json", e);
+            throw new RuntimeException("Failed to parse " + env("HARNESS_QUERY_FILE", DEFAULT_QUERY_FILE), e);
         }
     }
 
@@ -439,7 +591,7 @@ public final class TestHarness {
     /** Per-(query, prompt, LLM) cell aggregate across the {@link #REPETITIONS} iterations. */
     private record CellStats(int ok, int jsonPresent, int matched, int substituted,
                              long proseAvg, long wordAvg, long citeAvg, long pageAvg, long stackAvg,
-                             int uncited) {
+                             int uncited, long msAvg) {
     }
 
     /** Aggregate stats per (query, prompt, LLM) cell across the {@link #REPETITIONS} iterations. */
@@ -452,18 +604,18 @@ public final class TestHarness {
 
         LOGGER.info("");
         LOGGER.info("======== CONSISTENCY ACROSS {} ITERATIONS ========", REPETITIONS);
-        LOGGER.info(String.format("%-26s | %-22s | %-22s | %-7s | %-7s | %-7s | %-7s | %8s | %7s | %5s | %5s | %6s | %7s",
-                "query", "prompt", "llm", "ok", "json", "match", "subst", "proseAvg", "wordAvg", "cites", "pages", "stacks", "uncited"));
-        LOGGER.info("-".repeat(179));
+        LOGGER.info(String.format("%-26s | %-22s | %-22s | %-7s | %-7s | %-7s | %-7s | %8s | %7s | %5s | %5s | %6s | %7s | %7s",
+                "query", "prompt", "llm", "ok", "json", "match", "subst", "proseAvg", "wordAvg", "cites", "pages", "stacks", "uncited", "msAvg"));
+        LOGGER.info("-".repeat(189));
 
         for (final List<RunResult> runs : grouped.values()) {
             final RunResult first = runs.get(0);
             final CellStats s = computeCellStats(runs);
             final int n = runs.size();
-            LOGGER.info(String.format("%-26s | %-22s | %-22s | %5d/%d | %5d/%d | %5d/%d | %5d/%d | %8d | %7d | %5d | %5d | %6d | %7d",
+            LOGGER.info(String.format("%-26s | %-22s | %-22s | %5d/%d | %5d/%d | %5d/%d | %5d/%d | %8d | %7d | %5d | %5d | %6d | %7d | %7d",
                     truncate(first.queryLabel(), 26), truncate(first.promptLabel(), 22), truncate(first.llmLabel(), 22),
                     s.ok(), n, s.jsonPresent(), n, s.matched(), n, s.substituted(), n,
-                    s.proseAvg(), s.wordAvg(), s.citeAvg(), s.pageAvg(), s.stackAvg(), s.uncited()));
+                    s.proseAvg(), s.wordAvg(), s.citeAvg(), s.pageAvg(), s.stackAvg(), s.uncited(), s.msAvg()));
         }
 
         printConsistencyLegend();
@@ -480,12 +632,14 @@ public final class TestHarness {
         long pageSum = 0;
         long stackSum = 0;
         int uncited = 0;
+        long msSum = 0;
         for (final RunResult r : runs) {
             if (r.error() != null || r.response() == null
                     || !"ANSWER_GENERATED".equals(String.valueOf(r.response().status()))) {
                 continue;
             }
             ok++;
+            msSum += r.durationMs();
             final Compliance c = computeCompliance(r.response());
             jsonPresent += c.jsonBlockPresent() ? 1 : 0;
             matched += c.inlineSubsetOfJson() ? 1 : 0;
@@ -500,7 +654,7 @@ public final class TestHarness {
         final int denom = ok > 0 ? ok : 1;
         return new CellStats(ok, jsonPresent, matched, substituted,
                 proseSum / denom, wordSum / denom, citeSum / denom, pageSum / denom, stackSum / denom,
-                uncited);
+                uncited, msSum / denom);
     }
 
     private static void printConsistencyLegend() {
@@ -520,6 +674,7 @@ public final class TestHarness {
         LOGGER.info("  stacks   = mean same-document stacked runs: adjacent [N][M] markers whose ids resolve");
         LOGGER.info("             to the SAME documentId — should be 0; the prompt requires one merged citation");
         LOGGER.info("             (adjacent markers for DIFFERENT documents are legitimate and not counted)");
+        LOGGER.info("  msAvg    = mean generation latency (ms) across the cell's OK runs — model speed at a glance");
         LOGGER.info("  uncited  = substantive answers (>= " + SUBSTANTIVE_PROSE_WORDS + " prose words) with ZERO rendered citations —");
         LOGGER.info("             the citation guard's rejection signal; legitimate short refusals do not count");
     }
@@ -558,6 +713,10 @@ public final class TestHarness {
      * {@link CitationProcessor} actually substituted, and whether a parseable JSON block exists.
      */
     private static Compliance computeCompliance(final LlmResponse response) {
+        return COMPLIANCE_BY_RESPONSE.computeIfAbsent(response, TestHarness::computeComplianceUncached);
+    }
+
+    private static Compliance computeComplianceUncached(final LlmResponse response) {
         final String raw = response.rawLlmResponse() == null ? "" : response.rawLlmResponse();
         final String formatted = response.formattedLlmResponse() == null ? "" : response.formattedLlmResponse();
 
@@ -789,6 +948,15 @@ public final class TestHarness {
 
     // ---- env + string helpers ----------------------------------------------
 
+    /** A required comma-separated env var that must yield at least one token; {@code hint} guides the fix. */
+    private static List<String> requiredCsv(final String key, final String hint) {
+        final List<String> values = splitCsv(requireEnv(key));
+        if (values.isEmpty()) {
+            throw new RuntimeException(key + " contains no entries (" + hint + ")");
+        }
+        return values;
+    }
+
     /** Splits a comma-separated value into trimmed, non-empty tokens. */
     private static List<String> splitCsv(final String csv) {
         final List<String> out = new ArrayList<>();
@@ -810,29 +978,6 @@ public final class TestHarness {
         }
         final String shortId = documentId.length() > 8 ? documentId.substring(0, 8) : documentId;
         return label + " @" + shortId;
-    }
-
-    static String env(final String key, final String dflt) {
-        final String v = System.getenv(key);
-        return (v == null || v.isBlank()) ? dflt : v;
-    }
-
-    private static String requireEnv(final String key) {
-        final String v = System.getenv(key);
-        if (v == null || v.isBlank()) {
-            throw new RuntimeException("Required environment variable not set: " + key
-                    + " (run via run-harness.sh, which exports the module's .env file)");
-        }
-        return v;
-    }
-
-    static int intEnv(final String key, final int dflt) {
-        final String v = System.getenv(key);
-        try {
-            return (v == null || v.isBlank()) ? dflt : Integer.parseInt(v.trim());
-        } catch (final NumberFormatException e) {
-            return dflt;
-        }
     }
 
     private static String safe(final String s) {

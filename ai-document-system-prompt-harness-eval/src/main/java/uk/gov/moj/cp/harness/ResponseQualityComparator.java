@@ -20,15 +20,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Compares response QUALITY across run variants. Two comparison dimensions are supported:
+ * Compares response QUALITY across run variants. Three comparison dimensions are supported:
  *
  * <ul>
  *   <li><b>System prompts</b> — with two or more entries in PROMPT_FILES, each prompt is
  *       compared against its predecessor (chain-wise), rows paired per (query, llm, iteration).</li>
- *   <li><b>Query versions</b> — with two or more versions in user-queries.json (same queries
+ *   <li><b>Query versions</b> — with two or more versions in the query-set file (same queries
  *       matched by queryId, different queryPrompt wording), each version is compared against its
  *       predecessor, rows paired per (base query, prompt, llm, iteration). This measures what a
  *       query-prompt revision changes under an identical system prompt.</li>
+ *   <li><b>Models (LLMs)</b> — with two or more entries in HARNESS_LLM_DEPLOYMENTS, each model is
+ *       compared against its predecessor, rows paired per (query, prompt, iteration): identical
+ *       system prompt, query instruction and retrieved chunks, so the only variable is the model.
+ *       Each side's mean/min/max generation latency is reported alongside the quality verdicts.</li>
  * </ul>
  *
  * <p>Three layers per paired row:
@@ -98,11 +102,15 @@ final class ResponseQualityComparator {
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
-        if (prompts.size() < 2 && versions.size() < 2) {
+        final List<String> llms = results.stream()
+                .map(TestHarness.RunResult::llmLabel)
+                .distinct()
+                .toList();
+        if (prompts.size() < 2 && versions.size() < 2 && llms.size() < 2) {
             return;
         }
-        final boolean judgeEnabled = !"false".equalsIgnoreCase(TestHarness.env("HARNESS_JUDGE", "true"));
-        final String judgeDeployment = TestHarness.env("HARNESS_JUDGE_DEPLOYMENT", "gpt-5.1");
+        final boolean judgeEnabled = !"false".equalsIgnoreCase(HarnessEnv.env("HARNESS_JUDGE", "true"));
+        final String judgeDeployment = HarnessEnv.env("HARNESS_JUDGE_DEPLOYMENT", "gpt-5.1");
         final ChatService judge = judgeEnabled ? ChatServiceFactory.getInstance(chatEndpoint, judgeDeployment) : null;
 
         final Map<String, TestHarness.UserQueryConfig> queryByLabel = new HashMap<>();
@@ -127,6 +135,17 @@ final class ResponseQualityComparator {
                     r -> versionOf(r, queryByLabel));
             for (int i = 1; i < versions.size(); i++) {
                 comparePair("query version", versions.get(i - 1), versions.get(i),
+                        rows, queryByLabel, embeddingCache, embeddingService, judge);
+            }
+        }
+        if (llms.size() >= 2) {
+            // Same prompt, same query instruction, same retrieved chunks — the model is the only
+            // variable, so verdicts and latency deltas here are directly attributable to the model.
+            final Map<String, Map<String, TestHarness.RunResult>> rows = groupRows(results,
+                    r -> r.queryLabel() + "|" + r.promptLabel() + "|" + r.iteration(),
+                    TestHarness.RunResult::llmLabel);
+            for (int i = 1; i < llms.size(); i++) {
+                comparePair("model", llms.get(i - 1), llms.get(i),
                         rows, queryByLabel, embeddingCache, embeddingService, judge);
             }
         }
@@ -175,6 +194,8 @@ final class ResponseQualityComparator {
         int structASum = 0;
         int structBSum = 0;
         int judged = 0;
+        final LatencyStats latencyA = new LatencyStats();
+        final LatencyStats latencyB = new LatencyStats();
 
         for (final Map.Entry<String, Map<String, TestHarness.RunResult>> row : rows.entrySet()) {
             final TestHarness.RunResult a = okResult(row.getValue().get(keyA));
@@ -182,6 +203,8 @@ final class ResponseQualityComparator {
             if (a == null || b == null) {
                 continue;
             }
+            latencyA.add(a.durationMs());
+            latencyB.add(b.durationMs());
             final Double cos = cosineOf(row.getKey(), keyA, a, keyB, b, embeddingCache, embeddingService);
             if (cos != null) {
                 cosSum += cos;
@@ -201,19 +224,42 @@ final class ResponseQualityComparator {
                 cosN, cosN == 0 ? "n/a" : String.format("%.4f", cosSum / cosN), verdicts,
                 judged == 0 ? "n/a" : String.format("%.1f", (double) structASum / judged),
                 judged == 0 ? "n/a" : String.format("%.1f", (double) structBSum / judged));
+        LOGGER.info("  == generation latency: A {} | B {}", latencyA, latencyB);
+    }
+
+    /** Mean/min/max generation duration (ms) across the paired rows of one comparison side. */
+    private static final class LatencyStats {
+        private long sum;
+        private long min = Long.MAX_VALUE;
+        private long max;
+        private int n;
+
+        void add(final long ms) {
+            sum += ms;
+            min = Math.min(min, ms);
+            max = Math.max(max, ms);
+            n++;
+        }
+
+        @Override
+        public String toString() {
+            return n == 0 ? "n/a" : String.format("mean %.1fs min %.1fs max %.1fs (n=%d)",
+                    sum / 1000.0 / n, min / 1000.0, max / 1000.0, n);
+        }
     }
 
     private static void logRow(final String rowKey, final Double cos, final JudgeResult j,
                                final TestHarness.RunResult a, final TestHarness.RunResult b) {
         final StructureCounts sa = structureOf(a.response().formattedLlmResponse());
         final StructureCounts sb = structureOf(b.response().formattedLlmResponse());
-        LOGGER.info(String.format("%-40s | cos %-6s | %-10s | missA %s missB %s | judgeStruct A%s B%s | mdStruct A %-8s B %-8s | %s",
+        LOGGER.info(String.format("%-40s | cos %-6s | %-10s | missA %s missB %s | judgeStruct A%s B%s | mdStruct A %-8s B %-8s | ms A%-6d B%-6d | %s",
                 truncate(rowKey, 40),
                 cos == null ? "n/a" : String.format("%.4f", cos),
                 j == null ? "n/a" : j.verdict(),
                 j == null ? "-" : j.missingFromA(), j == null ? "-" : j.missingFromB(),
                 j == null ? "-" : j.structureA(), j == null ? "-" : j.structureB(),
                 sa, sb,
+                a.durationMs(), b.durationMs(),
                 j == null ? "" : j.note()));
     }
 
@@ -331,5 +377,7 @@ final class ResponseQualityComparator {
         LOGGER.info("               (facts an answer's own instruction excludes or caps are not counted as missing)");
         LOGGER.info("  judgeStruct= judge's 1-5 adherence of each answer to ITS OWN query instruction (incl. length limits)");
         LOGGER.info("  mdStruct   = deterministic counts per answer: h1-violations/h2+ headings/bullet lines");
+        LOGGER.info("  ms A/B     = generation latency of each side's answer (per row); the pair aggregate adds");
+        LOGGER.info("               mean/min/max per side — on the model dimension this is the model speed comparison");
     }
 }
