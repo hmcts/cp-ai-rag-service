@@ -89,11 +89,11 @@ final class ResponseQualityComparator {
     }
 
     /** One judged row; {@code verdict} is n/a when the judge is disabled or failed. */
-    private record JudgeResult(String verdict, int missingFromA, int missingFromB,
+    record JudgeResult(String verdict, int missingFromA, int missingFromB,
                                int structureA, int structureB, String note) {
     }
 
-    private record StructureCounts(int h1, int headings, int bullets) {
+    record StructureCounts(int h1, int headings, int bullets) {
         @Override
         public String toString() {
             return h1 + "/" + headings + "/" + bullets;
@@ -174,7 +174,7 @@ final class ResponseQualityComparator {
     }
 
     /** Rows keyed by {@code rowKey}, each holding {@code variantKey} → result. */
-    private static Map<String, Map<String, TestHarness.RunResult>> groupRows(
+    static Map<String, Map<String, TestHarness.RunResult>> groupRows(
             final List<TestHarness.RunResult> results,
             final Function<TestHarness.RunResult, String> rowKey,
             final Function<TestHarness.RunResult, String> variantKey) {
@@ -186,8 +186,8 @@ final class ResponseQualityComparator {
     }
 
     /** The row's query label with its {@code #version} suffix removed (pairing key across versions). */
-    private static String baseLabel(final TestHarness.RunResult r,
-                                    final Map<String, TestHarness.UserQueryConfig> queryByLabel) {
+    static String baseLabel(final TestHarness.RunResult r,
+                            final Map<String, TestHarness.UserQueryConfig> queryByLabel) {
         final TestHarness.UserQueryConfig cfg = queryByLabel.get(r.queryLabel());
         if (cfg == null || cfg.version() == null) {
             return r.queryLabel();
@@ -195,8 +195,8 @@ final class ResponseQualityComparator {
         return r.queryLabel().replace(" #" + cfg.version(), "");
     }
 
-    private static String versionOf(final TestHarness.RunResult r,
-                                    final Map<String, TestHarness.UserQueryConfig> queryByLabel) {
+    static String versionOf(final TestHarness.RunResult r,
+                            final Map<String, TestHarness.UserQueryConfig> queryByLabel) {
         final TestHarness.UserQueryConfig cfg = queryByLabel.get(r.queryLabel());
         return cfg == null || cfg.version() == null ? "?" : cfg.version();
     }
@@ -208,7 +208,15 @@ final class ResponseQualityComparator {
      * both corners explicitly.
      */
     private static String[] crossCutCorners(final List<String> versions, final List<String> llms) {
-        final String spec = HarnessEnv.env("HARNESS_CROSSCUT", "");
+        return crossCutCorners(versions, llms, HarnessEnv.env("HARNESS_CROSSCUT", ""));
+    }
+
+    /**
+     * Pure core of {@link #crossCutCorners(List, List)}: {@code spec} is the raw HARNESS_CROSSCUT
+     * value (blank ⇒ the default diagonal). Package-private so the corner-selection logic is unit
+     * testable without touching the environment.
+     */
+    static String[] crossCutCorners(final List<String> versions, final List<String> llms, final String spec) {
         if (!spec.isBlank()) {
             // Possessive quantifiers (\s++) so the split has no backtracking (avoids the
             // polynomial-runtime regex hotspot); matching is identical to \s+vs\s+ here.
@@ -225,7 +233,7 @@ final class ResponseQualityComparator {
     }
 
     /** {@code "prod:gpt-4o"} → {@code "prod|gpt-4o"} (the variant-key form; llm labels carry no colon). */
-    private static String cornerKey(final String corner) {
+    static String cornerKey(final String corner) {
         final String c = corner.trim();
         final int i = c.indexOf(':');
         return i < 0 ? c : c.substring(0, i).trim() + "|" + c.substring(i + 1).trim();
@@ -315,7 +323,7 @@ final class ResponseQualityComparator {
     }
 
     /** Result only when the run generated an answer. */
-    private static TestHarness.RunResult okResult(final TestHarness.RunResult r) {
+    static TestHarness.RunResult okResult(final TestHarness.RunResult r) {
         if (r == null || r.error() != null || r.response() == null
                 || !"ANSWER_GENERATED".equals(String.valueOf(r.response().status()))) {
             return null;
@@ -351,7 +359,7 @@ final class ResponseQualityComparator {
     }
 
     /** h1 violations / h2+ headings / bullet lines — deterministic markdown structure counts. */
-    private static StructureCounts structureOf(final String text) {
+    static StructureCounts structureOf(final String text) {
         int h1 = 0;
         int headings = 0;
         int bullets = 0;
@@ -394,7 +402,7 @@ final class ResponseQualityComparator {
     }
 
     /** Lenient extraction: first '{' to last '}' of the judge reply, then Jackson. */
-    private static JudgeResult parseJudgeJson(final String reply) {
+    static JudgeResult parseJudgeJson(final String reply) {
         try {
             final int open = reply.indexOf('{');
             final int close = reply.lastIndexOf('}');
