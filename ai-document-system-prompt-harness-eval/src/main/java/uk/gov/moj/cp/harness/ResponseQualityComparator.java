@@ -352,7 +352,7 @@ final class ResponseQualityComparator {
         if (cache.containsKey(cacheKey)) {
             return cache.get(cacheKey);
         }
-        final String prose = TestHarness.proseOf(r.response().rawLlmResponse());
+        final String prose = CitationMetrics.proseOf(r.response().rawLlmResponse());
         final List<Float> vector = prose.isEmpty() ? null : embeddingService.embedData(prose);
         cache.put(cacheKey, vector);
         return vector;
