@@ -218,9 +218,9 @@ final class ResponseQualityComparator {
      */
     static String[] crossCutCorners(final List<String> versions, final List<String> llms, final String spec) {
         if (!spec.isBlank()) {
-            // Possessive quantifiers (\s++) so the split has no backtracking (avoids the
-            // polynomial-runtime regex hotspot); matching is identical to \s+vs\s+ here.
-            final String[] sides = spec.split("\\s++vs\\s++", 2);
+            // Bounded quantifiers ({1,16}) so the split cannot backtrack super-linearly — this
+            // satisfies SonarQube's S5852 (regex-DoS) check, which a possessive quantifier did not.
+            final String[] sides = spec.split("\\s{1,16}vs\\s{1,16}", 2);
             if (sides.length == 2) {
                 return new String[] {cornerKey(sides[0]), cornerKey(sides[1])};
             }
