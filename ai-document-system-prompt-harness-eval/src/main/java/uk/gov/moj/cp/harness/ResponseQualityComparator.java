@@ -210,7 +210,9 @@ final class ResponseQualityComparator {
     private static String[] crossCutCorners(final List<String> versions, final List<String> llms) {
         final String spec = HarnessEnv.env("HARNESS_CROSSCUT", "");
         if (!spec.isBlank()) {
-            final String[] sides = spec.split("\\s+vs\\s+", 2);
+            // Possessive quantifiers (\s++) so the split has no backtracking (avoids the
+            // polynomial-runtime regex hotspot); matching is identical to \s+vs\s+ here.
+            final String[] sides = spec.split("\\s++vs\\s++", 2);
             if (sides.length == 2) {
                 return new String[] {cornerKey(sides[0]), cornerKey(sides[1])};
             }
