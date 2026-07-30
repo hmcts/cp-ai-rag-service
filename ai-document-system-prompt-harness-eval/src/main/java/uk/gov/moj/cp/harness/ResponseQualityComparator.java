@@ -20,7 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Compares response QUALITY across run variants. Three comparison dimensions are supported:
+ * Compares response QUALITY across run variants. Four comparison dimensions are supported:
  *
  * <ul>
  *   <li><b>System prompts</b> — with two or more entries in PROMPT_FILES, each prompt is
@@ -33,6 +33,14 @@ import org.slf4j.LoggerFactory;
  *       compared against its predecessor, rows paired per (query, prompt, iteration): identical
  *       system prompt, query instruction and retrieved chunks, so the only variable is the model.
  *       Each side's mean/min/max generation latency is reported alongside the quality verdicts.</li>
+ *   <li><b>Cross-cut (version × model)</b> — the single axes above each vary one dimension; this
+ *       varies two together. When both a query-version axis and a model axis are present, one
+ *       diagonal is compared: first-declared version on the first-declared model vs last-declared
+ *       version on the last-declared model. With the usual ordering (versions {@code [prod, test]},
+ *       models {@code [<old>, <new>]}) that is <em>prod on the old model vs test on the new model</em>
+ *       — the production-vs-migration-target comparison. Rows paired per (base query, prompt,
+ *       iteration); both the query instruction and the model differ across the pair. Override the
+ *       two corners with {@code HARNESS_CROSSCUT="versionA:modelA vs versionB:modelB"}.</li>
  * </ul>
  *
  * <p>Three layers per paired row:
@@ -149,6 +157,19 @@ final class ResponseQualityComparator {
                         rows, queryByLabel, embeddingCache, embeddingService, judge);
             }
         }
+        if (versions.size() >= 2 && llms.size() >= 2) {
+            // Cross-cut diagonal: vary version AND model together. The variant key combines both,
+            // so a single row (fixed base query, prompt, document, iteration) holds up to
+            // versions×llms answers; comparePair picks out the two named corners. Both the query
+            // instruction and the model differ across the pair — the judge already handles the
+            // former (each side is judged against its own instruction) and is model-agnostic.
+            final Map<String, Map<String, TestHarness.RunResult>> rows = groupRows(results,
+                    r -> baseLabel(r, queryByLabel) + "|" + r.promptLabel() + "|" + r.iteration(),
+                    r -> versionOf(r, queryByLabel) + "|" + r.llmLabel());
+            final String[] corners = crossCutCorners(versions, llms);
+            comparePair("cross-cut (version×model)", corners[0], corners[1],
+                    rows, queryByLabel, embeddingCache, embeddingService, judge);
+        }
         printLegend();
     }
 
@@ -178,6 +199,34 @@ final class ResponseQualityComparator {
                                     final Map<String, TestHarness.UserQueryConfig> queryByLabel) {
         final TestHarness.UserQueryConfig cfg = queryByLabel.get(r.queryLabel());
         return cfg == null || cfg.version() == null ? "?" : cfg.version();
+    }
+
+    /**
+     * The two {@code version|llm} corners for the cross-cut comparison. Default is the diagonal
+     * {@code first-version|first-model} vs {@code last-version|last-model} (declared order — see
+     * the class Javadoc). {@code HARNESS_CROSSCUT="versionA:modelA vs versionB:modelB"} overrides
+     * both corners explicitly.
+     */
+    private static String[] crossCutCorners(final List<String> versions, final List<String> llms) {
+        final String spec = HarnessEnv.env("HARNESS_CROSSCUT", "");
+        if (!spec.isBlank()) {
+            final String[] sides = spec.split("\\s+vs\\s+", 2);
+            if (sides.length == 2) {
+                return new String[] {cornerKey(sides[0]), cornerKey(sides[1])};
+            }
+            LOGGER.warn("[quality] HARNESS_CROSSCUT '{}' is not of the form 'A vs B' — using the default diagonal", spec);
+        }
+        return new String[] {
+                versions.get(0) + "|" + llms.get(0),
+                versions.get(versions.size() - 1) + "|" + llms.get(llms.size() - 1),
+        };
+    }
+
+    /** {@code "prod:gpt-4o"} → {@code "prod|gpt-4o"} (the variant-key form; llm labels carry no colon). */
+    private static String cornerKey(final String corner) {
+        final String c = corner.trim();
+        final int i = c.indexOf(':');
+        return i < 0 ? c : c.substring(0, i).trim() + "|" + c.substring(i + 1).trim();
     }
 
     private static void comparePair(final String dimension, final String keyA, final String keyB,

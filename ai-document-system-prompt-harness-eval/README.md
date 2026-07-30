@@ -52,21 +52,27 @@ It then produces two things:
 
 ### Comparison dimensions (LLM judge)
 
-The quality stage compares variants **chain-wise** (each vs. its predecessor), pairing rows that are
-identical on every dimension except the one being compared. It runs **whichever axes vary** — both
-fire if both have ≥ 2 entries (independently; typically only one varies per run):
+The quality stage pairs rows that are identical on every dimension except the one(s) being compared.
+It runs **whichever axes vary** — each fires independently when it has ≥ 2 entries:
 
-- **System prompts** — when `HARNESS_SYSTEM_PROMPTS` lists ≥ 2 prompts: prompt *i* vs *i-1*, per model.
-- **Query versions** — when `user-queries.json` has ≥ 2 versions: version *i* vs *i-1*, per model.
+- **System prompts** — when `HARNESS_SYSTEM_PROMPTS` lists ≥ 2 prompts: prompt *i* vs *i-1*
+  (chain-wise), per model.
+- **Query versions** — when the query-set file has ≥ 2 versions: version *i* vs *i-1* (chain-wise),
+  per model.
+- **Models (LLMs)** — when `HARNESS_LLM_DEPLOYMENTS` lists ≥ 2 models: model *i* vs *i-1*
+  (chain-wise), per (query, version, prompt) — identical inputs, so the model is the only variable;
+  each side's mean/min/max generation latency is reported alongside the verdicts.
+- **Cross-cut (version × model)** — the axes above each vary one dimension; this varies two at once.
+  When a version axis **and** a model axis are both present, one diagonal is also compared:
+  first-declared version on the first-declared model vs last-declared version on the last-declared
+  model. With versions `[prod, test]` and models `[<old>, <new>]` that is **prod on the old model vs
+  test on the new model** — the production-vs-migration-target comparison. Override the two corners
+  with `HARNESS_CROSSCUT="versionA:modelA vs versionB:modelB"`.
 
 Each answer is judged against **its own** query instruction (so a prompt that caps length is not
 marked down for omitting detail it was told to omit). The judge returns a factual-parity verdict
 (`EQUIVALENT | A_RICHER | B_RICHER | DIVERGENT`), the material facts missing from each side, and a
 1–5 structure-adherence score.
-
-> **Not yet supported:** a model-vs-model axis, and cross-cut comparisons (e.g. prompt-A-on-gpt-4o
-> vs prompt-B-on-gpt-5.1). Generation and the metrics table cover every combination, but the judge
-> only compares along the prompt or version axis. See *Known limitations*.
 
 ---
 
@@ -164,20 +170,20 @@ Multiple query-prompt versions of the same queries, matched across versions by `
 |---|---|
 | Compare two system prompts on one model | `HARNESS_SYSTEM_PROMPTS=promptA,promptB`, one model, one query version → prompt-axis judge comparison. |
 | Compare two query-prompt versions across models | one prompt, two `versions[]`, `HARNESS_LLM_DEPLOYMENTS=gpt-4o…,gpt-5.1` → version-axis judge comparison, computed per model. |
-| Screen one prompt across many models | list the models; you get the full **metrics table** for every model, but no model-vs-model **judge** verdict (see limitations). |
+| Compare models on one prompt | list ≥ 2 models → the **metrics table** for every model **and** the model-vs-model judge verdict (per query/version), with latency deltas. |
+| Production vs migration target (cross-cut) | 2 versions + 2 models, declared `[prod, test]` and `[old, new]` → the diagonal `prod+old vs test+new` is judged automatically; override with `HARNESS_CROSSCUT`. |
 
 ---
 
 ## Known limitations
 
-- **Judge axes are prompt and query-version only** — there is no model-vs-model axis, and no
-  cross-cut comparison (varying two dimensions at once, e.g. prompt-A/gpt-4o vs prompt-B/gpt-5.1).
-  Generation and the metrics table still cover every combination.
-- **Chain-wise comparison** — with 3+ prompts or versions the judge compares neighbours
-  (v1↔v2, v2↔v3), not every pair against a baseline.
+- **Chain-wise single axes** — for prompts, versions and models the judge compares neighbours
+  (v1↔v2, v2↔v3), not every pair against a fixed baseline.
+- **One cross-cut diagonal** — the version×model cross-cut judges a single pair of corners (the
+  declared-order diagonal, or the `HARNESS_CROSSCUT` pair), not every version×model combination
+  against every other. Generation and the metrics table still cover every combination.
 
-A generalisation (configurable comparison axis + baseline-vs-all + explicit cross-cut) is planned as
-a follow-up.
+A fuller generalisation (baseline-vs-all and arbitrary N-way cross-cuts) is planned as a follow-up.
 
 ---
 
