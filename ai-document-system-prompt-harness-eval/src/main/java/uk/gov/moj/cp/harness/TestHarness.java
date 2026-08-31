@@ -186,7 +186,7 @@ public final class TestHarness {
             chunksByQueryLabel = retrieveChunks(queries, embeddingService, searchService);
         } else {
             chunksByQueryLabel = RetrievalSnapshotStore.load(snapshotFile, queries,
-                    env("HARNESS_QUERY_FILE", DEFAULT_QUERY_FILE));
+                    env(QUERY_FILE_ENV_VAR, DEFAULT_QUERY_FILE));
         }
 
         final List<RunResult> results = runMatrix(systemPrompts, llms, queries, chunksByQueryLabel);
@@ -198,7 +198,7 @@ public final class TestHarness {
         // Persist before the comparison stage so the baseline survives a comparator failure.
         try {
             RunResultStore.persist(results, systemPrompts, llms,
-                    env("HARNESS_QUERY_FILE", DEFAULT_QUERY_FILE), snapshotFile);
+                    env(QUERY_FILE_ENV_VAR, DEFAULT_QUERY_FILE), snapshotFile);
         } catch (final Exception e) {
             LOGGER.warn("[results] failed to persist run results; reports above are unaffected.", e);
         }
@@ -456,6 +456,9 @@ public final class TestHarness {
     private static final String QUERY_FILE_DIR = "user-queries";
     private static final String DEFAULT_QUERY_FILE = "user-queries-version-test.json";
 
+    /** Env var naming the query-set file under {@link #QUERY_FILE_DIR} (default {@link #DEFAULT_QUERY_FILE}). */
+    private static final String QUERY_FILE_ENV_VAR = "HARNESS_QUERY_FILE";
+
     /**
      * Loads the query set named by {@code HARNESS_QUERY_FILE} (default
      * {@value #DEFAULT_QUERY_FILE}) from src/main/resources/{@value #QUERY_FILE_DIR} — resolved
@@ -469,7 +472,7 @@ public final class TestHarness {
      * HARNESS_MAX_QUERIES caps the base queries BEFORE the expansion.
      */
     private static List<UserQueryConfig> loadUserQueriesFromJson() {
-        final String queryFile = env("HARNESS_QUERY_FILE", DEFAULT_QUERY_FILE);
+        final String queryFile = env(QUERY_FILE_ENV_VAR, DEFAULT_QUERY_FILE);
         final Path[] candidates = {
                 Paths.get("ai-document-system-prompt-harness-eval/src/main/resources/" + QUERY_FILE_DIR + "/" + queryFile),
                 Paths.get("src/main/resources/" + QUERY_FILE_DIR + "/" + queryFile)
@@ -527,7 +530,7 @@ public final class TestHarness {
                     used, limit, DOCUMENT_IDS.size(), versions.size(), out.size(), DOCUMENT_IDS);
             return out;
         } catch (final Exception e) {
-            throw new RuntimeException("Failed to parse " + env("HARNESS_QUERY_FILE", DEFAULT_QUERY_FILE), e);
+            throw new RuntimeException("Failed to parse " + env(QUERY_FILE_ENV_VAR, DEFAULT_QUERY_FILE), e);
         }
     }
 
