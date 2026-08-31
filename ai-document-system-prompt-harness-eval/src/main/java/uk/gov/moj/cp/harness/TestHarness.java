@@ -170,7 +170,9 @@ public final class TestHarness {
         final List<LlmConfig> llms = loadLlms();
         final List<UserQueryConfig> queries = loadUserQueriesFromJson();
 
-        final EmbeddingService embeddingService = new EmbeddingService(
+        // Pinned to a GA api-version: the platform's hardened OpenAI resources 401 the SDK's
+        // default preview api-version. See PinnedApiVersionEmbeddingService.
+        final EmbeddingService embeddingService = new PinnedApiVersionEmbeddingService(
                 requireEnv("AZURE_EMBEDDING_SERVICE_ENDPOINT"), requireEnv("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME"));
         final AzureAISearchService searchService = new AzureAISearchService(
                 requireEnv("AZURE_SEARCH_SERVICE_ENDPOINT"), requireEnv("AZURE_SEARCH_SERVICE_INDEX_NAME"));
