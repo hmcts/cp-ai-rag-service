@@ -1,2 +1,10 @@
 # Local evaluation inputs — case documents are uploaded via upload-document.sh, never committed
 src/main/resources/idpc-documents/
+
+# Retrieval snapshots — verbatim case-document chunk content captured by
+# capture-retrieval-snapshot.sh for offline replay, never committed
+retrieval-snapshots/
+
+# Persisted harness run results (baselines) — answers quote case-document content,
+# never committed
+harness-results/

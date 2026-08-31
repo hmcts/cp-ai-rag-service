@@ -174,15 +174,34 @@ public final class TestHarness {
         // default preview api-version. See PinnedApiVersionEmbeddingService.
         final EmbeddingService embeddingService = new PinnedApiVersionEmbeddingService(
                 requireEnv("AZURE_EMBEDDING_SERVICE_ENDPOINT"), requireEnv("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME"));
-        final AzureAISearchService searchService = new AzureAISearchService(
-                requireEnv("AZURE_SEARCH_SERVICE_ENDPOINT"), requireEnv("AZURE_SEARCH_SERVICE_INDEX_NAME"));
 
-        final Map<String, List<ChunkedEntry>> chunksByQueryLabel = retrieveChunks(queries, embeddingService, searchService);
+        // HARNESS_RETRIEVAL_SNAPSHOT replays a captured retrieval (see RetrievalSnapshotTool) —
+        // identical chunk input to a live run, no embedding/search calls for retrieval. The
+        // embedding service above is still used by the comparator's prose-cosine metric.
+        final String snapshotFile = env("HARNESS_RETRIEVAL_SNAPSHOT", "");
+        final Map<String, List<ChunkedEntry>> chunksByQueryLabel;
+        if (snapshotFile.isEmpty()) {
+            final AzureAISearchService searchService = new AzureAISearchService(
+                    requireEnv("AZURE_SEARCH_SERVICE_ENDPOINT"), requireEnv("AZURE_SEARCH_SERVICE_INDEX_NAME"));
+            chunksByQueryLabel = retrieveChunks(queries, embeddingService, searchService);
+        } else {
+            chunksByQueryLabel = RetrievalSnapshotStore.load(snapshotFile, queries,
+                    env("HARNESS_QUERY_FILE", DEFAULT_QUERY_FILE));
+        }
+
         final List<RunResult> results = runMatrix(systemPrompts, llms, queries, chunksByQueryLabel);
 
         printSummary(results);
         printConsistency(results);
         printDetail(results, systemPrompts, queries);
+
+        // Persist before the comparison stage so the baseline survives a comparator failure.
+        try {
+            RunResultStore.persist(results, systemPrompts, llms,
+                    env("HARNESS_QUERY_FILE", DEFAULT_QUERY_FILE), snapshotFile);
+        } catch (final Exception e) {
+            LOGGER.warn("[results] failed to persist run results; reports above are unaffected.", e);
+        }
 
         try {
             ResponseQualityComparator.run(results, systemPrompts, queries, embeddingService,
@@ -660,7 +679,7 @@ public final class TestHarness {
      * Citation-format compliance metrics for one response, memoised per response so the summary,
      * consistency and detail sections share a single {@link CitationMetrics#compute} pass.
      */
-    private static CitationMetrics.Compliance computeCompliance(final LlmResponse response) {
+    static CitationMetrics.Compliance computeCompliance(final LlmResponse response) {
         return COMPLIANCE_BY_RESPONSE.computeIfAbsent(response, CitationMetrics::compute);
     }
 
