@@ -530,7 +530,7 @@ public final class TestHarness {
                     used, limit, DOCUMENT_IDS.size(), versions.size(), out.size(), DOCUMENT_IDS);
             return out;
         } catch (final Exception e) {
-            throw new RuntimeException("Failed to parse " + env(QUERY_FILE_ENV_VAR, DEFAULT_QUERY_FILE), e);
+            throw new IllegalStateException("Failed to parse " + env(QUERY_FILE_ENV_VAR, DEFAULT_QUERY_FILE), e);
         }
     }
 
