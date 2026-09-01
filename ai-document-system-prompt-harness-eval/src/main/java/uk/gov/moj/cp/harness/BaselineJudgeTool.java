@@ -164,23 +164,29 @@ public final class BaselineJudgeTool {
             if (delaySeconds > 0) {
                 Thread.sleep(Duration.ofSeconds(delaySeconds).toMillis());
             }
-
-            final ResponseQualityComparator.JudgeResult j = judgePair(judge, instr, a, b);
-            final Double cos = embedder == null ? null : cosineOf(embedder, a, b);
-            if (cos != null) {
-                agg.cosSum += cos;
-                agg.cosN++;
-            }
-            if (j != null) {
-                agg.verdicts.merge(j.verdict(), 1, Integer::sum);
-                agg.structASum += j.structureA();
-                agg.structBSum += j.structureB();
-                agg.judged++;
-            }
-            logRow(e.getKey(), cos, j, a, b);
-            agg.rows.add(rowJson(e.getKey(), cos, j, a, b));
+            judgeOne(e.getKey(), a, b, instr, judge, embedder, agg);
         }
         return agg;
+    }
+
+    /** Judges one paired row and folds its verdict, cosine and output row into the aggregates. */
+    private static void judgeOne(final String key, final PersistedRow a, final PersistedRow b,
+                                 final String[] instr, final ChatService judge,
+                                 final LocalEmbedder embedder, final Aggregates agg) {
+        final ResponseQualityComparator.JudgeResult j = judgePair(judge, instr, a, b);
+        final Double cos = embedder == null ? null : cosineOf(embedder, a, b);
+        if (cos != null) {
+            agg.cosSum += cos;
+            agg.cosN++;
+        }
+        if (j != null) {
+            agg.verdicts.merge(j.verdict(), 1, Integer::sum);
+            agg.structASum += j.structureA();
+            agg.structBSum += j.structureB();
+            agg.judged++;
+        }
+        logRow(key, cos, j, a, b);
+        agg.rows.add(rowJson(key, cos, j, a, b));
     }
 
     // ---- judging -------------------------------------------------------------------------------
@@ -272,6 +278,10 @@ public final class BaselineJudgeTool {
                 return null;
             }
             return cosineSimilarity(embedder.embed(proseA), embedder.embed(proseB));
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOGGER.warn("[judge] cosine interrupted for {}", a.queryLabel());
+            return null;
         } catch (final Exception e) {
             LOGGER.warn("[judge] cosine failed for {}: {}", a.queryLabel(), e.getMessage());
             return null;
