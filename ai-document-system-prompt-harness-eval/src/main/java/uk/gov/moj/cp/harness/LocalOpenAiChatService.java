@@ -83,7 +83,7 @@ public final class LocalOpenAiChatService implements ChatService {
                 .model(model)
                 .instructions(systemInstruction)
                 .input(userInstruction)
-                .maxOutputTokens((long) maxTokens)
+                .maxOutputTokens(maxTokens)
                 .temperature(TEMPERATURE)
                 .topP(TOP_P)
                 .build();
@@ -96,10 +96,11 @@ public final class LocalOpenAiChatService implements ChatService {
             if (isNullOrEmpty(content)) {
                 throw new ChatServiceException("Local LLM produced an empty response. Response status: " + status);
             }
-            if (response.incompleteDetails().isPresent()) {
+            final var incompleteDetails = response.incompleteDetails();
+            if (incompleteDetails.isPresent()) {
                 // Feeds the jsonBlockPresent metric downstream, same as the cloud services.
                 LOGGER.warn("Local LLM produced an incomplete response (status {}): {}",
-                        status, response.incompleteDetails().get());
+                        status, incompleteDetails.get());
             } else {
                 LOGGER.info("Received response from local LLM. Status: {}", status);
             }

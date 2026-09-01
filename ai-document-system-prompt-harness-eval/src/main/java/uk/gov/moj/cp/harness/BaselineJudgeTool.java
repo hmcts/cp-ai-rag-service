@@ -11,6 +11,7 @@ import uk.gov.moj.cp.ai.service.ChatService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -78,6 +79,9 @@ public final class BaselineJudgeTool {
     private static final String RESULTS_DIR = "harness-results";
     private static final String MODULE_DIR_NAME = "ai-document-system-prompt-harness-eval";
 
+    /** Meta key in a persisted run file naming the query set it ran with. */
+    private static final String META_QUERY_FILE = "queryFile";
+
     private BaselineJudgeTool() {
     }
 
@@ -86,7 +90,7 @@ public final class BaselineJudgeTool {
                         long durationMs, String raw, String formatted) {
     }
 
-    public static void main(final String[] args) throws Exception {
+    public static void main(final String[] args) throws IOException, InterruptedException {
         final Path fileA = resolve(requireEnv("HARNESS_JUDGE_FILE_A"));
         final Path fileB = resolve(requireEnv("HARNESS_JUDGE_FILE_B"));
         final JsonNode runA = MAPPER.readTree(fileA.toFile());
@@ -97,42 +101,64 @@ public final class BaselineJudgeTool {
         final Map<String, PersistedRow> rowsA = rowsOf(runA, modelA);
         final Map<String, PersistedRow> rowsB = rowsOf(runB, modelB);
 
-        final String queryFile = runA.get("meta").get("queryFile").asText();
-        if (!queryFile.equals(runB.get("meta").get("queryFile").asText())) {
+        final String queryFile = runA.get("meta").get(META_QUERY_FILE).asText();
+        final String queryFileB = runB.get("meta").get(META_QUERY_FILE).asText();
+        if (!queryFile.equals(queryFileB)) {
             LOGGER.warn("[judge] run files used different query files ('{}' vs '{}') — rows only pair where labels match",
-                    queryFile, runB.get("meta").get("queryFile").asText());
+                    queryFile, queryFileB);
         }
         final Map<String, String[]> instructionsByLabel = loadInstructions(queryFile);
 
         final String judgeEntry = requireEnv("HARNESS_JUDGE_LLM");
         final ChatService judge = buildJudge(judgeEntry);
         final LocalEmbedder embedder = LocalEmbedder.fromEnv(env("HARNESS_JUDGE_COSINE", "off"));
-        final int delaySeconds = intEnv("HARNESS_JUDGE_DELAY_SECONDS", 0);
 
         LOGGER.info("[judge] A: {} ({} rows, model {})", fileA.getFileName(), rowsA.size(), modelA);
         LOGGER.info("[judge] B: {} ({} rows, model {})", fileB.getFileName(), rowsB.size(), modelB);
         LOGGER.info("[judge] judge: {} | cosine: {}", judgeEntry, embedder == null ? "off" : "local");
 
-        double cosSum = 0;
-        int cosN = 0;
-        final Map<String, Integer> verdicts = new TreeMap<>();
-        int structASum = 0;
-        int structBSum = 0;
-        int judged = 0;
-        int unpaired = 0;
-        final List<Map<String, Object>> outRows = new ArrayList<>();
+        final Aggregates agg = judgePairs(rowsA, rowsB, instructionsByLabel, judge, embedder);
 
+        LOGGER.info("");
+        LOGGER.info("  == judge aggregate: pairs judged {} (unpaired/skipped {}) | verdicts {} | mean structA {} structB {} | mean cos {}",
+                agg.judged, agg.unpaired, agg.verdicts,
+                agg.judged == 0 ? "n/a" : String.format("%.1f", (double) agg.structASum / agg.judged),
+                agg.judged == 0 ? "n/a" : String.format("%.1f", (double) agg.structBSum / agg.judged),
+                agg.cosN == 0 ? "n/a" : String.format("%.4f", agg.cosSum / agg.cosN));
+        LOGGER.info("  == note: durations shown per row come from different runs/hardware — not a speed comparison");
+
+        persist(fileA, fileB, modelA, modelB, judgeEntry, agg.verdicts, agg.rows);
+    }
+
+    /** Aggregated outcome of one judging sweep over the paired rows. */
+    private static final class Aggregates {
+        private final Map<String, Integer> verdicts = new TreeMap<>();
+        private final List<Map<String, Object>> rows = new ArrayList<>();
+        private double cosSum;
+        private int cosN;
+        private int structASum;
+        private int structBSum;
+        private int judged;
+        private int unpaired;
+    }
+
+    /** Pairs A-rows with B-rows and judges each pair; rows with no partner or no instruction are counted, not judged. */
+    private static Aggregates judgePairs(final Map<String, PersistedRow> rowsA,
+                                         final Map<String, PersistedRow> rowsB,
+                                         final Map<String, String[]> instructionsByLabel,
+                                         final ChatService judge,
+                                         final LocalEmbedder embedder) throws InterruptedException {
+        final int delaySeconds = intEnv("HARNESS_JUDGE_DELAY_SECONDS", 0);
+        final Aggregates agg = new Aggregates();
         for (final Map.Entry<String, PersistedRow> e : rowsA.entrySet()) {
             final PersistedRow a = e.getValue();
             final PersistedRow b = rowsB.get(e.getKey());
-            if (b == null) {
-                unpaired++;
-                continue;
-            }
-            final String[] instr = instructionsByLabel.get(baseQueryLabel(a.queryLabel()));
-            if (instr == null) {
-                LOGGER.warn("[judge] no query instruction found for row '{}' — skipped", a.queryLabel());
-                unpaired++;
+            final String[] instr = b == null ? null : instructionsByLabel.get(baseQueryLabel(a.queryLabel()));
+            if (b == null || instr == null) {
+                if (b != null) {
+                    LOGGER.warn("[judge] no query instruction found for row '{}' — skipped", a.queryLabel());
+                }
+                agg.unpaired++;
                 continue;
             }
             if (delaySeconds > 0) {
@@ -142,28 +168,19 @@ public final class BaselineJudgeTool {
             final ResponseQualityComparator.JudgeResult j = judgePair(judge, instr, a, b);
             final Double cos = embedder == null ? null : cosineOf(embedder, a, b);
             if (cos != null) {
-                cosSum += cos;
-                cosN++;
+                agg.cosSum += cos;
+                agg.cosN++;
             }
             if (j != null) {
-                verdicts.merge(j.verdict(), 1, Integer::sum);
-                structASum += j.structureA();
-                structBSum += j.structureB();
-                judged++;
+                agg.verdicts.merge(j.verdict(), 1, Integer::sum);
+                agg.structASum += j.structureA();
+                agg.structBSum += j.structureB();
+                agg.judged++;
             }
             logRow(e.getKey(), cos, j, a, b);
-            outRows.add(rowJson(e.getKey(), cos, j, a, b));
+            agg.rows.add(rowJson(e.getKey(), cos, j, a, b));
         }
-
-        LOGGER.info("");
-        LOGGER.info("  == judge aggregate: pairs judged {} (unpaired/skipped {}) | verdicts {} | mean structA {} structB {} | mean cos {}",
-                judged, unpaired, verdicts,
-                judged == 0 ? "n/a" : String.format("%.1f", (double) structASum / judged),
-                judged == 0 ? "n/a" : String.format("%.1f", (double) structBSum / judged),
-                cosN == 0 ? "n/a" : String.format("%.4f", cosSum / cosN));
-        LOGGER.info("  == note: durations shown per row come from different runs/hardware — not a speed comparison");
-
-        persist(fileA, fileB, modelA, modelB, judgeEntry, verdicts, outRows);
+        return agg;
     }
 
     // ---- judging -------------------------------------------------------------------------------
@@ -227,7 +244,7 @@ public final class BaselineJudgeTool {
             return new LocalEmbedder(HttpClient.newHttpClient(), endpoint, model);
         }
 
-        List<Float> embed(final String text) throws Exception {
+        List<Float> embed(final String text) throws IOException, InterruptedException {
             final Map<String, Object> body = Map.of("model", model, "input", List.of(text));
             final HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(endpoint + "/embeddings"))
@@ -307,7 +324,7 @@ public final class BaselineJudgeTool {
      * label → [userQuery, queryPrompt] from the query-set file. Multi-version files key each
      * version's instruction under "label #version" (matching the run rows' label suffix).
      */
-    private static Map<String, String[]> loadInstructions(final String queryFile) throws Exception {
+    private static Map<String, String[]> loadInstructions(final String queryFile) throws IOException {
         final JsonNode root = readQueryFile(queryFile);
         final List<JsonNode> versions = new ArrayList<>();
         root.get("versions").forEach(versions::add);
@@ -329,7 +346,7 @@ public final class BaselineJudgeTool {
         return rowLabel.replaceFirst(" @\\w{1,8}", "");
     }
 
-    private static JsonNode readQueryFile(final String queryFile) throws Exception {
+    private static JsonNode readQueryFile(final String queryFile) throws IOException {
         final Path[] candidates = {
                 Paths.get(MODULE_DIR_NAME + "/src/main/resources/" + QUERY_FILE_DIR + "/" + queryFile),
                 Paths.get("src/main/resources/" + QUERY_FILE_DIR + "/" + queryFile)
@@ -370,6 +387,9 @@ public final class BaselineJudgeTool {
     private static void logRow(final String key, final Double cos,
                                final ResponseQualityComparator.JudgeResult j,
                                final PersistedRow a, final PersistedRow b) {
+        if (!LOGGER.isInfoEnabled()) {
+            return;
+        }
         LOGGER.info(String.format("%-44s | cos %-6s | %-10s | missA %s missB %s | judgeStruct A%s B%s | mdStruct A %-8s B %-8s | %s",
                 truncate(key, 44),
                 cos == null ? "n/a" : String.format("%.4f", cos),
@@ -402,7 +422,7 @@ public final class BaselineJudgeTool {
 
     private static void persist(final Path fileA, final Path fileB, final String modelA, final String modelB,
                                 final String judgeEntry, final Map<String, Integer> verdicts,
-                                final List<Map<String, Object>> rows) throws Exception {
+                                final List<Map<String, Object>> rows) throws IOException {
         final Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("generatedAt", ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
         meta.put("judge", judgeEntry);
