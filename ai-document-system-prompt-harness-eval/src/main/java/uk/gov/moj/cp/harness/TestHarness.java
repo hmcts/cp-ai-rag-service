@@ -174,15 +174,34 @@ public final class TestHarness {
         // default preview api-version. See PinnedApiVersionEmbeddingService.
         final EmbeddingService embeddingService = new PinnedApiVersionEmbeddingService(
                 requireEnv("AZURE_EMBEDDING_SERVICE_ENDPOINT"), requireEnv("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME"));
-        final AzureAISearchService searchService = new AzureAISearchService(
-                requireEnv("AZURE_SEARCH_SERVICE_ENDPOINT"), requireEnv("AZURE_SEARCH_SERVICE_INDEX_NAME"));
 
-        final Map<String, List<ChunkedEntry>> chunksByQueryLabel = retrieveChunks(queries, embeddingService, searchService);
+        // HARNESS_RETRIEVAL_SNAPSHOT replays a captured retrieval (see RetrievalSnapshotTool) —
+        // identical chunk input to a live run, no embedding/search calls for retrieval. The
+        // embedding service above is still used by the comparator's prose-cosine metric.
+        final String snapshotFile = env("HARNESS_RETRIEVAL_SNAPSHOT", "");
+        final Map<String, List<ChunkedEntry>> chunksByQueryLabel;
+        if (snapshotFile.isEmpty()) {
+            final AzureAISearchService searchService = new AzureAISearchService(
+                    requireEnv("AZURE_SEARCH_SERVICE_ENDPOINT"), requireEnv("AZURE_SEARCH_SERVICE_INDEX_NAME"));
+            chunksByQueryLabel = retrieveChunks(queries, embeddingService, searchService);
+        } else {
+            chunksByQueryLabel = RetrievalSnapshotStore.load(snapshotFile, queries,
+                    env(QUERY_FILE_ENV_VAR, DEFAULT_QUERY_FILE));
+        }
+
         final List<RunResult> results = runMatrix(systemPrompts, llms, queries, chunksByQueryLabel);
 
         printSummary(results);
         printConsistency(results);
         printDetail(results, systemPrompts, queries);
+
+        // Persist before the comparison stage so the baseline survives a comparator failure.
+        try {
+            RunResultStore.persist(results, systemPrompts, llms,
+                    env(QUERY_FILE_ENV_VAR, DEFAULT_QUERY_FILE), snapshotFile);
+        } catch (final Exception e) {
+            LOGGER.warn("[results] failed to persist run results; reports above are unaffected.", e);
+        }
 
         try {
             ResponseQualityComparator.run(results, systemPrompts, queries, embeddingService,
@@ -437,6 +456,9 @@ public final class TestHarness {
     private static final String QUERY_FILE_DIR = "user-queries";
     private static final String DEFAULT_QUERY_FILE = "user-queries-version-test.json";
 
+    /** Env var naming the query-set file under {@link #QUERY_FILE_DIR} (default {@link #DEFAULT_QUERY_FILE}). */
+    private static final String QUERY_FILE_ENV_VAR = "HARNESS_QUERY_FILE";
+
     /**
      * Loads the query set named by {@code HARNESS_QUERY_FILE} (default
      * {@value #DEFAULT_QUERY_FILE}) from src/main/resources/{@value #QUERY_FILE_DIR} — resolved
@@ -450,7 +472,7 @@ public final class TestHarness {
      * HARNESS_MAX_QUERIES caps the base queries BEFORE the expansion.
      */
     private static List<UserQueryConfig> loadUserQueriesFromJson() {
-        final String queryFile = env("HARNESS_QUERY_FILE", DEFAULT_QUERY_FILE);
+        final String queryFile = env(QUERY_FILE_ENV_VAR, DEFAULT_QUERY_FILE);
         final Path[] candidates = {
                 Paths.get("ai-document-system-prompt-harness-eval/src/main/resources/" + QUERY_FILE_DIR + "/" + queryFile),
                 Paths.get("src/main/resources/" + QUERY_FILE_DIR + "/" + queryFile)
@@ -508,7 +530,7 @@ public final class TestHarness {
                     used, limit, DOCUMENT_IDS.size(), versions.size(), out.size(), DOCUMENT_IDS);
             return out;
         } catch (final Exception e) {
-            throw new RuntimeException("Failed to parse " + env("HARNESS_QUERY_FILE", DEFAULT_QUERY_FILE), e);
+            throw new IllegalStateException("Failed to parse " + env(QUERY_FILE_ENV_VAR, DEFAULT_QUERY_FILE), e);
         }
     }
 
@@ -660,7 +682,7 @@ public final class TestHarness {
      * Citation-format compliance metrics for one response, memoised per response so the summary,
      * consistency and detail sections share a single {@link CitationMetrics#compute} pass.
      */
-    private static CitationMetrics.Compliance computeCompliance(final LlmResponse response) {
+    static CitationMetrics.Compliance computeCompliance(final LlmResponse response) {
         return COMPLIANCE_BY_RESPONSE.computeIfAbsent(response, CitationMetrics::compute);
     }
 

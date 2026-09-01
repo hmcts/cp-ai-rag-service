@@ -50,6 +50,7 @@ echo "[run-harness] prompts: ${HARNESS_SYSTEM_PROMPTS:-<unset>}"
 echo "[run-harness] models: ${HARNESS_LLM_DEPLOYMENTS:-<unset>}  reps: ${HARNESS_REPETITIONS:-<unset>}  delay: ${HARNESS_CALL_DELAY_SECONDS:-<unset>}s  parallel_models: ${HARNESS_PARALLEL_MODELS:-true}"
 echo "[run-harness] reasoning_effort: ${LLM_REASONING_EFFORT:-<unset>}  max_completion_tokens: ${LLM_MODEL_RESPONSE_MAX_TOKENS:-<unset>}  read_timeout: ${HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS:-<unset>}s"
 echo "[run-harness] guard: ${CITATION_GUARD_MODE:-<unset>}  judge: ${HARNESS_JUDGE:-<unset>}/${HARNESS_JUDGE_DEPLOYMENT:-<unset>}  knn/top/mmr-final: ${SEARCH_NEAREST_NEIGHBOURS_COUNT:-<unset>}/${SEARCH_TOP_RESULTS_COUNT:-<unset>}/${SEARCH_MMR_FINAL_COUNT:-<unset>}"
+echo "[run-harness] retrieval: ${HARNESS_RETRIEVAL_SNAPSHOT:-<live Azure embed+search>}  query_file: ${HARNESS_QUERY_FILE:-<default>}"
 echo "[run-harness] ensure you have run 'az login' (DefaultAzureCredential)."
 
 # Build the module + its upstream deps (shared-artefacts, answer-retrieval) and install to
