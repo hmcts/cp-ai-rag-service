@@ -149,6 +149,9 @@ public final class TestHarness {
     /** Provider prefix in HARNESS_LLM_DEPLOYMENTS routing a model to {@link AnthropicChatService}. */
     private static final String PROVIDER_ANTHROPIC = "anthropic";
 
+    /** Provider prefix routing a model to {@link LocalOpenAiChatService} (LM Studio etc.). */
+    private static final String PROVIDER_LOCAL = "local";
+
     record UserQueryConfig(String label, String userQuery, String userQueryPrompt, String documentId,
                            String version) {
     }
@@ -352,6 +355,9 @@ public final class TestHarness {
             // chat completions — served by the harness-local client. Endpoint comes from the
             // entry's @endpoint suffix, or the ANTHROPIC_FOUNDRY_* environment variables.
             chat = new AnthropicChatService(lc.deployment(), lc.endpoint());
+        } else if (PROVIDER_LOCAL.equals(lc.provider())) {
+            // Locally hosted OpenAI-compatible model (LM Studio / llama.cpp server).
+            chat = new LocalOpenAiChatService(lc.deployment(), lc.endpoint());
         } else {
             final String chatEndpoint = lc.endpoint().isEmpty() ? requireEnv("AZURE_OPENAI_ENDPOINT") : lc.endpoint();
             // Production path: the factory honours LLM_CHAT_SERVICE_PROVIDER and the chat
@@ -433,21 +439,33 @@ public final class TestHarness {
         if (at >= 0) {
             endpoint = entry.substring(at + 1).trim();
             entry = entry.substring(0, at).trim();
-            if (!endpoint.startsWith("https://")) {
-                throw new IllegalStateException("Per-model endpoint in HARNESS_LLM_DEPLOYMENTS entry '" + rawEntry
-                        + "' must be a full https:// URL");
-            }
         }
         final int sep = entry.indexOf(':');
+        final String provider;
+        final String deployment;
         if (sep <= 0) {
-            return new LlmConfig(entry, "", entry, endpoint);
+            provider = "";
+            deployment = entry;
+        } else {
+            provider = entry.substring(0, sep).trim().toLowerCase(Locale.ROOT);
+            deployment = entry.substring(sep + 1).trim();
+            if (!PROVIDER_ANTHROPIC.equals(provider) && !PROVIDER_LOCAL.equals(provider)) {
+                throw new IllegalStateException("Unsupported provider prefix '" + provider
+                        + "' in HARNESS_LLM_DEPLOYMENTS entry '" + entry
+                        + "' (supported: '" + PROVIDER_ANTHROPIC + ":', '" + PROVIDER_LOCAL
+                        + ":', or no prefix for the default path)");
+            }
         }
-        final String provider = entry.substring(0, sep).trim().toLowerCase(Locale.ROOT);
-        final String deployment = entry.substring(sep + 1).trim();
-        if (!PROVIDER_ANTHROPIC.equals(provider)) {
-            throw new IllegalStateException("Unsupported provider prefix '" + provider
-                    + "' in HARNESS_LLM_DEPLOYMENTS entry '" + entry
-                    + "' (supported: '" + PROVIDER_ANTHROPIC + ":', or no prefix for the default path)");
+        if (!endpoint.isEmpty()) {
+            // Cloud entries must be https; the local provider is the one legitimate http case
+            // (loopback serving, e.g. LM Studio on http://localhost:1234/v1).
+            final boolean allowed = endpoint.startsWith("https://")
+                    || (PROVIDER_LOCAL.equals(provider) && endpoint.startsWith("http://"));
+            if (!allowed) {
+                throw new IllegalStateException("Per-model endpoint in HARNESS_LLM_DEPLOYMENTS entry '" + rawEntry
+                        + "' must be a full https:// URL (http:// is allowed for the '"
+                        + PROVIDER_LOCAL + ":' provider only)");
+            }
         }
         return new LlmConfig(deployment, provider, deployment, endpoint);
     }

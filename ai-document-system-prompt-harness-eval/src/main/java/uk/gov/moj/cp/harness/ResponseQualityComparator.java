@@ -66,7 +66,8 @@ final class ResponseQualityComparator {
     private static final Logger LOGGER = LoggerFactory.getLogger(ResponseQualityComparator.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private static final String JUDGE_SYSTEM_PROMPT = """
+    /** Package-private: {@link BaselineJudgeTool} reuses the same judge contract verbatim. */
+    static final String JUDGE_SYSTEM_PROMPT = """
             You are a strict evaluation judge. You compare two answers (A and B) produced for the \
             same underlying legal query over the same source documents. The two answers may have \
             been generated under different system prompts or different query instructions — each \

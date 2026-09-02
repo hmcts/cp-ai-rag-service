@@ -2,11 +2,17 @@
 #
 # Runs the cross-model system-prompt evaluation harness (TestHarness).
 #
-# Configuration comes SOLELY from the local .env file in this module directory (copy
-# .env.sample to .env and populate it) — this script applies no defaults and no overrides;
-# what the .env says is what the harness runs with. The file is sourced into the environment
-# because the production services the harness drives read their config via System.getenv.
+# Configuration comes from the local .env file in this module directory (copy .env.sample
+# to .env and populate it). The file is sourced into the environment because the production
+# services the harness drives read their config via System.getenv.
 # Authentication is DefaultAzureCredential, so `az login` first.
+#
+# Ad-hoc overrides: HARNESS_LLM_DEPLOYMENTS, HARNESS_QUERY_FILE and HARNESS_SYSTEM_PROMPTS
+# may be supplied via the calling environment and WIN over the .env values (e.g. a one-off
+# baseline run against a different model pair or a candidate prompt variant without editing
+# .env). Every other knob comes from .env alone; vars not present in .env (e.g.
+# HARNESS_MAX_QUERIES, HARNESS_RETRIEVAL_SNAPSHOT) pass through from the calling
+# environment as normal.
 #
 #   Usage (from anywhere):
 #     ./run-harness.sh
@@ -39,11 +45,29 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
+# Remember explicitly supplied overrides before .env clobbers them (see header).
+PRE_SET_LLM_DEPLOYMENTS="${HARNESS_LLM_DEPLOYMENTS:-}"
+PRE_SET_QUERY_FILE="${HARNESS_QUERY_FILE:-}"
+PRE_SET_SYSTEM_PROMPTS="${HARNESS_SYSTEM_PROMPTS:-}"
+
 # Load .env into the environment (auto-export everything assigned while sourcing).
 set -a
 # shellcheck disable=SC1090
 source "${ENV_FILE}"
 set +a
+
+if [[ -n "${PRE_SET_LLM_DEPLOYMENTS}" ]]; then
+  export HARNESS_LLM_DEPLOYMENTS="${PRE_SET_LLM_DEPLOYMENTS}"
+  echo "[run-harness] HARNESS_LLM_DEPLOYMENTS overridden from calling environment"
+fi
+if [[ -n "${PRE_SET_QUERY_FILE}" ]]; then
+  export HARNESS_QUERY_FILE="${PRE_SET_QUERY_FILE}"
+  echo "[run-harness] HARNESS_QUERY_FILE overridden from calling environment"
+fi
+if [[ -n "${PRE_SET_SYSTEM_PROMPTS}" ]]; then
+  export HARNESS_SYSTEM_PROMPTS="${PRE_SET_SYSTEM_PROMPTS}"
+  echo "[run-harness] HARNESS_SYSTEM_PROMPTS overridden from calling environment"
+fi
 
 echo "[run-harness] module: ${MODULE_DIR}"
 echo "[run-harness] prompts: ${HARNESS_SYSTEM_PROMPTS:-<unset>}"
