@@ -178,13 +178,57 @@ comparison remains clean; only the delta *against the draft* carries this caveat
 
 ---
 
-## 8. Conclusions & next steps
+## 8. Cost comparison
+
+List rates (per million tokens, USD, Azure Global Standard — verified 4 Aug 2026, re-verified
+3 Sep 2026, unchanged):
+
+| | Input | Output | Notes |
+|---|---|---|---|
+| claude-sonnet-4-6 (Foundry, CCU) | **$3.00** | **$15.00** | CCU billing converts tokens at Anthropic's published per-model rates — CCU is a billing format, not a price change |
+| gpt-5.1 (Azure OpenAI) | **~$1.38** | **~$11.00** | confirm against the invoice; trackers and the Azure pricing page agree |
+
+Raw ratios: Claude is **2.2× on input, 1.4× on output**. Neither headline number is the effective
+premium for this workload, for two offsetting reasons: the pipeline is **input-heavy** (~85–90% of
+tokens are retrieved chunks + prompts), which pushes toward the 2.2× input ratio — but **gpt-5.1
+writes ~55% more prose than Claude** (450 vs 287 words in this run) and output is the expensive
+dimension, which claws a chunk back (gpt-5.1's tokenizer also counts the same input ~10–15% smaller).
+
+Modelled on the observed Claude billing for the evaluation work (£4.04 for 784k tokens, an 85/15
+input/output split, list rates ex-VAT):
+
+| | Claude Sonnet 4.6 | gpt-5.1 equivalent |
+|---|---|---|
+| Input | ~666k × $3 ≈ $2.00 | ~583k × $1.38 ≈ $0.80 |
+| Output | ~118k × $15 ≈ $1.77 | ~177k × $11 ≈ $1.95 |
+| **Total (list, ex-VAT)** | **≈ $3.75 (~£2.80)** | **≈ $2.75 (~£2.05)** |
+
+**Effective premium for Claude on this workload: ~1.4–1.8×** (the gpt-5.1 side costs roughly 55–75%
+of the Claude side; the observed £4.04 maps to ~£2.20–£2.90 on gpt-5.1). Per run the absolute
+amounts are trivial — the premium becomes a decision factor only at production volumes.
+
+Caveats and the main lever:
+- The observed blended rate (~£5.15/MTok) sits above the list-derived ~£3.60/MTok — VAT on the
+  Marketplace meter, USD→GBP conversion and/or a higher output share than the modelled 15% account
+  for the gap; the Foundry Monitoring tab's per-model token splits would make the arithmetic exact.
+- gpt-5.1 ran at `reasoning_effort=none`; higher effort adds hidden reasoning tokens billed as
+  output, raising its side.
+- **Prompt caching is Claude's big untapped lever**: cache reads bill at 0.1× ($0.30/MTok), and the
+  harness resends the identical system prompt and chunks on every repetition uncached. For
+  multi-repetition runs, caching could cut Claude's dominant input cost by ~70–90%, largely erasing
+  the premium.
+
+---
+
+## 9. Conclusions & next steps
 
 This definitive run **confirms the draft rather than revising it**: **Claude Sonnet 4.6 produces richer
 substantive summaries with materially better citation discipline and length-cap adherence, at a ~1.9×
 per-call latency premium**; **gpt-5.1 keeps the edge on witness coverage** and follows literal-sentinel
 extraction instructions more exactly. The gpt-5.1 judge biases toward gpt-5.1, strengthening the
-Claude-favourable reading.
+Claude-favourable reading. On cost (§8), Claude carries a **~1.4–1.8× effective premium** for this
+input-heavy workload at current list rates — a consideration rather than a blocker, and one that
+prompt caching would largely erase.
 
 Recommended follow-ups:
 1. **Prompt nudges** for the two persistent Claude weaknesses — witness coverage under tight caps, and
@@ -192,6 +236,8 @@ Recommended follow-ups:
 2. A **2–3 repetition** run for verdict stability, now that parallel streams make repetitions cheap.
 3. **Manual IDPC spot-check** of a sample of B_RICHER rows (standing requirement) before any adoption
    recommendation — particularly the fixed-list "richer = unrequested context" cases.
+4. **Enable Anthropic prompt caching in the harness** before the repetition run — it addresses the
+   dominant cost term (§8) and makes multi-repetition Claude runs near-free on the input side.
 
 ---
 
