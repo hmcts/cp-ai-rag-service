@@ -82,12 +82,12 @@ variables:
     acrName: 'crmdvrepo01'
     acrServiceConnection: 'Acr_non_live_registryConnection'
     azServiceConnection: 'ado_nonlive_service_principal'
-    agentPool: 'MDV-ADO-AGENTS-01'
+    agentPool: 'ubuntu-ado-agents-mdv'
   ${{ if startsWith(parameters.env, 'pr') }}:
     acrName: 'crmpdrepo01'
     acrServiceConnection: 'Acr_live_registryConnection'
     azServiceConnection: 'ado_live_service_principal'
-    agentPool: 'MPD-ADO-AGENTS-01'
+    agentPool: 'ubuntu-ado-agents-mpd'
   imageTag: '1'
   imageName: 'ai-rag-migration'
   # Migration tool parameters
