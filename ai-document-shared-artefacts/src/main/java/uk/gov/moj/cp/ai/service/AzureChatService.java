@@ -16,6 +16,7 @@ import uk.gov.moj.cp.ai.exception.ChatServiceException;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import com.azure.ai.openai.OpenAIClient;
 import com.azure.ai.openai.models.ChatChoice;
@@ -25,6 +26,9 @@ import com.azure.ai.openai.models.ChatRequestMessage;
 import com.azure.ai.openai.models.ChatRequestSystemMessage;
 import com.azure.ai.openai.models.ChatRequestUserMessage;
 import com.azure.ai.openai.models.CompletionsFinishReason;
+import com.azure.ai.openai.models.CompletionsUsage;
+import com.azure.ai.openai.models.CompletionsUsageCompletionTokensDetails;
+import com.azure.ai.openai.models.CompletionsUsagePromptTokensDetails;
 import com.azure.ai.openai.models.ReasoningEffortValue;
 import com.azure.ai.openai.models.ContentFilterResultsForChoice;
 import com.azure.ai.openai.models.ContentFilterResultsForPrompt;
@@ -32,7 +36,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class AzureChatService implements ChatService {
+public class AzureChatService implements ChatService, TokenUsageReporting {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AzureChatService.class);
 
@@ -61,6 +65,9 @@ public class AzureChatService implements ChatService {
     private final String deploymentName;
 
     private final int maxTokens;
+
+    /** Optional per-call usage listener (see {@link TokenUsageReporting}); no-op when unset. */
+    private volatile Consumer<TokenUsage> tokenUsageListener;
 
     public AzureChatService(final String endpoint, final String deploymentName) {
 
@@ -107,6 +114,7 @@ public class AzureChatService implements ChatService {
 
         try {
             final ChatCompletions chatCompletions = openAIClient.getChatCompletions(deploymentName, chatCompletionsOptions);
+            reportTokenUsage(chatCompletions.getUsage());
             final ChatChoice chatChoice = chatCompletions.getChoices().get(0);
             final String jsonResponse = chatChoice.getMessage().getContent();
             final CompletionsFinishReason finishReason = chatChoice.getFinishReason();
@@ -135,6 +143,34 @@ public class AzureChatService implements ChatService {
             return Optional.ofNullable(responseModel);
         } catch (JsonProcessingException e) {
             throw new ChatServiceException("Error calling LLM for evaluation", e);
+        }
+    }
+
+    @Override
+    public void setTokenUsageListener(final Consumer<TokenUsage> listener) {
+        this.tokenUsageListener = listener;
+    }
+
+    // Runs unconditionally (not gated on the listener): the INFO usage line is the production
+    // observability signal, and building the record is a few field reads off an already-parsed response.
+    private void reportTokenUsage(final CompletionsUsage usage) {
+        if (usage == null) {
+            return;
+        }
+        final CompletionsUsageCompletionTokensDetails completionDetails = usage.getCompletionTokensDetails();
+        final CompletionsUsagePromptTokensDetails promptDetails = usage.getPromptTokensDetails();
+        final long reasoningTokens = completionDetails != null && completionDetails.getReasoningTokens() != null
+                ? completionDetails.getReasoningTokens() : 0L;
+        final long cachedTokens = promptDetails != null && promptDetails.getCachedTokens() != null
+                ? promptDetails.getCachedTokens() : 0L;
+        final TokenUsage tokenUsage = new TokenUsage(
+                usage.getPromptTokens(), usage.getCompletionTokens(), reasoningTokens, cachedTokens);
+        LOGGER.info("Token usage for deployment '{}': input={} output={} (reasoning={}) cachedInput={}",
+                deploymentName, tokenUsage.inputTokens(), tokenUsage.outputTokens(),
+                tokenUsage.reasoningTokens(), tokenUsage.cachedInputTokens());
+        final Consumer<TokenUsage> listener = tokenUsageListener;
+        if (listener != null) {
+            listener.accept(tokenUsage);
         }
     }
 

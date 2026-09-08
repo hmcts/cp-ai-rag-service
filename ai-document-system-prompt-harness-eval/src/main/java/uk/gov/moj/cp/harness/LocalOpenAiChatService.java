@@ -6,9 +6,12 @@ import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.exception.ChatServiceException;
 import uk.gov.moj.cp.ai.service.ChatService;
+import uk.gov.moj.cp.ai.service.TokenUsage;
+import uk.gov.moj.cp.ai.service.TokenUsageReporting;
 
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
@@ -17,6 +20,7 @@ import com.openai.models.responses.ResponseCreateParams;
 import com.openai.models.responses.ResponseOutputItem;
 import com.openai.models.responses.ResponseOutputMessage;
 import com.openai.models.responses.ResponseStatus;
+import com.openai.models.responses.ResponseUsage;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +45,7 @@ import org.slf4j.LoggerFactory;
  * <p>Harness-local by design, same containment rule as {@link AnthropicChatService}: no local
  *-serving concerns leak into the shared artefacts or function apps.
  */
-public final class LocalOpenAiChatService implements ChatService {
+public final class LocalOpenAiChatService implements ChatService, TokenUsageReporting {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LocalOpenAiChatService.class);
 
@@ -54,6 +58,9 @@ public final class LocalOpenAiChatService implements ChatService {
     private final OpenAIClient client;
     private final String model;
     private final int maxTokens;
+
+    /** Optional per-call usage listener (see {@link TokenUsageReporting}); no-op when unset. */
+    private volatile Consumer<TokenUsage> tokenUsageListener;
 
     public LocalOpenAiChatService(final String model, final String endpoint) {
         if (isNullOrEmpty(endpoint)) {
@@ -90,6 +97,7 @@ public final class LocalOpenAiChatService implements ChatService {
 
         try {
             final Response response = client.responses().create(params);
+            response.usage().ifPresent(this::reportTokenUsage);
             final String content = extractOutputText(response);
             final String status = response.status().map(ResponseStatus::toString).orElse("(no status)");
 
@@ -109,6 +117,26 @@ public final class LocalOpenAiChatService implements ChatService {
             throw e;
         } catch (final Exception e) {
             throw new ChatServiceException("Error calling local LLM at model " + model, e);
+        }
+    }
+
+    @Override
+    public void setTokenUsageListener(final Consumer<TokenUsage> listener) {
+        this.tokenUsageListener = listener;
+    }
+
+    private void reportTokenUsage(final ResponseUsage usage) {
+        final TokenUsage tokenUsage = new TokenUsage(
+                usage.inputTokens(),
+                usage.outputTokens(),
+                usage.outputTokensDetails().reasoningTokens(),
+                usage.inputTokensDetails().cachedTokens());
+        LOGGER.info("Token usage for local model '{}': input={} output={} (reasoning={}) cachedInput={}",
+                model, tokenUsage.inputTokens(), tokenUsage.outputTokens(),
+                tokenUsage.reasoningTokens(), tokenUsage.cachedInputTokens());
+        final Consumer<TokenUsage> listener = tokenUsageListener;
+        if (listener != null) {
+            listener.accept(tokenUsage);
         }
     }
 

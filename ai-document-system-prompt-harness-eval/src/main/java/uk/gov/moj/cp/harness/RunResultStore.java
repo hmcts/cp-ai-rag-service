@@ -57,7 +57,9 @@ final class RunResultStore {
         meta.put("maxCompletionTokens", env("LLM_MODEL_RESPONSE_MAX_TOKENS", ""));
         meta.put("reasoningEffort", env("LLM_REASONING_EFFORT", ""));
         meta.put("citationGuardMode", env("CITATION_GUARD_MODE", ""));
+        meta.put("modelPrices", env("HARNESS_MODEL_PRICES", ""));
 
+        final TokenCostTable costs = TokenCostTable.fromEnv();
         final List<Map<String, Object>> rows = new ArrayList<>();
         for (final TestHarness.RunResult r : results) {
             final Map<String, Object> row = new LinkedHashMap<>();
@@ -68,6 +70,15 @@ final class RunResultStore {
             row.put("durationMs", r.durationMs());
             row.put("status", r.response() != null ? String.valueOf(r.response().status()) : null);
             row.put("error", r.error());
+            if (r.usage() != null) {
+                final Map<String, Object> usage = new LinkedHashMap<>();
+                usage.put("inputTokens", r.usage().inputTokens());
+                usage.put("outputTokens", r.usage().outputTokens());
+                usage.put("reasoningTokens", r.usage().reasoningTokens());
+                usage.put("cachedInputTokens", r.usage().cachedInputTokens());
+                row.put("usage", usage);
+                costs.costUsd(r.llmLabel(), r.usage()).ifPresent(c -> row.put("costUsd", c));
+            }
             if (r.response() != null) {
                 row.put("rawResponse", r.response().rawLlmResponse());
                 row.put("formattedResponse", r.response().formattedLlmResponse());

@@ -4,10 +4,13 @@ import static java.util.stream.Collectors.joining;
 
 import uk.gov.moj.cp.ai.exception.ChatServiceException;
 import uk.gov.moj.cp.ai.service.ChatService;
+import uk.gov.moj.cp.ai.service.TokenUsage;
+import uk.gov.moj.cp.ai.service.TokenUsageReporting;
 import uk.gov.moj.cp.ai.util.CredentialUtil;
 
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
@@ -16,9 +19,11 @@ import com.anthropic.errors.AnthropicServiceException;
 import com.anthropic.foundry.backends.FoundryBackend;
 import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.MessageCreateParams;
+import com.anthropic.models.messages.OutputTokensDetails;
 import com.anthropic.models.messages.StopReason;
 import com.anthropic.models.messages.TextBlock;
 import com.anthropic.models.messages.ThinkingConfigAdaptive;
+import com.anthropic.models.messages.Usage;
 import com.azure.identity.AuthenticationUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +60,7 @@ import org.slf4j.LoggerFactory;
  *       itself is an OpenAI reasoning-model knob and is ignored on this path.</li>
  * </ul>
  */
-public class AnthropicChatService implements ChatService {
+public class AnthropicChatService implements ChatService, TokenUsageReporting {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AnthropicChatService.class);
 
@@ -82,6 +87,9 @@ public class AnthropicChatService implements ChatService {
     private final String model;
     private final AnthropicClient client;
     private final long maxTokens;
+
+    /** Optional per-call usage listener (see {@link TokenUsageReporting}); no-op when unset. */
+    private volatile Consumer<TokenUsage> tokenUsageListener;
 
     /**
      * @param model           the Foundry deployment name (sent as the Messages API {@code model})
@@ -167,6 +175,7 @@ public class AnthropicChatService implements ChatService {
 
         try {
             final Message message = client.messages().create(params.build());
+            reportTokenUsage(message.usage());
             final String text = message.content().stream()
                     .flatMap(block -> block.text().stream())
                     .map(TextBlock::text)
@@ -184,6 +193,26 @@ public class AnthropicChatService implements ChatService {
                     + " for model '" + model + "'", e);
         } catch (final AnthropicException e) {
             throw new ChatServiceException("Anthropic Foundry call failed for model '" + model + "'", e);
+        }
+    }
+
+    @Override
+    public void setTokenUsageListener(final Consumer<TokenUsage> listener) {
+        this.tokenUsageListener = listener;
+    }
+
+    private void reportTokenUsage(final Usage usage) {
+        final TokenUsage tokenUsage = new TokenUsage(
+                usage.inputTokens(),
+                usage.outputTokens(),
+                usage.outputTokensDetails().map(OutputTokensDetails::thinkingTokens).orElse(0L),
+                usage.cacheReadInputTokens().orElse(0L));
+        LOGGER.info("[anthropic] token usage for model '{}': input={} output={} (thinking={}) cachedInput={}",
+                model, tokenUsage.inputTokens(), tokenUsage.outputTokens(),
+                tokenUsage.reasoningTokens(), tokenUsage.cachedInputTokens());
+        final Consumer<TokenUsage> listener = tokenUsageListener;
+        if (listener != null) {
+            listener.accept(tokenUsage);
         }
     }
 
