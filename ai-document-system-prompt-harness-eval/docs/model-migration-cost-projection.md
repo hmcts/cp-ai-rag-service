@@ -87,6 +87,24 @@ Claude is tokenizer density), so the projections in §4 rest on measured data ra
 
 > ² Estimated: the Batch API's flat 50% discount on input and output applied to the measured Sonnet 4.6 per-request cost — not itself measured, since batches were unavailable on the evaluation platform. **Availability constraint: batches are offered on the Claude API (first-party) and Claude Platform on AWS, not on Microsoft Foundry or Amazon Bedrock** [1][2][3][5] — see §6 lever 1 and the references in §8.
 
+#### Reconciliation with the infrastructure cost model
+
+The cost model's Strategy 1 shows £184K/year for response generation; this document shows £153K (list) /
+£183K (billed-equivalent) for gpt-5.1. The two are on different bases, and the bridge is:
+
+| Step | Basis | Annual |
+|---|---|---|
+| Cost-model Strategy 1 response generation | GPT-4o, billed £0.036/query, 14,000/day | £184K |
+| Scale to this document's volume (10 queries/doc → 20,000/day, ×10/7) | GPT-4o, billed | £263K |
+| Convert billed → list (÷1.2 observed uplift) | GPT-4o, list ≈ £0.030/query | £219K |
+| Switch model to gpt-5.1 (measured, list £0.0209/query) | gpt-5.1, list | £153K |
+| Re-apply ×1.2 uplift for a billed-equivalent comparison | gpt-5.1, billed-equivalent | £183K |
+
+Like-for-like (same volume, same billing basis), **gpt-5.1 is ~£80K/year (~30%) cheaper than the GPT-4o
+baseline**: gpt-5.1's input list price is half GPT-4o's ($1.25 vs $2.50/MTok, output unchanged at $10) on
+a ~93%-input workload, partially offset by this evaluation's heavier request shape (13,052 vs 11,500 input
+tokens; 1,019 vs 800 output tokens).
+
 ### Groundedness scoring (7.3M calls/year, pilot token shape)
 
 Scoring must also move off GPT-4o as part of the migration. Candidate options, estimated from the pilot
