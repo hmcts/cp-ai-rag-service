@@ -85,7 +85,7 @@ Claude is tokenizer density), so the projections in §4 rest on measured data ra
 
 > ¹ Sonnet 5's published list price is $2/$10 per million input/output tokens (vs $3/$15 for Sonnet 4.6), but its newer tokenizer produces ~30% more tokens for the same text, so the net per-request saving is ~13%, not 33%. Needs a measured re-run to confirm.
 
-> ² Estimated: the Batch API's flat 50% discount on input and output applied to the measured Sonnet 4.6 per-request cost — not itself measured, since batches were unavailable on the evaluation platform. **Availability constraint: batches are offered on the Claude API (first-party) and Claude Platform on AWS, not on Microsoft Foundry or Amazon Bedrock** — see §6.
+> ² Estimated: the Batch API's flat 50% discount on input and output applied to the measured Sonnet 4.6 per-request cost — not itself measured, since batches were unavailable on the evaluation platform. **Availability constraint: batches are offered on the Claude API (first-party) and Claude Platform on AWS, not on Microsoft Foundry or Amazon Bedrock** [1][2][3][5] — see §6 lever 1 and the references in §8.
 
 ### Groundedness scoring (7.3M calls/year, pilot token shape)
 
@@ -136,10 +136,16 @@ recall risk on conviction screening; the Claude path buys that recall back at a 
 ## 6. Structural cost levers and open questions
 
 1. **Batch API availability.** The single biggest structural lever on the Claude path (−50%) is currently
-   unavailable on the two platforms that best fit the residency posture (Foundry, Bedrock). Open question:
-   Foundry roadmap for batches, or the residency guarantees available on Claude Platform on AWS / the
-   first-party API for a UK government workload. (Bedrock eu-west-2 in-region serves Sonnet 4.6 today,
-   also without batches.)
+   unavailable on the two platforms that best fit the residency posture. The constraint has two distinct
+   parts: Anthropic's Message Batches endpoint is documented as unsupported on both Amazon Bedrock
+   integrations [1][2], and Claude on Microsoft Foundry exposes only the Messages and token-counting APIs
+   [5]. Separately, AWS Bedrock has its own batch-inference *service tier*, but it is not offered for
+   Claude Sonnet 4.6 (whose model card lists Standard and Reserved tiers only [3]) — it does appear for
+   some newer Claude models, e.g. Claude Opus 5 [4]. So no discounted batching route exists today for the
+   candidate model on a residency-friendly platform. Open questions: Foundry roadmap for batches; whether
+   AWS's Bedrock batch tier will extend to further Claude models (and at what discount); and the residency
+   guarantees available on Claude Platform on AWS / the first-party API for a UK government workload.
+   (Bedrock eu-west-2 in-region serves Sonnet 4.6 today, also without batches.)
 2. **Prompt caching.** Requests are ~93% input tokens; the system prompt (~1.5–2K tokens) repeats
    verbatim, the use case implies ~10 queries per document, and traffic clusters in overnight windows —
    per-document chunk context may be re-usable across queries within a cache TTL, and the higher
@@ -180,3 +186,29 @@ recall risk on conviction screening; the Claude path buys that recall back at a 
   reflect its default (thinking off) configuration.
 - Scoring figures are estimates from the pilot's scoring token shape (±12% tokenizer adjustment applied on
   Claude), pending measured validation of scoring quality on both candidates.
+
+## 8. References
+
+Platform-availability and pricing claims in this document are attributable to the following public
+sources (all current at the time of writing; availability statements should be re-verified before any
+platform commitment):
+
+1. Anthropic — *Claude in Amazon Bedrock (Opus 4.7 and later)*, "Features not supported" (includes
+   Message Batches): <https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock>
+2. Anthropic — *Claude on Amazon Bedrock (Opus 4.6 and earlier)*, "Features not supported" (includes
+   Message Batches): <https://platform.claude.com/docs/en/build-with-claude/claude-on-amazon-bedrock-legacy>
+3. AWS — *Claude Sonnet 4.6 model card* (service tiers: Standard and Reserved only, no Batch; regional
+   availability incl. eu-west-2 in-region):
+   <https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-sonnet-4-6.html>
+4. AWS — *Claude Opus 5 model card* (Batch service tier offered; EU geo profile):
+   <https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-opus-5.html>
+5. Microsoft — *Claude models in Microsoft Foundry* (API overview: Messages and token counting only;
+   deployment types and US Data Zone):
+   <https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/claude-models>
+6. Anthropic — *Pricing* (per-model list rates, Batch API 50% discount, prompt-caching multipliers, CCU
+   billing on cloud marketplaces): <https://platform.claude.com/docs/en/about-claude/pricing>
+7. OpenAI — *API pricing* (gpt-5.1 list rates, tracked by Azure OpenAI Global Standard):
+   <https://developers.openai.com/api/docs/pricing>
+8. Microsoft — *Region availability for Foundry Models sold by Azure* (gpt-5.1 EU Data Zone and regional
+   Standard availability):
+   <https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure-region-availability>
