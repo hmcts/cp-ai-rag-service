@@ -153,21 +153,8 @@ public class OpenAiChatService implements ChatService, TokenUsageReporting {
         this.tokenUsageListener = listener;
     }
 
-    // Runs unconditionally (not gated on the listener): the INFO usage line is the production
-    // observability signal, and building the record is a few field reads off an already-parsed response.
     private void reportTokenUsage(final ResponseUsage usage) {
-        final TokenUsage tokenUsage = new TokenUsage(
-                usage.inputTokens(),
-                usage.outputTokens(),
-                usage.outputTokensDetails().reasoningTokens(),
-                usage.inputTokensDetails().cachedTokens());
-        LOGGER.info("Token usage for deployment '{}': input={} output={} (reasoning={}) cachedInput={}",
-                deploymentName, tokenUsage.inputTokens(), tokenUsage.outputTokens(),
-                tokenUsage.reasoningTokens(), tokenUsage.cachedInputTokens());
-        final Consumer<TokenUsage> listener = tokenUsageListener;
-        if (listener != null) {
-            listener.accept(tokenUsage);
-        }
+        ResponsesApiTokenUsage.report(usage, LOGGER, "deployment '" + deploymentName + "'", tokenUsageListener);
     }
 
     private String extractOutputText(final Response response) {

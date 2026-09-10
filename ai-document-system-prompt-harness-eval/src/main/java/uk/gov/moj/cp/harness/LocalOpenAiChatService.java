@@ -6,6 +6,7 @@ import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.exception.ChatServiceException;
 import uk.gov.moj.cp.ai.service.ChatService;
+import uk.gov.moj.cp.ai.service.ResponsesApiTokenUsage;
 import uk.gov.moj.cp.ai.service.TokenUsage;
 import uk.gov.moj.cp.ai.service.TokenUsageReporting;
 
@@ -126,18 +127,7 @@ public final class LocalOpenAiChatService implements ChatService, TokenUsageRepo
     }
 
     private void reportTokenUsage(final ResponseUsage usage) {
-        final TokenUsage tokenUsage = new TokenUsage(
-                usage.inputTokens(),
-                usage.outputTokens(),
-                usage.outputTokensDetails().reasoningTokens(),
-                usage.inputTokensDetails().cachedTokens());
-        LOGGER.info("Token usage for local model '{}': input={} output={} (reasoning={}) cachedInput={}",
-                model, tokenUsage.inputTokens(), tokenUsage.outputTokens(),
-                tokenUsage.reasoningTokens(), tokenUsage.cachedInputTokens());
-        final Consumer<TokenUsage> listener = tokenUsageListener;
-        if (listener != null) {
-            listener.accept(tokenUsage);
-        }
+        ResponsesApiTokenUsage.report(usage, LOGGER, "local model '" + model + "'", tokenUsageListener);
     }
 
     private String extractOutputText(final Response response) {
