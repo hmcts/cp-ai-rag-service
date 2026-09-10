@@ -16,6 +16,7 @@ import uk.gov.moj.cp.ai.exception.ChatServiceException;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.azure.ai.openai.OpenAIClient;
 import com.azure.ai.openai.models.ChatChoice;
@@ -23,6 +24,9 @@ import com.azure.ai.openai.models.ChatCompletions;
 import com.azure.ai.openai.models.ChatCompletionsOptions;
 import com.azure.ai.openai.models.ChatResponseMessage;
 import com.azure.ai.openai.models.CompletionsFinishReason;
+import com.azure.ai.openai.models.CompletionsUsage;
+import com.azure.ai.openai.models.CompletionsUsageCompletionTokensDetails;
+import com.azure.ai.openai.models.CompletionsUsagePromptTokensDetails;
 import com.azure.ai.openai.models.ReasoningEffortValue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -153,6 +157,117 @@ class AzureChatServiceTest {
             assertEquals(0.0, options.getTopP(), "non-reasoning model must set top_p=0.0: " + deploymentName);
             assertNull(options.getReasoningEffort(), "non-reasoning model must not set reasoning_effort: " + deploymentName);
         }
+    }
+
+    @Test
+    @DisplayName("Reports token usage to the registered listener, mapping reasoning and cached-token details")
+    void reportsTokenUsageToRegisteredListener() throws Exception {
+        initChatServiceWithMockClient(DEPLOYMENT_NAME);
+        final ChatCompletions chatCompletions = mockChatCompletions("{\"key\":\"value\"}");
+        final CompletionsUsage completionsUsage = mockUsage(120, 30, 5, 40);
+        when(chatCompletions.getUsage()).thenReturn(completionsUsage);
+        when(openAIClientMock.getChatCompletions(eq(DEPLOYMENT_NAME), any(ChatCompletionsOptions.class)))
+                .thenReturn(chatCompletions);
+
+        final AtomicReference<TokenUsage> captured = new AtomicReference<>();
+        chatService.setTokenUsageListener(captured::set);
+        chatService.callModel("systemInstruction", "userInstruction", Map.class);
+
+        final TokenUsage usage = captured.get();
+        assertNotNull(usage, "listener must receive the per-call token usage");
+        assertEquals(120, usage.inputTokens());
+        assertEquals(30, usage.outputTokens());
+        assertEquals(5, usage.reasoningTokens());
+        assertEquals(40, usage.cachedInputTokens());
+    }
+
+    @Test
+    @DisplayName("Defaults reasoning and cached tokens to zero when the usage detail blocks are absent")
+    void defaultsReasoningAndCachedTokensToZeroWhenDetailsAbsent() throws Exception {
+        initChatServiceWithMockClient(DEPLOYMENT_NAME);
+        final ChatCompletions chatCompletions = mockChatCompletions("{\"key\":\"value\"}");
+        final CompletionsUsage usage = mock(CompletionsUsage.class);
+        when(usage.getPromptTokens()).thenReturn(120);
+        when(usage.getCompletionTokens()).thenReturn(30);
+        // detail blocks entirely absent from the response
+        when(usage.getCompletionTokensDetails()).thenReturn(null);
+        when(usage.getPromptTokensDetails()).thenReturn(null);
+        when(chatCompletions.getUsage()).thenReturn(usage);
+        when(openAIClientMock.getChatCompletions(eq(DEPLOYMENT_NAME), any(ChatCompletionsOptions.class)))
+                .thenReturn(chatCompletions);
+
+        final AtomicReference<TokenUsage> captured = new AtomicReference<>();
+        chatService.setTokenUsageListener(captured::set);
+        chatService.callModel("systemInstruction", "userInstruction", Map.class);
+
+        assertEquals(new TokenUsage(120, 30, 0, 0), captured.get());
+    }
+
+    @Test
+    @DisplayName("Defaults reasoning and cached tokens to zero when the detail blocks are present but empty")
+    void defaultsReasoningAndCachedTokensToZeroWhenDetailFieldsNull() throws Exception {
+        initChatServiceWithMockClient(DEPLOYMENT_NAME);
+        final ChatCompletions chatCompletions = mockChatCompletions("{\"key\":\"value\"}");
+        final CompletionsUsage usage = mock(CompletionsUsage.class);
+        when(usage.getPromptTokens()).thenReturn(120);
+        when(usage.getCompletionTokens()).thenReturn(30);
+        // detail blocks present but without the reasoning/cached fields
+        when(usage.getCompletionTokensDetails()).thenReturn(mock(CompletionsUsageCompletionTokensDetails.class));
+        when(usage.getPromptTokensDetails()).thenReturn(mock(CompletionsUsagePromptTokensDetails.class));
+        when(chatCompletions.getUsage()).thenReturn(usage);
+        when(openAIClientMock.getChatCompletions(eq(DEPLOYMENT_NAME), any(ChatCompletionsOptions.class)))
+                .thenReturn(chatCompletions);
+
+        final AtomicReference<TokenUsage> captured = new AtomicReference<>();
+        chatService.setTokenUsageListener(captured::set);
+        chatService.callModel("systemInstruction", "userInstruction", Map.class);
+
+        assertEquals(new TokenUsage(120, 30, 0, 0), captured.get());
+    }
+
+    @Test
+    @DisplayName("Does not invoke the listener when the response carries no usage block")
+    void doesNotInvokeListenerWhenUsageAbsent() throws Exception {
+        initChatServiceWithMockClient(DEPLOYMENT_NAME);
+        final ChatCompletions chatCompletions = mockChatCompletions("{\"key\":\"value\"}");
+        when(chatCompletions.getUsage()).thenReturn(null);
+        when(openAIClientMock.getChatCompletions(eq(DEPLOYMENT_NAME), any(ChatCompletionsOptions.class)))
+                .thenReturn(chatCompletions);
+
+        final AtomicReference<TokenUsage> captured = new AtomicReference<>();
+        chatService.setTokenUsageListener(captured::set);
+        chatService.callModel("systemInstruction", "userInstruction", Map.class);
+
+        assertNull(captured.get(), "listener must not fire when the API returned no usage block");
+    }
+
+    @Test
+    @DisplayName("Reports usage without error when no listener is registered")
+    void reportsUsageWithoutErrorWhenNoListenerRegistered() throws Exception {
+        initChatServiceWithMockClient(DEPLOYMENT_NAME);
+        final ChatCompletions chatCompletions = mockChatCompletions("{\"key\":\"value\"}");
+        final CompletionsUsage completionsUsage = mockUsage(120, 30, 5, 40);
+        when(chatCompletions.getUsage()).thenReturn(completionsUsage);
+        when(openAIClientMock.getChatCompletions(eq(DEPLOYMENT_NAME), any(ChatCompletionsOptions.class)))
+                .thenReturn(chatCompletions);
+
+        var result = chatService.callModel("systemInstruction", "userInstruction", Map.class);
+
+        assertTrue(result.isPresent());
+    }
+
+    private CompletionsUsage mockUsage(final int promptTokens, final int completionTokens,
+                                       final int reasoningTokens, final int cachedTokens) {
+        final CompletionsUsage usage = mock(CompletionsUsage.class);
+        when(usage.getPromptTokens()).thenReturn(promptTokens);
+        when(usage.getCompletionTokens()).thenReturn(completionTokens);
+        final CompletionsUsageCompletionTokensDetails completionDetails = mock(CompletionsUsageCompletionTokensDetails.class);
+        when(completionDetails.getReasoningTokens()).thenReturn(reasoningTokens);
+        final CompletionsUsagePromptTokensDetails promptDetails = mock(CompletionsUsagePromptTokensDetails.class);
+        when(promptDetails.getCachedTokens()).thenReturn(cachedTokens);
+        when(usage.getCompletionTokensDetails()).thenReturn(completionDetails);
+        when(usage.getPromptTokensDetails()).thenReturn(promptDetails);
+        return usage;
     }
 
     private ChatCompletions mockChatCompletions(String jsonResponse) {

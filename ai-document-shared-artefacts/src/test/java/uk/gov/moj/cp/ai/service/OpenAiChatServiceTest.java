@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.ai.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -15,6 +16,7 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.openai.client.OpenAIClient;
 import com.openai.models.ReasoningEffort;
@@ -24,6 +26,7 @@ import com.openai.models.responses.ResponseOutputItem;
 import com.openai.models.responses.ResponseOutputMessage;
 import com.openai.models.responses.ResponseOutputText;
 import com.openai.models.responses.ResponseTextConfig;
+import com.openai.models.responses.ResponseUsage;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -182,6 +185,67 @@ class OpenAiChatServiceTest {
             assertTrue(params.reasoning().isEmpty(), "non-reasoning model must not set reasoning: " + deploymentName);
             assertTrue(params.text().isEmpty(), "non-reasoning model must NOT set verbosity (gpt-4o rejects 'low'): " + deploymentName);
         }
+    }
+
+    @Test
+    @DisplayName("Reports token usage to the registered listener, mapping reasoning and cached-token details")
+    void reportsTokenUsageToRegisteredListener() throws Exception {
+        initChatServiceWithMockClient(DEPLOYMENT_NAME);
+        final Response response = mockResponse("{\"key\":\"value\"}");
+        when(response.usage()).thenReturn(Optional.of(responseUsage(120, 30, 5, 40)));
+        when(openAIClientMock.responses().create(any(ResponseCreateParams.class)))
+                .thenReturn(response);
+
+        final AtomicReference<TokenUsage> captured = new AtomicReference<>();
+        chatService.setTokenUsageListener(captured::set);
+        chatService.callModel("systemInstruction", "userInstruction", Map.class);
+
+        assertEquals(new TokenUsage(120, 30, 5, 40), captured.get());
+    }
+
+    @Test
+    @DisplayName("Does not invoke the listener when the response carries no usage block")
+    void doesNotInvokeListenerWhenUsageAbsent() throws Exception {
+        initChatServiceWithMockClient(DEPLOYMENT_NAME);
+        final Response response = mockResponse("{\"key\":\"value\"}");
+        when(response.usage()).thenReturn(Optional.empty());
+        when(openAIClientMock.responses().create(any(ResponseCreateParams.class)))
+                .thenReturn(response);
+
+        final AtomicReference<TokenUsage> captured = new AtomicReference<>();
+        chatService.setTokenUsageListener(captured::set);
+        chatService.callModel("systemInstruction", "userInstruction", Map.class);
+
+        assertNull(captured.get(), "listener must not fire when the API returned no usage block");
+    }
+
+    @Test
+    @DisplayName("Reports usage without error when no listener is registered")
+    void reportsUsageWithoutErrorWhenNoListenerRegistered() throws Exception {
+        initChatServiceWithMockClient(DEPLOYMENT_NAME);
+        final Response response = mockResponse("{\"key\":\"value\"}");
+        when(response.usage()).thenReturn(Optional.of(responseUsage(120, 30, 5, 40)));
+        when(openAIClientMock.responses().create(any(ResponseCreateParams.class)))
+                .thenReturn(response);
+
+        var result = chatService.callModel("systemInstruction", "userInstruction", Map.class);
+
+        assertTrue(result.isPresent());
+    }
+
+    private ResponseUsage responseUsage(final long inputTokens, final long outputTokens,
+                                        final long reasoningTokens, final long cachedTokens) {
+        return ResponseUsage.builder()
+                .inputTokens(inputTokens)
+                .outputTokens(outputTokens)
+                .totalTokens(inputTokens + outputTokens)
+                .inputTokensDetails(ResponseUsage.InputTokensDetails.builder()
+                        .cachedTokens(cachedTokens)
+                        .build())
+                .outputTokensDetails(ResponseUsage.OutputTokensDetails.builder()
+                        .reasoningTokens(reasoningTokens)
+                        .build())
+                .build();
     }
 
     private Response mockResponse(String jsonResponse) {
