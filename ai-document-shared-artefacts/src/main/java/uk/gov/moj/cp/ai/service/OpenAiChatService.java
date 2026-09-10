@@ -15,6 +15,7 @@ import uk.gov.moj.cp.ai.client.OpenAiClientFactory;
 import uk.gov.moj.cp.ai.exception.ChatServiceException;
 
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.openai.client.OpenAIClient;
@@ -26,10 +27,11 @@ import com.openai.models.responses.ResponseOutputItem;
 import com.openai.models.responses.ResponseOutputMessage;
 import com.openai.models.responses.ResponseStatus;
 import com.openai.models.responses.ResponseTextConfig;
+import com.openai.models.responses.ResponseUsage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OpenAiChatService implements ChatService {
+public class OpenAiChatService implements ChatService, TokenUsageReporting {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenAiChatService.class);
 
@@ -61,6 +63,9 @@ public class OpenAiChatService implements ChatService {
     private final int maxTokens;
     private final String verbosity;
     private final String reasoningEffort;
+
+    /** Optional per-call usage listener (see {@link TokenUsageReporting}); no-op when unset. */
+    private volatile Consumer<TokenUsage> tokenUsageListener;
 
     public OpenAiChatService(final String endpoint, final String deploymentName) {
 
@@ -114,6 +119,7 @@ public class OpenAiChatService implements ChatService {
 
         try {
             final Response response = openAIClient.responses().create(paramsBuilder.build());
+            response.usage().ifPresent(this::reportTokenUsage);
             final String content = extractOutputText(response);
             final String status = response.status().map(ResponseStatus::toString).orElse("(no status)");
             final String resultExplanation = "Response status: " + status;
@@ -139,6 +145,28 @@ public class OpenAiChatService implements ChatService {
             return Optional.ofNullable(responseModel);
         } catch (final JsonProcessingException e) {
             throw new ChatServiceException("Error calling LLM for evaluation", e);
+        }
+    }
+
+    @Override
+    public void setTokenUsageListener(final Consumer<TokenUsage> listener) {
+        this.tokenUsageListener = listener;
+    }
+
+    // Runs unconditionally (not gated on the listener): the INFO usage line is the production
+    // observability signal, and building the record is a few field reads off an already-parsed response.
+    private void reportTokenUsage(final ResponseUsage usage) {
+        final TokenUsage tokenUsage = new TokenUsage(
+                usage.inputTokens(),
+                usage.outputTokens(),
+                usage.outputTokensDetails().reasoningTokens(),
+                usage.inputTokensDetails().cachedTokens());
+        LOGGER.info("Token usage for deployment '{}': input={} output={} (reasoning={}) cachedInput={}",
+                deploymentName, tokenUsage.inputTokens(), tokenUsage.outputTokens(),
+                tokenUsage.reasoningTokens(), tokenUsage.cachedInputTokens());
+        final Consumer<TokenUsage> listener = tokenUsageListener;
+        if (listener != null) {
+            listener.accept(tokenUsage);
         }
     }
 

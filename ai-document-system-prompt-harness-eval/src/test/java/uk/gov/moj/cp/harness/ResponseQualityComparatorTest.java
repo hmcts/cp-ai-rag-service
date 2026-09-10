@@ -31,7 +31,7 @@ class ResponseQualityComparatorTest {
     private static final List<String> MODELS = List.of("gpt-4o-response-generation", "gpt-5.1");
 
     private static RunResult result(final String queryLabel) {
-        return new RunResult("v4", "gpt-4o", queryLabel, 1, null, 0L, null);
+        return new RunResult("v4", "gpt-4o", queryLabel, 1, null, null, 0L, null);
     }
 
     private static UserQueryConfig query(final String label, final String version) {
@@ -150,7 +150,7 @@ class ResponseQualityComparatorTest {
     @Test
     void okResult_returnsResult_whenAnswerGeneratedAndNoError() {
         final RunResult r = new RunResult("v4", "gpt-4o", "Q", 1,
-                new LlmResponse("raw", "formatted", AnswerGenerationStatus.ANSWER_GENERATED), 10L, null);
+                new LlmResponse("raw", "formatted", AnswerGenerationStatus.ANSWER_GENERATED), null, 10L, null);
         assertSame(r, ResponseQualityComparator.okResult(r));
     }
 
@@ -158,11 +158,11 @@ class ResponseQualityComparatorTest {
     void okResult_returnsNull_forNullErroredMissingResponseOrNonTerminalStatus() {
         assertNull(ResponseQualityComparator.okResult(null));
         assertNull(ResponseQualityComparator.okResult(
-                new RunResult("v4", "gpt-4o", "Q", 1, null, 0L, "boom")));
+                new RunResult("v4", "gpt-4o", "Q", 1, null, null, 0L, "boom")));
         assertNull(ResponseQualityComparator.okResult(
-                new RunResult("v4", "gpt-4o", "Q", 1, null, 0L, null)));
+                new RunResult("v4", "gpt-4o", "Q", 1, null, null, 0L, null)));
         assertNull(ResponseQualityComparator.okResult(new RunResult("v4", "gpt-4o", "Q", 1,
-                new LlmResponse("raw", "formatted", AnswerGenerationStatus.ANSWER_GENERATION_FAILED), 0L, null)));
+                new LlmResponse("raw", "formatted", AnswerGenerationStatus.ANSWER_GENERATION_FAILED), null, 0L, null)));
     }
 
     // ---- structureOf ----

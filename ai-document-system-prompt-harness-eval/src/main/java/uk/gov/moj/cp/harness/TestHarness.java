@@ -9,6 +9,8 @@ import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.ai.service.EmbeddingService;
+import uk.gov.moj.cp.ai.service.TokenUsage;
+import uk.gov.moj.cp.ai.service.TokenUsageReporting;
 import uk.gov.moj.cp.ai.client.ChatServiceFactory;
 import uk.gov.moj.cp.ai.util.ChunkFormatterUtility;
 import uk.gov.moj.cp.retrieval.exception.SearchServiceException;
@@ -38,6 +40,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -157,7 +160,19 @@ public final class TestHarness {
     }
 
     record RunResult(String promptLabel, String llmLabel, String queryLabel, int iteration,
-                     LlmResponse response, long durationMs, String error) {
+                     LlmResponse response, TokenUsage usage, long durationMs, String error) {
+    }
+
+    /**
+     * A {@link ResponseGenerationService} paired with the capture point for the chat call's
+     * {@link TokenUsage}. {@code generateResponse} makes exactly one chat call, so reading the
+     * reference immediately after the call yields that call's usage; it is cleared before each
+     * call so a failed call can never inherit the previous cell's numbers.
+     */
+    private record ServiceWithUsage(ResponseGenerationService svc, AtomicReference<TokenUsage> lastUsage) {
+        TokenUsage takeUsage() {
+            return lastUsage.getAndSet(null);
+        }
     }
 
     /**
@@ -195,6 +210,7 @@ public final class TestHarness {
         final List<RunResult> results = runMatrix(systemPrompts, llms, queries, chunksByQueryLabel);
 
         printSummary(results);
+        printTokenUsageAndCost(results);
         printConsistency(results);
         printDetail(results, systemPrompts, queries);
 
@@ -314,7 +330,7 @@ public final class TestHarness {
             Thread.sleep(Duration.ofSeconds(5).toMillis());
             LOGGER.info("[{}] ========= ITERATION {} / {} =========", lc.label(), iter, REPETITIONS);
             for (final SystemPromptConfig spc : systemPrompts) {
-                final ResponseGenerationService svc = buildService(spc, lc);
+                final ServiceWithUsage svc = buildService(spc, lc);
                 for (final UserQueryConfig uqc : queries) {
                     results.add(runCell(svc, spc, lc, uqc, iter, chunksByQueryLabel.get(uqc.label())));
                 }
@@ -324,31 +340,36 @@ public final class TestHarness {
     }
 
     /** Runs one (prompt × LLM × query) cell, recording an ERROR/SKIPPED result rather than aborting. */
-    private static RunResult runCell(final ResponseGenerationService svc, final SystemPromptConfig spc,
+    private static RunResult runCell(final ServiceWithUsage svc, final SystemPromptConfig spc,
                                      final LlmConfig lc, final UserQueryConfig uqc, final int iter,
                                      final List<ChunkedEntry> chunks) throws InterruptedException {
         if (chunks == null || chunks.isEmpty()) {
             LOGGER.info("[skip] iter={} prompt={} llm={} query={} — no chunks",
                     iter, spc.label(), lc.label(), uqc.label());
-            return new RunResult(spc.label(), lc.label(), uqc.label(), iter, null, 0L, "SKIPPED: no chunks for query");
+            return new RunResult(spc.label(), lc.label(), uqc.label(), iter, null, null, 0L, "SKIPPED: no chunks for query");
         }
         if (CALL_DELAY_SECONDS > 0) {
             Thread.sleep(Duration.ofSeconds(CALL_DELAY_SECONDS).toMillis());
         }
         LOGGER.info("[run] iter={} prompt={} llm={} query={}", iter, spc.label(), lc.label(), uqc.label());
+        svc.takeUsage(); // clear any stale capture before the call
         final long t0 = System.currentTimeMillis();
         try {
-            final LlmResponse r = svc.generateResponse(uqc.userQuery(), chunks, uqc.userQueryPrompt());
-            return new RunResult(spc.label(), lc.label(), uqc.label(), iter, r, System.currentTimeMillis() - t0, null);
+            final LlmResponse r = svc.svc().generateResponse(uqc.userQuery(), chunks, uqc.userQueryPrompt());
+            return new RunResult(spc.label(), lc.label(), uqc.label(), iter, r, svc.takeUsage(),
+                    System.currentTimeMillis() - t0, null);
         } catch (final Exception e) {
             // Includes ChatServiceException and transient transport failures (e.g. read timeouts on
-            // long gpt-5.1 reasoning calls). Record the cell as an ERROR and carry on.
+            // long gpt-5.1 reasoning calls). Record the cell as an ERROR and carry on. Usage is
+            // still captured when the API call itself succeeded (e.g. empty/filtered responses) —
+            // those calls are billed, so they belong in the cost totals.
             LOGGER.warn("[run] FAILED iter={} prompt={} llm={} query={}", iter, spc.label(), lc.label(), uqc.label(), e);
-            return new RunResult(spc.label(), lc.label(), uqc.label(), iter, null, System.currentTimeMillis() - t0, e.toString());
+            return new RunResult(spc.label(), lc.label(), uqc.label(), iter, null, svc.takeUsage(),
+                    System.currentTimeMillis() - t0, e.toString());
         }
     }
 
-    private static ResponseGenerationService buildService(final SystemPromptConfig spc, final LlmConfig lc) {
+    private static ServiceWithUsage buildService(final SystemPromptConfig spc, final LlmConfig lc) {
         final ChatService chat;
         if (PROVIDER_ANTHROPIC.equals(lc.provider())) {
             // Claude on Azure AI Foundry speaks the Anthropic Messages API, not Azure OpenAI
@@ -364,12 +385,22 @@ public final class TestHarness {
             // service applies the real isReasoningModel branch (gpt-5.1 → no temperature/top_p).
             chat = ChatServiceFactory.getInstance(chatEndpoint, lc.deployment());
         }
-        return new ResponseGenerationService(
+        // Every harness chat service reports per-call token usage through the optional
+        // TokenUsageReporting side-channel; capture it for the RunResult without touching
+        // the production ChatService contract.
+        final AtomicReference<TokenUsage> lastUsage = new AtomicReference<>();
+        if (chat instanceof TokenUsageReporting reporting) {
+            reporting.setTokenUsageListener(lastUsage::set);
+        } else {
+            LOGGER.warn("[usage] chat service {} does not report token usage — cost columns will be empty for llm={}",
+                    chat.getClass().getSimpleName(), lc.label());
+        }
+        return new ServiceWithUsage(new ResponseGenerationService(
                 chat,
                 new CitationProcessor(),
                 new ChunkFormatterUtility(),
                 new UserInstructionService(),
-                spc.prompt());
+                spc.prompt()), lastUsage);
     }
 
     private static List<ChunkedEntry> loadChunks(final EmbeddingService embeddingService,
@@ -591,6 +622,49 @@ public final class TestHarness {
                     c != null ? c.proseChars() : 0,
                     c != null ? c.proseWords() : 0));
         }
+    }
+
+    /**
+     * Per-model token usage and (when {@code HARNESS_MODEL_PRICES} is set) cost aggregates —
+     * the definitive per-request numbers for volume projections. Tokens come verbatim from each
+     * provider's usage block; reasoning/thinking tokens are a subset of output tokens.
+     */
+    private static void printTokenUsageAndCost(final List<RunResult> results) {
+        final TokenCostTable costs = TokenCostTable.fromEnv();
+        final Map<String, List<RunResult>> byModel = new LinkedHashMap<>();
+        for (final RunResult r : results) {
+            byModel.computeIfAbsent(r.llmLabel(), k -> new ArrayList<>()).add(r);
+        }
+
+        LOGGER.info("");
+        LOGGER.info("======== TOKEN USAGE & COST (per model, generation call only) ========");
+        LOGGER.info(String.format("%-22s | %5s | %8s | %8s | %8s | %10s | %12s | %10s",
+                "llm", "calls", "inAvg", "outAvg", "reasAvg", "tokAvg", "usd/req avg", "usd total"));
+        LOGGER.info("-".repeat(110));
+        for (final Map.Entry<String, List<RunResult>> e : byModel.entrySet()) {
+            final List<TokenUsage> usages = e.getValue().stream()
+                    .map(RunResult::usage)
+                    .filter(u -> u != null)
+                    .toList();
+            if (usages.isEmpty()) {
+                LOGGER.info(String.format("%-22s | %5d | %8s | %8s | %8s | %10s | %12s | %10s",
+                        truncate(e.getKey(), 22), 0, "-", "-", "-", "-", "-", "-"));
+                continue;
+            }
+            final double inAvg = usages.stream().mapToLong(TokenUsage::inputTokens).average().orElse(0);
+            final double outAvg = usages.stream().mapToLong(TokenUsage::outputTokens).average().orElse(0);
+            final double reasAvg = usages.stream().mapToLong(TokenUsage::reasoningTokens).average().orElse(0);
+            final double tokAvg = usages.stream().mapToLong(TokenUsage::totalTokens).average().orElse(0);
+            final boolean priced = costs.hasPrice(e.getKey());
+            final double totalUsd = priced
+                    ? usages.stream().mapToDouble(u -> costs.costUsd(e.getKey(), u).orElse(0d)).sum() : 0d;
+            LOGGER.info(String.format("%-22s | %5d | %8.0f | %8.0f | %8.0f | %10.0f | %12s | %10s",
+                    truncate(e.getKey(), 22), usages.size(), inAvg, outAvg, reasAvg, tokAvg,
+                    priced ? String.format("%.6f", totalUsd / usages.size()) : "(no price)",
+                    priced ? String.format("%.4f", totalUsd) : "(no price)"));
+        }
+        LOGGER.info("Note: covers the answer-generation call only — a full per-query projection also needs "
+                + "the query-embedding call, the scoring function's groundedness call, and async retry multipliers.");
     }
 
     private static String statusOf(final RunResult r) {
