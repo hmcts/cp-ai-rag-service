@@ -4,14 +4,14 @@ import static uk.gov.moj.cp.ai.client.config.ClientConfiguration.createNettyClie
 import static uk.gov.moj.cp.ai.client.config.ClientConfiguration.getRetryOptions;
 import static uk.gov.moj.cp.ai.util.CredentialUtil.getCredentialInstance;
 
-import uk.gov.moj.cp.ai.service.EmbeddingService;
+import uk.gov.moj.cp.ai.service.AzureEmbeddingService;
 
 import com.azure.ai.openai.OpenAIClient;
 import com.azure.ai.openai.OpenAIClientBuilder;
 import com.azure.ai.openai.OpenAIServiceVersion;
 
 /**
- * {@link EmbeddingService} pinned to a GA api-version, because the shared
+ * {@link AzureEmbeddingService} pinned to a GA api-version, because the shared
  * {@code AzureOpenAiClientFactory} leaves the SDK on its default service version — the latest
  * preview ({@code 2025-01-01-preview} on this SDK) — which the platform's hardened OpenAI
  * resources reject with a misleading 401 {@code PermissionDenied} ("Principal does not have
@@ -24,7 +24,7 @@ import com.azure.ai.openai.OpenAIServiceVersion;
  * functions hit the same 401 against hardened resources, fixing the shared factory's service
  * version is a separate, production-tested change.
  */
-public final class PinnedApiVersionEmbeddingService extends EmbeddingService {
+public final class PinnedApiVersionEmbeddingService extends AzureEmbeddingService {
 
     /** Newest GA version this SDK offers; verified allowed on the hardened STE resource. */
     private static final OpenAIServiceVersion PINNED_VERSION = OpenAIServiceVersion.V2024_06_01;

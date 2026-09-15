@@ -23,12 +23,12 @@ import com.azure.json.implementation.DefaultJsonReader;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-class EmbeddingServiceTest {
+class AzureEmbeddingServiceTest {
 
     @Test
     @DisplayName("Throws exception when content to embed is null or empty")
     void embedDataThrowsExceptionForNullOrEmptyContent() {
-        EmbeddingService service = new EmbeddingService(mock(OpenAIClient.class), "deploymentName");
+        AzureEmbeddingService service = new AzureEmbeddingService(mock(OpenAIClient.class), "deploymentName");
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> service.embedData(null));
@@ -49,7 +49,7 @@ class EmbeddingServiceTest {
         when(mockClient.getEmbeddings(any(String.class), any(EmbeddingsOptions.class)))
                 .thenReturn(embeddings);
 
-        EmbeddingService service = new EmbeddingService(mockClient, "deploymentName");
+        AzureEmbeddingService service = new AzureEmbeddingService(mockClient, "deploymentName");
         List<Float> result = service.embedData("content");
 
         verify(mockClient).getEmbeddings(any(String.class), any(EmbeddingsOptions.class));
@@ -76,7 +76,7 @@ class EmbeddingServiceTest {
         List<Float> mockEmbedding = List.of(0.1f, 0.2f, 0.3f);
         when(mockClient.getEmbeddings(any(String.class), any(EmbeddingsOptions.class))).thenReturn(embeddings);
 
-        EmbeddingService service = new EmbeddingService(mockClient, "deploymentName");
+        AzureEmbeddingService service = new AzureEmbeddingService(mockClient, "deploymentName");
         List<Float> result = service.embedData("content");
 
         verify(mockClient).getEmbeddings(any(String.class), any(EmbeddingsOptions.class));
@@ -103,7 +103,7 @@ class EmbeddingServiceTest {
         List<Float> mockEmbedding = List.of(0.1f, 0.2f, 0.3f);
         when(mockClient.getEmbeddings(any(String.class), any(EmbeddingsOptions.class))).thenReturn(embeddings);
 
-        EmbeddingService service = new EmbeddingService(mockClient, "deploymentName");
+        AzureEmbeddingService service = new AzureEmbeddingService(mockClient, "deploymentName");
         List<List<Float>> results = service.embedCollectionData(List.of("content"));
 
         verify(mockClient).getEmbeddings(any(String.class), any(EmbeddingsOptions.class));
@@ -120,7 +120,7 @@ class EmbeddingServiceTest {
         when(mockClient.getEmbeddings(any(String.class), any(EmbeddingsOptions.class)))
                 .thenThrow(new RuntimeException("Embedding failed"));
 
-        EmbeddingService service = new EmbeddingService(mockClient, "deploymentName");
+        AzureEmbeddingService service = new AzureEmbeddingService(mockClient, "deploymentName");
 
         EmbeddingServiceException exception = assertThrows(EmbeddingServiceException.class,
                 () -> service.embedData("content"));
