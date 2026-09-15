@@ -135,6 +135,18 @@ class OpenAiClientFactoryTest {
         }
     }
 
+    @Test
+    void baseUrlStripsATrailingSlashFromTheEndpoint() {
+        assertEquals("https://example.openai.azure.com/openai/v1",
+                OpenAiClientFactory.baseUrlOf("https://example.openai.azure.com/"));
+    }
+
+    @Test
+    void baseUrlLeavesASlashlessEndpointUntouched() {
+        assertEquals("https://example.openai.azure.com/openai/v1",
+                OpenAiClientFactory.baseUrlOf("https://example.openai.azure.com"));
+    }
+
     private void stubAllClientVarsAtTheirDocumentedDefaults(final MockedStatic<EnvVarUtil> mockedStatic) {
         mockedStatic.when(() -> getRequiredEnvAsInteger(MAX_RETRIES_VAR, "3")).thenReturn(3);
         mockedStatic.when(() -> getRequiredEnvAsInteger(RESPONSE_TIMEOUT_VAR, "180")).thenReturn(180);

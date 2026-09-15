@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.ai.client;
 
 import static uk.gov.moj.cp.ai.util.CredentialUtil.getCredentialInstance;
+import static uk.gov.moj.cp.ai.util.StringUtil.removeTrailingSlash;
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
 import uk.gov.moj.cp.ai.client.config.OpenAiClientConfiguration;
@@ -43,7 +44,7 @@ public class OpenAiClientFactory {
                     // supplier sourced from the Azure default credential chain (Managed Identity
                     // in deployed environments, developer credentials locally).
                     final OpenAIOkHttpClient.Builder builder = OpenAIOkHttpClient.builder()
-                            .baseUrl(key + "/openai/v1")
+                            .baseUrl(baseUrlOf(key))
                             .credential(BearerTokenCredential.create(SHARED_BEARER_TOKEN_SUPPLIER));
 
                     // Applied inside computeIfAbsent so the configuration log is emitted exactly once per
@@ -51,6 +52,12 @@ public class OpenAiClientFactory {
                     return applyConfiguration(builder).build();
                 }
         );
+    }
+
+    // Endpoint app settings are configured both with and without a trailing slash; without the
+    // strip a trailing slash yields "…//openai/v1".
+    static String baseUrlOf(final String endpoint) {
+        return removeTrailingSlash(endpoint) + "/openai/v1";
     }
 
     static OpenAIOkHttpClient.Builder applyConfiguration(final OpenAIOkHttpClient.Builder builder) {
