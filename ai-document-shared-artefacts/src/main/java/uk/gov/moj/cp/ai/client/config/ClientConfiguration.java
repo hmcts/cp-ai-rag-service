@@ -15,6 +15,8 @@ public class ClientConfiguration {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientConfiguration.class);
 
+    // Keep these defaults in sync with OpenAiClientConfiguration, which deliberately reuses the same values
+    // (and the same environment variables) so both provider legs behave alike while the toggle exists.
     private static final String DEFAULT_RESPONSE_TIMEOUT_IN_SECONDS = "180";
     private static final String DEFAULT_CONNECT_TIMEOUT_IN_SECONDS = "10";
     private static final String DEFAULT_READ_TIMEOUT_IN_SECONDS = "60";
