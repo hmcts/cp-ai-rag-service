@@ -4,8 +4,8 @@
 |---|---|
 | **Date** | 2026-09-15 |
 | **Jira** | DD-43422 (parent: DD-43417 — OpenAI SDK migration) |
-| **Environment** | Non-live STE Azure OpenAI resource `open-ai-ste-c3vx` (`RG-STE-AI-01`, subscription "Strategic Platform - non-live") |
-| **Deployments tested** | `gpt-4o-response-generation` (gpt-4o 2024-11-20), `gpt-5.1` |
+| **Environment** | The non-production Azure OpenAI resource used for harness evaluations (identifiers withheld — see the harness `.env`) |
+| **Deployments tested** | The harness gpt-4o chat deployment (gpt-4o 2024-11-20) and the gpt-5.1 chat deployment |
 | **Surface under test** | `{endpoint}/openai/v1` Responses API via openai-java 4.41.0 (`OpenAiClientFactory`, bearer token / DefaultAzureCredential) |
 | **Method** | Spike tool `ai-document-system-prompt-harness-eval/src/main/java/uk/gov/moj/cp/harness/ContentFilterSpikeTool.java`, run via `mvn -pl ai-document-system-prompt-harness-eval exec:java -Dharness.mainClass=uk.gov.moj.cp.harness.ContentFilterSpikeTool` with the module's `.env` exported (mirrors `run-harness.sh`) |
 
@@ -40,10 +40,10 @@ diagnostics).
 ### Probe 1 — input-side filter trip (`client.responses().create`)
 
 **Not provocable on this resource.** The violence-category trip prompt returned **200
-`completed`** on both `gpt-4o-response-generation` and `gpt-5.1` (3.8 s / 2.7 s, model answered).
-Root cause, from the control plane (`az cognitiveservices account deployment list`): every chat
-deployment on `open-ai-ste-c3vx` pins the custom RAI policy **`DisableFilter`** (base
-`Microsoft.Default`) — content filtering is disabled resource-wide.
+`completed`** on both chat deployments (3.8 s / 2.7 s, model answered). Root cause, from the
+control plane (`az cognitiveservices account deployment list`): every chat deployment on the
+resource pins the custom RAI policy **`DisableFilter`** (base `Microsoft.Default`) — content
+filtering is disabled resource-wide.
 
 > **Stakeholder confirmation (Mahesh, 2026-09-15): this is a deliberate decision, applied to
 > all of the service's model resources, not a spike-environment quirk.** The corpus contains
@@ -59,21 +59,21 @@ deployment on `open-ai-ste-c3vx` pins the custom RAI policy **`DisableFilter`** 
 > de-risks the Stage 4 chat-path deletion.
 
 ```
-Name                           Rai
+Deployment (names withheld)    Rai policy
 -----------------------------  -------------------
-text-embedding-3-large         Microsoft.DefaultV2
-gpt-4o-judge                   DisableFilter
-gpt-4o-response-generation     DisableFilter
-Llama-3.3-70B-Instruct-Mahesh  DisableFilter
-gpt-5.1                        DisableFilter
+<embedding deployment>         Microsoft.DefaultV2
+<gpt-4o judge deployment>      DisableFilter
+<gpt-4o chat deployment>       DisableFilter
+<open-source chat deployment>  DisableFilter
+<gpt-5.1 chat deployment>      DisableFilter
 ```
 
 Creating a temporary deployment pinned to `Microsoft.DefaultV2` (to observe a real
 `content_filter` 400) was attempted and **blocked by the local permission policy** (infra
 mutation); reading the `DisableFilter` policy body was likewise blocked. A follow-up needing
-~5 minutes with portal/CLI access can close this: create `gpt-4o-cf-spike` with
+~5 minutes with portal/CLI access can close this: create a throwaway gpt-4o deployment with
 `--rai-policy-name Microsoft.DefaultV2`, re-run the spike tool
-(`SPIKE_PRIMARY_DEPLOYMENT=gpt-4o-cf-spike`, secondary blank), delete the deployment.
+(`SPIKE_PRIMARY_DEPLOYMENT=<that deployment>`, secondary blank), delete the deployment.
 
 The 200 responses did, however, carry Azure's filter **annotation block** (see probe 4) with
 `blocked: false` and empty per-category results — consistent with a disabled filter:
@@ -181,7 +181,7 @@ follow-up material.
 ### Probe 5 — Azure-SDK side-by-side
 
 Same trip prompt through `AzureChatService` (Azure SDK, chat-completions surface, preview
-api-version) on `gpt-4o-response-generation`: **no auth failure** (the known preview-api-version
+api-version) on the gpt-4o chat deployment: **no auth failure** (the known preview-api-version
 401 did not occur on this resource) and **no filter trip** — `finish_reason=stop`, 200 with a
 241-char answer in 2.5 s. Consistent with probe 1: the filter is disabled at the resource, so
 the Azure path cannot demonstrate its diagnostics here either. The two SDK paths behave
@@ -236,7 +236,7 @@ What **IS** recoverable through openai-java on `/openai/v1`:
 What is **NOT** (yet) directly demonstrated:
 
 - An actual `content_filter` 400 body and a `blocked: true` / `reason=content_filter` response
-  on this surface — not provocable on `open-ai-ste-c3vx` because every chat deployment pins the
+  on this surface — not provocable on the evaluation resource because every chat deployment pins the
   `DisableFilter` RAI policy (deliberate, all environments — see the stakeholder confirmation
   in probe 1), and creating a temporarily-filtered deployment was outside this spike's
   permissions. One follow-up run of the existing spike tool against a `Microsoft.DefaultV2`
