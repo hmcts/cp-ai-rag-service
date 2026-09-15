@@ -20,7 +20,7 @@ Parent ticket: [DD-43417](https://hmcts.atlassian.net/browse/DD-43417) — "Migr
 - Every stage PR is independently mergeable and leaves `main` in a working, releasable state (D1). Stages 1 and 2 are behaviour-neutral at their default provider setting (NFR-2, NFR-10) — no coordinated app-settings change is required to merge them.
 - The Jira ticket reference goes in the PR description (`**Jira:** DD-43417`), not the PR title (repo convention).
 - OAI-03 (Stage 0) runs **in parallel** with OAI-01/OAI-02 and has no code dependency on them; its verdict is a **gate**, not an input, on OAI-05.
-- OAI-05 is written now for scoping purposes only. It must **not** be pulled into a sprint until (a) OQ-6 ("fully exercised in production") is defined and satisfied, and (b) the OAI-03 verdict is recorded — both currently open (D4/D3).
+- OAI-05 is written now for scoping purposes only. It must **not** be pulled into a sprint until OQ-6 ("fully exercised in production") is defined and satisfied (D4). ~~and (b) the OAI-03 verdict is recorded~~ **The D3 gate is closed: OAI-03 delivered findings-only (PR #141), and the stakeholder decision (Mahesh, 2026-09-15) — content filtering is guaranteed disabled on all model resources, no FR-11 logging required — is recorded in `04-content-filter-parity-findings.md` §4.**
 
 ---
 
@@ -126,7 +126,15 @@ Delivers AC-7 through AC-19 in `01-requirements.md` verbatim (interface extracti
 
 ---
 
-## OAI-03: Content-filter diagnostics parity spike (+ FR-11 logging if a gap is confirmed)
+## OAI-03: Content-filter diagnostics parity spike — **DELIVERED FINDINGS-ONLY (PR #141)**
+
+> **Outcome (2026-09-15):** the spike ran against the non-live STE resource and confirmed the
+> diagnostic gap, but the stakeholder decision is that **no code change ships**: content
+> filtering is guaranteed disabled on all model resources as a standing operational given, so
+> FR-11 tripwire logging is not required. The verdict + decision live in
+> `04-content-filter-parity-findings.md` §4 and close the D3 gate on OAI-05. A built-and-tested
+> FR-11 implementation was deliberately dropped; it is recoverable from PR #141's pre-force-push
+> history if the posture ever changes. The story text below is retained as written for the record.
 
 ### User story
 As a **developer/maintainer preparing the ground for Stage 4**,

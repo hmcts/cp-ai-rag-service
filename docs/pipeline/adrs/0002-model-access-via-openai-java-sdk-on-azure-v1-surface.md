@@ -51,6 +51,6 @@ The full decision list (DD-1 … DD-13, with per-decision alternatives) is in `0
 
 **Negative / accepted risks**
 - **Backoff configurability is lost**: openai-java's retry curve is fixed (0.5 s → 8 s + jitter, `Retry-After` honoured); `AZURE_CLIENT_BASE_DELAY_IN_SECONDS`/`MAX_DELAY` become documented no-ops on this client. Only max-retries carries over.
-- **Content-filter diagnostics may be reduced** on the Responses API path — bounded by the spike gate: the Azure path is not deleted until the verdict (and any FR-11 logging) is closed.
+- **Content-filter diagnostics are reduced** on the Responses API path — **accepted by decision (2026-09-15)**: content filtering is deliberately disabled on all model resources (sensitive case material must not be truncated), so filter events cannot occur in normal operation and no replacement logging ships; the spike verdict + decision (`04-content-filter-parity-findings.md`) close the D3 gate on the Stage 4 deletion.
 - **One-way door at Stage 4**: after deletion, reverting to the Azure SDK is a code revert and redeploy — which is exactly why the removal is deferred behind the production-exercise gate.
 - Two live model-plumbing paths persist until Stage 4; the gate criteria (OQ-6) must be defined so the deferral does not drift indefinitely.
