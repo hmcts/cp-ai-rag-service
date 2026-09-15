@@ -6,9 +6,9 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_EMBEDDING_SERVICE_END
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
+import uk.gov.moj.cp.ai.client.EmbeddingServiceFactory;
 import uk.gov.moj.cp.ai.exception.EmbeddingServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
-import uk.gov.moj.cp.ai.service.AzureEmbeddingService;
 import uk.gov.moj.cp.ai.service.EmbeddingService;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
 
@@ -33,9 +33,7 @@ public class ChunkEmbeddingService {
         final String embeddingServiceDeploymentName = System.getenv(AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME);
         embeddingsBatchSize = parseInt(getRequiredEnv("EMBEDDINGS_BATCH_SIZE", String.valueOf(DEFAULT_EMBEDDINGS_BATCH_SIZE)));
 
-        // FR-7: to be replaced by EmbeddingServiceFactory.getInstance(...) when the factory lands;
-        // pinned to the Azure implementation here so the interface extraction stays behaviour-identical.
-        this.embeddingService = new AzureEmbeddingService(embeddingServiceEndpoint, embeddingServiceDeploymentName);
+        this.embeddingService = EmbeddingServiceFactory.getInstance(embeddingServiceEndpoint, embeddingServiceDeploymentName);
     }
 
     public ChunkEmbeddingService(EmbeddingService embeddingService) {

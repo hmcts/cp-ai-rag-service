@@ -3,8 +3,8 @@ package uk.gov.moj.cp.retrieval.service;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_EMBEDDING_SERVICE_ENDPOINT;
 
+import uk.gov.moj.cp.ai.client.EmbeddingServiceFactory;
 import uk.gov.moj.cp.ai.exception.EmbeddingServiceException;
-import uk.gov.moj.cp.ai.service.AzureEmbeddingService;
 import uk.gov.moj.cp.ai.service.EmbeddingService;
 
 import java.util.List;
@@ -22,10 +22,7 @@ public class EmbedDataService {
     public EmbedDataService() {
         final String endpoint = System.getenv(AZURE_EMBEDDING_SERVICE_ENDPOINT);
         final String deploymentName = System.getenv(AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME);
-        // FR-7: to be replaced by EmbeddingServiceFactory.getInstance(endpoint, deploymentName)
-        // when the factory lands; pinned to the Azure implementation here so the interface
-        // extraction stays behaviour-identical.
-        embeddingService = new AzureEmbeddingService(endpoint, deploymentName);
+        embeddingService = EmbeddingServiceFactory.getInstance(endpoint, deploymentName);
     }
 
     EmbedDataService(EmbeddingService embeddingService) {

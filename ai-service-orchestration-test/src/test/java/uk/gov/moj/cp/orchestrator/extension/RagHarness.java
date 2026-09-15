@@ -8,6 +8,7 @@ import static uk.gov.moj.cp.orchestrator.FunctionAppName.ANSWER_SCORING_FUNCTION
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_INGESTION_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_METADATA_CHECK_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_STATUS_CHECK_FUNCTION;
+import static uk.gov.moj.cp.orchestrator.extension.ProviderEnv.providerEnvEntries;
 import static uk.gov.moj.cp.orchestrator.util.BlobUtil.deleteContainer;
 import static uk.gov.moj.cp.orchestrator.util.BlobUtil.ensureContainerExists;
 import static uk.gov.moj.cp.orchestrator.util.IndexUtil.createIndexFromSchema;
@@ -23,6 +24,7 @@ import uk.gov.moj.cp.orchestrator.util.FunctionHostManager;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
@@ -324,7 +326,7 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
     }
 
     private Map<String, String> setupEnvVarMap() {
-        return Map.ofEntries(
+        final Map<String, String> envVarMap = new HashMap<>(Map.ofEntries(
                 Map.entry("FUNCTIONS_WORKER_RUNTIME", "java"),
                 Map.entry("FUNCTIONS_EXTENSION_VERSION", "~4"),
 
@@ -383,7 +385,13 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
                 Map.entry("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME", getRequiredEnv("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME")),
 
                 Map.entry("RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING", getRequiredEnv("RECORD_SCORE_AZURE_INSIGHTS_CONNECTION_STRING"))
-        );
+        ));
+
+        // Which SDK leg the hosts run (chat and embeddings independently), forwarded from this
+        // JVM's environment with an `azure` default so an unset run reproduces today's behaviour.
+        envVarMap.putAll(providerEnvEntries());
+
+        return Map.copyOf(envVarMap);
     }
 
     private static Pair<FunctionHostManager, RequestSpecification> getFunctionConfig(final int port, final String appDirectory) {

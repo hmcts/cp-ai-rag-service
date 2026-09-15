@@ -120,6 +120,7 @@ Query prompts live in `src/main/resources/user-queries.json` (see *Query file fo
 | `LLM_REASONING_EFFORT` | Reasoning models only; `none` avoids reasoning-token truncation. |
 | `CITATION_GUARD_MODE` | Set `off` for measurement runs so citation-degraded answers are measured, not thrown as `CitationDegradedException` (which the harness records as an ERROR cell). |
 | `AZURE_EMBEDDING_SERVICE_ENDPOINT`, `AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME` | Embeddings (query vectors + the quality-comparison cosine). |
+| `EMBEDDING_SERVICE_PROVIDER` | Embeddings SDK leg in the deployed functions (`azure`\|`openai`, default `azure`). The harness itself pins the Azure implementation (pinned API version), so this documents the function-side default only. |
 
 ### Retrieval refinement
 
