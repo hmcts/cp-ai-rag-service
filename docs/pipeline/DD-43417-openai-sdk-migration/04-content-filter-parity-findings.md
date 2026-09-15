@@ -200,13 +200,20 @@ this dynamic — only what is *loggable* on each failed attempt.
 
 ## 4. VERDICT
 
-**Parity achievable — gap confirmed: `OpenAiChatService` currently logs no content-filter
-diagnostics on either failure mode; FR-11 logging changes are required in `OpenAiChatService`
-(and nowhere else).** Framing, given the deliberate filter-disable decision (probe 1): in
-production a filter event should never occur, so the FR-11 logging serves as a
-**misconfiguration tripwire** — an unexpected `content_filter` error or annotation means an
-RAI policy has regressed towards a Microsoft default and case data is being silently
-suppressed, which must be immediately visible in the logs. Specifically:
+> **Final decision (Mahesh, 2026-09-15): no code change will be made.** Content filtering is
+> guaranteed disabled on all of the service's model resources as a standing operational given,
+> so the FR-11 tripwire logging is not required — the gap analysis below is retained for the
+> record, and **the D3 gate on the Stage 4 chat-path deletion (DD-43424) is satisfied by this
+> recorded decision.** A working FR-11 implementation (catch-log-rethrow in `OpenAiChatService`
+> + 10 tests) was built and reviewed on this branch and then deliberately dropped — it can be
+> recovered from the PR history if the operational stance ever changes.
+
+The gap analysis, as found: **parity achievable — gap confirmed: `OpenAiChatService` logs no
+content-filter diagnostics on either failure mode.** Framing, given the deliberate
+filter-disable decision (probe 1): in production a filter event should never occur, so any
+such logging would serve as a **misconfiguration tripwire** — an unexpected `content_filter`
+error or annotation means an RAI policy has regressed towards a Microsoft default and case
+data is being silently suppressed. Specifically:
 
 What **IS** recoverable through openai-java on `/openai/v1`:
 
@@ -237,7 +244,7 @@ What is **NOT** (yet) directly demonstrated:
   the FR-11 logging is a misconfiguration tripwire for events that should never occur, and the
   documented Azure error contract is sufficient evidence for that purpose.
 
-## 5. Recommended FR-11 change sketch (for the migration story, NOT implemented in this spike)
+## 5. FR-11 change sketch (NOT implemented — retained for the record; see the decision in §4)
 
 In `OpenAiChatService.callModel`:
 
