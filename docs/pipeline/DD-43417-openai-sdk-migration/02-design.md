@@ -149,7 +149,6 @@ public final class OpenAiClientConfiguration {
     private static final String DEFAULT_MAX_RETRIES              = "3";
     private static final String DEFAULT_REQUEST_TIMEOUT_SECONDS  = "180";  // HTTP_CLIENT_RESPONSE_*
     private static final String DEFAULT_CONNECT_TIMEOUT_SECONDS  = "10";
-    private static final String DEFAULT_READ_TIMEOUT_SECONDS     = "60";
     private static final String DEFAULT_WRITE_TIMEOUT_SECONDS    = "60";
 
     /** @return openai-java maxRetries. NOTE: backoff base/max are fixed in the SDK (see class Javadoc). */
@@ -158,9 +157,9 @@ public final class OpenAiClientConfiguration {
     /** @return com.openai.core.Timeout with request/connect/read/write phases. */
     public static Timeout getTimeout() {
         return Timeout.builder()
-                .request(Duration.ofSeconds(requestSeconds))   // HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS
+                .request(Duration.ofSeconds(responseSeconds))  // HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS
                 .connect(Duration.ofSeconds(connectSeconds))   // HTTP_CLIENT_CONNECT_TIMEOUT_IN_SECONDS
-                .read(Duration.ofSeconds(readSeconds))         // HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS
+                .read(Duration.ofSeconds(responseSeconds))     // OkHttp read bounds first-byte wait → response value
                 .write(Duration.ofSeconds(writeSeconds))       // HTTP_CLIENT_WRITE_TIMEOUT_IN_SECONDS
                 .build();
     }
@@ -178,12 +177,12 @@ A single INFO line at first construction logs the effective `maxRetries` + four 
 | `AZURE_CLIENT_MAX_RETRIES` | `ExponentialBackoffOptions.setMaxRetries` | `OpenAIOkHttpClient.Builder.maxRetries(int)` | `3` |
 | `AZURE_CLIENT_BASE_DELAY_IN_SECONDS` | `setBaseDelay` | **no equivalent** — documented no-op on this client | `1` |
 | `AZURE_CLIENT_MAX_DELAY_IN_SECONDS` | `setMaxDelay` | **no equivalent** — documented no-op on this client | `60` |
-| `HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS` | `NettyAsyncHttpClientBuilder.responseTimeout` | `Timeout.request` | `180` |
+| `HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS` | `NettyAsyncHttpClientBuilder.responseTimeout` | `Timeout.request` **and** `Timeout.read` | `180` |
 | `HTTP_CLIENT_CONNECT_TIMEOUT_IN_SECONDS` | `connectTimeout` | `Timeout.connect` | `10` |
-| `HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS` | `readTimeout` | `Timeout.read` | `60` |
+| `HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS` | `readTimeout` | **no equivalent applied** — documented no-op on this client (see below) | `60` |
 | `HTTP_CLIENT_WRITE_TIMEOUT_IN_SECONDS` | `writeTimeout` | `Timeout.write` | `60` |
 
-`HTTP_CLIENT_RESPONSE_*` → `Timeout.request` is the right mapping, not `Timeout.read`: Netty's `responseTimeout` bounds the wait for a complete response, and `com.openai.core.Timeout#request` is documented as *"the maximum time allowed for a complete HTTP call, **not including retries** … resolving DNS, connecting, writing the request body, server processing, as well as reading the response body"*. `Timeout.read`/`write` are the inter-packet stall bounds, matching Netty's `readTimeout`/`writeTimeout` semantics exactly.
+`HTTP_CLIENT_RESPONSE_*` → `Timeout.request` is the right mapping: Netty's `responseTimeout` bounds the wait for a complete response, and `com.openai.core.Timeout#request` is documented as *"the maximum time allowed for a complete HTTP call, **not including retries** … resolving DNS, connecting, writing the request body, server processing, as well as reading the response body"*. **The read phase also takes the response value** (corrected at Stage 1 code review): `Timeout.read` maps onto OkHttp's `readTimeout`, which — unlike Netty's `readTimeout` — also bounds the wait for the *first* response byte. Our Responses-API calls are non-streaming, so the model's entire processing time falls inside that first read; mapping the 60 s read var onto it would cap model latency at 60 s versus 180 s on the Azure leg. `HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS` therefore joins the backoff delay vars as Azure-SDK-only. `Timeout.write` remains a genuine inter-packet bound (request bodies are small).
 
 ### `OpenAiClientFactory` wiring (FR-2)
 
@@ -221,10 +220,10 @@ Facts from the repo, not assumption:
 |---|---|---|
 | **Hard ceiling** — every attempt burns the full request timeout | (3 retries + 1) × 180 s + backoff (0.5 + 1 + 2 s, jittered) | **≈ 723 s ≈ 12.1 min** |
 | Margin to host `functionTimeout` (30 min default) | 1800 − 723 | **≈ 18 min headroom** (NFR-5 satisfied) |
-| **Realistic stall bound** — a hung/stalled connection trips `Timeout.read` (60 s) first | 4 × 60 s + ~3.5 s backoff | **≈ 244 s < 300 s lease TTL** ✔ |
+| **Realistic stall bound** — a hung/stalled connection trips `Timeout.read` (= response value, 180 s) | 4 × 180 s + ~3.5 s backoff | ≈ 723 s — identical to the Azure leg's exposure (below) |
 | Pre-existing Azure-path equivalent | 4 × 180 s (Netty `responseTimeout`) + 1+2+4 s | ≈ 727 s — **identical exposure today** |
 
-**Recommendation (OQ-3): keep `HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS=180` and map it to `Timeout.request`.** It sits comfortably inside the 30-minute host default, and because `Timeout.read=60 s` bounds the only realistic failure mode (a stalled stream) at ~244 s, the practical worst-case attempt stays **inside** the 300 s idempotency lease. The 12.1-minute theoretical ceiling exceeds the lease TTL, but (a) it is **exactly the exposure that exists today** on the Azure path — this work introduces no regression — and (b) lease expiry under a still-running worker is not a correctness failure: the claim-time ETag fences the terminal write, the late worker gets a 412 (`EtagMismatchException`), discards its result and never enqueues scoring. Record two follow-ups rather than widening this ticket:
+**Recommendation (OQ-3): keep `HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS=180` and map it to `Timeout.request` (and, per the Stage 1 review correction, to `Timeout.read`).** It sits comfortably inside the 30-minute host default with ≈18 minutes of headroom. The 12.1-minute theoretical ceiling exceeds the 300 s idempotency lease TTL, but (a) it is **exactly the exposure that exists today** on the Azure path (4 × 180 s Netty `responseTimeout`) — this work introduces no regression — and (b) lease expiry under a still-running worker is not a correctness failure: the claim-time ETag fences the terminal write, the late worker gets a 412 (`EtagMismatchException`), discards its result and never enqueues scoring. Record two follow-ups rather than widening this ticket:
 
 1. **Pin `functionTimeout` explicitly** in the queue-worker `host.json` files (e.g. `00:10:00`) so the budget is not silently inherited from a plan change. A Consumption-plan app would default to 5 minutes and truncate the retry chain.
 2. **Reconcile the retry-chain ceiling with the lease TTL** — either lower the model-call request timeout or raise `IDEMPOTENCY_LEASE_TTL_SECONDS` (headroom to 600 s exists before the `visibilityTimeout × (maxDequeueCount − 1)` bound bites).
@@ -547,7 +546,7 @@ Nothing in the queue/idempotency machinery changes; this section states the inva
 
 - **Idempotency:** `IdempotencyGuard.runOnce(key, work)` keyed on `documentId` / `transactionId`, the ETag/If-Match lease claim, terminal-row skip (`INGESTION_SUCCESS`/`INGESTION_FAILED`/`FILE_SIZE_OVER_LIMIT`, `ANSWER_GENERATED`/`ANSWER_GENERATION_FAILED`), lease-release-before-rethrow and the WARN-and-leave-non-terminal behaviour at exhaustion against a live lease — all untouched. An SDK swap inside the guarded work unit is invisible to the guard.
 - **Redelivery:** an OpenAI-path failure (`ChatServiceException`, `EmbeddingServiceException`, or an `OpenAIServiceException` escaping as a cause) propagates exactly as an Azure-path failure does today, riding queue redelivery up to `maxDequeueCount` 3 with the lease released before each rethrow. The citation-guard retry semantics documented in `CLAUDE.md` are unaffected — `CitationDegradedException` is thrown by `ResponseGenerationService` above the SDK boundary.
-- **Lease-TTL invariant:** `IDEMPOTENCY_LEASE_TTL_SECONDS` (300) < `visibilityTimeout` (300 s) × (`maxDequeueCount` 3 − 1) = 600 s — unchanged. The new client's timeout budget is analysed against it in the OQ-3 table: realistic stall bound ≈ 244 s sits **inside** the lease; the theoretical 723 s ceiling does not, which is the pre-existing Azure-path exposure, fenced (not corrupted) by the claim-time ETag.
+- **Lease-TTL invariant:** `IDEMPOTENCY_LEASE_TTL_SECONDS` (300) < `visibilityTimeout` (300 s) × (`maxDequeueCount` 3 − 1) = 600 s — unchanged. The new client's timeout budget is analysed against it in the OQ-3 table: the ≈ 723 s retry-chain ceiling exceeds the lease, but is the pre-existing Azure-path exposure (4 × 180 s), fenced (not corrupted) by the claim-time ETag.
 - **Poison/exhaustion:** unchanged. Note for triage: a deterministically content-filtered prompt will burn all three delivery attempts and land on the configured `CITATION_GUARD_MODE`/failure path — another reason the FR-11 logging matters.
 - **Retrieval invariants:** untouched. `SEARCH_NEAREST_NEIGHBOURS_COUNT ≥ SEARCH_TOP_RESULTS_COUNT > SEARCH_MMR_FINAL_COUNT` (50 ≥ 50 > 15), stage order containment dedup → semantic dedup → MMR, and `LLM_MODEL_RESPONSE_MAX_TOKENS` are all outside this change. The only retrieval-adjacent risk is **embedding-vector equivalence** (NFR-1) — same deployment, same model, `List<Float>` drop-in, ordering explicitly restored.
 
@@ -572,7 +571,7 @@ Nothing in the queue/idempotency machinery changes; this section states the inva
 | 3 | **Content-filter diagnostics gap** — operational triage of a filtered prompt is worse on the Responses API than the Azure path's category/severity dump | Med / Med | Stage 0 spike (D3) with a recorded verdict; FR-11 logging if a gap is confirmed; **hard gate on Stage 4 chat deletion** — the Azure path stays available until it is closed |
 | 4 | **v1 surface availability/RBAC per environment** — `/openai/v1` or the `cognitiveservices` scope not enabled on the *embedding* deployment in some environment, so cut-over 500s there | Low / High | Chat already proves the surface + scope on the same resource (Assumptions); per-environment pre-flight check before the Stage 3 deploy (platform/infra dependency); rollback is one app setting |
 | 5 | **`user` tag rejection on `/openai/v1`** (OQ-8) | Low / Low | Verified in the Stage 2 PR with one real call; drop the field and document the gap if rejected — nothing depends on it |
-| 6 | **Retry-chain wall-clock vs lease TTL** — 4 × 180 s theoretical ceiling exceeds `IDEMPOTENCY_LEASE_TTL_SECONDS` 300 | Low / Med | **Pre-existing and identical on the Azure path** — no regression; `Timeout.read` 60 s bounds the realistic stall at ~244 s; ETag fencing makes lease expiry safe (412 → discard, no scoring enqueue); two follow-ups raised (pin `functionTimeout`; reconcile ceiling vs lease) |
+| 6 | **Retry-chain wall-clock vs lease TTL** — 4 × 180 s theoretical ceiling exceeds `IDEMPOTENCY_LEASE_TTL_SECONDS` 300 | Low / Med | **Pre-existing and identical on the Azure path** — no regression; ETag fencing makes lease expiry safe (412 → discard, no scoring enqueue); two follow-ups raised (pin `functionTimeout`; reconcile ceiling vs lease) |
 | 7 | **Silent default flip at Stage 3** — an environment with no provider app settings changes SDK on deploy without an operator action | Med / Med | FR-9 documentation in every sample + `CLAUDE.md`; provider logged at construction (AC-23); staged per-environment rollout with a bake (OQ-5); explicit `azure` settings can be pinned pre-deploy by any environment wanting to opt out |
 | 8 | **`EmbeddingServiceTest`'s internal-API fixtures** (`com.azure.json.implementation.DefaultJsonReader`) break on an SDK bump | Low / Low | No version bump planned (Dependencies); class is deleted at Stage 4 (OQ-7); the surviving `OpenAiEmbeddingServiceTest` uses public builders only |
 | 9 | **Two live code paths for longer than intended** — the deferred removal drifts and the repo carries duplicated model plumbing indefinitely | Med / Low | OQ-6 must define the gate concretely before Stage 4 is scheduled; Stage 4 is captured as a `Should` FR with a named precondition, not an open intention |
@@ -588,7 +587,7 @@ Nothing in the queue/idempotency machinery changes; this section states the inva
 - **DD-3 — Interface named `EmbeddingService` in the existing package, implementations renamed.** *Alt: keep the concrete class name and add `OpenAiEmbeddingService` as a sibling with a new interface name* — rejected: every consumer and mock would have to change, defeating "zero-behaviour-change refactor" (AC-7/NFR-10).
 - **DD-4 — Reuse `AZURE_CLIENT_MAX_RETRIES` / `HTTP_CLIENT_*` for the OpenAI client** (OQ-1). *Alt: `OPENAI_CLIENT_*` with fallback* — deferred to Stage 4, when the rename is free of cut-over risk.
 - **DD-5 — `maxRetries` default 3, matching `ClientConfiguration`** (OQ-2). *Alt: adopt the SDK's 2* — rejected: silently changes throttling resilience mid-migration and leaves the sync path with less retry than today.
-- **DD-6 — `HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS` → `Timeout.request` (not `read`)**, matching Netty `responseTimeout` semantics; `read`/`write` map to the inter-packet phases.
+- **DD-6 — `HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS` → `Timeout.request` *and* `Timeout.read`** (corrected at Stage 1 code review): OkHttp's read timeout bounds the first-byte wait — the model's processing time on non-streaming calls — so it must carry the response value for Azure parity. `HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS` is a documented no-op on this client; `write` maps to the inter-packet write phase.
 - **DD-7 — Explicit `Embedding::index` sort** in `OpenAiEmbeddingService` rather than trusting array order (NFR-1/AC-8) — the one failure mode that would corrupt the index silently.
 - **DD-8 — `PinnedApiVersionEmbeddingService` transitionally `extends AzureEmbeddingService`** at Stage 2 (a one-line superclass rename, harness stays working), deleted at Stage 3 (FR-13). *Alt: delete it at Stage 2* — rejected: Stage 2 must not change harness behaviour while `azure` is still the default.
 - **DD-9 — Keep `EmbeddingServiceTest` on its internal-API fixtures, renamed to `AzureEmbeddingServiceTest`** (OQ-7) — scheduled deletion at Stage 4 makes a rewrite uneconomic.
@@ -605,7 +604,7 @@ Nothing in the queue/idempotency machinery changes; this section states the inva
 |---|---|---|
 | OQ-1 | Env-var naming | **Reuse** `AZURE_CLIENT_MAX_RETRIES` / `HTTP_CLIENT_*` in Stage 1 (zero operational churn, identical tuning on both legs). Optional `OPENAI_CLIENT_*` rename with legacy fallback at Stage 4. |
 | OQ-2 | Retry-count default | **3** — match `ClientConfiguration`; queue redelivery is an outer retry, and the sync path has none. |
-| OQ-3 | Request-timeout ceiling | **180 s, mapped to `Timeout.request` — safe.** No `functionTimeout` is set anywhere; plan default 30 min gives ≈18 min headroom over the 12.1 min theoretical ceiling. `Timeout.read=60 s` bounds the realistic stall at ≈244 s, inside the 300 s lease. Two follow-ups: pin `functionTimeout` in worker `host.json`; reconcile ceiling vs lease TTL. |
+| OQ-3 | Request-timeout ceiling | **180 s, mapped to `Timeout.request` and `Timeout.read` — safe.** No `functionTimeout` is set anywhere; plan default 30 min gives ≈18 min headroom over the 12.1 min theoretical ceiling, which is identical to the Azure leg's existing exposure. Two follow-ups: pin `functionTimeout` in worker `host.json`; reconcile ceiling vs lease TTL. |
 | OQ-4 | Spike owner/location | Location: `docs/pipeline/DD-43417-openai-sdk-migration/03-content-filter-parity-findings.md`; provoke in a **non-production** resource via the harness. Owner: still to be named. |
 | OQ-5 | Cut-over granularity | **Embeddings first, chat second**, per environment, with a bake between (DD-11). |
 | OQ-6 | "Fully exercised in production" | Still open (stakeholder). Suggest concrete criteria: ≥ N days on the OpenAI path in prod, ≥ M ingestion + answer transactions, zero SDK-attributable error classes, groundedness distribution within normal variance. |
