@@ -42,7 +42,6 @@ class OpenAiClientConfigurationTest {
     private static final String DEFAULT_MAX_RETRIES = "3";
     private static final String DEFAULT_RESPONSE_TIMEOUT_IN_SECONDS = "180";
     private static final String DEFAULT_CONNECT_TIMEOUT_IN_SECONDS = "10";
-    private static final String DEFAULT_READ_TIMEOUT_IN_SECONDS = "60";
     private static final String DEFAULT_WRITE_TIMEOUT_IN_SECONDS = "60";
 
     /**
@@ -79,8 +78,11 @@ class OpenAiClientConfigurationTest {
     }
 
     /**
-     * AC-2: each HTTP_CLIENT_* variable lands on its mapped Timeout phase — response → request,
-     * connect → connect, read → read, write → write.
+     * AC-2: each applied HTTP_CLIENT_* variable lands on its mapped Timeout phase — response → request,
+     * connect → connect, write → write. The read phase deliberately takes the <em>response</em> value too:
+     * OkHttp's read timeout bounds the wait for the first response byte (the model's processing time on these
+     * non-streaming calls), so binding it to HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS would cap model latency far
+     * below the Azure/Netty leg.
      */
     @Test
     void timeoutPhasesAreReadFromEnvironmentWhenSet() {
@@ -89,7 +91,6 @@ class OpenAiClientConfigurationTest {
 
             mockedStatic.when(() -> getRequiredEnvAsInteger(RESPONSE_TIMEOUT_VAR, DEFAULT_RESPONSE_TIMEOUT_IN_SECONDS)).thenReturn(240);
             mockedStatic.when(() -> getRequiredEnvAsInteger(CONNECT_TIMEOUT_VAR, DEFAULT_CONNECT_TIMEOUT_IN_SECONDS)).thenReturn(20);
-            mockedStatic.when(() -> getRequiredEnvAsInteger(READ_TIMEOUT_VAR, DEFAULT_READ_TIMEOUT_IN_SECONDS)).thenReturn(90);
             mockedStatic.when(() -> getRequiredEnvAsInteger(WRITE_TIMEOUT_VAR, DEFAULT_WRITE_TIMEOUT_IN_SECONDS)).thenReturn(30);
 
             final Timeout timeout = OpenAiClientConfiguration.getTimeout();
@@ -97,19 +98,18 @@ class OpenAiClientConfigurationTest {
             assertNotNull(timeout);
             assertEquals(Duration.ofSeconds(240), timeout.request());
             assertEquals(Duration.ofSeconds(20), timeout.connect());
-            assertEquals(Duration.ofSeconds(90), timeout.read());
+            assertEquals(Duration.ofSeconds(240), timeout.read());
             assertEquals(Duration.ofSeconds(30), timeout.write());
 
             mockedStatic.verify(() -> getRequiredEnvAsInteger(RESPONSE_TIMEOUT_VAR, DEFAULT_RESPONSE_TIMEOUT_IN_SECONDS));
             mockedStatic.verify(() -> getRequiredEnvAsInteger(CONNECT_TIMEOUT_VAR, DEFAULT_CONNECT_TIMEOUT_IN_SECONDS));
-            mockedStatic.verify(() -> getRequiredEnvAsInteger(READ_TIMEOUT_VAR, DEFAULT_READ_TIMEOUT_IN_SECONDS));
             mockedStatic.verify(() -> getRequiredEnvAsInteger(WRITE_TIMEOUT_VAR, DEFAULT_WRITE_TIMEOUT_IN_SECONDS));
         }
     }
 
     /**
-     * AC-3: with nothing set, the documented repo defaults (180/10/60/60) apply rather than the
-     * SDK's own 10-minute request timeout.
+     * AC-3: with nothing set, the documented repo defaults (180 request, 10 connect, 180 read, 60 write) apply
+     * rather than the SDK's own 10-minute request timeout.
      */
     @Test
     void timeoutPhasesDefaultToDocumentedRepoDefaultsWhenEnvVarsAreMissing() {
@@ -123,48 +123,50 @@ class OpenAiClientConfigurationTest {
             assertNotNull(timeout);
             assertEquals(Duration.ofSeconds(180), timeout.request());
             assertEquals(Duration.ofSeconds(10), timeout.connect());
-            assertEquals(Duration.ofSeconds(60), timeout.read());
+            assertEquals(Duration.ofSeconds(180), timeout.read());
             assertEquals(Duration.ofSeconds(60), timeout.write());
         }
     }
 
     /**
      * AC-6 / FR-3: openai-java's backoff curve is fixed (0.5s → 8s), so the Azure delay variables are a
-     * documented no-op on this client. Setting them must neither throw nor change any produced value —
-     * and the configuration must never read them at all.
+     * documented no-op on this client — as is HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS, whose phase instead takes
+     * the response-timeout value. Setting all three must neither throw nor change any produced value — and the
+     * configuration must never read them at all.
      */
     @Test
-    void baseAndMaxDelayEnvVarsAreANoOpAndDoNotAffectTheConfiguration() {
+    void azureOnlyEnvVarsAreANoOpAndDoNotAffectTheConfiguration() {
 
         try (MockedStatic<EnvVarUtil> mockedStatic = Mockito.mockStatic(EnvVarUtil.class)) {
 
             mockedStatic.when(() -> getRequiredEnvAsInteger(MAX_RETRIES_VAR, DEFAULT_MAX_RETRIES)).thenReturn(3);
             stubAllTimeoutVarsAtTheirDocumentedDefaults(mockedStatic);
 
-            // The Azure-path delay variables are present in the environment.
+            // The Azure-only variables are present in the environment.
             mockedStatic.when(() -> getRequiredEnvAsInteger(eq(BASE_DELAY_VAR), anyString())).thenReturn(7);
             mockedStatic.when(() -> getRequiredEnvAsInteger(eq(MAX_DELAY_VAR), anyString())).thenReturn(120);
+            mockedStatic.when(() -> getRequiredEnvAsInteger(eq(READ_TIMEOUT_VAR), anyString())).thenReturn(60);
 
             final int maxRetries = OpenAiClientConfiguration.getMaxRetries();
             final Timeout timeout = OpenAiClientConfiguration.getTimeout();
 
-            // Identical to the defaults case — the delay variables changed nothing.
+            // Identical to the defaults case — the Azure-only variables changed nothing.
             assertEquals(3, maxRetries);
             assertEquals(Duration.ofSeconds(180), timeout.request());
             assertEquals(Duration.ofSeconds(10), timeout.connect());
-            assertEquals(Duration.ofSeconds(60), timeout.read());
+            assertEquals(Duration.ofSeconds(180), timeout.read());
             assertEquals(Duration.ofSeconds(60), timeout.write());
 
-            // Stronger than "did not throw": the delay variables are never even consulted.
+            // Stronger than "did not throw": these variables are never even consulted.
             mockedStatic.verify(() -> getRequiredEnvAsInteger(eq(BASE_DELAY_VAR), anyString()), never());
             mockedStatic.verify(() -> getRequiredEnvAsInteger(eq(MAX_DELAY_VAR), anyString()), never());
+            mockedStatic.verify(() -> getRequiredEnvAsInteger(eq(READ_TIMEOUT_VAR), anyString()), never());
         }
     }
 
     private void stubAllTimeoutVarsAtTheirDocumentedDefaults(final MockedStatic<EnvVarUtil> mockedStatic) {
         mockedStatic.when(() -> getRequiredEnvAsInteger(RESPONSE_TIMEOUT_VAR, DEFAULT_RESPONSE_TIMEOUT_IN_SECONDS)).thenReturn(180);
         mockedStatic.when(() -> getRequiredEnvAsInteger(CONNECT_TIMEOUT_VAR, DEFAULT_CONNECT_TIMEOUT_IN_SECONDS)).thenReturn(10);
-        mockedStatic.when(() -> getRequiredEnvAsInteger(READ_TIMEOUT_VAR, DEFAULT_READ_TIMEOUT_IN_SECONDS)).thenReturn(60);
         mockedStatic.when(() -> getRequiredEnvAsInteger(WRITE_TIMEOUT_VAR, DEFAULT_WRITE_TIMEOUT_IN_SECONDS)).thenReturn(60);
     }
 }

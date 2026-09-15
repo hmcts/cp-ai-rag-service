@@ -5,12 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 
+import uk.gov.moj.cp.ai.client.config.OpenAiClientConfiguration;
 import uk.gov.moj.cp.ai.util.EnvVarUtil;
 
 import java.time.Duration;
@@ -27,11 +26,11 @@ class OpenAiClientFactoryTest {
 
     private static final String ENDPOINT = "https://example-endpoint.com";
     private static final String DIFFERENT_ENDPOINT = "https://different-endpoint.com";
+    private static final String WIRING_TEST_ENDPOINT = "https://wiring-test-endpoint.com";
 
     private static final String MAX_RETRIES_VAR = "AZURE_CLIENT_MAX_RETRIES";
     private static final String RESPONSE_TIMEOUT_VAR = "HTTP_CLIENT_RESPONSE_TIMEOUT_IN_SECONDS";
     private static final String CONNECT_TIMEOUT_VAR = "HTTP_CLIENT_CONNECT_TIMEOUT_IN_SECONDS";
-    private static final String READ_TIMEOUT_VAR = "HTTP_CLIENT_READ_TIMEOUT_IN_SECONDS";
     private static final String WRITE_TIMEOUT_VAR = "HTTP_CLIENT_WRITE_TIMEOUT_IN_SECONDS";
 
     @Test
@@ -99,33 +98,40 @@ class OpenAiClientFactoryTest {
             final Timeout appliedTimeout = timeoutCaptor.getValue();
             assertEquals(Duration.ofSeconds(180), appliedTimeout.request());
             assertEquals(Duration.ofSeconds(10), appliedTimeout.connect());
-            assertEquals(Duration.ofSeconds(60), appliedTimeout.read());
+            // The read phase takes the response-timeout value: OkHttp's read timeout also bounds the wait for
+            // the first response byte, i.e. model latency on these non-streaming calls.
+            assertEquals(Duration.ofSeconds(180), appliedTimeout.read());
             assertEquals(Duration.ofSeconds(60), appliedTimeout.write());
         }
     }
 
     /**
-     * AC-6 / FR-3: the Azure backoff delay variables are a documented no-op on this client. With both set,
-     * configuration still applies cleanly and the applied values are unchanged.
+     * AC-1 / AC-2: the wiring itself — {@code getInstance} must build through {@code applyConfiguration}, not
+     * through a plain {@code builder.build()}. Guards against a regression that silently drops the hardening
+     * while every applyConfiguration-level test above still passes.
+     *
+     * <p>A dedicated endpoint is used because the factory cache is keyed by endpoint: a value no other test
+     * has requested guarantees the {@code computeIfAbsent} lambda actually runs here.
      */
     @Test
-    void applyConfigurationSucceedsUnchangedWhenAzureBackoffDelayVarsAreSet() {
+    void getInstanceAppliesConfigurationWhenBuildingANewClient() {
 
-        try (MockedStatic<EnvVarUtil> mockedStatic = Mockito.mockStatic(EnvVarUtil.class)) {
+        try (MockedStatic<OpenAiClientConfiguration> mockedConfiguration = Mockito.mockStatic(OpenAiClientConfiguration.class)) {
 
-            stubAllClientVarsAtTheirDocumentedDefaults(mockedStatic);
-            mockedStatic.when(() -> getRequiredEnvAsInteger(eq("AZURE_CLIENT_BASE_DELAY_IN_SECONDS"), anyString())).thenReturn(7);
-            mockedStatic.when(() -> getRequiredEnvAsInteger(eq("AZURE_CLIENT_MAX_DELAY_IN_SECONDS"), anyString())).thenReturn(120);
+            mockedConfiguration.when(OpenAiClientConfiguration::getMaxRetries).thenReturn(3);
+            mockedConfiguration.when(OpenAiClientConfiguration::getTimeout).thenReturn(
+                    Timeout.builder()
+                            .request(Duration.ofSeconds(180))
+                            .connect(Duration.ofSeconds(10))
+                            .read(Duration.ofSeconds(180))
+                            .write(Duration.ofSeconds(60))
+                            .build());
 
-            final OpenAIOkHttpClient.Builder builder = spy(OpenAIOkHttpClient.builder());
+            final OpenAIClient client = OpenAiClientFactory.getInstance(WIRING_TEST_ENDPOINT);
 
-            OpenAiClientFactory.applyConfiguration(builder);
-
-            verify(builder).maxRetries(3);
-
-            final ArgumentCaptor<Timeout> timeoutCaptor = ArgumentCaptor.forClass(Timeout.class);
-            verify(builder).timeout(timeoutCaptor.capture());
-            assertEquals(Duration.ofSeconds(180), timeoutCaptor.getValue().request());
+            assertNotNull(client);
+            mockedConfiguration.verify(OpenAiClientConfiguration::getMaxRetries);
+            mockedConfiguration.verify(OpenAiClientConfiguration::getTimeout);
         }
     }
 
@@ -133,7 +139,6 @@ class OpenAiClientFactoryTest {
         mockedStatic.when(() -> getRequiredEnvAsInteger(MAX_RETRIES_VAR, "3")).thenReturn(3);
         mockedStatic.when(() -> getRequiredEnvAsInteger(RESPONSE_TIMEOUT_VAR, "180")).thenReturn(180);
         mockedStatic.when(() -> getRequiredEnvAsInteger(CONNECT_TIMEOUT_VAR, "10")).thenReturn(10);
-        mockedStatic.when(() -> getRequiredEnvAsInteger(READ_TIMEOUT_VAR, "60")).thenReturn(60);
         mockedStatic.when(() -> getRequiredEnvAsInteger(WRITE_TIMEOUT_VAR, "60")).thenReturn(60);
     }
 }

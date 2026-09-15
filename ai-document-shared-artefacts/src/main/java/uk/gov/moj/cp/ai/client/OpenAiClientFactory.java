@@ -46,6 +46,8 @@ public class OpenAiClientFactory {
                             .baseUrl(key + "/openai/v1")
                             .credential(BearerTokenCredential.create(SHARED_BEARER_TOKEN_SUPPLIER));
 
+                    // Applied inside computeIfAbsent so the configuration log is emitted exactly once per
+                    // endpoint (on first build) rather than on every getInstance call.
                     return applyConfiguration(builder).build();
                 }
         );
@@ -56,9 +58,12 @@ public class OpenAiClientFactory {
         final int maxRetries = OpenAiClientConfiguration.getMaxRetries();
         final Timeout timeout = OpenAiClientConfiguration.getTimeout();
 
-        LOGGER.info("Configuring OpenAI client with maxRetries: {}, requestTimeout: {}, connectTimeout: {}, "
-                        + "readTimeout: {}, writeTimeout: {}",
-                maxRetries, timeout.request(), timeout.connect(), timeout.read(), timeout.write());
+        LOGGER.info("Configuring OpenAI client with maxRetries: {}, requestTimeoutSeconds: {} (also applied to the "
+                        + "read phase), connectTimeoutSeconds: {}, writeTimeoutSeconds: {}",
+                maxRetries,
+                timeout.request().toSeconds(),
+                timeout.connect().toSeconds(),
+                timeout.write().toSeconds());
 
         return builder
                 .maxRetries(maxRetries)
