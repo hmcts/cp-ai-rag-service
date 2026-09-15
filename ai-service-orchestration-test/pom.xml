@@ -62,8 +62,8 @@
 
     <profiles>
         <!-- Integration tests (*IT classes) run on failsafe, and only when this profile is
-             active: without it neither surefire (no *Test classes here) nor failsafe (goals
-             bound only below) executes anything, so a plain `mvn verify` stays offline. -->
+             active. Surefire runs only the env-only unit tests (ProviderEnvTest — no Azure
+             calls), so a plain `mvn verify` stays offline; failsafe goals bind only below. -->
         <profile>
             <id>ai-rag-integration-test</id>
             <activation>

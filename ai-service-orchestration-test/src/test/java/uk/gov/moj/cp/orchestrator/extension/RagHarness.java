@@ -389,6 +389,8 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
 
         // Which SDK leg the hosts run (chat and embeddings independently), forwarded from this
         // JVM's environment with an `azure` default so an unset run reproduces today's behaviour.
+        // Provider keys must NOT also appear in the Map.ofEntries block above — putAll would
+        // silently override the earlier value rather than fail loudly.
         envVarMap.putAll(providerEnvEntries());
 
         return Map.copyOf(envVarMap);
