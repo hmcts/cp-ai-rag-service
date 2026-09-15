@@ -461,6 +461,13 @@ Keep `.user("cp-ai-document-rag-embedding-service")` (AC-12): `user` is a first-
 
 ## Stage 0 — content-filter parity spike (FR-10, FR-11; AC-20…AC-22)
 
+> **Outcome (2026-09-15, supersedes the FR-11 branch of this section):** the spike ran (PR #141,
+> findings in `04-content-filter-parity-findings.md`). Content filtering is **deliberately and
+> permanently disabled** on all model resources (`DisableFilter` RAI policy — the corpus holds
+> sensitive material legitimate queries must retrieve verbatim), and the stakeholder decision is
+> that **no FR-11 logging ships**. The D3 gate on Stage 4's chat deletion is closed by that
+> recorded decision. The design text below is retained for the record.
+
 Runs in parallel with Stages 1–2; **gates only the Stage 4 chat deletion** (D3), not the cut-over.
 
 **What the Azure path gives today** (`AzureChatService.generateExplanationForEmptyResponse`, lines 184–208): on `CompletionsFinishReason.CONTENT_FILTERED` it serialises `chatCompletions.getPromptFilterResults()` (input-side categories/severities) and `chatChoice.getContentFilterResults()` (output-side) into a WARN, and branches separately on `TOKEN_LIMIT_REACHED`. `OpenAiChatService` has no equivalent — it logs `response.status()` and warns when `response.incompleteDetails()` is present.
@@ -568,7 +575,7 @@ Nothing in the queue/idempotency machinery changes; this section states the inva
 |---|---|---|---|
 | 1 | **Embedding vector ordering** — positional association in `ChunkEmbeddingService.enrichChunksWithEmbeddings` means a reordered response silently mis-associates every vector in a batch, corrupting the index with no error | Low / **Very High** | Explicit `sorted(comparingLong(Embedding::index))` (not array-order reliance); AC-8 test with deliberately shuffled indices; existing `embeddings.size() != batch.size()` mismatch guard retained; ingestion leg exercised on the `openai` leg before cut-over |
 | 2 | **Backoff configurability lost** — `AZURE_CLIENT_BASE_DELAY_IN_SECONDS`/`MAX_DELAY` become no-ops on the OpenAI client (fixed 0.5 s → 8 s) | High / Low | Accepted and documented (FR-3, Javadoc + `CLAUDE.md`); `Retry-After` is honoured, which is what actually governs Azure OpenAI 429s; `maxRetries` remains tunable; toggle back to `azure` if throttling behaviour degrades |
-| 3 | **Content-filter diagnostics gap** — operational triage of a filtered prompt is worse on the Responses API than the Azure path's category/severity dump | Med / Med | Stage 0 spike (D3) with a recorded verdict; FR-11 logging if a gap is confirmed; **hard gate on Stage 4 chat deletion** — the Azure path stays available until it is closed |
+| 3 | **Content-filter diagnostics gap** — operational triage of a filtered prompt is worse on the Responses API than the Azure path's category/severity dump | ~~Med / Med~~ **Closed** | Spike ran (PR #141): filtering is deliberately disabled on all model resources, so filter events cannot occur in normal operation; stakeholder decision — no FR-11 logging, gap accepted; D3 gate on Stage 4 closed by the recorded decision |
 | 4 | **v1 surface availability/RBAC per environment** — `/openai/v1` or the `cognitiveservices` scope not enabled on the *embedding* deployment in some environment, so cut-over 500s there | Low / High | Chat already proves the surface + scope on the same resource (Assumptions); per-environment pre-flight check before the Stage 3 deploy (platform/infra dependency); rollback is one app setting |
 | 5 | **`user` tag rejection on `/openai/v1`** (OQ-8) | Low / Low | Verified in the Stage 2 PR with one real call; drop the field and document the gap if rejected — nothing depends on it |
 | 6 | **Retry-chain wall-clock vs lease TTL** — 4 × 180 s theoretical ceiling exceeds `IDEMPOTENCY_LEASE_TTL_SECONDS` 300 | Low / Med | **Pre-existing and identical on the Azure path** — no regression; ETag fencing makes lease expiry safe (412 → discard, no scoring enqueue); two follow-ups raised (pin `functionTimeout`; reconcile ceiling vs lease) |
