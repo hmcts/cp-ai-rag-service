@@ -3,12 +3,15 @@ package uk.gov.moj.cp.ai.client;
 import static uk.gov.moj.cp.ai.util.CredentialUtil.getCredentialInstance;
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
+import uk.gov.moj.cp.ai.client.config.OpenAiClientConfiguration;
+
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 import com.azure.identity.AuthenticationUtil;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.core.Timeout;
 import com.openai.credential.BearerTokenCredential;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,11 +42,26 @@ public class OpenAiClientFactory {
                     // CRITICAL: The client is built here using the single, shared bearer token
                     // supplier sourced from the Azure default credential chain (Managed Identity
                     // in deployed environments, developer credentials locally).
-                    return OpenAIOkHttpClient.builder()
+                    final OpenAIOkHttpClient.Builder builder = OpenAIOkHttpClient.builder()
                             .baseUrl(key + "/openai/v1")
-                            .credential(BearerTokenCredential.create(SHARED_BEARER_TOKEN_SUPPLIER))
-                            .build();
+                            .credential(BearerTokenCredential.create(SHARED_BEARER_TOKEN_SUPPLIER));
+
+                    return applyConfiguration(builder).build();
                 }
         );
+    }
+
+    static OpenAIOkHttpClient.Builder applyConfiguration(final OpenAIOkHttpClient.Builder builder) {
+
+        final int maxRetries = OpenAiClientConfiguration.getMaxRetries();
+        final Timeout timeout = OpenAiClientConfiguration.getTimeout();
+
+        LOGGER.info("Configuring OpenAI client with maxRetries: {}, requestTimeout: {}, connectTimeout: {}, "
+                        + "readTimeout: {}, writeTimeout: {}",
+                maxRetries, timeout.request(), timeout.connect(), timeout.read(), timeout.write());
+
+        return builder
+                .maxRetries(maxRetries)
+                .timeout(timeout);
     }
 }
