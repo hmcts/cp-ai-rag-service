@@ -43,7 +43,20 @@ diagnostics).
 `completed`** on both `gpt-4o-response-generation` and `gpt-5.1` (3.8 s / 2.7 s, model answered).
 Root cause, from the control plane (`az cognitiveservices account deployment list`): every chat
 deployment on `open-ai-ste-c3vx` pins the custom RAI policy **`DisableFilter`** (base
-`Microsoft.Default`) — content filtering is disabled resource-wide:
+`Microsoft.Default`) — content filtering is disabled resource-wide.
+
+> **Stakeholder confirmation (Mahesh, 2026-09-15): this is a deliberate decision, applied to
+> all of the service's model resources, not a spike-environment quirk.** The corpus contains
+> sensitive material (sexual violence and related topics) that legitimate case-work queries
+> must retrieve verbatim; content filtering would truncate or block that data. Filtering is
+> therefore **fully disabled by design** across environments. Consequences for this spike's
+> conclusions: (a) a content-filter event in production is not an expected occurrence to
+> triage but a **misconfiguration signal** — e.g. an RAI policy reset to a Microsoft default —
+> that would silently suppress case data, which makes loud FR-11 logging *more* valuable, not
+> less; (b) the "confirm a real 400 against a filtered deployment" follow-up below is
+> **optional evidence-completeness work, not a delivery gate**; (c) `AzureChatService`'s
+> `CONTENT_FILTERED` branch is effectively dead code in production today, which further
+> de-risks the Stage 4 chat-path deletion.
 
 ```
 Name                           Rai
@@ -189,7 +202,11 @@ this dynamic — only what is *loggable* on each failed attempt.
 
 **Parity achievable — gap confirmed: `OpenAiChatService` currently logs no content-filter
 diagnostics on either failure mode; FR-11 logging changes are required in `OpenAiChatService`
-(and nowhere else).** Specifically:
+(and nowhere else).** Framing, given the deliberate filter-disable decision (probe 1): in
+production a filter event should never occur, so the FR-11 logging serves as a
+**misconfiguration tripwire** — an unexpected `content_filter` error or annotation means an
+RAI policy has regressed towards a Microsoft default and case data is being silently
+suppressed, which must be immediately visible in the logs. Specifically:
 
 What **IS** recoverable through openai-java on `/openai/v1`:
 
@@ -213,9 +230,12 @@ What is **NOT** (yet) directly demonstrated:
 
 - An actual `content_filter` 400 body and a `blocked: true` / `reason=content_filter` response
   on this surface — not provocable on `open-ai-ste-c3vx` because every chat deployment pins the
-  `DisableFilter` RAI policy, and creating a temporarily-filtered deployment was outside this
-  spike's permissions. One follow-up run of the existing spike tool against a
-  `Microsoft.DefaultV2` deployment closes both.
+  `DisableFilter` RAI policy (deliberate, all environments — see the stakeholder confirmation
+  in probe 1), and creating a temporarily-filtered deployment was outside this spike's
+  permissions. One follow-up run of the existing spike tool against a `Microsoft.DefaultV2`
+  deployment would close both — **optional**: since filtering is disabled by design everywhere,
+  the FR-11 logging is a misconfiguration tripwire for events that should never occur, and the
+  documented Azure error contract is sufficient evidence for that purpose.
 
 ## 5. Recommended FR-11 change sketch (for the migration story, NOT implemented in this spike)
 
