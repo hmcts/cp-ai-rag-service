@@ -72,6 +72,10 @@ public final class ContentFilterSpikeTool {
 
     private static final String BENIGN_SYSTEM = "You are a helpful assistant.";
 
+    private static final String ABSENT = "(absent)";
+    private static final String EXCEPTION_CLASS_LABEL = "  exception class = ";
+    private static final String MESSAGE_LABEL = "  message         = ";
+
     /**
      * Env var supplying the deliberately-filtered probe input. Deliberately NOT embedded in
      * source: the runner provides a short prompt targeting a single filter category (e.g. a
@@ -128,24 +132,24 @@ public final class ContentFilterSpikeTool {
             final long ms = elapsedMs(startedAt);
             // Probe 3 territory: the request was NOT rejected on the input side.
             out("RESULT: 200 OK (no input-side trip) in " + ms + " ms — output-side evidence follows (probe 3)");
-            out("  response.status()            = " + response.status().map(Object::toString).orElse("(absent)"));
+            out("  response.status()            = " + response.status().map(Object::toString).orElse(ABSENT));
             out("  response.incompleteDetails() = " + response.incompleteDetails()
-                    .map(d -> "reason=" + d.reason().map(Object::toString).orElse("(absent)"))
-                    .orElse("(absent)"));
+                    .map(d -> "reason=" + d.reason().map(Object::toString).orElse(ABSENT))
+                    .orElse(ABSENT));
             out("  _additionalProperties keys   = " + response._additionalProperties().keySet());
             // The Azure-specific annotation block on the parsed model (never the output text):
             final JsonValue contentFilters = response._additionalProperties().get("content_filters");
             out("  content_filters annotation   = "
-                    + (contentFilters == null ? "(absent)" : prettyPrint(toJsonNode(contentFilters)).trim()));
+                    + (contentFilters == null ? ABSENT : prettyPrint(toJsonNode(contentFilters)).trim()));
         } catch (final OpenAIServiceException e) {
             final long ms = elapsedMs(startedAt);
             out("RESULT: rejected in " + ms + " ms (single fast failure ⇒ no retry; "
                     + "RetryingHttpClient retries only X-Should-Retry/408/409/429/5xx)");
-            out("  exception class = " + e.getClass().getName());
+            out(EXCEPTION_CLASS_LABEL + e.getClass().getName());
             out("  statusCode()    = " + e.statusCode());
-            out("  code()          = " + e.code().orElse("(absent)"));
-            out("  type()          = " + e.type().orElse("(absent)"));
-            out("  param()         = " + e.param().orElse("(absent)"));
+            out("  code()          = " + e.code().orElse(ABSENT));
+            out("  type()          = " + e.type().orElse(ABSENT));
+            out("  param()         = " + e.param().orElse(ABSENT));
             final JsonNode body = toJsonNode(e.body());
             out("  body() JSON:");
             out(prettyPrint(body));
@@ -160,8 +164,8 @@ public final class ContentFilterSpikeTool {
             }
         } catch (final Exception e) {
             out("RESULT: unexpected exception after " + elapsedMs(startedAt) + " ms");
-            out("  exception class = " + e.getClass().getName());
-            out("  message         = " + e.getMessage());
+            out(EXCEPTION_CLASS_LABEL + e.getClass().getName());
+            out(MESSAGE_LABEL + e.getMessage());
         }
         out("");
     }
@@ -191,11 +195,11 @@ public final class ContentFilterSpikeTool {
             out("RESULT: unexpectedly succeeded (no 400)");
         } catch (final OpenAIServiceException e) {
             out("RESULT: rejected in " + elapsedMs(startedAt) + " ms (single fast failure ⇒ 400 not retried)");
-            out("  exception class = " + e.getClass().getName());
+            out(EXCEPTION_CLASS_LABEL + e.getClass().getName());
             out("  statusCode()    = " + e.statusCode());
-            out("  code()          = " + e.code().orElse("(absent)"));
-            out("  type()          = " + e.type().orElse("(absent)"));
-            out("  param()         = " + e.param().orElse("(absent)"));
+            out("  code()          = " + e.code().orElse(ABSENT));
+            out("  type()          = " + e.type().orElse(ABSENT));
+            out("  param()         = " + e.param().orElse(ABSENT));
             out("  body() JSON:");
             out(prettyPrint(toJsonNode(e.body())));
         } catch (final Exception e) {
@@ -216,13 +220,13 @@ public final class ContentFilterSpikeTool {
                 .build();
         try {
             final Response response = client.responses().create(params);
-            out("  response.status()            = " + response.status().map(Object::toString).orElse("(absent)"));
+            out("  response.status()            = " + response.status().map(Object::toString).orElse(ABSENT));
             out("  response.incompleteDetails() = " + response.incompleteDetails()
-                    .map(d -> "reason=" + d.reason().map(Object::toString).orElse("(absent)"))
-                    .orElse("(absent)"));
+                    .map(d -> "reason=" + d.reason().map(Object::toString).orElse(ABSENT))
+                    .orElse(ABSENT));
         } catch (final Exception e) {
-            out("  exception class = " + e.getClass().getName());
-            out("  message         = " + e.getMessage());
+            out(EXCEPTION_CLASS_LABEL + e.getClass().getName());
+            out(MESSAGE_LABEL + e.getMessage());
         }
         out("");
     }
@@ -239,7 +243,7 @@ public final class ContentFilterSpikeTool {
                 .build();
         try {
             final Response response = client.responses().create(params);
-            out("  response.status()          = " + response.status().map(Object::toString).orElse("(absent)"));
+            out("  response.status()          = " + response.status().map(Object::toString).orElse(ABSENT));
             out("  _additionalProperties()    = " + response._additionalProperties());
             // Raw body: the parsed model can only surface what the SDK maps; the raw JSON shows
             // everything Azure actually returned on the wire.
@@ -255,8 +259,8 @@ public final class ContentFilterSpikeTool {
                         + (filterKeys.isEmpty() ? "NO" : "YES " + filterKeys));
             }
         } catch (final Exception e) {
-            out("  exception class = " + e.getClass().getName());
-            out("  message         = " + e.getMessage());
+            out(EXCEPTION_CLASS_LABEL + e.getClass().getName());
+            out(MESSAGE_LABEL + e.getMessage());
         }
         out("");
     }
