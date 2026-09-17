@@ -45,24 +45,24 @@ class ChatServiceFactoryTest {
     }
 
     @Test
-    @DisplayName("Defaults to AzureChatService when provider is null")
-    void defaultsToAzureChatServiceWhenProviderIsNull() {
+    @DisplayName("AC-23: defaults to OpenAiChatService when provider is null")
+    void defaultsToOpenAiChatServiceWhenProviderIsNull() {
         final ChatService service = ChatServiceFactory.getInstance(ENDPOINT, DEPLOYMENT_NAME, null);
-        assertInstanceOf(AzureChatService.class, service);
+        assertInstanceOf(OpenAiChatService.class, service);
     }
 
     @Test
-    @DisplayName("Defaults to AzureChatService when provider is empty")
-    void defaultsToAzureChatServiceWhenProviderIsEmpty() {
+    @DisplayName("AC-23: defaults to OpenAiChatService when provider is empty")
+    void defaultsToOpenAiChatServiceWhenProviderIsEmpty() {
         final ChatService service = ChatServiceFactory.getInstance(ENDPOINT, DEPLOYMENT_NAME, "");
-        assertInstanceOf(AzureChatService.class, service);
+        assertInstanceOf(OpenAiChatService.class, service);
     }
 
     @Test
-    @DisplayName("Defaults to AzureChatService when provider is blank whitespace")
-    void defaultsToAzureChatServiceWhenProviderIsBlank() {
+    @DisplayName("AC-23: defaults to OpenAiChatService when provider is blank whitespace")
+    void defaultsToOpenAiChatServiceWhenProviderIsBlank() {
         final ChatService service = ChatServiceFactory.getInstance(ENDPOINT, DEPLOYMENT_NAME, "   ");
-        assertInstanceOf(AzureChatService.class, service);
+        assertInstanceOf(OpenAiChatService.class, service);
     }
 
     @Test
@@ -83,10 +83,10 @@ class ChatServiceFactoryTest {
     }
 
     @Test
-    @DisplayName("Public two-arg overload reads from env and returns some ChatService")
+    @DisplayName("AC-23: public two-arg overload reads from env and falls through to the OpenAI default")
     void publicOverloadReturnsAChatService() {
-        // Without setting the env var, the public overload should fall through to the Azure default.
+        // Without setting the env var, the public overload should fall through to the OpenAI default.
         final ChatService service = ChatServiceFactory.getInstance(ENDPOINT, DEPLOYMENT_NAME);
-        assertInstanceOf(AzureChatService.class, service);
+        assertInstanceOf(OpenAiChatService.class, service);
     }
 }
