@@ -6,6 +6,7 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.AZURE_EMBEDDING_SERVICE_END
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
+import uk.gov.moj.cp.ai.client.EmbeddingServiceFactory;
 import uk.gov.moj.cp.ai.exception.EmbeddingServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.service.EmbeddingService;
@@ -32,7 +33,7 @@ public class ChunkEmbeddingService {
         final String embeddingServiceDeploymentName = System.getenv(AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME);
         embeddingsBatchSize = parseInt(getRequiredEnv("EMBEDDINGS_BATCH_SIZE", String.valueOf(DEFAULT_EMBEDDINGS_BATCH_SIZE)));
 
-        this.embeddingService = new EmbeddingService(embeddingServiceEndpoint, embeddingServiceDeploymentName);
+        this.embeddingService = EmbeddingServiceFactory.getInstance(embeddingServiceEndpoint, embeddingServiceDeploymentName);
     }
 
     public ChunkEmbeddingService(EmbeddingService embeddingService) {

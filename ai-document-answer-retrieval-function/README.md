@@ -47,6 +47,7 @@ The count variables must satisfy `SEARCH_NEAREST_NEIGHBOURS_COUNT >= SEARCH_TOP_
 | `STORAGE_ACCOUNT_BLOB_CONTAINER_NAME_INPUT_CHUNKS` | Blob container for per-transaction input-chunk snapshots read by `GetAnswerGeneration` | <!-- TODO: missing from local.settings.sample.json; add it --> — |
 | `AZURE_EMBEDDING_SERVICE_ENDPOINT` | Azure OpenAI endpoint for the embedding model | — |
 | `AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME` | Deployment name of the embedding model | — |
+| `EMBEDDING_SERVICE_PROVIDER` | Embedding SDK provider toggle: `azure` (Azure OpenAI SDK) or `openai` (openai-java on `/openai/v1`) | `azure` |
 | `AZURE_SEARCH_SERVICE_ENDPOINT` | Azure AI Search service endpoint | — |
 | `AZURE_SEARCH_SERVICE_INDEX_NAME` | AI Search index name | — |
 | `SEARCH_NEAREST_NEIGHBOURS_COUNT` | kNN recall size for vector sub-query (must be >= `SEARCH_TOP_RESULTS_COUNT`) | `50` |
@@ -61,6 +62,7 @@ The count variables must satisfy `SEARCH_NEAREST_NEIGHBOURS_COUNT >= SEARCH_TOP_
 | `SEARCH_MMR_FINAL_COUNT` | Number of chunks sent to the LLM after MMR truncation (must be < `SEARCH_TOP_RESULTS_COUNT`) | `15` |
 | `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint for the chat model | — |
 | `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME` | Deployment name of the chat/LLM model | — |
+| `LLM_CHAT_SERVICE_PROVIDER` | Chat SDK provider toggle: `azure` (Azure OpenAI SDK) or `openai` (openai-java Responses API on `/openai/v1`) | `azure` |
 | `LLM_MODEL_RESPONSE_MAX_TOKENS` | Maximum token budget for the LLM response | `4000` (sample) |
 | `RESPONSE_GENERATION_SYSTEM_PROMPT` | System prompt template passed to the chat model | — |
 | `AZURE_CLIENT_MAX_RETRIES` | Maximum retries for Azure SDK HTTP client | `3` |
