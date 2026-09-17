@@ -520,6 +520,8 @@ sequenceDiagram
 
 **OQ-9 — integration matrix cost (recommendation):** run the forward leg (`openai`) in CI on the Stage 3 PR, and the rollback leg (`azure`) as a **locally-run pre-merge gate** whose output is pasted into the PR description. Doubling real-Azure integration cost on every subsequent PR buys little: after Stage 3 the `azure` leg is a deprecated path awaiting deletion, and its behaviour is frozen (the code is untouched from Stage 2 onward). Owner decision, but this is the cheap and defensible split.
 
+> **Superseded by owner decision (Mahesh, 2026-09-17, delivered in the DD-43423 PR):** both provider legs run in CI on every pipeline run — the two full-suite legs pinned to `openai` (both client-filtering modes) plus a happy-path-only `azure` rollback leg (`OrchestrationIT`), each a pinned failsafe execution in the orchestration-test pom per the client-filtering leg convention. The `azure` leg execution is deleted at Stage 4 (DD-43424).
+
 ---
 
 ## Stage 4 — deferred removal end-state (FR-15, FR-16; AC-28…AC-30)
@@ -600,7 +602,7 @@ Nothing in the queue/idempotency machinery changes; this section states the inva
 - **DD-9 — Keep `EmbeddingServiceTest` on its internal-API fixtures, renamed to `AzureEmbeddingServiceTest`** (OQ-7) — scheduled deletion at Stage 4 makes a rewrite uneconomic.
 - **DD-10 — Stage 0 findings note lives in `docs/pipeline/DD-43417-openai-sdk-migration/`** (OQ-4), because its verdict is a delivery gate, not an evaluation result.
 - **DD-11 — Cut over embeddings before chat, environment by environment, with a bake** (OQ-5) — isolates the leg with no production evidence.
-- **DD-12 — Forward leg in CI, rollback leg locally pre-merge** (OQ-9) — the `azure` leg is frozen code awaiting deletion; permanent CI duplication buys little.
+- **DD-12 — ~~Forward leg in CI, rollback leg locally pre-merge~~ Superseded (2026-09-17): both legs run in CI permanently** (OQ-9) — full suite on `openai`, happy-path on `azure`, pinned per failsafe execution until Stage 4 deletes the rollback leg.
 - **DD-13 — Keep the `user` tag, verify once** (OQ-8).
 
 ---
@@ -617,7 +619,7 @@ Nothing in the queue/idempotency machinery changes; this section states the inva
 | OQ-6 | "Fully exercised in production" | Still open (stakeholder). Suggest concrete criteria: ≥ N days on the OpenAI path in prod, ≥ M ingestion + answer transactions, zero SDK-attributable error classes, groundedness distribution within normal variance. |
 | OQ-7 | Azure-coupled tests | **Keep as-is**, renamed to `AzureEmbeddingServiceTest`; they die at Stage 4 (DD-9). |
 | OQ-8 | `user` tag on v1 | **Keep it**; verify with one real call in the Stage 2 PR; drop + document if rejected (DD-13). |
-| OQ-9 | Integration matrix cost | **Forward leg in CI, rollback leg local pre-merge** (DD-12). |
+| OQ-9 | Integration matrix cost | **Superseded (owner decision, 2026-09-17):** both legs in CI every run — full suite on `openai`, happy-path `azure` rollback leg; pinned failsafe executions; azure leg deleted at Stage 4. |
 
 ---
 
