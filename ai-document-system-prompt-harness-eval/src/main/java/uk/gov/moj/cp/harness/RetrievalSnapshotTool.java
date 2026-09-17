@@ -4,6 +4,7 @@ import static uk.gov.moj.cp.harness.HarnessEnv.env;
 import static uk.gov.moj.cp.harness.HarnessEnv.intEnv;
 import static uk.gov.moj.cp.harness.HarnessEnv.requireEnv;
 
+import uk.gov.moj.cp.ai.client.EmbeddingServiceFactory;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.service.EmbeddingService;
@@ -115,9 +116,7 @@ public final class RetrievalSnapshotTool {
                 entries.size(), distinctQueries.size(), documentIds.size(),
                 distinctQueries.size() * documentIds.size());
 
-        // Pinned to a GA api-version: the platform's hardened OpenAI resources 401 the SDK's
-        // default preview api-version. See PinnedApiVersionEmbeddingService.
-        final EmbeddingService embeddingService = new PinnedApiVersionEmbeddingService(
+        final EmbeddingService embeddingService = EmbeddingServiceFactory.getInstance(
                 requireEnv("AZURE_EMBEDDING_SERVICE_ENDPOINT"), requireEnv("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME"));
         final AzureAISearchService searchService = new AzureAISearchService(
                 requireEnv("AZURE_SEARCH_SERVICE_ENDPOINT"), requireEnv("AZURE_SEARCH_SERVICE_INDEX_NAME"));

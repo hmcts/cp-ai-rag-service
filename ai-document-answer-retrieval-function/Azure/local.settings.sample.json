@@ -20,7 +20,7 @@
 
     "AZURE_EMBEDDING_SERVICE_ENDPOINT": "<your-embedding-service-endpoint>",
     "AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME": "<embedding-service-deployment-name>",
-    "EMBEDDING_SERVICE_PROVIDER": "azure",
+    "EMBEDDING_SERVICE_PROVIDER": "openai",
 
     "AZURE_SEARCH_SERVICE_ENDPOINT": "<azure-ai-search-service-endpoint>",
     "AZURE_SEARCH_SERVICE_INDEX_NAME": "<azure-ai-search-index-name>",
@@ -37,7 +37,7 @@
 
     "AZURE_OPENAI_ENDPOINT": "<azure-openai-endpoint>",
     "AZURE_OPENAI_CHAT_DEPLOYMENT_NAME": "<azure-openai-chat-deployment-name>",
-    "LLM_CHAT_SERVICE_PROVIDER": "azure",
+    "LLM_CHAT_SERVICE_PROVIDER": "openai",
     "LLM_MODEL_RESPONSE_MAX_TOKENS": "4000",
     "LLM_REASONING_EFFORT": "none",
 

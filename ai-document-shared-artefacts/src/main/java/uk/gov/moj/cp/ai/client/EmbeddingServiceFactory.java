@@ -21,14 +21,14 @@ public class EmbeddingServiceFactory {
     }
 
     public static EmbeddingService getInstance(final String endpoint, final String deploymentName) {
-        return getInstance(endpoint, deploymentName, getRequiredEnv(EMBEDDING_SERVICE_PROVIDER, PROVIDER_AZURE));
+        return getInstance(endpoint, deploymentName, getRequiredEnv(EMBEDDING_SERVICE_PROVIDER, PROVIDER_OPENAI));
     }
 
     // Package-private overload used by tests to bypass the System.getenv read.
     static EmbeddingService getInstance(final String endpoint, final String deploymentName, final String provider) {
         if (provider == null || provider.isBlank()) {
-            LOGGER.info("EMBEDDING_SERVICE_PROVIDER not set; defaulting to AzureEmbeddingService for deployment '{}'", deploymentName);
-            return new AzureEmbeddingService(endpoint, deploymentName);
+            LOGGER.info("EMBEDDING_SERVICE_PROVIDER not set; defaulting to OpenAiEmbeddingService for deployment '{}'", deploymentName);
+            return new OpenAiEmbeddingService(endpoint, deploymentName);
         }
         final String normalised = provider.trim().toLowerCase();
         return switch (normalised) {

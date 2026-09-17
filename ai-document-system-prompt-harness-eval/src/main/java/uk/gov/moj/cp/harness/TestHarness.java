@@ -12,6 +12,7 @@ import uk.gov.moj.cp.ai.service.EmbeddingService;
 import uk.gov.moj.cp.ai.service.TokenUsage;
 import uk.gov.moj.cp.ai.service.TokenUsageReporting;
 import uk.gov.moj.cp.ai.client.ChatServiceFactory;
+import uk.gov.moj.cp.ai.client.EmbeddingServiceFactory;
 import uk.gov.moj.cp.ai.util.ChunkFormatterUtility;
 import uk.gov.moj.cp.retrieval.exception.SearchServiceException;
 import uk.gov.moj.cp.retrieval.model.LlmResponse;
@@ -188,9 +189,7 @@ public final class TestHarness {
         final List<LlmConfig> llms = loadLlms();
         final List<UserQueryConfig> queries = loadUserQueriesFromJson();
 
-        // Pinned to a GA api-version: the platform's hardened OpenAI resources 401 the SDK's
-        // default preview api-version. See PinnedApiVersionEmbeddingService.
-        final EmbeddingService embeddingService = new PinnedApiVersionEmbeddingService(
+        final EmbeddingService embeddingService = EmbeddingServiceFactory.getInstance(
                 requireEnv("AZURE_EMBEDDING_SERVICE_ENDPOINT"), requireEnv("AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME"));
 
         // HARNESS_RETRIEVAL_SNAPSHOT replays a captured retrieval (see RetrievalSnapshotTool) —

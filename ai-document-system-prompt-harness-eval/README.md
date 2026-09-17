@@ -115,12 +115,12 @@ Query prompts live in `src/main/resources/user-queries.json` (see *Query file fo
 
 | Variable | Purpose |
 |---|---|
-| `AZURE_OPENAI_ENDPOINT`, `LLM_CHAT_SERVICE_PROVIDER` | Chat endpoint + provider (`azure`). |
+| `AZURE_OPENAI_ENDPOINT`, `LLM_CHAT_SERVICE_PROVIDER` | Chat endpoint + chat SDK leg (`azure`\|`openai`, default `openai`). |
 | `LLM_MODEL_RESPONSE_MAX_TOKENS` | Output-token budget (keep generous for gpt-5.1). |
 | `LLM_REASONING_EFFORT` | Reasoning models only; `none` avoids reasoning-token truncation. |
 | `CITATION_GUARD_MODE` | Set `off` for measurement runs so citation-degraded answers are measured, not thrown as `CitationDegradedException` (which the harness records as an ERROR cell). |
 | `AZURE_EMBEDDING_SERVICE_ENDPOINT`, `AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME` | Embeddings (query vectors + the quality-comparison cosine). |
-| `EMBEDDING_SERVICE_PROVIDER` | Embeddings SDK leg in the deployed functions (`azure`\|`openai`, default `azure`). The harness itself pins the Azure implementation (pinned API version), so this documents the function-side default only. |
+| `EMBEDDING_SERVICE_PROVIDER` | Embeddings SDK leg (`azure`\|`openai`, default `openai`). The harness builds its embedding service through `EmbeddingServiceFactory`, so it follows this variable exactly like the deployed functions. |
 
 ### Retrieval refinement
 
