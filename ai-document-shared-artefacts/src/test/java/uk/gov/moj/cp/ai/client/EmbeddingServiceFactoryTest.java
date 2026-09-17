@@ -51,24 +51,24 @@ class EmbeddingServiceFactoryTest {
     }
 
     @Test
-    @DisplayName("AC-13: defaults to AzureEmbeddingService when provider is null")
-    void defaultsToAzureEmbeddingServiceWhenProviderIsNull() {
+    @DisplayName("AC-23: defaults to OpenAiEmbeddingService when provider is null")
+    void defaultsToOpenAiEmbeddingServiceWhenProviderIsNull() {
         final EmbeddingService service = EmbeddingServiceFactory.getInstance(ENDPOINT, DEPLOYMENT_NAME, null);
-        assertInstanceOf(AzureEmbeddingService.class, service);
+        assertInstanceOf(OpenAiEmbeddingService.class, service);
     }
 
     @Test
-    @DisplayName("AC-13: defaults to AzureEmbeddingService when provider is empty")
-    void defaultsToAzureEmbeddingServiceWhenProviderIsEmpty() {
+    @DisplayName("AC-23: defaults to OpenAiEmbeddingService when provider is empty")
+    void defaultsToOpenAiEmbeddingServiceWhenProviderIsEmpty() {
         final EmbeddingService service = EmbeddingServiceFactory.getInstance(ENDPOINT, DEPLOYMENT_NAME, "");
-        assertInstanceOf(AzureEmbeddingService.class, service);
+        assertInstanceOf(OpenAiEmbeddingService.class, service);
     }
 
     @Test
-    @DisplayName("AC-13: defaults to AzureEmbeddingService when provider is blank whitespace")
-    void defaultsToAzureEmbeddingServiceWhenProviderIsBlank() {
+    @DisplayName("AC-23: defaults to OpenAiEmbeddingService when provider is blank whitespace")
+    void defaultsToOpenAiEmbeddingServiceWhenProviderIsBlank() {
         final EmbeddingService service = EmbeddingServiceFactory.getInstance(ENDPOINT, DEPLOYMENT_NAME, "   ");
-        assertInstanceOf(AzureEmbeddingService.class, service);
+        assertInstanceOf(OpenAiEmbeddingService.class, service);
     }
 
     @Test
@@ -89,10 +89,10 @@ class EmbeddingServiceFactoryTest {
     }
 
     @Test
-    @DisplayName("AC-13: public two-arg overload reads EMBEDDING_SERVICE_PROVIDER from env and defaults to azure")
+    @DisplayName("AC-23: public two-arg overload reads EMBEDDING_SERVICE_PROVIDER from env and defaults to openai")
     void publicOverloadReturnsAnEmbeddingService() {
-        // Without setting the env var, the public overload should fall through to the Azure default.
+        // Without setting the env var, the public overload should fall through to the OpenAI default.
         final EmbeddingService service = EmbeddingServiceFactory.getInstance(ENDPOINT, DEPLOYMENT_NAME);
-        assertInstanceOf(AzureEmbeddingService.class, service);
+        assertInstanceOf(OpenAiEmbeddingService.class, service);
     }
 }

@@ -6,7 +6,6 @@ import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import uk.gov.moj.cp.ai.service.AzureChatService;
 import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.ai.service.OpenAiChatService;
-import uk.gov.moj.cp.ai.util.EnvVarUtil;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,14 +21,14 @@ public class ChatServiceFactory {
     }
 
     public static ChatService getInstance(final String endpoint, final String deploymentName) {
-        return getInstance(endpoint, deploymentName, getRequiredEnv(LLM_CHAT_SERVICE_PROVIDER, PROVIDER_AZURE));
+        return getInstance(endpoint, deploymentName, getRequiredEnv(LLM_CHAT_SERVICE_PROVIDER, PROVIDER_OPENAI));
     }
 
     // Package-private overload used by tests to bypass the System.getenv read.
     static ChatService getInstance(final String endpoint, final String deploymentName, final String provider) {
         if (provider == null || provider.isBlank()) {
-            LOGGER.info("LLM_CHAT_SERVICE_PROVIDER not set; defaulting to AzureChatService for deployment '{}'", deploymentName);
-            return new AzureChatService(endpoint, deploymentName);
+            LOGGER.info("LLM_CHAT_SERVICE_PROVIDER not set; defaulting to OpenAiChatService for deployment '{}'", deploymentName);
+            return new OpenAiChatService(endpoint, deploymentName);
         }
         final String normalised = provider.trim().toLowerCase();
         return switch (normalised) {

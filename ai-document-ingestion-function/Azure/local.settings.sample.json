@@ -21,7 +21,7 @@
 
     "AZURE_EMBEDDING_SERVICE_ENDPOINT": "<your-embedding-service-endpoint>",
     "AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME": "<your-embedding-service-deployment-name>",
-    "EMBEDDING_SERVICE_PROVIDER": "azure",
+    "EMBEDDING_SERVICE_PROVIDER": "openai",
 
     "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT": "<your-document-intelligence-endpoint>",
 

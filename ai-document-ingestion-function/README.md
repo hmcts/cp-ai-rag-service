@@ -51,7 +51,7 @@ All values are read from app settings (or `Azure/local.settings.json` locally). 
 | `AZURE_SEARCH_SERVICE_INDEX_NAME` | Target AI Search index name |
 | `AZURE_EMBEDDING_SERVICE_ENDPOINT` | Azure OpenAI embeddings endpoint |
 | `AZURE_EMBEDDING_SERVICE_DEPLOYMENT_NAME` | Azure OpenAI embeddings deployment name |
-| `EMBEDDING_SERVICE_PROVIDER` | Embedding SDK provider toggle: `azure` (Azure OpenAI SDK) or `openai` (openai-java on `/openai/v1`); default `azure` |
+| `EMBEDDING_SERVICE_PROVIDER` | Embedding SDK provider toggle: `openai` (openai-java on `/openai/v1`) or `azure` (Azure OpenAI SDK, rollback leg); default `openai` |
 | `EMBEDDINGS_BATCH_SIZE` | Number of chunks submitted per embedding API call (default: `2048`) |
 | `AzureFunctionsJobHost__extensions__queues__maxDequeueCount` | Max delivery attempts before the message is dead-lettered and the outcome is written as `INGESTION_FAILED`; should match `host.json` (default: `3`) |
 | `AZURE_CLIENT_MAX_RETRIES` | Max retries for Azure SDK HTTP calls |

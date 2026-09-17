@@ -5,8 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 
 import uk.gov.moj.cp.ai.client.config.OpenAiClientConfiguration;
@@ -14,6 +17,10 @@ import uk.gov.moj.cp.ai.util.EnvVarUtil;
 
 import java.time.Duration;
 
+import com.azure.core.credential.AccessToken;
+import com.azure.core.credential.TokenCredential;
+import com.azure.core.credential.TokenRequestContext;
+import java.time.OffsetDateTime;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.core.Timeout;
@@ -145,6 +152,22 @@ class OpenAiClientFactoryTest {
     void baseUrlLeavesASlashlessEndpointUntouched() {
         assertEquals("https://example.openai.azure.com/openai/v1",
                 OpenAiClientFactory.baseUrlOf("https://example.openai.azure.com"));
+    }
+
+    @Test
+    void bearerTokenSupplierMintsTokensFromTheCredentialWithTheCognitiveServicesScope() {
+        final TokenCredential credential = mock(TokenCredential.class);
+        final org.mockito.ArgumentCaptor<TokenRequestContext> contextCaptor =
+                org.mockito.ArgumentCaptor.forClass(TokenRequestContext.class);
+        when(credential.getTokenSync(any(TokenRequestContext.class)))
+                .thenReturn(new AccessToken("the-token", OffsetDateTime.now().plusHours(1)));
+
+        final String token = OpenAiClientFactory.bearerTokenSupplier(credential).get();
+
+        assertEquals("the-token", token);
+        verify(credential).getTokenSync(contextCaptor.capture());
+        assertEquals(java.util.List.of("https://cognitiveservices.azure.com/.default"),
+                contextCaptor.getValue().getScopes());
     }
 
     private void stubAllClientVarsAtTheirDocumentedDefaults(final MockedStatic<EnvVarUtil> mockedStatic) {

@@ -72,16 +72,21 @@
             <properties>
                 <it.enforcement.skip>false</it.enforcement.skip>
                 <it.legacy.skip>false</it.legacy.skip>
+                <it.azurehappypath.skip>false</it.azurehappypath.skip>
             </properties>
             <build>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-failsafe-plugin</artifactId>
-                        <!-- Two sequential legs, each a fresh forked JVM with its own harness and
-                             per-run Azure resources. The env var below overrides anything inherited
-                             from .env, so the legs are deterministic under Maven. Skip one leg
-                             locally with -Dit.legacy.skip=true / -Dit.enforcement.skip=true. -->
+                        <!-- Three sequential legs, each a fresh forked JVM with its own harness and
+                             per-run Azure resources. The env vars below override anything inherited
+                             from .env, so the legs are deterministic under Maven. The first two run
+                             the full suite on the openai (default) SDK leg across both client-filtering
+                             modes; the third is a happy-path-only run on the azure SDK rollback leg
+                             (DD-43423) so both provider legs are exercised on every pipeline run.
+                             Skip a leg locally with -Dit.enforcement.skip=true / -Dit.legacy.skip=true
+                             / -Dit.azurehappypath.skip=true. -->
                         <executions>
                             <execution>
                                 <id>enforcement-on</id>
@@ -93,6 +98,8 @@
                                     <skip>${it.enforcement.skip}</skip>
                                     <environmentVariables>
                                         <CLIENT_FILTERING_ENABLED>true</CLIENT_FILTERING_ENABLED>
+                                        <LLM_CHAT_SERVICE_PROVIDER>openai</LLM_CHAT_SERVICE_PROVIDER>
+                                        <EMBEDDING_SERVICE_PROVIDER>openai</EMBEDDING_SERVICE_PROVIDER>
                                     </environmentVariables>
                                     <reportsDirectory>${project.build.directory}/failsafe-reports/enforcement-on</reportsDirectory>
                                     <summaryFile>${project.build.directory}/failsafe-reports/enforcement-on/failsafe-summary.xml</summaryFile>
@@ -110,12 +117,37 @@
                                     <skip>${it.legacy.skip}</skip>
                                     <environmentVariables>
                                         <CLIENT_FILTERING_ENABLED>false</CLIENT_FILTERING_ENABLED>
+                                        <LLM_CHAT_SERVICE_PROVIDER>openai</LLM_CHAT_SERVICE_PROVIDER>
+                                        <EMBEDDING_SERVICE_PROVIDER>openai</EMBEDDING_SERVICE_PROVIDER>
                                     </environmentVariables>
                                     <excludes>
                                         <exclude>**/ClientIsolationIT.java</exclude>
                                     </excludes>
                                     <reportsDirectory>${project.build.directory}/failsafe-reports/legacy-flag-off</reportsDirectory>
                                     <summaryFile>${project.build.directory}/failsafe-reports/legacy-flag-off/failsafe-summary.xml</summaryFile>
+                                </configuration>
+                            </execution>
+                            <!-- The azure SDK rollback leg (config-only rollback until the Stage 4
+                                 removal, DD-43424): happy-path end-to-end only, proving the rollback
+                                 lever stays green on every run. Delete this execution at Stage 4. -->
+                            <execution>
+                                <id>azure-rollback-happy-path</id>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                                <configuration>
+                                    <skip>${it.azurehappypath.skip}</skip>
+                                    <environmentVariables>
+                                        <CLIENT_FILTERING_ENABLED>false</CLIENT_FILTERING_ENABLED>
+                                        <LLM_CHAT_SERVICE_PROVIDER>azure</LLM_CHAT_SERVICE_PROVIDER>
+                                        <EMBEDDING_SERVICE_PROVIDER>azure</EMBEDDING_SERVICE_PROVIDER>
+                                    </environmentVariables>
+                                    <includes>
+                                        <include>**/OrchestrationIT.java</include>
+                                    </includes>
+                                    <reportsDirectory>${project.build.directory}/failsafe-reports/azure-rollback-happy-path</reportsDirectory>
+                                    <summaryFile>${project.build.directory}/failsafe-reports/azure-rollback-happy-path/failsafe-summary.xml</summaryFile>
                                 </configuration>
                             </execution>
                         </executions>
