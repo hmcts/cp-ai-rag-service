@@ -9,7 +9,8 @@ import uk.gov.moj.cp.ai.client.config.OpenAiClientConfiguration;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
-import com.azure.identity.AuthenticationUtil;
+import com.azure.core.credential.TokenCredential;
+import com.azure.core.credential.TokenRequestContext;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.core.Timeout;
@@ -24,9 +25,15 @@ public class OpenAiClientFactory {
     private static final String AZURE_COGNITIVE_SCOPE = "https://cognitiveservices.azure.com/.default";
 
     private static final ConcurrentHashMap<String, OpenAIClient> OPENAI_CLIENT_CACHE = new ConcurrentHashMap<>();
-    private static final Supplier<String> SHARED_BEARER_TOKEN_SUPPLIER = AuthenticationUtil.getBearerTokenSupplier(
-            getCredentialInstance(),
-            AZURE_COGNITIVE_SCOPE);
+
+    // Tokens are minted directly from the shared credential rather than via
+    // AuthenticationUtil.getBearerTokenSupplier: the latter drives an internal azure-core
+    // pipeline that consistently failed (ClosedChannelException) inside the Azure Functions
+    // hosts on restricted-egress CI agents, while direct getTokenSync uses the identity
+    // client's own transport and in-memory token cache - the same path the storage and
+    // search clients already use in the same process (DD-43423).
+    private static final Supplier<String> SHARED_BEARER_TOKEN_SUPPLIER =
+            bearerTokenSupplier(getCredentialInstance());
 
     private OpenAiClientFactory() {
     }
@@ -52,6 +59,11 @@ public class OpenAiClientFactory {
                     return applyConfiguration(builder).build();
                 }
         );
+    }
+
+    static Supplier<String> bearerTokenSupplier(final TokenCredential credential) {
+        final TokenRequestContext tokenRequestContext = new TokenRequestContext().addScopes(AZURE_COGNITIVE_SCOPE);
+        return () -> credential.getTokenSync(tokenRequestContext).getToken();
     }
 
     // Endpoint app settings are configured both with and without a trailing slash; without the
