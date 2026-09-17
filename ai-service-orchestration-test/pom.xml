@@ -139,7 +139,7 @@
                                 <configuration>
                                     <skip>${it.azurehappypath.skip}</skip>
                                     <environmentVariables>
-                                        <CLIENT_FILTERING_ENABLED>true</CLIENT_FILTERING_ENABLED>
+                                        <CLIENT_FILTERING_ENABLED>false</CLIENT_FILTERING_ENABLED>
                                         <LLM_CHAT_SERVICE_PROVIDER>azure</LLM_CHAT_SERVICE_PROVIDER>
                                         <EMBEDDING_SERVICE_PROVIDER>azure</EMBEDDING_SERVICE_PROVIDER>
                                     </environmentVariables>
