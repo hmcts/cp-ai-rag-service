@@ -6,7 +6,6 @@ import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import uk.gov.moj.cp.ai.service.AzureChatService;
 import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.ai.service.OpenAiChatService;
-import uk.gov.moj.cp.ai.util.EnvVarUtil;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

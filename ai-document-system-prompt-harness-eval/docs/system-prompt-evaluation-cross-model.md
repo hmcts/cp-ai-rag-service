@@ -288,3 +288,10 @@ IDPC before the migration is approved.
 |------|------|
 | `prompts/v1-baseline-production.txt` | Deployed prompt — the starting point / control |
 | `prompts/v2-baseline-with-improvements.txt` | **The candidate** — baseline + the citation and cross-model improvements (§5) |
+
+---
+
+*Update (2026-09-17, DD-43423):* this report predates the cut-over. The service now defaults
+both provider toggles to `openai`, and the statement above that `OpenAiChatService` ignores
+`reasoning_effort` is out of date - since DD-43420/DD-43421 landed it applies
+`reasoning.effort` via the Responses API with the same `none` default as the Azure leg.

@@ -252,6 +252,7 @@ Delivers AC-28 through AC-30 in `01-requirements.md` verbatim (the three Azure c
 - [ ] **Gate check recorded in the PR description before work starts:** OQ-6 evidence (criteria + measured values) and a link to the OAI-03 findings-note verdict, both confirming the preconditions are satisfied.
 - [ ] Code reviewed and approved.
 - [ ] `AzureChatService`, `AzureEmbeddingService`, `AzureOpenAiClientFactory` and their test classes (`AzureChatServiceTest`, `AzureEmbeddingServiceTest`, `AzureOpenAiClientFactoryTest`) deleted.
+- [ ] Harness `ContentFilterSpikeTool` updated or retired — its probe 5 constructs `AzureChatService` directly (the last such usage, noted at the DD-43423 review) and will not compile once the class is deleted.
 - [ ] `com.azure:azure-ai-openai` removed from the root `pom.xml` and `ai-document-shared-artefacts/pom.xml`; `mvn dependency:tree` confirms it is absent from every module.
 - [ ] Both `ChatServiceFactory` and `EmbeddingServiceFactory` gain an explicit `azure` branch throwing the "provider 'azure' has been removed" error before the default branch, with a unit test asserting the message and exception type.
 - [ ] `mvn test` passes across all modules; `mvn verify` green (Surefire + JaCoCo); `ClientConfigurationTest` explicitly confirmed green.
