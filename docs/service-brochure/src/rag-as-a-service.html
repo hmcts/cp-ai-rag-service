@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The CP AI RAG Service — as a service</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --ink: #1c1c1c; --muted: #8a8a86; --faint: #b5b5b0;
+    --accent: #0e6e73; --rule: #e2e2de; --wash: #f5f5f2; --card: #fafaf8;
+  }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: var(--ink);
+         font-size: 9pt; line-height: 1.45; background: #fff; }
+  .page { width: 210mm; height: 297mm; padding: 13.5mm 20mm 20mm; position: relative;
+          overflow: hidden; page-break-after: always; background: #fff; }
+  .page:last-child { page-break-after: auto; }
+
+  .display { font-family: "Didot", "Bodoni 72", Georgia, serif; font-weight: 400; }
+  .kicker { font-size: 6.8pt; letter-spacing: 0.22em; text-transform: uppercase;
+            color: var(--accent); font-weight: 600; }
+  .kicker.dark { color: var(--ink); }
+  .kicker.mute { color: var(--muted); }
+
+  .footer { position: absolute; left: 20mm; right: 20mm; bottom: 11mm;
+            display: flex; justify-content: space-between; align-items: center;
+            border-top: 0.5pt solid var(--rule); padding-top: 3.2mm;
+            font-size: 7pt; color: var(--muted); }
+  .footer .brand { display: flex; align-items: center; gap: 2mm; color: var(--ink); font-weight: 600; }
+  .runhead { display: flex; justify-content: space-between; align-items: baseline;
+             border-bottom: 0.5pt solid var(--rule); padding-bottom: 2.6mm; margin-bottom: 7mm;
+             font-size: 7.5pt; color: var(--muted); }
+  .runhead b { color: var(--ink); font-weight: 600; }
+
+  .logo { display: inline-flex; align-items: center; gap: 2.2mm; }
+  .logo .mark { background: var(--ink); color: #fff; font-weight: 800; font-size: 8.5pt;
+                letter-spacing: 0.04em; padding: 1.6mm 2.2mm; line-height: 1; }
+  .logo .mark span { color: #7ad0d4; }
+  .logo .word { font-size: 6.5pt; letter-spacing: 0.2em; font-weight: 700; }
+
+  h1.section { font-size: 30pt; font-style: italic; letter-spacing: 0.01em;
+               border-bottom: 0.6pt solid var(--ink); padding-bottom: 3mm; margin-bottom: 5.5mm; }
+  .secno { margin-bottom: 2.5mm; }
+  h2 { font-size: 11.5pt; font-weight: 700; margin: 6mm 0 2.2mm; }
+  h2 .n { color: var(--muted); font-weight: 400; font-size: 8pt; margin-right: 4mm; vertical-align: 14%; }
+  h3 { font-size: 9.5pt; font-weight: 700; margin: 5mm 0 1.6mm; }
+  p { margin-bottom: 2.3mm; }
+  p.lede { font-size: 10pt; }
+  b { font-weight: 700; }
+  .mono, code { font-family: "SF Mono", Menlo, monospace; font-size: 0.88em; }
+  code.chip { background: var(--wash); border: 0.5pt solid var(--rule); padding: 0.2mm 1.4mm; border-radius: 1mm; white-space: nowrap; }
+
+  table { width: 100%; border-collapse: collapse; margin: 2mm 0 3.5mm; }
+  th { text-align: left; font-size: 6.6pt; letter-spacing: 0.16em; text-transform: uppercase;
+       color: var(--muted); font-weight: 600; padding: 0 3mm 1.6mm 0;
+       border-bottom: 1pt solid var(--ink); }
+  td { padding: 1.7mm 3mm 1.7mm 0; vertical-align: top; border-bottom: 0.5pt solid var(--rule); }
+  tr:nth-child(even) td { background: transparent; }
+  tbody tr:nth-child(odd) td { background: #f7f7f4; }
+  tbody tr td:first-child { padding-left: 1.6mm; }
+  tbody tr:nth-child(even) td:first-child { padding-left: 1.6mm; }
+
+  .stats { display: flex; gap: 6mm; margin: 4.5mm 0 4.5mm; }
+  .stat { flex: 1; border-top: 1.2pt solid var(--ink); padding-top: 2.2mm; }
+  .stat .n { font-family: "Didot", Georgia, serif; font-size: 22pt; line-height: 1.1; }
+  .stat .d { font-size: 7.4pt; color: #555; line-height: 1.45; margin-top: 0.8mm; }
+
+  .quote { border-left: 2.2pt solid var(--accent); padding: 1mm 0 1mm 5mm; margin: 4mm 0; }
+  .quote .q { font-family: "Didot", Georgia, serif; font-style: italic; font-size: 14pt; line-height: 1.35; }
+  .quote .attr { margin-top: 1.6mm; }
+
+  .caveat { background: var(--wash); border-left: 2.2pt solid var(--ink); padding: 2.6mm 3.5mm; margin: 3.5mm 0; }
+  .caveat .kicker { display: block; margin-bottom: 1mm; }
+
+  .cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3.4mm; margin: 3.5mm 0 4mm; }
+  .card { border: 0.5pt solid var(--rule); background: var(--card); border-radius: 1.2mm;
+          padding: 3mm 3.4mm 0; display: flex; flex-direction: column; min-height: 34mm; }
+  .card .kicker { margin-bottom: 1mm; }
+  .card h4 { font-size: 9.5pt; margin-bottom: 1mm; }
+  .card p { font-size: 7.6pt; color: #444; line-height: 1.45; margin-bottom: 2mm; }
+  .card .ep { margin-top: auto; border-top: 0.5pt solid var(--rule); background: #f1f1ee;
+              margin-left: -3.4mm; margin-right: -3.4mm; padding: 1.6mm 3.4mm;
+              font-family: Menlo, monospace; font-size: 6.4pt; color: #555;
+              border-radius: 0 0 1.2mm 1.2mm; }
+
+  .twocol { display: flex; gap: 8mm; margin: 3mm 0; }
+  .twocol > div { flex: 1; }
+  .twocol h3.hd { border-top: 1pt solid var(--ink); padding-top: 2mm; margin-top: 0; }
+  .twocol h3.hd.lt { border-top-color: var(--faint); }
+
+  .layer { border: 0.5pt solid var(--rule); border-radius: 1.4mm; padding: 2.6mm 3.2mm 3mm; margin: 0; }
+  .layer .lhead { display: flex; justify-content: space-between; font-size: 6.6pt;
+                  letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted);
+                  font-weight: 600; margin-bottom: 2mm; }
+  .layer .boxes { display: flex; gap: 2.4mm; }
+  .layer .bx { flex: 1; background: var(--wash); border: 0.5pt solid var(--rule); border-radius: 1mm;
+               padding: 1.8mm 2.2mm; text-align: center; }
+  .layer .bx b { display: block; font-size: 7.8pt; }
+  .layer .bx span { font-size: 6.6pt; color: var(--muted); }
+  .arrow { text-align: center; font-size: 7pt; color: var(--muted); margin: 1.6mm 0; }
+  .arrow b { color: var(--ink); }
+  .figcap { display: flex; gap: 3mm; font-size: 7.2pt; color: #555; margin: 2.5mm 0 4mm; }
+  .figcap .fig { font-size: 6.4pt; letter-spacing: 0.14em; text-transform: uppercase;
+                 color: var(--muted); font-weight: 700; white-space: nowrap; padding-top: 0.4mm; }
+
+  .steps { margin: 3mm 0; }
+  .step { display: flex; gap: 3.5mm; margin-bottom: 3mm; }
+  .step .num { width: 5.4mm; height: 5.4mm; border: 1pt solid var(--accent); border-radius: 50%;
+               color: var(--accent); font-size: 7.5pt; font-weight: 700; flex: none;
+               display: flex; align-items: center; justify-content: center; margin-top: 0.4mm; }
+  .step h4 { font-size: 9.5pt; margin-bottom: 0.6mm; }
+  .step p { font-size: 8.6pt; color: #333; margin: 0; }
+
+  ul.plain { list-style: none; }
+  ul.plain li { padding-left: 4.5mm; position: relative; margin-bottom: 1.4mm; font-size: 8.4pt; }
+  ul.plain li::before { content: "·"; position: absolute; left: 1mm; color: var(--muted); font-weight: 700; }
+  ul.xy li::before { content: "✕"; font-size: 6.5pt; top: 0.7mm; color: var(--muted); font-weight: 400; }
+  ul.ck li::before { content: "✓"; font-size: 7.5pt; top: 0.2mm; color: var(--accent); font-weight: 700; }
+
+  .code { background: #fbfbf9; border: 0.5pt solid var(--rule); border-radius: 1.2mm; margin: 3mm 0 4mm; }
+  .code .bar { display: flex; justify-content: space-between; background: var(--wash);
+               border-bottom: 0.5pt solid var(--rule); padding: 1.6mm 3mm; font-size: 6.8pt;
+               color: #555; font-family: Menlo, monospace; border-radius: 1.2mm 1.2mm 0 0; }
+  .code pre { padding: 2.6mm 3mm; font-family: Menlo, monospace; font-size: 7.2pt; line-height: 1.55;
+              white-space: pre-wrap; }
+  .code .c { color: #7a7a76; } .code .k { color: #0e6e73; } .code .s { color: #7a5a00; }
+
+  .toc { margin-top: 8mm; }
+  .toc .trow { display: flex; align-items: baseline; gap: 4mm; padding: 1.6mm 0; }
+  .toc .trow.top { border-top: 0.5pt solid var(--rule); margin-top: 2.4mm; padding-top: 2.8mm; }
+  .toc .no { width: 6mm; color: var(--muted); font-size: 8pt; flex: none; }
+  .toc .t { font-weight: 700; font-size: 10.5pt; }
+  .toc .t.sub { font-weight: 400; font-size: 8.6pt; color: #333; }
+  .toc .dots { flex: 1; }
+  .toc .pg { color: var(--muted); font-size: 8pt; }
+
+  .badge { display: inline-block; font-family: Menlo, monospace; font-size: 6.6pt; padding: 0.4mm 1.8mm;
+           border-radius: 0.8mm; letter-spacing: 0.06em; }
+  .badge.ok { background: #e4f0ec; color: #14523f; }
+  .badge.warn { background: #fbeee4; color: #8a4a12; }
+  .badge.bad { background: #f9e7e7; color: #8a1f1f; }
+</style>
+</head>
+<body>
+
+<!-- ============================= PAGE 1 — COVER ============================= -->
+<div class="page">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+    <div class="logo"><span class="mark">CP<span>·AI</span></span><span class="word">COMMON&nbsp;PLATFORM</span></div>
+    <div style="font-size:7pt; letter-spacing:0.2em; font-weight:700; color:var(--muted); padding-top:1.5mm;">HMCTS</div>
+  </div>
+
+  <div style="position:absolute; left:20mm; right:20mm; top:170mm;">
+    <div class="kicker">COMMON PLATFORM · HM COURTS &amp; TRIBUNALS SERVICE</div>
+    <div class="display" style="font-size:56pt; font-style:italic; line-height:1.05; margin:3mm 0 2mm;">RAG Service</div>
+    <div class="display" style="font-size:15.5pt; font-style:italic; color:#333;">Grounded answers over court documents, as a service</div>
+    <div style="width:26mm; border-top:2pt solid var(--accent); margin:6mm 0 5.5mm;"></div>
+    <p style="max-width:120mm; font-size:9.5pt;">A guide for service owners, delivery teams and assurance functions considering the CP&nbsp;AI RAG Service for their own users.</p>
+  </div>
+
+  <div class="footer">
+    <div class="brand">Common Platform</div>
+    <div>Version 1.0 · 17 September 2026</div>
+  </div>
+</div>
+
+<!-- ============================= PAGE 2 — CONTENTS ============================= -->
+<div class="page">
+  <div class="display" style="font-size:26pt; font-style:italic; margin-top:6mm;">Contents</div>
+  <div class="toc">
+    <div class="trow top"><span class="no">1</span><span class="t">Executive summary</span><span class="dots"></span><span class="pg">3</span></div>
+    <div class="trow"><span class="no"></span><span class="t sub">What this document answers · Who should read what · In one paragraph</span><span class="dots"></span><span class="pg">3</span></div>
+    <div class="trow top"><span class="no">2</span><span class="t">What the service does</span><span class="dots"></span><span class="pg">4</span></div>
+    <div class="trow"><span class="no"></span><span class="t sub">The problem it addresses · The capability set · How evidence is refined before the model sees it</span><span class="dots"></span><span class="pg">4</span></div>
+    <div class="trow top"><span class="no">3</span><span class="t">Built as a service</span><span class="dots"></span><span class="pg">6</span></div>
+    <div class="trow"><span class="no"></span><span class="t sub">The principle · The shape of it · Five functions, one contract · Processing is decoupled from serving</span><span class="dots"></span><span class="pg">6</span></div>
+    <div class="trow top"><span class="no">4</span><span class="t">Connecting to the service</span><span class="dots"></span><span class="pg">7</span></div>
+    <div class="trow"><span class="no"></span><span class="t sub">Three steps, and no more · What you never hold · Client identity</span><span class="dots"></span><span class="pg">7</span></div>
+    <div class="trow top"><span class="no">5</span><span class="t">Consuming the service</span><span class="dots"></span><span class="pg">8</span></div>
+    <div class="trow"><span class="no"></span><span class="t sub">The document workflow · Asking questions · Sync or async · Limits worth designing against</span><span class="dots"></span><span class="pg">8</span></div>
+    <div class="trow top"><span class="no">6</span><span class="t">Trust, assurance and security</span><span class="dots"></span><span class="pg">10</span></div>
+    <div class="trow"><span class="no"></span><span class="t sub">Citations, enforced · Measured in production · Security posture · Data handling</span><span class="dots"></span><span class="pg">10</span></div>
+    <div class="trow top"><span class="no">7</span><span class="t">Applying it in your service</span><span class="dots"></span><span class="pg">12</span></div>
+    <div class="trow"><span class="no"></span><span class="t sub">Three patterns of adoption · What is ready, and what is not · What we would need from you</span><span class="dots"></span><span class="pg">12</span></div>
+    <div class="trow top"><span class="no">8</span><span class="t">Reference</span><span class="dots"></span><span class="pg">13</span></div>
+    <div class="trow"><span class="no"></span><span class="t sub">Endpoints · Glossary · Where to read next · Contact</span><span class="dots"></span><span class="pg">13</span></div>
+  </div>
+  <div class="footer">
+    <div class="brand"><span class="logo"><span class="mark" style="font-size:6.5pt; padding:1.2mm 1.6mm;">CP<span>·AI</span></span></span> Common Platform</div>
+    <div style="color:var(--faint)">The CP AI RAG Service</div>
+    <div>2</div>
+  </div>
+</div>
+
+<!-- ============================= PAGE 3 — EXEC SUMMARY ============================= -->
+<div class="page">
+  <div class="kicker">SECTION 1</div>
+  <h1 class="display section">Executive summary</h1>
+
+  <p>The CP AI RAG Service lets Common Platform systems upload court documents and ask questions of them, getting back grounded answers in which <b>every claim is cited to a document and a page</b>. It is a fully serverless Azure pipeline consumed entirely over HTTP: no SDK to adopt, no infrastructure to run, no model credentials to hold.</p>
+  <p>The service is deliberately a <b>capability, not a product</b>. It has no user interface of its own. You bring the screen and the users; the service brings extraction, indexing, retrieval, grounded generation, and a measured trust story underneath.</p>
+
+  <div class="stats">
+    <div class="stat"><div class="n">5</div><div class="d">HTTP operations behind one published, linted OpenAPI contract</div></div>
+    <div class="stat"><div class="n">2</div><div class="d">invocation modes — one round trip, or request-and-poll</div></div>
+    <div class="stat"><div class="n">100<span style="font-size:13pt">%</span></div><div class="d">of production answers scored for groundedness by a judge model</div></div>
+    <div class="stat"><div class="n">0</div><div class="d">storage keys, connection strings or model credentials change hands</div></div>
+  </div>
+
+  <p>The consequence is the argument of this document: <b>trust in the answers is not a policy statement — it is enforced in the pipeline and measured in production.</b> A citation guard means an ungrounded answer is never returned silently, and every answer that is returned is scored.</p>
+
+  <h2><span class="n">1.1</span>What this document answers</h2>
+  <table>
+    <thead><tr><th style="width:55%">Question</th><th>Where it is answered</th></tr></thead>
+    <tbody>
+      <tr><td>What does the service actually do?</td><td>Section 2 — What the service does</td></tr>
+      <tr><td>How do I authenticate against it?</td><td>Section 4 — Connecting to the service</td></tr>
+      <tr><td>Can I trust what it produces?</td><td>Section 6 — Trust, assurance and security</td></tr>
+      <tr><td>What would adopting it involve for me?</td><td>Section 7 — Applying it in your service</td></tr>
+      <tr><td>What is not built yet?</td><td>Section 7.2 — What is ready, and what is not</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="n">1.2</span>Who should read what</h2>
+  <table>
+    <thead><tr><th style="width:30%">If you are</th><th>Read</th></tr></thead>
+    <tbody>
+      <tr><td><b>A senior responsible owner</b></td><td>Sections 1, 2 and 7. Scoped as grounded question answering — decision support, never decision automation.</td></tr>
+      <tr><td><b>A service owner in another area</b></td><td>Sections 2, 4 and 7. You consume a capability, not a product: scope it with your own metadata, present it in your own interface.</td></tr>
+      <tr><td><b>A delivery or engineering team</b></td><td>Sections 3 to 5, then the endpoint summary in Section 8. Five operations, one contract-first OpenAPI spec.</td></tr>
+      <tr><td><b>Security, IG or assurance</b></td><td>Section 6 in full. Entra ID at the edge, managed identity throughout, groundedness measured on every answer.</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="n">1.3</span>In one paragraph</h2>
+  <p>You request an upload link, put a PDF straight into storage, and the service extracts, chunks, embeds and indexes it page by page. A question runs hybrid retrieval scoped by your metadata and returns an answer in which every claim points to a document and a page, guarded and scored. You bring a user and an interface; we keep the data, the models and the credentials.</p>
+
+  <div class="footer">
+    <div class="brand"><span class="logo"><span class="mark" style="font-size:6.5pt; padding:1.2mm 1.6mm;">CP<span>·AI</span></span></span> Common Platform</div>
+    <div style="color:var(--faint)">The CP AI RAG Service</div>
+    <div>3</div>
+  </div>
+</div>
+
+<!-- ============================= PAGE 4 — WHAT IT DOES ============================= -->
+<div class="page">
+  <div class="runhead"><span><b>2</b> &nbsp;What the service does</span><span><b>RAG Service</b></span></div>
+  <div class="kicker">SECTION 2</div>
+  <h1 class="display section">What the service does</h1>
+
+  <h2 style="margin-top:4mm"><span class="n">2.1</span>The problem it addresses</h2>
+  <p>Case material accumulates faster than anyone can read it. The answer to a specific question — what did the witness actually say about the vehicle, which conditions were attached, what does the guidance require — is somewhere in the documents, but finding it is slow work, and a wrong recollection is not a small thing.</p>
+  <p>Generic chat tools answer fluently whether or not the material supports them. That failure mode is precisely the one a justice system cannot absorb. The RAG Service exists to make the opposite trade: <b>an answer you can check beats an answer that merely sounds right.</b></p>
+
+  <div class="quote">
+    <div class="q">Every claim points to a document and a page,<br>or the answer does not pass.</div>
+    <div class="attr kicker">ENFORCED BY THE CITATION GUARD, NOT ASSERTED IN POLICY</div>
+  </div>
+
+  <p>Everything the service writes is grounded in retrieved passages from your own documents. The model must emit a structured fact map alongside its prose; a guard checks it; a judge model scores the result. Nothing about that is optional or bolted on — it is the shape of the pipeline.</p>
+
+  <h2><span class="n">2.2</span>The capability set</h2>
+  <p>Six capabilities, each reachable as an HTTP call. Most integrations begin with two: upload, then ask.</p>
+
+  <div class="cards">
+    <div class="card">
+      <div class="kicker mute">TWO-STEP · DIRECT TO STORAGE</div>
+      <h4>Document upload</h4>
+      <p>Request a short-lived, single-blob SAS link and PUT the PDF straight to storage. File bytes never pass through the API tier. Duplicates rejected; your metadata attached to every chunk.</p>
+      <div class="ep">POST /document-upload</div>
+    </div>
+    <div class="card">
+      <div class="kicker mute">ASYNCHRONOUS · QUEUE-DRIVEN</div>
+      <h4>Ingestion pipeline</h4>
+      <p>Document Intelligence layout extraction, per-page chunking, embeddings, and indexing into Azure AI Search — hybrid vector plus keyword, with page-level provenance kept throughout.</p>
+      <div class="ep">automatic on upload</div>
+    </div>
+    <div class="card">
+      <div class="kicker mute">READ</div>
+      <h4>Ingestion status</h4>
+      <p>A status row per document from the moment the upload link is issued: awaiting upload, awaiting ingestion, success, failure, or over the size limit.</p>
+      <div class="ep">GET /document-upload/{documentReference}</div>
+    </div>
+    <div class="card">
+      <div class="kicker mute">SYNCHRONOUS</div>
+      <h4>Grounded answers, one round trip</h4>
+      <p>Ask a question scoped by metadata; the answer, its citations and the evidence chunks come back in the same response.</p>
+      <div class="ep">POST /answer-user-query</div>
+    </div>
+    <div class="card">
+      <div class="kicker mute">ASYNCHRONOUS · REQUEST AND POLL</div>
+      <h4>Grounded answers, long-running</h4>
+      <p>The same pipeline behind a transaction ID and a polling endpoint, for interfaces that must not hold a request open.</p>
+      <div class="ep">POST /answer-user-query-async</div>
+    </div>
+    <div class="card">
+      <div class="kicker mute">MEASURED · EVERY ANSWER</div>
+      <h4>Groundedness scoring</h4>
+      <p>A separate judge model rates every production answer 1–5 against the retrieved evidence; scores land in Azure Monitor with per-client dimensions.</p>
+      <div class="ep">automatic on every answer</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="brand"><span class="logo"><span class="mark" style="font-size:6.5pt; padding:1.2mm 1.6mm;">CP<span>·AI</span></span></span> Common Platform</div>
+    <div style="color:var(--faint)">The CP AI RAG Service</div>
+    <div>4</div>
+  </div>
+</div>
+
+<!-- ============================= PAGE 5 — REFINEMENT ============================= -->
+<div class="page">
+  <div class="runhead"><span><b>2</b> &nbsp;What the service does</span><span><b>RAG Service</b></span></div>
+
+  <h2 style="margin-top:0"><span class="n">2.3</span>How evidence is refined before the model sees it</h2>
+  <p>Retrieval over-fetches a candidate pool of fifty chunks — vector nearest-neighbour and keyword search in one call, filtered to your metadata. Three stages then shape what the model actually reads. Each is independently configurable; together they are why answers stay dense without losing the rare fact that matters.</p>
+
+  <div class="steps" style="margin-top:4.5mm">
+    <div class="step"><div class="num">1</div><div>
+      <h4>Containment dedup — information-safe by construction</h4>
+      <p>Court material is full of passages duplicated across files: the same order quoted in three bundles, the same paragraph in a covering letter and its enclosure. This stage drops a chunk <b>only</b> when nearly all of its content already appears in a higher-ranked chunk. A copy that carries one extra crucial sentence is not a duplicate, and survives. Cross-file copies collapse; unique information never does.</p>
+    </div></div>
+    <div class="step"><div class="num">2</div><div>
+      <h4>Semantic dedup — available, off by default</h4>
+      <p>A coarser cosine-similarity stage exists but ships disabled: it can drop a near-duplicate that carries unique content, which is exactly the failure the containment stage was built to avoid. It remains a toggle, not a default.</p>
+    </div></div>
+    <div class="step"><div class="num">3</div><div>
+      <h4>MMR diversification — a balanced evidence set</h4>
+      <p>Maximal Marginal Relevance selects the final fifteen chunks, balancing relevance against redundancy. The model reads a smaller, more varied evidence set — fewer tokens, better coverage of the question's aspects.</p>
+    </div></div>
+  </div>
+
+  <h2><span class="n">2.4</span>What an answer contains</h2>
+  <p>An answer is not a paragraph of prose. The response carries the answer text with inline, human-readable source references; the full set of retrieved evidence chunks (document, page, content, your metadata) so your interface can show its working; and the query and prompt echoed back with generation timing. The citations arrive machine-readable before they are prose: the model emits a structured fact map — citation ID, document, file name, page numbers — which the service resolves, merges and rewrites into the readable form.</p>
+
+  <table>
+    <thead><tr><th style="width:32%">In the payload</th><th>Why it is there</th></tr></thead>
+    <tbody>
+      <tr><td><b>Answer text</b> with inline citations</td><td>The prose your users read; every claim carries its source and page.</td></tr>
+      <tr><td><b>Evidence chunks</b>, optionally</td><td>Display the passages beside the answer, or keep them for audit. Nothing is asserted that you cannot show.</td></tr>
+      <tr><td><b>Echoed query &amp; prompt</b></td><td>The request is reproducible: what was asked, how the task was framed, when, and how long it took.</td></tr>
+      <tr><td><b>Status &amp; reason</b> (async)</td><td>Pending, generated or failed — with the reason recorded when an answer was delivered degraded.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="caveat">
+    <span class="kicker dark">THE HONEST CAVEAT</span>
+    The service is single-turn: each question stands alone, with no conversation memory and no streaming. It is PDF-first, and chunk sizing is fixed service-side. These are current scoping decisions, stated here so you can design against them rather than discover them.
+  </div>
+
+  <div class="footer">
+    <div class="brand"><span class="logo"><span class="mark" style="font-size:6.5pt; padding:1.2mm 1.6mm;">CP<span>·AI</span></span></span> Common Platform</div>
+    <div style="color:var(--faint)">The CP AI RAG Service</div>
+    <div>5</div>
+  </div>
+</div>
+
+<!-- ============================= PAGE 6 — BUILT AS A SERVICE ============================= -->
+<div class="page">
+  <div class="runhead"><span><b>3</b> &nbsp;Built as a service</span><span><b>RAG Service</b></span></div>
+  <div class="kicker">SECTION 3</div>
+  <h1 class="display section">Built as a service</h1>
+
+  <h2 style="margin-top:4mm"><span class="n">3.1</span>The principle</h2>
+  <p>The service is <b>contract-first</b>. A published OpenAPI specification — linted, versioned and released from its own repository — is the source of truth for every request and response shape; the service's own models are generated from it. Consumers integrate against the contract, not against our implementation, and the contract cannot drift silently because the implementation is derived from it.</p>
+
+  <h2><span class="n">3.2</span>The shape of it</h2>
+  <div class="layer">
+    <div class="lhead"><span>YOUR SYSTEMS</span><span>any number, any stack — no SDK required</span></div>
+    <div class="boxes">
+      <div class="bx"><b>Case management</b><span>full workflow</span></div>
+      <div class="bx"><b>Judicial &amp; staff tools</b><span>one screen, one question</span></div>
+      <div class="bx"><b>Scripts, integrations</b><span>no browser needed</span></div>
+    </div>
+  </div>
+  <div class="arrow">↓ &nbsp;Entra ID application JWT, validated by <b>API Management</b> on every request</div>
+  <div class="layer">
+    <div class="lhead"><span>SERVICE API — FIVE OPERATIONS</span><span>one OpenAPI contract, all error shapes documented</span></div>
+    <div class="boxes">
+      <div class="bx"><b>Upload</b><span>SAS link issued</span></div>
+      <div class="bx"><b>Upload status</b><span>by reference</span></div>
+      <div class="bx"><b>Ask (sync)</b><span>one round trip</span></div>
+      <div class="bx"><b>Ask (async)</b><span>transaction ID</span></div>
+      <div class="bx"><b>Poll answer</b><span>by transaction</span></div>
+    </div>
+  </div>
+  <div class="arrow">↓ &nbsp;storage queues decouple serving from processing</div>
+  <div class="layer">
+    <div class="lhead"><span>SERVICE RUNTIME</span><span>we run this — you never hold its credentials</span></div>
+    <div class="boxes">
+      <div class="bx"><b>Ingestion worker</b><span>extract · chunk · embed</span></div>
+      <div class="bx"><b>Answer worker</b><span>retrieve · generate · cite</span></div>
+      <div class="bx"><b>Scoring worker</b><span>judge every answer</span></div>
+      <div class="bx"><b>AI Search</b><span>hybrid index</span></div>
+      <div class="bx"><b>Azure OpenAI</b><span>embeddings · LLM</span></div>
+      <div class="bx"><b>Table &amp; Blob</b><span>status · results</span></div>
+    </div>
+  </div>
+  <div class="figcap"><span class="fig">FIGURE 1</span><span>The layers of the service. Everything below the first arrow is operated by the Common Platform team. Your responsibility stops at obtaining a token and making a request.</span></div>
+
+  <h2><span class="n">3.3</span>Processing is decoupled from serving</h2>
+  <p>Every expensive step — extraction, embedding, generation, scoring — runs as a short, retryable, queue-triggered invocation on serverless compute that scales with load. The HTTP surface stays fast because it only ever validates, records and enqueues.</p>
+  <p>Duplicate deliveries and worker crashes are a designed-for condition, not an incident. A shared idempotency guard keyed on the document or transaction holds a fenced, time-limited lease over in-flight work: a redelivered message for finished work is skipped without re-running models, and a worker resumed after a crash <b>cannot overwrite a completed answer or double-spend an LLM call</b>. The final write is fenced by the lease's claim-time ETag — a stale worker's result is discarded, not merged.</p>
+
+  <div class="footer">
+    <div class="brand"><span class="logo"><span class="mark" style="font-size:6.5pt; padding:1.2mm 1.6mm;">CP<span>·AI</span></span></span> Common Platform</div>
+    <div style="color:var(--faint)">The CP AI RAG Service</div>
+    <div>6</div>
+  </div>
+</div>
+
+<!-- ============================= PAGE 7 — CONNECTING ============================= -->
+<div class="page">
+  <div class="runhead"><span><b>4</b> &nbsp;Connecting to the service</span><span><b>RAG Service</b></span></div>
+  <div class="kicker">SECTION 4</div>
+  <h1 class="display section">Connecting to the service</h1>
+
+  <h2 style="margin-top:4mm"><span class="n">4.1</span>Three steps, and no more</h2>
+  <div class="steps">
+    <div class="step"><div class="num">1</div><div>
+      <h4>Obtain an access token</h4>
+      <p>Acquire an Entra ID application token for the service audience — the standard client-credentials flow every Common Platform consumer already uses.</p>
+    </div></div>
+    <div class="step"><div class="num">2</div><div>
+      <h4>Call through API Management</h4>
+      <p>APIM validates the JWT on every request and injects the function-level credential; the function tier is not reachable around the gateway.</p>
+    </div></div>
+    <div class="step"><div class="num">3</div><div>
+      <h4>Call the operation you need</h4>
+      <p>Five operations, stable paths, every shape in the OpenAPI contract. Point a generator at the spec and you have a typed client in any language.</p>
+    </div></div>
+  </div>
+
+  <h2><span class="n">4.2</span>What you never hold</h2>
+  <p>This is the part most integration conversations turn on. A consuming system needs none of the following.</p>
+  <div class="twocol">
+    <div>
+      <ul class="plain xy">
+        <li>Storage account keys or connection strings — the platform itself holds none</li>
+        <li>AI model endpoints, keys or deployments</li>
+        <li>A database, or any connection to ours</li>
+      </ul>
+    </div>
+    <div>
+      <ul class="plain xy">
+        <li>The retrieval pipeline, prompts or trust model</li>
+        <li>Any coordination with a service release</li>
+        <li>Capacity sized for document-scale payloads</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2><span class="n">4.3</span>Client identity and isolation</h2>
+  <p>The service is built multi-client: your client identity is threaded through every search filter, storage key, blob name, queue payload and telemetry dimension. Another client's documents are not merely hidden — a cross-client lookup resolves to <b>404, indistinguishable from a record that never existed</b>. Document identifiers are unique per client, and isolation is exercised by integration tests, including header-spoofing and cross-client reads.</p>
+
+  <div class="caveat">
+    <span class="kicker dark">THE HONEST CAVEAT</span>
+    Client-identity enforcement is implemented and tested but sits behind a feature flag pending cut-over. Ask us where cut-over stands before you design for co-tenancy.
+  </div>
+
+  <h2><span class="n">4.4</span>A first call, end to end</h2>
+  <p>One ingested document is the only prior state the synchronous endpoint needs — upload-then-ask is the shortest path to proving a connection works.</p>
+  <div class="code">
+    <div class="bar"><span>first-answer.sh</span><span>BASH</span></div>
+    <pre><span class="k">curl</span> --fail-with-body \
+  -H <span class="s">"Authorization: Bearer $CP_TOKEN"</span> -H <span class="s">"Content-Type: application/json"</span> \
+  -d <span class="s">'{ "userQuery": "What conditions were attached to the order?",
+       "metadataFilter": [ { "caseId": "CASE-4417" } ] }'</span> \
+  https://&lt;apim-origin&gt;/answer-user-query   <span class="c"># → the cited answer + its evidence chunks</span></pre>
+  </div>
+
+  <div class="footer">
+    <div class="brand"><span class="logo"><span class="mark" style="font-size:6.5pt; padding:1.2mm 1.6mm;">CP<span>·AI</span></span></span> Common Platform</div>
+    <div style="color:var(--faint)">The CP AI RAG Service</div>
+    <div>7</div>
+  </div>
+</div>
+
+<!-- ============================= PAGE 8 — CONSUMING: DOCUMENTS ============================= -->
+<div class="page">
+  <div class="runhead"><span><b>5</b> &nbsp;Consuming the service</span><span><b>RAG Service</b></span></div>
+  <div class="kicker">SECTION 5</div>
+  <h1 class="display section">Consuming the service</h1>
+
+  <h2 style="margin-top:4mm"><span class="n">5.1</span>The document workflow</h2>
+  <p>Three calls take a PDF from a desktop to a question-ready index — one of them direct to storage, so no interface ever handles document-scale bytes.</p>
+
+  <table>
+    <thead><tr><th style="width:6%">Step</th><th style="width:44%">Call</th><th>What you get back</th></tr></thead>
+    <tbody>
+      <tr><td><b>1</b></td><td class="mono">POST /document-upload</td><td>A single-blob, short-lived SAS upload URL (create/write/read only; default 120-minute expiry) plus your document reference. Duplicate document IDs are rejected here, before any bytes move.</td></tr>
+      <tr><td><b>2</b></td><td class="mono">PUT the upload URL</td><td>The browser or client uploads the PDF bytes directly to Blob Storage. Files over the size limit are recorded as <code>FILE_SIZE_OVER_LIMIT</code> and never processed.</td></tr>
+      <tr><td><b>3</b></td><td class="mono">GET /document-upload/{documentReference}</td><td><code>AWAITING_UPLOAD</code> → <code>AWAITING_INGESTION</code> → <code>INGESTION_SUCCESS</code> or <code>INGESTION_FAILED</code>. Poll and render progress; handle the failed state.</td></tr>
+    </tbody>
+  </table>
+
+  <p>At upload you attach your own <b>metadata</b> — key/value pairs stored on every chunk and filterable at query time. Metadata is the scoping mechanism: a case ID, a document class, a hearing date. The vocabulary is entirely yours.</p>
+  <p>New versions are first-class: an upload can name earlier documents it <b>supersedes</b>; on ingestion the old chunks are excluded from every search by an always-on filter. No consumer has to remember to exclude stale material.</p>
+
+  <h2><span class="n">5.2</span>Asking questions</h2>
+  <table>
+    <thead><tr><th style="width:6%">Step</th><th style="width:44%">Call</th><th>What you get back</th></tr></thead>
+    <tbody>
+      <tr><td><b>A</b></td><td class="mono">POST /answer-user-query</td><td><b>Synchronous.</b> The cited answer, the evidence chunks, and timing — in one round trip.</td></tr>
+      <tr><td><b>B1</b></td><td class="mono">POST /answer-user-query-async</td><td><b>Asynchronous.</b> <code>202</code> with a <code>transactionId</code>; the work is queued and durable.</td></tr>
+      <tr><td><b>B2</b></td><td class="mono">GET /answer-user-query-async-status/{transactionId}</td><td><code>ANSWER_GENERATION_PENDING</code> → <code>ANSWER_GENERATED</code> or <code>ANSWER_GENERATION_FAILED</code>, with the answer payload once ready — optionally including the retrieved chunks (<code>withChunkedEntries</code>).</td></tr>
+    </tbody>
+  </table>
+
+  <p>Every question carries the <b>user query</b>, a <b>query prompt</b> (your task framing — who the answer is for, what register it takes), and the <b>metadata filter</b> scoping retrieval to your documents. You steer the framing; the grounding rules are not yours to relax.</p>
+
+  <h2><span class="n">5.3</span>Sync or async</h2>
+  <div class="twocol">
+    <div>
+      <h3 class="hd">Synchronous, for interactive screens</h3>
+      <p style="font-size:8.6pt">One request, one cited answer — for a user waiting on the page, within your timeout budget.</p>
+    </div>
+    <div>
+      <h3 class="hd lt">Asynchronous, for everything else</h3>
+      <p style="font-size:8.6pt">Queued, durable, idempotent under retry — for callers that must never hold a request open.</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="brand"><span class="logo"><span class="mark" style="font-size:6.5pt; padding:1.2mm 1.6mm;">CP<span>·AI</span></span></span> Common Platform</div>
+    <div style="color:var(--faint)">The CP AI RAG Service</div>
+    <div>8</div>
+  </div>
+</div>
+
+<!-- ============================= PAGE 9 — LIMITS ============================= -->
+<div class="page">
+  <div class="runhead"><span><b>5</b> &nbsp;Consuming the service</span><span><b>RAG Service</b></span></div>
+
+  <h2 style="margin-top:0"><span class="n">5.4</span>Limits worth designing against</h2>
+  <table>
+    <thead><tr><th style="width:34%">Limit</th><th style="width:16%">Default</th><th>What to do about it</th></tr></thead>
+    <tbody>
+      <tr><td>Document upload size</td><td>80 MiB</td><td>Over-limit files are recorded, never processed. Check sizes client-side; split outsized bundles.</td></tr>
+      <tr><td>Upload link expiry</td><td>120 min</td><td>Request the link when the user is ready to upload, not when the screen opens.</td></tr>
+      <tr><td>Metadata pair length</td><td>40 chars</td><td>Capped, and reserved keys rejected with <code>400</code>. Design a compact vocabulary.</td></tr>
+      <tr><td>File type</td><td>PDF</td><td>One configured upload extension. Convert Office material to PDF at your edge for now.</td></tr>
+      <tr><td>Evidence sent to the model</td><td>15 chunks</td><td>Fixed by the refinement pipeline. Sharpen the metadata filter rather than broaden the query.</td></tr>
+      <tr><td>Answer budget</td><td>4,000 tokens</td><td>Ample for grounded answers; not a document generator.</td></tr>
+      <tr><td>Queue redelivery</td><td>3 attempts</td><td>Async failures retry by redelivery, then surface as a failed transaction with a reason. Handle it; do not re-submit blindly.</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="n">5.5</span>What ingestion does with your document</h2>
+  <p>Worth knowing when you reason about answer quality, because the provenance your users see is established here.</p>
+  <table>
+    <thead><tr><th style="width:28%">Stage</th><th>How it works</th></tr></thead>
+    <tbody>
+      <tr><td><b>Extraction</b></td><td>Azure Document Intelligence layout analysis over the blob — a long-running operation; page boundaries preserved, empty pages skipped. Scanned material is read, not refused.</td></tr>
+      <tr><td><b>Chunking</b></td><td>Recursive splitting applied per page, so every chunk carries a page number and in-page position. Page-level citation is possible because provenance is never lost, not because it is reconstructed.</td></tr>
+      <tr><td><b>Embedding</b></td><td>A 3,072-dimension embedding model, batched; the same model embeds documents and queries. Vector dimension is enforced on write.</td></tr>
+      <tr><td><b>Indexing</b></td><td>Azure AI Search: HNSW vector index alongside BM25 keyword search, your metadata on every chunk, client identity on every record.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="caveat">
+    <span class="kicker dark">DESIGN NOTE</span>
+    Retrieval quality tracks metadata discipline. A single-case filter turns the corpus into that case's papers; no filter turns it into everything you ever uploaded. Decide your vocabulary before your first production upload.
+  </div>
+
+  <div class="footer">
+    <div class="brand"><span class="logo"><span class="mark" style="font-size:6.5pt; padding:1.2mm 1.6mm;">CP<span>·AI</span></span></span> Common Platform</div>
+    <div style="color:var(--faint)">The CP AI RAG Service</div>
+    <div>9</div>
+  </div>
+</div>
+
+<!-- ============================= PAGE 10 — TRUST ============================= -->
+<div class="page">
+  <div class="runhead"><span><b>6</b> &nbsp;Trust, assurance and security</span><span><b>RAG Service</b></span></div>
+  <div class="kicker">SECTION 6</div>
+  <h1 class="display section">Trust, assurance and security</h1>
+
+  <h2 style="margin-top:4mm"><span class="n">6.1</span>Citations, enforced</h2>
+  <p>Answer systems are usually asked to be right. This one is additionally required to be <b>checkable</b>, because the reader is making a decision on the strength of it.</p>
+  <div class="twocol">
+    <div>
+      <h3 class="hd">The fact map</h3>
+      <p style="font-size:8.6pt">The model must emit a structured map of its claims — citation ID, document, file name, page numbers — alongside the prose. The service resolves it, merges adjacent references, and rewrites markers into readable sources. Citations are data first, prose second.</p>
+    </div>
+    <div>
+      <h3 class="hd lt">The guard</h3>
+      <p style="font-size:8.6pt">An answer with no fact map, an unparseable one, or all of its markers stripped is <b>citation-degraded</b>. Policy decides its fate: deliver it flagged with the reason recorded, or reject it outright. A deliberate "the documents do not contain this" refusal always passes — declining is the correct grounded behaviour, and is never punished.</p>
+    </div>
+  </div>
+
+  <div class="quote" style="margin-top:5mm">
+    <div class="q">An ungrounded answer is never returned silently.</div>
+    <div class="attr kicker">THE GUARD'S CONTRACT WITH EVERY CONSUMER</div>
+  </div>
+
+  <p>On the asynchronous path a degraded answer is retried afresh before the policy applies. The outcome is always explicit: a clean answer, a flagged answer with its reason in the record, or a failed transaction. Never a quiet degradation.</p>
+
+  <h2><span class="n">6.2</span>Measured in production, not just promised</h2>
+  <div class="twocol">
+    <div>
+      <h3 class="hd">Every answer, scored online</h3>
+      <p style="font-size:8.6pt">A separate judge deployment rates every production answer's groundedness 1–5 against the very chunks it was generated from, with reasoning recorded. Scores flow to Azure Monitor as a histogram with query-type and client dimensions — your answers, observable as a distribution, per client, in production.</p>
+    </div>
+    <div>
+      <h3 class="hd lt">Every change, evaluated offline</h3>
+      <p style="font-size:8.6pt">A dedicated harness reruns the real pipeline — embed, search, generate, cite — across prompts × models × queries, reporting citation coverage, verbosity and truncation. Prompt and model changes are justified with numbers from this harness before they ship, not after.</p>
+    </div>
+  </div>
+
+  <h2><span class="n">6.3</span>Security posture</h2>
+  <p><b>Identity and access.</b> API Management validates an Entra ID application JWT on every request and injects the function credential; the function tier is not reachable around the gateway. With client-identity enforcement on, a missing identity is refused with <code>401</code> and every read and write is scoped to the resolved client.</p>
+  <p><b>Platform and data.</b> Storage access is managed identity only — <b>no storage keys or connection strings exist anywhere in the configuration</b>, and storage triggers use identity-based bindings. Inputs are hardened at the contract: schema-validated shapes, UUID constraints, metadata length caps, reserved-key rejection, and escaping of both search-filter and keyword-query inputs against injection.</p>
+
+  <div class="caveat">
+    <span class="kicker dark">A POSTURE DECISION, STATED PLAINLY</span>
+    Azure OpenAI content filtering is disabled by policy: the corpus is sensitive case material, and a filter that refuses to read it would fail the very users the service exists for. The trade-off is deliberate, and compensated by grounding — the model may only restate what the documents say, cited to the page.
+  </div>
+
+  <div class="footer">
+    <div class="brand"><span class="logo"><span class="mark" style="font-size:6.5pt; padding:1.2mm 1.6mm;">CP<span>·AI</span></span></span> Common Platform</div>
+    <div style="color:var(--faint)">The CP AI RAG Service</div>
+    <div>10</div>
+  </div>
+</div>
+
+<!-- ============================= PAGE 11 — RELIABILITY ============================= -->
+<div class="page">
+  <div class="runhead"><span><b>6</b> &nbsp;Trust, assurance and security</span><span><b>RAG Service</b></span></div>
+
+  <h2 style="margin-top:0"><span class="n">6.4</span>Reliability under retry</h2>
+  <p>Queue redelivery is how the service heals — which means duplicate delivery is the normal case to design for, not the edge case. Three properties hold under any combination of retries, crashes and races:</p>
+  <ul class="plain ck">
+    <li><b>Finished work is never redone.</b> A duplicate delivery for a document or transaction already in a terminal state is skipped without touching the models — no double-spent extraction, embedding or generation.</li>
+    <li><b>In-flight work is never raced.</b> A time-limited lease on the status row, claimed by conditional write, means two workers cannot process the same item concurrently; a duplicate arriving against a live lease steps back and redelivers.</li>
+    <li><b>A completed answer is never overwritten.</b> The final write is fenced by the ETag captured when the lease was claimed. A worker resuming after a crash — whose lease was reclaimed — has its stale result discarded at the write, not merged over the finished one.</li>
+  </ul>
+  <p>Model calls carry configurable retries and per-phase timeouts, tuned so that long generation latency is bounded deliberately rather than cut off by an accidental read timeout.</p>
+
+  <h2><span class="n">6.5</span>Observability</h2>
+  <p>Application Insights runs on every function host with requests excluded from sampling, so the trace of a request is complete, not statistical. Logging is structured throughout. Groundedness scores flow through OpenTelemetry to Azure Monitor, dimensioned by query type and client — quality is a chart someone can watch, alert on, and attribute.</p>
+
+  <h2><span class="n">6.6</span>Engineering practice behind the claims</h2>
+  <table>
+    <thead><tr><th style="width:30%">Practice</th><th>What it looks like here</th></tr></thead>
+    <tbody>
+      <tr><td><b>Contract-first API</b></td><td>The OpenAPI 3.0 spec lives in its own repository, is Spectral-linted and released independently; server models are generated from it. All five operations document their error responses.</td></tr>
+      <tr><td><b>Testing</b></td><td>Around 105 unit test classes with coverage gates, plus an integration module that boots all five function hosts against real Azure resources created per run — covering upload → ingest → query end to end, idempotency, supersede, negative paths and client isolation.</td></tr>
+      <tr><td><b>CI &amp; analysis</b></td><td>Azure Pipelines on every PR with SonarQube quality gates. Java 21, multi-module Maven.</td></tr>
+      <tr><td><b>Decisions on record</b></td><td>Architecture decisions and designs are documented in-repo — idempotency, multi-client isolation and retrieval refinement each have a written design, not tribal knowledge.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <div class="brand"><span class="logo"><span class="mark" style="font-size:6.5pt; padding:1.2mm 1.6mm;">CP<span>·AI</span></span></span> Common Platform</div>
+    <div style="color:var(--faint)">The CP AI RAG Service</div>
+    <div>11</div>
+  </div>
+</div>
+
+<!-- ============================= PAGE 12 — APPLYING ============================= -->
+<div class="page">
+  <div class="runhead"><span><b>7</b> &nbsp;Applying it in your service</span><span><b>RAG Service</b></span></div>
+  <div class="kicker">SECTION 7</div>
+  <h1 class="display section">Applying it in your service</h1>
+
+  <h2 style="margin-top:4mm"><span class="n">7.1</span>Three patterns of adoption</h2>
+  <div class="cards">
+    <div class="card" style="min-height:40mm">
+      <div class="kicker mute">SMALLEST STEP</div>
+      <h4>One question, one screen</h4>
+      <p>Add a single ask-the-documents box to a screen you already run, on the synchronous endpoint. Documents you already hold, one new call, no new infrastructure.</p>
+      <div class="ep">days</div>
+    </div>
+    <div class="card" style="min-height:40mm">
+      <div class="kicker mute">MOST COMMON</div>
+      <h4>A case-scoped assistant</h4>
+      <p>Wire upload into your existing document flow with a case-ID metadata scheme, and offer grounded Q&amp;A over each case's papers — async, polled, with the evidence chunks displayed beside every answer.</p>
+      <div class="ep">weeks</div>
+    </div>
+    <div class="card" style="min-height:40mm">
+      <div class="kicker mute">LARGEST STEP</div>
+      <h4>A document-intelligence feature</h4>
+      <p>Build a product surface of your own on the full contract — bulk ingestion, supersede-on-reupload, per-answer audit views from the scored, recorded pipeline.</p>
+      <div class="ep">a quarter</div>
+    </div>
+  </div>
+  <p>In every pattern the backend is unchanged. What differs is how much of the surface you expose — and because scoping lives in <b>your</b> metadata vocabulary, the service never needs to understand your domain to serve it.</p>
+
+  <h2><span class="n">7.2</span>What is ready, and what is not</h2>
+  <p>The first column is in production use today. The second is stated plainly so you can plan against it.</p>
+  <div class="twocol">
+    <div>
+      <div class="kicker mute" style="margin-bottom:2mm">READY NOW</div>
+      <ul class="plain ck">
+        <li>Five operations behind APIM with a published, linted contract</li>
+        <li>Sync and async answering with citations and evidence chunks</li>
+        <li>Citation guard with explicit degraded-answer policy</li>
+        <li>Groundedness scored on every production answer</li>
+        <li>Idempotent, crash-safe queue workers</li>
+        <li>Multi-client isolation implemented and integration-tested</li>
+      </ul>
+    </div>
+    <div>
+      <div class="kicker mute" style="margin-bottom:2mm">NOT YET</div>
+      <ul class="plain xy">
+        <li><b>Isolation cut-over.</b> Enforcement is behind a feature flag pending platform cut-over.</li>
+        <li><b>Beyond PDF.</b> One upload extension; convert at your edge for now.</li>
+        <li><b>Conversation.</b> Single-turn only — no memory, no streaming.</li>
+        <li><b>Hard delete.</b> Superseded documents are hidden by filter, not erased; a GDPR erasure path is platform work in flight.</li>
+        <li><b>Quality beyond groundedness.</b> Relevance and completeness are not yet scored online.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2><span class="n">7.3</span>What we would need from you</h2>
+  <div class="steps">
+    <div class="step"><div class="num">1</div><div>
+      <h4>An identity and a route through APIM</h4>
+      <p>An Entra ID application for your service and an APIM subscription — the standard Common Platform onboarding, nothing bespoke.</p>
+    </div></div>
+    <div class="step"><div class="num">2</div><div>
+      <h4>A metadata vocabulary</h4>
+      <p>The handful of keys you will scope by — case, document class, date. Agreed before first upload.</p>
+    </div></div>
+    <div class="step"><div class="num">3</div><div>
+      <h4>A decision on invocation mode</h4>
+      <p>Sync for interactive screens, async for everything else, per Section 5.3. It decides your UX shape and timeout budget.</p>
+    </div></div>
+  </div>
+
+  <div class="footer">
+    <div class="brand"><span class="logo"><span class="mark" style="font-size:6.5pt; padding:1.2mm 1.6mm;">CP<span>·AI</span></span></span> Common Platform</div>
+    <div style="color:var(--faint)">The CP AI RAG Service</div>
+    <div>12</div>
+  </div>
+</div>
+
+<!-- ============================= PAGE 13 — REFERENCE ============================= -->
+<div class="page">
+  <div class="runhead"><span><b>8</b> &nbsp;Reference</span><span><b>RAG Service</b></span></div>
+  <div class="kicker">SECTION 8</div>
+  <h1 class="display section">Reference</h1>
+
+  <h2 style="margin-top:4mm"><span class="n">8.1</span>Endpoints</h2>
+  <table>
+    <thead><tr><th style="width:42%">Operation</th><th style="width:26%">Success</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">POST /document-upload</td><td><code>200</code> SAS URL + reference</td><td>Initiate an upload; returns the direct-to-storage link</td></tr>
+      <tr><td class="mono">GET /document-upload/{documentReference}</td><td><code>200</code> ingestion status</td><td>Track a document from link issued to indexed</td></tr>
+      <tr><td class="mono">POST /answer-user-query</td><td><code>200</code> cited answer</td><td>Synchronous question answering</td></tr>
+      <tr><td class="mono">POST /answer-user-query-async</td><td><code>202</code> transaction ID</td><td>Queue a question for durable processing</td></tr>
+      <tr><td class="mono">GET /answer-user-query-async-status/{transactionId}</td><td><code>200</code> status / answer</td><td>Poll the asynchronous result, optionally with evidence chunks</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:8.2pt; color:#555">All operations document <code>400</code>/<code>401</code>/<code>500</code> error shapes (<code>404</code> on the GETs) in the contract; the spec repository is the source of truth.</p>
+
+  <h2><span class="n">8.2</span>Glossary</h2>
+  <table>
+    <thead><tr><th style="width:26%">Term</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><b>Chunk</b></td><td>A page-scoped passage of a document — the unit of retrieval and citation</td></tr>
+      <tr><td><b>Fact map</b></td><td>The structured claim-to-source map the model must emit with every answer</td></tr>
+      <tr><td><b>Citation guard</b></td><td>The check that flags or rejects answers whose fact map fails</td></tr>
+      <tr><td><b>Groundedness</b></td><td>Whether an answer's claims are supported by the evidence; judged 1–5</td></tr>
+      <tr><td><b>Containment dedup</b></td><td>Removal of chunks whose content a higher-ranked chunk already covers</td></tr>
+      <tr><td><b>MMR</b></td><td>Maximal Marginal Relevance — the final relevance-vs-diversity selection</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="n">8.3</span>Where to read next</h2>
+  <table>
+    <thead><tr><th style="width:38%">Document</th><th>For</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">api-cp-ai-rag (spec repository)</td><td>The OpenAPI contract — the source of truth for shapes and clients</td></tr>
+      <tr><td class="mono">rag-service-one-pager.pdf</td><td>The decision-maker's brief — scope, cost and scaling, one page</td></tr>
+      <tr><td class="mono">ai-service-orchestration-test/</td><td>The end-to-end integration suite — a runnable account of real behaviour</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="n">8.4</span>Contact</h2>
+  <p>The shortest route to a decision is one ingested document and one question — both covered in Sections 4 and 5. Common Platform AI team, HMCTS.</p>
+
+  <div class="footer">
+    <div class="brand"><span class="logo"><span class="mark" style="font-size:6.5pt; padding:1.2mm 1.6mm;">CP<span>·AI</span></span></span> Common Platform</div>
+    <div style="color:var(--faint)">The CP AI RAG Service</div>
+    <div>13</div>
+  </div>
+</div>
+
+</body>
+</html>
