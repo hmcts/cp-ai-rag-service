@@ -241,6 +241,7 @@ class OpenAiChatServiceTest {
                 .totalTokens(inputTokens + outputTokens)
                 .inputTokensDetails(ResponseUsage.InputTokensDetails.builder()
                         .cachedTokens(cachedTokens)
+                        .cacheWriteTokens(0L)
                         .build())
                 .outputTokensDetails(ResponseUsage.OutputTokensDetails.builder()
                         .reasoningTokens(reasoningTokens)
