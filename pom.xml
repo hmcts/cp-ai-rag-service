@@ -31,7 +31,7 @@
         <azure.functions.java.library.version>3.3.0</azure.functions.java.library.version>
         <plugins.maven.jgitflow.version>1.0-m5.1</plugins.maven.jgitflow.version>
         <azure.openai.version>1.0.0-beta.16</azure.openai.version>
-        <openai-java.version>4.41.0</openai-java.version>
+        <openai-java.version>4.64.0</openai-java.version>
         <junit-jupiter-engine.version>6.1.3</junit-jupiter-engine.version>
         <mockito-junit-jupiter.version>5.23.0</mockito-junit-jupiter.version>
         <assertj-core.version>3.27.7</assertj-core.version>
