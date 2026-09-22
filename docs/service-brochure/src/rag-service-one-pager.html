@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CP AI RAG Service — one-page brief</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --ink:#1c1c1c; --muted:#8a8a86; --accent:#0e6e73; --rule:#e2e2de; --wash:#f5f5f2; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: var(--ink);
+         font-size: 8pt; line-height: 1.42; }
+  .page { width: 210mm; height: 297mm; padding: 10mm 13mm 9mm; position: relative; overflow: hidden; }
+  .display { font-family: "Didot", "Bodoni 72", Georgia, serif; font-weight: 400; }
+  .kicker { font-size: 6pt; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  b { font-weight: 700; }
+  .logo { display: inline-flex; align-items: center; }
+  .logo .mark { background: var(--ink); color: #fff; font-weight: 800; font-size: 7pt; padding: 1.2mm 1.8mm; line-height: 1; }
+  .logo .mark span { color: #7ad0d4; }
+
+  .head { display: flex; justify-content: space-between; align-items: flex-end;
+          border-bottom: 1pt solid var(--ink); padding-bottom: 2.6mm; margin-bottom: 3.6mm; }
+  .head h1 { font-size: 20pt; font-style: italic; line-height: 1.05; }
+  .head .sub { font-size: 8pt; color: #444; margin-top: 1.2mm; }
+  .head .meta { text-align: right; font-size: 6.4pt; color: var(--muted); line-height: 1.5; }
+
+  h2 { font-size: 9pt; font-weight: 700; margin: 0 0 2mm; padding-top: 1.6mm; border-top: 1pt solid var(--ink); }
+  p { margin-bottom: 1.8mm; }
+  .cols { display: flex; gap: 7mm; margin-bottom: 3.6mm; }
+  .cols > div { flex: 1; min-width: 0; }
+
+  ul { list-style: none; }
+  li { padding-left: 3.4mm; position: relative; margin-bottom: 1.5mm; }
+  li::before { content: "·"; position: absolute; left: 0.6mm; color: var(--accent); font-weight: 700; }
+  li.x::before { content: "✕"; font-size: 5.4pt; top: 0.7mm; color: var(--muted); font-weight: 400; }
+
+  table { width: 100%; border-collapse: collapse; margin: 1.4mm 0 1.6mm; }
+  th { text-align: left; font-size: 5.6pt; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+       font-weight: 700; padding: 0 2mm 1mm 0; border-bottom: 0.8pt solid var(--ink); }
+  td { padding: 1.3mm 2mm 1.3mm 0; vertical-align: top; border-bottom: 0.4pt solid var(--rule); font-size: 7.4pt; }
+  tbody tr:nth-child(odd) td { background: #f8f8f5; }
+  tbody td:first-child { padding-left: 1.4mm; }
+  td.n { text-align: right; padding-right: 1.4mm; white-space: nowrap; }
+
+  .stats { display: flex; gap: 5mm; margin: 0 0 3.6mm; }
+  .stat { flex: 1; border-top: 1pt solid var(--ink); padding-top: 1.6mm; }
+  .stat .n { font-family: "Didot", Georgia, serif; font-size: 14.5pt; line-height: 1.1; }
+  .stat .d { font-size: 6.2pt; color: #555; line-height: 1.4; margin-top: 0.6mm; }
+
+  .caveat { background: var(--wash); border-left: 1.6pt solid var(--ink); padding: 2mm 2.8mm; margin: 2mm 0 0; font-size: 7pt; line-height: 1.42; }
+  .caveat .kicker { display: block; margin-bottom: 0.8mm; color: var(--ink); }
+  .basis { font-size: 6.2pt; color: var(--muted); line-height: 1.4; margin-top: 0.6mm; }
+
+  .footer { position: absolute; left: 13mm; right: 13mm; bottom: 6mm; border-top: 0.5pt solid var(--rule);
+            padding-top: 1.8mm; font-size: 5.8pt; color: var(--muted); line-height: 1.5; }
+  .footer a { color: var(--accent); text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="head">
+    <div>
+      <div class="kicker" style="margin-bottom:1.2mm">COMMON PLATFORM · HM COURTS &amp; TRIBUNALS SERVICE</div>
+      <h1 class="display">The CP AI RAG Service <span style="font-size:11pt; color:#555">— on one page</span></h1>
+      <div class="sub">Grounded, page-cited answers over court documents, as a service.</div>
+    </div>
+    <div class="meta">
+      <div class="logo"><span class="mark">CP<span>·AI</span></span></div>
+      <div style="margin-top:1.2mm">Version 1.1 · 22 September 2026<br>Companion to the full service guide</div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="n">2,086</div><div class="d">documents ingested in the 76-day production pilot; 15,200 queries answered, zero rate-limit errors</div></div>
+    <div class="stat"><div class="n">5½p</div><div class="d">billed LLM cost per answered query in the pilot — 3.6p generation + 1.9p scoring (GPT-4o)</div></div>
+    <div class="stat"><div class="n">100<span style="font-size:9pt">%</span></div><div class="d">of answers pass a citation guard before delivery; ~96% were groundedness-scored in the pilot</div></div>
+    <div class="stat"><div class="n">£590K</div><div class="d">projected annual run cost at national volume on the current model, pay-as-you-go</div></div>
+  </div>
+
+  <div class="cols">
+    <div>
+      <h2>Scope</h2>
+      <p>Common Platform systems upload court documents and ask natural-language questions of them. Answers come back with <b>every claim cited to a document and a page</b>, plus the evidence passages for verification. A headless capability — no UI of its own — consumed as five HTTP operations behind API Management, contract-first.</p>
+      <p><b>Decision support, never decision automation:</b> single-turn Q&amp;A, scoped by caller metadata (e.g. case ID), with document versioning built in. Out of scope today: conversation memory, streaming, non-PDF formats, hard delete.</p>
+    </div>
+    <div>
+      <h2>Technical approach</h2>
+      <p>A fully serverless Azure pipeline, queue-decoupled at every expensive step. Ingestion: Document Intelligence extraction → per-page chunking → embeddings → Azure AI Search hybrid index. Retrieval over-fetches ~50 candidates, then dedup and diversity stages select ~15 evidence chunks for the model (Azure OpenAI GPT-4o today; migration under evaluation).</p>
+      <p>The model must emit a structured <b>fact map</b>; a <b>citation guard</b> flags or rejects degraded answers; a judge model scores groundedness to Azure Monitor. Idempotency fencing makes queue retries double-spend-proof; storage access is managed identity only.</p>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div>
+      <h2>Responsible AI use</h2>
+      <ul>
+        <li><b>Grounding enforced, not asserted.</b> Answers may only restate the retrieved documents; an answer whose citations fail is flagged with a recorded reason or rejected — never returned silently.</li>
+        <li><b>Refusal is protected.</b> "The documents do not contain this" always passes the guard; the model is never pushed to invent.</li>
+        <li><b>Measured continuously.</b> Answers are judged for groundedness in production, and an offline harness gates prompt and model changes with evidence — it has already surfaced a conviction-recall risk in the cheaper migration candidate (missed convictions in 4 of 50 evaluated cells).</li>
+        <li><b>Human verification by design.</b> Evidence passages travel with every answer, so a person can check each claim against its source.</li>
+        <li><b>Content filtering is off by deliberate, documented policy</b> — the corpus is sensitive case material a filter would refuse to read; grounding and scoring compensate.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>Constraints to scaling nationally</h2>
+      <ul>
+        <li class="x"><b>Shared-capacity ceilings, no SLA.</b> The projected national peak draws ~76% of the pay-as-you-go token ceiling, and scoring's peak breaches its own — beyond them, requests fail hard. Hedges: a quota uplift; a 25–50-PTU fast lane (£66K–£132K/yr); self-hosted scoring (~£70K/yr saving).</li>
+        <li class="x"><b>No priority or fairness yet.</b> One queue, one model tier: urgent queries can sit behind routine bulk, and one busy consumer can starve others. The priority-first design (DD-42909) is agreed but not yet built.</li>
+        <li class="x"><b>Model migration is open.</b> GPT-4o is prior-generation; gpt-5.1 is ~30% cheaper but carries the recall risk and offers no UK-resident processing; Claude buys the recall back at ~2× per-request cost, UK-resident only via AWS Bedrock.</li>
+        <li class="x"><b>Multi-client isolation is flag-gated</b> pending cut-over; onboarding many consumers also needs the fairness work above.</li>
+        <li class="x"><b>Operational residue:</b> fixed chunking, PDF-first, soft delete only, integration suite not yet in CI.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Cost vs benefit</h2>
+  <div class="cols" style="margin-bottom:0">
+    <div style="flex:1.15">
+      <table>
+        <thead><tr><th>Annual cost at national volume (2,000 docs/day)</th><th class="n" style="text-align:right">Total</th></tr></thead>
+        <tbody>
+          <tr><td><b>Fixed platform, common to every option</b> — ingestion, vector DB, functions</td><td class="n"><b>£314K</b></td></tr>
+          <tr><td><b>Today's model, PAYG</b> (GPT-4o) — zero infrastructure, no SLA</td><td class="n"><b>~£590K</b></td></tr>
+          <tr><td><b>Recommended hybrid</b> — PTU fast lane + PAYG, self-hosted scoring</td><td class="n">~£550–620K</td></tr>
+          <tr><td><b>Full 24/7 reserved capacity</b> (PTU) — full SLA, over-provisioned here</td><td class="n">~£741–790K</td></tr>
+          <tr><td><b>Migration: gpt-5.1 path</b> — ~30% below GPT-4o like-for-like²; recall risk</td><td class="n"><b>~£510K</b></td></tr>
+          <tr><td><b>Migration: Claude path</b> (Sonnet 4.6 + Haiku) — strongest recall; ~£488K with batching</td><td class="n">~£661K</td></tr>
+        </tbody>
+      </table>
+      <div class="basis">GPT-4o rows: billed basis, 14K queries/day. Migration rows: list rate, 20K/day. ² The like-for-like figure bridges the two bases.</div>
+    </div>
+    <div>
+      <p><b>The benefit side.</b> Case preparation means finding the passage that matters in bundles running to hundreds of pages — an hour spent locating material is an hour not spent considering it. At national volume the service answers <b>~5–7M queries a year at ~2–4p of model cost each</b> (8–12p all-in), each a page-cited, scored answer returned in seconds.</p>
+      <p>The pilot proved the mechanics: 76 days, £7,219 (~£95/day), unit costs measured from production billing (27.6p/document, 3.6p/answer, 1.9p/score). The projections are arithmetic on measured units, not estimates.</p>
+      <div class="caveat"><span class="kicker">READ THE COSTS HONESTLY</span>
+      Figures are projections on pilot-measured token shapes; production billing ran ~×1.2 over list. The migration decision is not purely financial: the cheapest path carries a measured recall risk, and UK-residency requirements could force the platform choice.</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Sources (titles link to the documents): <a href="https://hmcts.atlassian.net/wiki/spaces/CROWN/pages/269154611/Infrastructure+Cost+Model+Pilot+Usage+and+National+Rollout+Projections">Infrastructure Cost Model — Pilot Usage and National Rollout Projections</a> (Confluence, CROWN) · <a href="https://hmcts.atlassian.net/wiki/spaces/CROWN/pages/269154126/Model+Provisioning+and+Capacity+Strategy+National+Rollout">Model Provisioning and Capacity Strategy: National Rollout</a> (Confluence, CROWN) · <a href="https://hmcts.atlassian.net/wiki/spaces/CROWN/pages/269155915/Priority+Consumer+Fairness+Design+Document">Priority &amp; Consumer Fairness — Design Document</a> (Confluence, CROWN) · <a href="https://github.com/hmcts/cp-ai-rag-service/blob/main/ai-document-system-prompt-harness-eval/docs/model-migration-cost-projection.md">Model Migration Cost Projection</a> (GitHub, cp-ai-rag-service). List rates at time of writing; re-verify before commitment. — Common Platform AI team, HMCTS.
+  </div>
+
+</div>
+</body>
+</html>
