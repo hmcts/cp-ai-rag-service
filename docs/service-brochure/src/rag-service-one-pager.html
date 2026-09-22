@@ -97,7 +97,7 @@
       <ul>
         <li><b>Grounding enforced, not asserted.</b> Answers may only restate the retrieved documents; an answer whose citations fail is flagged with a recorded reason or rejected — never returned silently.</li>
         <li><b>Refusal is protected.</b> "The documents do not contain this" always passes the guard; the model is never pushed to invent.</li>
-        <li><b>Measured continuously.</b> Answers are judged for groundedness in production, and an offline harness gates prompt and model changes with evidence — it has already surfaced a conviction-recall risk in the cheaper migration candidate (missed convictions in 4 of 50 evaluated cells).</li>
+        <li><b>Measured continuously.</b> Answers are judged for groundedness in production, and an offline harness gates prompt and model changes with evidence. In the head-to-head migration evaluation it caught gpt-5.1 missing convictions the Claude candidate found (4 of 50 cells, evidence present in both contexts) — a false-“no record” risk now central to the model choice.</li>
         <li><b>Human verification by design.</b> Evidence passages travel with every answer, so a person can check each claim against its source.</li>
         <li><b>Content filtering is off by deliberate, documented policy</b> — the corpus is sensitive case material a filter would refuse to read; grounding and scoring compensate.</li>
       </ul>
@@ -120,15 +120,15 @@
       <table>
         <thead><tr><th>Annual cost at national volume (2,000 docs/day)</th><th class="n" style="text-align:right">Total</th></tr></thead>
         <tbody>
-          <tr><td><b>Fixed platform, common to every option</b> — ingestion, vector DB, functions</td><td class="n"><b>£314K</b></td></tr>
-          <tr><td><b>Today's model, PAYG</b> (GPT-4o) — zero infrastructure, no SLA</td><td class="n"><b>~£590K</b></td></tr>
+          <tr><td><b>Fixed platform</b> (ingestion, vector DB, functions) — <b>included in every total below</b>, not additional</td><td class="n"><b>£314K</b></td></tr>
+          <tr><td><b>Today's model, PAYG</b> (GPT-4o) — £276K model + £314K fixed; zero infrastructure, no SLA</td><td class="n"><b>~£590K</b></td></tr>
           <tr><td><b>Recommended hybrid</b> — PTU fast lane + PAYG, self-hosted scoring</td><td class="n">~£550–620K</td></tr>
-          <tr><td><b>Full 24/7 reserved capacity</b> (PTU) — full SLA, over-provisioned here</td><td class="n">~£741–790K</td></tr>
-          <tr><td><b>Migration: gpt-5.1 path</b> — ~30% below GPT-4o like-for-like²; recall risk</td><td class="n"><b>~£510K</b></td></tr>
+          <tr><td><b>Full 24/7 reserved capacity</b> (PTU) — full SLA, over-provisioned</td><td class="n">~£741–790K</td></tr>
+          <tr><td><b>Migration: gpt-5.1 path</b> — ~30% below GPT-4o like-for-like²; recall risk vs the Claude candidate</td><td class="n"><b>~£510K</b></td></tr>
           <tr><td><b>Migration: Claude path</b> (Sonnet 4.6 + Haiku) — strongest recall; ~£488K with batching</td><td class="n">~£661K</td></tr>
         </tbody>
       </table>
-      <div class="basis">GPT-4o rows: billed basis, 14K queries/day. Migration rows: list rate, 20K/day. ² The like-for-like figure bridges the two bases.</div>
+      <div class="basis">GPT-4o rows: billed, 14K queries/day; migration rows: list rate, 20K/day. ² Bridged like-for-like.</div>
     </div>
     <div>
       <p><b>The benefit side.</b> Case preparation means finding the passage that matters in bundles running to hundreds of pages — an hour spent locating material is an hour not spent considering it. At national volume the service answers <b>~5–7M queries a year at ~2–4p of model cost each</b> (8–12p all-in), each a page-cited, scored answer returned in seconds.</p>
