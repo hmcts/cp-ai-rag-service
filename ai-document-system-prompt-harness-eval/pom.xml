@@ -20,7 +20,7 @@
     <properties>
         <!-- exec/jar/dependency plugin versions are inherited from the root pom -->
         <harness.mainClass>uk.gov.moj.cp.harness.TestHarness</harness.mainClass>
-        <anthropic-java.version>2.48.0</anthropic-java.version>
+        <anthropic-java.version>2.63.0</anthropic-java.version>
         <!-- This is a non-deployed, on-demand evaluation tool whose value is in running it live
              (orchestration over real LLM calls), not in unit-testable logic. Waive Sonar's
              coverage requirement for it; it is still analysed for issues/hotspots. -->
