@@ -82,6 +82,13 @@ Instead:
 So the orchestrator pipeline here covers up to and including CI on the PR (Stages
 5–7); merge and deployment are downstream, manual, and out of its scope.
 
+Where the deployment-side configuration lives (none of it is in this repo):
+- `hmcts/cpp-functionapp-deployment` — per-environment function app settings and the
+  released version per app (`vars/<env>/ccm01-airag.tfvars`).
+- `hmcts/cpp-terraform-azurerm-azure-ai-foundry` — the AI Foundry estate, including model
+  deployments and their tokens-per-minute `capacity` (`vars/<env>.tfvars`).
+See "Related Repositories" in the root `CLAUDE.md` for the full list.
+
 ## Build & test quick reference
 ```bash
 mvn clean compile                                  # build all modules

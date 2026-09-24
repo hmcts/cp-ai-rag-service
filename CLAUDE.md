@@ -184,6 +184,18 @@ Uses JGitFlow Maven Plugin:
 
 CI runs on Azure Pipelines (`azure-pipelines.yaml`), triggered automatically on PR. SonarQube project key: `uk.gov.moj.cp.azure.ragservice:cp-ai-rag-service`.
 
+## Related Repositories
+
+Only the function code lives here. Before answering "where is X configured", check whether X
+belongs to one of these repos instead:
+
+- **`hmcts/api-cp-ai-rag`** — the OpenAPI contract (see "API Contract" above). Spec first, then models, then code.
+- **`hmcts/cpp-terraform-azurerm-azure-ai-foundry`** — Terraform for the Foundry estate: AI Services account, AI Search, Document Intelligence, and the **model deployments**. `vars/<env>.tfvars` → `model_deployments.<deployment-name>` sets `model_name`, `version`, `sku_name`, `capacity` and `rai_policy_name`. **`capacity` is the tokens-per-minute rate limit in thousands** (1 unit = 1K TPM; the value shown in the Foundry portal is `capacity × 1000`). Nonlive (dev/sit/nft/ste) and live (prp/prx/prd) run through separate pipelines; the live environments share a single regional quota pool per model + SKU (e.g. Standard gpt-4o in UK South), so raising one environment's capacity may require trimming another's. Neither this repo nor `cpp-functionapp-deployment` sets model capacity.
+- **`hmcts/cpp-module-terraform-azurerm-azure-ai-foundry`** — the module the above consumes; `ai-model.tf` maps each `model_deployments` entry onto an `azurerm_cognitive_deployment` (`sku { name, capacity }`).
+- **`hmcts/cpp-functionapp-deployment`** — per-environment **app settings and deployed release version** for each function app (`vars/<env>/ccm01-airag.tfvars`, one block per app). This is where env vars documented above (retries, timeouts, provider toggles, feature flags, deployment names, `AzureFunctionsJobHost__*` host overrides) get their production values. The release `version` per app tells you which code is live — check it before assuming a default documented here (e.g. the `openai` provider default) is what production runs. The App Service plans and function app resources are **not** defined here; only their settings are.
+- **`hmcts/cpp-azure-api-management`** — APIM policies fronting the HTTP functions, including client-identity header injection (DD-42722 coordination dependency).
+- **`hmcts/cpp-azure-devops-templates`** — shared pipeline templates consumed by `azure-pipelines.yaml`.
+
 ## SDLC Orchestrator (hmcts-sdlc-orchestrator plugin) — Azure Functions adaptation
 
 The `hmcts-sdlc-orchestrator` plugin ships an 8-stage SDLC pipeline built for

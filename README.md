@@ -153,6 +153,21 @@ The functions depend on the following Azure resources being available in the tar
 - Azure Document Intelligence
 - Application Insights / Azure Monitor
 
+## Related Repositories
+
+This repo holds only the function code. The API contract, the Azure infrastructure the
+functions run against, and the per-environment deployment configuration live in
+separate repositories:
+
+| Repository | What lives there | When you need it |
+|---|---|---|
+| [`hmcts/api-cp-ai-rag`](https://github.com/hmcts/api-cp-ai-rag) | The OpenAPI 3.0 contract (`ai-rag-service.openapi.yml`). Source of truth for every HTTP request/response shape; the `uk.gov.hmcts.cp.openapi` models here are generated from it. | Any change to an HTTP endpoint — update the spec first, then realign the models and implementation. |
+| [`hmcts/cpp-terraform-azurerm-azure-ai-foundry`](https://github.com/hmcts/cpp-terraform-azurerm-azure-ai-foundry) | Terraform for the Azure AI Foundry estate: AI Services account, **model deployments** (name, model version, SKU, **capacity**, RAI/content-filter policy), AI Search, Document Intelligence. Per-environment values in `vars/<env>.tfvars`; nonlive (dev/sit/nft/ste) and live (prp/prx/prd) subscriptions have separate pipelines. | Adding or resizing a model deployment, changing the tokens-per-minute rate limit (`capacity` × 1,000 = TPM), or changing a content-filter policy. Live environments share one regional quota pool per model/SKU. |
+| [`hmcts/cpp-module-terraform-azurerm-azure-ai-foundry`](https://github.com/hmcts/cpp-module-terraform-azurerm-azure-ai-foundry) | The reusable module the repo above consumes. `ai-model.tf` creates one `azurerm_cognitive_deployment` per `model_deployments` entry. | Changing *how* deployments are created (new attribute, policy wiring) rather than their values. |
+| [`hmcts/cpp-functionapp-deployment`](https://github.com/hmcts/cpp-functionapp-deployment) | Per-environment **function app settings** and the **released version** deployed to each app (`vars/<env>/ccm01-airag.tfvars`). Settings are pushed with `az functionapp config appsettings set`. | Changing an environment variable for a deployed function (retries, timeouts, feature flags, deployment names) or promoting a release. The App Service plans and function app resources themselves are provisioned elsewhere, not in this repo. |
+| [`hmcts/cpp-azure-api-management`](https://github.com/hmcts/cpp-azure-api-management) | APIM policies that front the HTTP functions, including the internal client-identity header injection (multi-client isolation). | Changing how callers are authenticated or what APIM injects into requests. |
+| [`hmcts/cpp-azure-devops-templates`](https://github.com/hmcts/cpp-azure-devops-templates) | Shared Azure DevOps pipeline templates consumed by `azure-pipelines.yaml`. | CI behaviour that is not controlled from this repo's pipeline file. |
+
 ## Configuration Reference
 
 Each function requires specific environment variables. Refer to each function's `local.settings.sample.json` for the full list. Common variables across all functions:
