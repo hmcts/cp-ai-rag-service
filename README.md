@@ -162,11 +162,98 @@ separate repositories:
 | Repository | What lives there | When you need it |
 |---|---|---|
 | [`hmcts/api-cp-ai-rag`](https://github.com/hmcts/api-cp-ai-rag) | The OpenAPI 3.0 contract (`ai-rag-service.openapi.yml`). Source of truth for every HTTP request/response shape; the `uk.gov.hmcts.cp.openapi` models here are generated from it. | Any change to an HTTP endpoint — update the spec first, then realign the models and implementation. |
-| [`hmcts/cpp-terraform-azurerm-azure-ai-foundry`](https://github.com/hmcts/cpp-terraform-azurerm-azure-ai-foundry) | Terraform for the Azure AI Foundry estate: AI Services account, **model deployments** (name, model version, SKU, **capacity**, RAI/content-filter policy), AI Search, Document Intelligence. Per-environment values in `vars/<env>.tfvars`; nonlive (dev/sit/nft/ste) and live (prp/prx/prd) subscriptions have separate pipelines. | Adding or resizing a model deployment, changing the tokens-per-minute rate limit (`capacity` × 1,000 = TPM), or changing a content-filter policy. Live environments share one regional quota pool per model/SKU. |
+| [`hmcts/cpp-terraform-azurerm-azure-ai-foundry`](https://github.com/hmcts/cpp-terraform-azurerm-azure-ai-foundry) | Terraform for the Azure AI Foundry estate: AI Services account, **model deployments** (name, model version, SKU, **capacity**, RAI/content-filter policy), AI Search **and the search index itself** (created from this repo's `vector-db-index-schema.json` at the git tag named by `ai_search_index_tag`), Document Intelligence. It also owns the RAG **data** storage account `sa<env>01airag` (document / eval-payload containers and their lifecycle purge rules), the role assignments that let the function-app identities reach it, and the Key Vault secrets holding its endpoints. Per-environment values in `vars/<env>.tfvars`; nonlive (dev/sit/nft/ste) and live (prp/prx/prd) subscriptions have separate pipelines. | Adding or resizing a model deployment, changing the tokens-per-minute rate limit (`capacity` × 1,000 = TPM), changing a content-filter policy, rolling out an index schema change, or adding a blob container. Live environments share one regional quota pool per model/SKU. |
 | [`hmcts/cpp-module-terraform-azurerm-azure-ai-foundry`](https://github.com/hmcts/cpp-module-terraform-azurerm-azure-ai-foundry) | The reusable module the repo above consumes. `ai-model.tf` creates one `azurerm_cognitive_deployment` per `model_deployments` entry. | Changing *how* deployments are created (new attribute, policy wiring) rather than their values. |
-| [`hmcts/cpp-functionapp-deployment`](https://github.com/hmcts/cpp-functionapp-deployment) | Per-environment **function app settings** and the **released version** deployed to each app (`vars/<env>/ccm01-airag.tfvars`). Settings are pushed with `az functionapp config appsettings set`. | Changing an environment variable for a deployed function (retries, timeouts, feature flags, deployment names) or promoting a release. The App Service plans and function app resources themselves are provisioned elsewhere, not in this repo. |
+| [`hmcts/cpp-terraform-functionapp-deployment`](https://github.com/hmcts/cpp-terraform-functionapp-deployment) | Terraform for the **function app infrastructure** per environment (`vars/<env>/ccm01-airag.tfvars`): resource group, delegated subnets/NSG, the Functions-runtime storage account and content shares, the user-assigned identity `mi-<env>-ccm01-airag`, Log Analytics + App Insights, the five function apps with their App Service plans (SKU, Java 21, Functions v4), Event Grid topics, dashboard and alerts. | Adding a function app, resizing a plan, changing networking or identity. Not for day-to-day releases — its `functionapp_package` URL is a one-off bootstrap deploy. |
+| [`hmcts/cpp-functionapp-deployment`](https://github.com/hmcts/cpp-functionapp-deployment) | Per-environment **function app settings** and the **released version** deployed to each app (`vars/<env>/ccm01-airag.tfvars`). The pipeline downloads the release zip from Artifactory and pushes it with `az functionapp deployment source config-zip`; settings go in with `az functionapp config appsettings set`. | Changing an environment variable for a deployed function (retries, timeouts, feature flags, deployment names) or promoting a release. The function apps themselves come from `cpp-terraform-functionapp-deployment` above. |
 | [`hmcts/cpp-azure-api-management`](https://github.com/hmcts/cpp-azure-api-management) | APIM policies that front the HTTP functions, including the internal client-identity header injection (multi-client isolation). | Changing how callers are authenticated or what APIM injects into requests. |
 | [`hmcts/cpp-azure-devops-templates`](https://github.com/hmcts/cpp-azure-devops-templates) | Shared Azure DevOps pipeline templates consumed by `azure-pipelines.yaml`. | CI behaviour that is not controlled from this repo's pipeline file. |
+
+## Build, Release & Deployment Pipelines
+
+Four Azure DevOps pipelines, spread over this repo and three Terraform repos, take a change
+from pull request to a running environment. None of them is run from a local machine; the
+three deployment pipelines are **manual** runs against a chosen environment, each with a
+Terraform plan stage followed by an approval-gated apply stage (the shared
+`pipelines/terraform-ws-plan-and-apply.yaml` template from `cpp-azure-devops-templates`,
+whose apply job is bound to the Azure DevOps environment `<platform>_apply`).
+
+### 1. Build & release — this repo (`azure-pipelines.yaml`)
+
+The pipeline file only selects a shared template from `cpp-azure-devops-templates`; the
+steps live there.
+
+| Trigger | Template | What happens |
+|---|---|---|
+| Pull request | `pipelines/context-verify.yaml` | `mvn verify sonar:sonar` on an AKS agent, then the SonarQube quality-gate status is posted back to the PR. For this repo the template also activates `-P ai-rag-integration-test`, logs in with the `airag-var` service principal and exports the dev Azure endpoints, so the **integration suite runs against real dev Azure on every PR** (the suite in `ai-service-orchestration-test`, `-P ai-rag-integration-test`, skipped by default locally). |
+| Merge to `main` | `pipelines/context-validation.yaml` | The **release build**. `jgitflow:release-start` from the merge commit, `mvn clean deploy -DskipTests` to the internal Artifactory (`repocentral`), SonarQube, then `jgitflow:release-finish`: the `dev/release-<version>` branch is merged into `dev/release`, tagged `v<version>`, the release artefacts are signed and deployed, and `main` is bumped to the next `-SNAPSHOT`. **Every merge to `main` therefore cuts a release.** The Docker/AKS validation-stack steps in that template are skipped for this repo. A follow-on job builds the migration-tool image (`ai-rag-migration:<version>`, from `ai-document-migration-tool/Dockerfile`) into the nonlive ACR and promotes it to the live ACR. |
+
+**The artefact.** Each function module's `maven-assembly-plugin` (`src/main/assembly/zip.xml`)
+zips the staged function app (`target/azure-functions/<app-name>`, produced by
+`azure-functions-maven-plugin:package`) into `<module>-<version>.zip` during `verify`. That
+zip is uploaded next to the jar under
+`uk/gov/moj/cp/azure/ragservice/<module>/<version>/` and is what the deployment pipeline
+below fetches. The migration tool ships a `-dist.tar.gz` (app jar + `lib/`) instead, which
+its Dockerfile pulls from the same Artifactory path.
+
+### 2. Function app infrastructure — `cpp-terraform-functionapp-deployment`
+
+Pipeline **"CPP Azure FunctionApp Deployment"**. Parameters: `platform` (`nonlive`/`live`),
+`environment`, and `functionapp`, which names the tfvars file — `ccm01-airag` selects
+`vars/<env>/ccm01-airag.tfvars`. A PR runs terraform pre-commit checks only; a manual run
+does plan → approved apply. It provisions everything the functions run *on*: resource group
+`rg-<env>-ccm01-airag`, delegated subnets and NSG, the Functions-runtime storage account and
+per-app content shares, the user-assigned identity `mi-<env>-ccm01-airag`, Log Analytics and
+App Insights, the five function apps with their App Service plans (`asp_sku` per app, Java 21,
+Functions v4), Event Grid topics/subscriptions, a shared dashboard and an action group. Its
+`functionapp_package` URL performs a one-off bootstrap zip deploy when an app is first
+created; it is **not** how releases are promoted.
+
+### 3. Release & settings deployment — `cpp-functionapp-deployment`
+
+Pipeline **"CPP Azure FunctionApp Source Deployment"**, same parameters and plan/apply shape
+as above. For each app block in `vars/<env>/ccm01-airag.tfvars`:
+
+- `package_key` + `version` resolve to the Artifactory folder for that function module
+  (`locals.tf`, nonlive vs live Artifactory chosen by `platform`); the pipeline lists the
+  folder, downloads the last `.zip` and runs `az functionapp deployment source config-zip`.
+- `application_settings` (plain values) merged with `application_settings_sensitive_keyvault_lookup`
+  / `..._hashicorp_vault_lookup` (secret names resolved at plan time) are pushed with
+  `az functionapp config appsettings set`.
+
+**Promoting a release** = bump `version` for the five apps in the target environment's tfvars,
+PR, merge, then run the pipeline for that environment. The `version` in that file is the
+single source of truth for what is live — check it before assuming a code default documented
+here applies in production.
+
+### 4. Models & AI infrastructure — `cpp-terraform-azurerm-azure-ai-foundry`
+
+Pipeline **"CPP Terraform Azure AI foundry"**. Parameters: `platform` and `environment`
+(`dev`, `ste-01`, `sit`, `nft`, `prp`, `prx`, `prd`), selecting `vars/<env>.tfvars`. Same PR
+pre-commit / manual plan → approved apply shape. It provisions the AI estate and the RAG data
+stores: the AI Foundry hub/project, the AI Services account with its `model_deployments`
+(model, version, SKU, `capacity` in thousands of TPM, `rai_policy_name`), AI Search (SKU,
+replicas/partitions, private endpoints) **and the search index**, Document Intelligence, the
+RAG data storage account `sa<env>01airag` (containers such as `ccm01-documents`,
+`ccm01-llm-response-eval-payloads`, `ccm01-llm-input-chunks`, plus lifecycle purge rules), the
+role assignments granting the function-app identity blob/queue/table access, and the Key Vault
+secrets for the storage endpoints and App Insights that the function-app settings look up.
+
+The **search index is created from this repo**: the module fetches
+`ai-document-shared-artefacts/src/main/resources/vector-db-index-schema.json` from GitHub at
+the git tag named by `ai_search_index_tag` (currently `v17.0.71` in every environment) and
+PUTs it to the search service. Changing the schema here has no effect until that tag is
+bumped and the Foundry pipeline is applied — and because field attributes are immutable on a
+populated index, a schema change in practice means a new index plus the
+[index migration tool](ai-document-migration-tool/README.md), not an in-place update.
+
+### Order of operations for a new environment
+
+The data dependencies fix the order: **function app infrastructure** first (it creates the
+identity), then **Foundry** (it looks the identity up to grant roles, and writes the endpoint
+secrets), then **release & settings deployment** (it reads those secrets). Afterwards the
+Foundry pipeline is only re-run for model/index/storage changes, and every code release goes
+through pipeline 3 alone.
 
 ## Configuration Reference
 

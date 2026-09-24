@@ -28,7 +28,7 @@ plugin's `context/tech-stack.md`, `context/azure-cloud-native.md`, or
 | Config | env vars only (12-factor) | App settings / `local.settings.json` (git-ignored; copy from `local.settings.sample.json`). Same "no hardcoded config" principle.                                    |
 | Container | Dockerfile `USER app`, HMCTS ACR base image | No Dockerfile — runs on the Functions host (Consumption/Premium plan)                                                                                                |
 | Deploy | Helm chart + Flux CD on AKS, gated as SDLC Stage 8 | **Separate Azure DevOps deployment pipeline, run manually after the PR merges** — detached from PR review and outside the orchestrator (see "Deployment" below).     |
-| CI | GitHub Actions / Jenkins | **Azure DevOps** `azure-pipelines.yaml` (`cpp-azure-devops-templates`)                                                                                               |
+| CI | GitHub Actions / Jenkins | **Azure DevOps** `azure-pipelines.yaml` (`cpp-azure-devops-templates`); PR = verify + Sonar + real-Azure integration tests; merge to `main` = JGitFlow release to Artifactory |
 | New-service template | `service-hmcts-crime-springboot-template` | **No template applies.** Do not run `springboot-*-from-template`, `context-scaffold`, or `context-service-guide`. Follow the existing module layout.                 |
 
 ## Secrets / Managed Identity
@@ -72,8 +72,11 @@ GitHub-Actions/Helm/Flux assumptions **do not apply here** — do not invoke the
 
 Instead:
 - Deployment is performed by a **separate Azure DevOps deployment pipeline**, not
-  from a local machine and not via the orchestrator. (The underlying mechanism is
-  the `azure-functions-maven-plugin` deploy goal, but it is run by that pipeline.)
+  from a local machine and not via the orchestrator. The mechanism is the
+  `hmcts/cpp-functionapp-deployment` pipeline: it downloads the release zip that the
+  `main` build published to Artifactory and pushes it with
+  `az functionapp deployment source config-zip` (the `azure-functions-maven-plugin`
+  deploy goal is **not** used).
 - It is **detached from the PR review process**. PR review + CI (build + SonarQube)
   is where the orchestrator's involvement ends; a green PR does not trigger a deploy.
 - It is **run manually, after the PR has been merged**, by whoever owns the release —
@@ -84,10 +87,14 @@ So the orchestrator pipeline here covers up to and including CI on the PR (Stage
 
 Where the deployment-side configuration lives (none of it is in this repo):
 - `hmcts/cpp-functionapp-deployment` — per-environment function app settings and the
-  released version per app (`vars/<env>/ccm01-airag.tfvars`).
+  released version per app (`vars/<env>/ccm01-airag.tfvars`); the release pipeline.
+- `hmcts/cpp-terraform-functionapp-deployment` — the function apps themselves (plans,
+  identity, runtime storage, networking); infrastructure only.
 - `hmcts/cpp-terraform-azurerm-azure-ai-foundry` — the AI Foundry estate, including model
-  deployments and their tokens-per-minute `capacity` (`vars/<env>.tfvars`).
-See "Related Repositories" in the root `CLAUDE.md` for the full list.
+  deployments and their tokens-per-minute `capacity`, the AI Search index (schema pulled
+  from this repo at a git tag) and the RAG data storage account (`vars/<env>.tfvars`).
+See "Related Repositories" and "CI, Release & Deployment Pipelines" in the root
+`CLAUDE.md` for the full list and the four-pipeline flow.
 
 ## Build & test quick reference
 ```bash
