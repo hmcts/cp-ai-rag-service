@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Maven settings used ONLY by the GitHub Actions workflows (passed via `mvn -s`).
+
+  GitHub-hosted runners have no access to the internal Artifactory mirror that developer
+  machines and ADO agents use, so every dependency must resolve from Maven Central except the
+  API contract jar (uk.gov.hmcts.cp:api-cp-ai-rag). api-cp-ai-rag publishes that jar to both
+  GitHub Packages and the Azure DevOps Artifacts feed `hmcts-lib`. The ADO feed is used here
+  because it allows anonymous reads (GitHub Packages needs a packages-scoped token even for
+  reads), which is also how hmcts/cp-case-document-knowledge-service consumes it.
+-->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd">
+    <profiles>
+        <profile>
+            <id>hmcts-lib</id>
+            <repositories>
+                <repository>
+                    <id>hmcts-lib</id>
+                    <url>https://pkgs.dev.azure.com/hmcts/Artifacts/_packaging/hmcts-lib/maven/v1</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>false</enabled></snapshots>
+                </repository>
+            </repositories>
+        </profile>
+    </profiles>
+    <activeProfiles>
+        <activeProfile>hmcts-lib</activeProfile>
+    </activeProfiles>
+</settings>
