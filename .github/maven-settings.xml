@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Maven settings used ONLY by the GitHub Actions workflows (passed via `mvn -s`).
+
+  GitHub-hosted runners have no access to the internal Artifactory mirror that developer
+  machines and ADO agents use, so every dependency must resolve from Maven Central except the
+  API contract jar (uk.gov.hmcts.cp:api-cp-ai-rag), which api-cp-ai-rag publishes to GitHub
+  Packages. GitHub Packages requires authentication even for reads; the workflow supplies the
+  job's GITHUB_TOKEN (packages: read) through the environment.
+-->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd">
+    <servers>
+        <server>
+            <id>github-api-cp-ai-rag</id>
+            <username>${env.GITHUB_ACTOR}</username>
+            <password>${env.GITHUB_TOKEN}</password>
+        </server>
+    </servers>
+    <profiles>
+        <profile>
+            <id>github-packages</id>
+            <repositories>
+                <repository>
+                    <id>github-api-cp-ai-rag</id>
+                    <url>https://maven.pkg.github.com/hmcts/api-cp-ai-rag</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>false</enabled></snapshots>
+                </repository>
+            </repositories>
+        </profile>
+    </profiles>
+    <activeProfiles>
+        <activeProfile>github-packages</activeProfile>
+    </activeProfiles>
+</settings>
