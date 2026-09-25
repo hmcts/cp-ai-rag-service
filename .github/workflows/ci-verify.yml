@@ -17,7 +17,6 @@ on:
 
 permissions:
   contents: read
-  packages: read
 
 concurrency:
   group: ci-verify-${{ github.ref }}
@@ -39,9 +38,6 @@ jobs:
           cache: maven
 
       - name: Build, run unit tests and package function apps
-        env:
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mvn -B -ntp -U -s .github/maven-settings.xml verify
 
       - name: Upload function app packages

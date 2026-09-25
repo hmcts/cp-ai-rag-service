@@ -4,27 +4,21 @@
 
   GitHub-hosted runners have no access to the internal Artifactory mirror that developer
   machines and ADO agents use, so every dependency must resolve from Maven Central except the
-  API contract jar (uk.gov.hmcts.cp:api-cp-ai-rag), which api-cp-ai-rag publishes to GitHub
-  Packages. GitHub Packages requires authentication even for reads; the workflow supplies the
-  job's GITHUB_TOKEN (packages: read) through the environment.
+  API contract jar (uk.gov.hmcts.cp:api-cp-ai-rag). api-cp-ai-rag publishes that jar to both
+  GitHub Packages and the Azure DevOps Artifacts feed `hmcts-lib`. The ADO feed is used here
+  because it allows anonymous reads (GitHub Packages needs a packages-scoped token even for
+  reads), which is also how hmcts/cp-case-document-knowledge-service consumes it.
 -->
 <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd">
-    <servers>
-        <server>
-            <id>github-api-cp-ai-rag</id>
-            <username>${env.GITHUB_ACTOR}</username>
-            <password>${env.GITHUB_TOKEN}</password>
-        </server>
-    </servers>
     <profiles>
         <profile>
-            <id>github-packages</id>
+            <id>hmcts-lib</id>
             <repositories>
                 <repository>
-                    <id>github-api-cp-ai-rag</id>
-                    <url>https://maven.pkg.github.com/hmcts/api-cp-ai-rag</url>
+                    <id>hmcts-lib</id>
+                    <url>https://pkgs.dev.azure.com/hmcts/Artifacts/_packaging/hmcts-lib/maven/v1</url>
                     <releases><enabled>true</enabled></releases>
                     <snapshots><enabled>false</enabled></snapshots>
                 </repository>
@@ -32,6 +26,6 @@
         </profile>
     </profiles>
     <activeProfiles>
-        <activeProfile>github-packages</activeProfile>
+        <activeProfile>hmcts-lib</activeProfile>
     </activeProfiles>
 </settings>
