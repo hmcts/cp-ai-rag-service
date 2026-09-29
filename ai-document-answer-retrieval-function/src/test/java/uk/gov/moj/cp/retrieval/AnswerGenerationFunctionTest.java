@@ -427,6 +427,45 @@ class AnswerGenerationFunctionTest {
     }
 
     @Test
+    void run_PersistsReasonAndScores_OnFirstDelivery_WhenGuardOffReturnsDegradedAnswer() throws Exception {
+        // With CITATION_GUARD_MODE=off the service does not throw: it returns the degraded answer as
+        // ANSWER_GENERATED with the guard reason attached. The worker must treat it as a delivered
+        // answer (blob + scoring) while still recording the reason — on the first delivery, no retry.
+        final UUID transactionId = randomUUID();
+        final AnswerGenerationQueuePayload payload = new AnswerGenerationQueuePayload(
+                transactionId, "query", "prompt", List.of(new KeyValuePair("key", "value")));
+        final List<Float> embeddings = List.of(1.0f, 2.0f);
+        final List<ChunkedEntry> chunkedEntries = List.of(ChunkedEntry.builder()
+                .id("1").chunk("Sample content").documentFileName("doc.pdf").pageNumber(1).documentId("doc1")
+                .build());
+        stubClaimableRow(transactionId);
+        when(mockEmbedDataService.getEmbedding("query")).thenReturn(embeddings);
+        when(mockSearchService.search(null, "query", embeddings, payload.metadataFilter())).thenReturn(chunkedEntries);
+        when(mockResponseGenerationService.generateResponse("query", chunkedEntries, "prompt"))
+                .thenReturn(new LlmResponse("raw uncited", "uncited formatted", ANSWER_GENERATED,
+                        "[guard=off] Citations missing: jsonBlock=false, inlineMarkers=3, rendered=0, stripped=3"));
+
+        function.run(objectMapper.writeValueAsString(payload), mockScoringOutputBinding, 1, context);
+
+        verify(mockAnswerGenerationTableService).upsertTerminalFenced(
+                isNull(),
+                eq(transactionId.toString()),
+                eq("query"),
+                eq("prompt"),
+                eq(getInputChunksFilename(transactionId)),
+                eq("uncited formatted"),
+                eq(ANSWER_GENERATED),
+                eq("[guard=off] Citations missing: jsonBlock=false, inlineMarkers=3, rendered=0, stripped=3"),
+                any(OffsetDateTime.class),
+                any(Long.class),
+                eq(CLAIM_ETAG)
+        );
+        verify(mockBlobPersistenceService).saveBlob(anyString(), anyString());
+        verify(mockScoringOutputBinding).setValue(anyString());
+        verify(mockAnswerGenerationTableService, never()).releaseLease(any(), anyString(), anyString());
+    }
+
+    @Test
     void run_RethrowsForQueueRedelivery_WhenCitationDegradedBelowMaxDequeueCount() throws Exception {
         final UUID transactionId = randomUUID();
         final String queueMessage = objectMapper.writeValueAsString(stubGuardScenario(transactionId));

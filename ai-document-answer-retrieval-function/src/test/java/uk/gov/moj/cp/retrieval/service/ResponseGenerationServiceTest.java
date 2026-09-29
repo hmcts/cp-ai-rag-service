@@ -3,6 +3,7 @@ package uk.gov.moj.cp.retrieval.service;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.anyString;
@@ -242,7 +243,7 @@ class ResponseGenerationServiceTest {
 
         assertEquals("uncited raw", ex.rawLlmResponse());
         assertEquals("uncited formatted", ex.formattedText());
-        assertThat(ex.getMessage(), is("Citations missing: jsonBlock=false, inlineMarkers=3, rendered=0, stripped=3"));
+        assertThat(ex.getMessage(), is("[guard=deliver] Citations missing: jsonBlock=false, inlineMarkers=3, rendered=0, stripped=3"));
         // Single attempt only — retry policy belongs to the caller (queue redelivery on async).
         verify(mockChatService, times(1)).callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class));
     }
@@ -266,7 +267,7 @@ class ResponseGenerationServiceTest {
     }
 
     @Test
-    void citationGuard_Off_AcceptsUncitedAnswer() throws ChatServiceException {
+    void citationGuard_Off_DeliversUncitedAnswerWithReasonRecorded() throws ChatServiceException {
         responseGenerationService = serviceWithGuard(CitationGuardMode.OFF);
         final String userQuery = "query";
         final String userQueryPrompt = "prompt";
@@ -276,10 +277,49 @@ class ResponseGenerationServiceTest {
                 .thenReturn(Optional.of("uncited raw"));
         when(citationProcessor.processCitations("uncited raw")).thenReturn(degradedOutcome("uncited formatted"));
 
+        // No exception: OFF never retries or rejects — but the degradation is still measured and recorded.
         final LlmResponse result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
 
         assertEquals(ANSWER_GENERATED, result.status());
+        assertEquals("uncited raw", result.rawLlmResponse());
         assertEquals("uncited formatted", result.formattedLlmResponse());
+        assertThat(result.reason(), is("[guard=off] Citations missing: jsonBlock=false, inlineMarkers=3, rendered=0, stripped=3"));
         verify(mockChatService, times(1)).callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class));
+    }
+
+    @Test
+    void citationGuard_Off_RecordsNoReason_WhenAnswerIsCited() throws ChatServiceException {
+        responseGenerationService = serviceWithGuard(CitationGuardMode.OFF);
+        final String userQuery = "query";
+        final String userQueryPrompt = "prompt";
+        final List<ChunkedEntry> chunkedEntries = stubbedChunks(userQuery, userQueryPrompt);
+
+        when(mockChatService.callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class)))
+                .thenReturn(Optional.of("cited raw"));
+        when(citationProcessor.processCitations("cited raw")).thenReturn(citedOutcome("cited formatted"));
+
+        final LlmResponse result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
+
+        assertEquals(ANSWER_GENERATED, result.status());
+        assertEquals("cited formatted", result.formattedLlmResponse());
+        assertNull(result.reason());
+    }
+
+    @Test
+    void citationGuard_Off_AcceptsDeliberateNoEvidenceRefusalWithoutReason() throws ChatServiceException {
+        responseGenerationService = serviceWithGuard(CitationGuardMode.OFF);
+        final String userQuery = "query";
+        final String userQueryPrompt = "prompt";
+        final List<ChunkedEntry> chunkedEntries = stubbedChunks(userQuery, userQueryPrompt);
+
+        when(mockChatService.callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class)))
+                .thenReturn(Optional.of("refusal raw"));
+        when(citationProcessor.processCitations("refusal raw"))
+                .thenReturn(new CitationOutcome("No relevant evidence found.", true, true, 0, 0, 0));
+
+        final LlmResponse result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
+
+        assertEquals(ANSWER_GENERATED, result.status());
+        assertNull(result.reason());
     }
 }

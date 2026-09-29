@@ -9,17 +9,20 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Citation-guard policy, mapped from the {@code CITATION_GUARD_MODE} environment variable.
- * The guard itself (in {@code ResponseGenerationService}) throws
- * {@code CitationDegradedException} for any citation-degraded answer; this mode decides what a
- * caller does when its retries are exhausted:
+ * The guard itself (in {@code ResponseGenerationService}) evaluates every answer in every
+ * mode; in the enforcing modes it throws {@code CitationDegradedException} for a
+ * citation-degraded answer and the mode decides what a caller does when its retries are
+ * exhausted:
  *
  * <ul>
  *   <li>{@link #DELIVER} (default) — the degraded answer is delivered, with the guard reason
  *       recorded for observability.</li>
  *   <li>{@link #REJECT} — the request fails with the guard reason; the uncited answer is never
  *       delivered.</li>
- *   <li>{@link #OFF} — the guard is disabled; any non-empty answer is accepted (pre-guard
- *       behaviour).</li>
+ *   <li>{@link #OFF} — enforcement is disabled: no retry, no rejection, every non-empty answer
+ *       is delivered on the first attempt. A citation-degraded answer is still recorded as such
+ *       (guard reason in the async table's reason column and logs), so answer quality remains
+ *       measurable.</li>
  * </ul>
  *
  * <p>Retry budgets are owned by the callers: the async queue worker retries via queue
