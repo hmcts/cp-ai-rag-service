@@ -17,6 +17,7 @@ import uk.gov.moj.cp.retrieval.model.LlmResponse;
 import uk.gov.moj.cp.retrieval.service.CitationProcessor.CitationOutcome;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,11 +69,14 @@ public class ResponseGenerationService {
     }
 
     /**
-     * Generates the answer with a single LLM attempt. When the citation guard is active
-     * ({@code CITATION_GUARD_MODE} != OFF) and the answer comes back citation-degraded, a
-     * {@link CitationDegradedException} carrying the degraded answer is thrown — retry and
-     * exhaustion policy belong to the caller: the async queue worker retries via queue
-     * redelivery; the synchronous path applies the policy immediately.
+     * Generates the answer with a single LLM attempt. The citation guard evaluates every answer
+     * regardless of mode. When the guard is enforcing ({@code CITATION_GUARD_MODE} != OFF) and
+     * the answer comes back citation-degraded, a {@link CitationDegradedException} carrying the
+     * degraded answer is thrown — retry and exhaustion policy belong to the caller: the async
+     * queue worker retries via queue redelivery; the synchronous path applies the policy
+     * immediately. With the guard OFF a citation-degraded answer is returned as
+     * {@code ANSWER_GENERATED} with the guard reason attached, so the degradation is still
+     * recorded (reason column, logs) without any retry or rejection.
      */
     public LlmResponse generateResponse(final String userQuery, final List<ChunkedEntry> chunkedEntries,
                                         final String userQueryPrompt) throws ChatServiceException {
@@ -97,30 +101,41 @@ public class ResponseGenerationService {
                 });
     }
 
-    /** Applies the citation guard to one raw answer; throws {@link CitationDegradedException} when degraded. */
+    /**
+     * Applies the citation guard to one raw answer. A degraded answer throws
+     * {@link CitationDegradedException} when the guard is enforcing; with the guard OFF it is
+     * returned as generated, carrying the guard reason so the degradation is still recorded.
+     */
     private LlmResponse toGuardedResponse(final String rawLlmResponse) {
         final CitationOutcome outcome = citationProcessor.processCitations(rawLlmResponse);
         if (isAcceptable(outcome)) {
-            LOGGER.info("LLM Raw Response length = {}", outcome.formattedText().length());
+            LOGGER.info("Citation guard [{}]: accepted {} — rendered={}, inlineMarkers={}, stripped={}, jsonBlock={}, formattedLength={} chars",
+                    guardMode.name().toLowerCase(Locale.ROOT),
+                    outcome.renderedCitations() >= 1 ? "cited answer" : "no-evidence refusal",
+                    outcome.renderedCitations(), outcome.inlineMarkers(), outcome.strippedMarkers(),
+                    outcome.jsonBlockPresent(), outcome.formattedText().length());
             return new LlmResponse(rawLlmResponse, outcome.formattedText(), ANSWER_GENERATED);
         }
+        // Mode-prefixed so the reason column alone tells a first-attempt OFF degradation apart
+        // from a DELIVER/REJECT outcome reached after the caller's retries.
         final String reason = String.format(
-                "Citations missing: jsonBlock=%s, inlineMarkers=%d, rendered=%d, stripped=%d",
-                outcome.jsonBlockPresent(), outcome.inlineMarkers(),
+                "[guard=%s] Citations missing: jsonBlock=%s, inlineMarkers=%d, rendered=%d, stripped=%d",
+                guardMode.name().toLowerCase(Locale.ROOT), outcome.jsonBlockPresent(), outcome.inlineMarkers(),
                 outcome.renderedCitations(), outcome.strippedMarkers());
+        if (guardMode == CitationGuardMode.OFF) {
+            LOGGER.warn("Citation guard (off): delivering citation-degraded answer without retry — {}.", reason);
+            return new LlmResponse(rawLlmResponse, outcome.formattedText(), ANSWER_GENERATED, reason);
+        }
         LOGGER.warn("Citation guard: degraded answer — {}.", reason);
         throw new CitationDegradedException(reason, rawLlmResponse, outcome.formattedText());
     }
 
     /**
-     * An answer may progress when it carries at least one rendered citation, or when it is a
-     * deliberate no-evidence refusal (block present, empty array, no markers written). With the
-     * guard off every non-empty answer is accepted (pre-guard behaviour).
+     * An answer is citation-acceptable when it carries at least one rendered citation, or when
+     * it is a deliberate no-evidence refusal (block present, empty array, no markers written).
+     * Evaluated in every guard mode; the mode only decides what happens to an unacceptable one.
      */
     private boolean isAcceptable(final CitationOutcome outcome) {
-        if (guardMode == CitationGuardMode.OFF) {
-            return true;
-        }
         if (outcome.renderedCitations() >= 1) {
             return true;
         }
