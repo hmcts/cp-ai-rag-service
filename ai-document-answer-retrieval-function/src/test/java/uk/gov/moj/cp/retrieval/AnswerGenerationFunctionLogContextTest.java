@@ -111,8 +111,9 @@ class AnswerGenerationFunctionLogContextTest {
         when(tableService.readForClaim(null, transactionId.toString()))
                 .thenReturn(new LeaseSnapshot("ANSWER_GENERATION_PENDING", READ_ETAG, OffsetDateTime.now().plusMinutes(5), "other-worker"));
 
-        assertThrows(RedeliveryException.class,
-                () -> function.run(objectMapper.writeValueAsString(payload), scoringMessage, 1, context));
+        final String queueMessage = objectMapper.writeValueAsString(payload);
+
+        assertThrows(RedeliveryException.class, () -> function.run(queueMessage, scoringMessage, 1, context));
 
         assertNull(MDC.get(TRANSACTION_ID));
         assertNull(MDC.get(INVOCATION_ID));

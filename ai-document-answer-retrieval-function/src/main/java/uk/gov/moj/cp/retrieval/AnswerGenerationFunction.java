@@ -343,7 +343,6 @@ public class AnswerGenerationFunction {
             LOGGER.error("Citation guard: cannot apply exhaustion policy without a payload.", e);
             return;
         }
-        final UUID transactionId = payload.transactionId();
         if (guardMode == CitationGuardMode.REJECT) {
             LOGGER.error("Citation guard: rejecting uncited answer — {}", e.getMessage());
             recordAnswerGenerationFailed(payload, e.getMessage(), durationMs, token);

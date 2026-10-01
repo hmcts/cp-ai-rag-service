@@ -111,19 +111,18 @@ public class DocumentIngestionOrchestrator {
         markSupersededDocumentsInactive(documentId, token);
 
         // Step 6: Record success (fenced on the claim-time ETag)
-        recordOutcome(documentName, documentId, INGESTION_SUCCESS.name(), INGESTION_SUCCESS_REASON, token);
+        recordOutcome(documentId, INGESTION_SUCCESS.name(), INGESTION_SUCCESS_REASON, token);
 
-        LOGGER.info("Document ingestion completed successfully");
+        LOGGER.info("Document ingestion completed");
 
     }
 
     public void processQueueMessageFailed(final QueueIngestionMetadata queueIngestionMetadata, final ClaimToken token)
             throws DocumentProcessingException {
         try {
-            final String documentName = queueIngestionMetadata.documentName();
             final String documentId = queueIngestionMetadata.documentId();
 
-            recordOutcome(documentName, documentId, INGESTION_FAILED.name(), INGESTION_FAILED_REASON, token);
+            recordOutcome(documentId, INGESTION_FAILED.name(), INGESTION_FAILED_REASON, token);
 
         } catch (EtagMismatchException fenceLoss) {
             // Correct by construction: being fenced out means another worker owns the outcome.
@@ -182,8 +181,8 @@ public class DocumentIngestionOrchestrator {
         }
     }
 
-    private void recordOutcome(final String documentName, final String documentId,
-                               final String status, final String reason, final ClaimToken token) throws DocumentProcessingException {
+    private void recordOutcome(final String documentId, final String status, final String reason,
+                               final ClaimToken token) throws DocumentProcessingException {
         try {
             documentIngestionOutcomeTableService.recordOutcomeFenced(token.clientId(), documentId, status, reason, token.etag());
             LOGGER.info("Ingestion outcome recorded with status {}", status);

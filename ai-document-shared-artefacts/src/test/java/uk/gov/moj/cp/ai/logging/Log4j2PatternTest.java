@@ -140,8 +140,8 @@ class Log4j2PatternTest {
 
     private static PatternLayout layoutOf(final Path log4j2File) {
         return PatternLayout.newBuilder()
-                .withPattern(patternOf(log4j2File))
-                .withConfiguration(new DefaultConfiguration())
+                .setPattern(patternOf(log4j2File))
+                .setConfiguration(new DefaultConfiguration())
                 .build();
     }
 
