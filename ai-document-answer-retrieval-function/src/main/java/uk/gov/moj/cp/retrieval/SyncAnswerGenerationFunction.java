@@ -27,6 +27,7 @@ import uk.gov.moj.cp.ai.client.identity.ClientIdentityException;
 import uk.gov.moj.cp.ai.client.identity.ClientIdentityResolver;
 import uk.gov.moj.cp.ai.client.identity.HeaderClientIdentityResolver;
 import uk.gov.moj.cp.ai.http.HttpResponses;
+import uk.gov.moj.cp.ai.logging.LogContext;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.model.ScoringPayload;
@@ -110,7 +111,17 @@ public class SyncAnswerGenerationFunction {
             @QueueOutput(name = "message", queueName = "%" + STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING + "%",
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING) OutputBinding<String> message,
             final ExecutionContext context) {
+        // No transaction exists on this endpoint: inv= is its correlation key, and it is forwarded
+        // to the scoring run (ScoringPayload.originInvocationId) so the two read as one journey.
+        try (LogContext ignored = LogContext.open(context)) {
+            final String invocationId = context != null ? context.getInvocationId() : null;
+            return handle(request, message, invocationId);
+        }
+    }
 
+    private HttpResponseMessage handle(final HttpRequestMessage<AnswerUserQueryRequest> request,
+                                       final OutputBinding<String> message,
+                                       final String invocationId) {
         final ClientContext clientContext;
         try {
             // Enforcement on: reject a missing/invalid client identity before any search.
@@ -120,6 +131,7 @@ public class SyncAnswerGenerationFunction {
             return HttpResponses.unauthorized(request);
         }
         final String clientId = clientContext.clientId().orElse(null);
+        LogContext.put(LogContext.CLIENT_ID, clientId);
 
         try {
             final AnswerUserQueryRequest userQueryRequest = request.getBody();
@@ -165,7 +177,7 @@ public class SyncAnswerGenerationFunction {
 
             final String filename = getAnswerWithChunksFilename(clientId, randomUUID());
             final ScoringPayload scoringPayload = new ScoringPayload(
-                    userQuery, llmResponse.formattedLlmResponse(), userQueryPrompt, chunkedEntries, null, clientId);
+                    userQuery, llmResponse.formattedLlmResponse(), userQueryPrompt, chunkedEntries, null, clientId, invocationId);
             blobPersistenceService.saveBlob(filename, convert(scoringPayload));
             message.setValue(convert(new ScoringQueuePayload(filename)));
 

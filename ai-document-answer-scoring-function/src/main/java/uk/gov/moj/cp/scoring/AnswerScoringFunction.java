@@ -4,9 +4,11 @@ import static uk.gov.moj.cp.ai.SharedSystemVariables.AI_RAG_SERVICE_STORAGE_ACCO
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING;
 import static uk.gov.moj.cp.ai.SharedSystemVariables.STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION;
 import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnvAsInteger;
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 
 import uk.gov.moj.cp.ai.exception.BlobParsingException;
+import uk.gov.moj.cp.ai.logging.LogContext;
 import uk.gov.moj.cp.ai.model.ScoringPayload;
 import uk.gov.moj.cp.ai.model.ScoringQueuePayload;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
@@ -17,6 +19,7 @@ import uk.gov.moj.cp.scoring.service.ScoringService;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.microsoft.azure.functions.ExecutionContext;
+import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
 import org.slf4j.Logger;
@@ -53,8 +56,9 @@ public class AnswerScoringFunction {
     /**
      * Function triggered by queue messages for answer scoring.
      *
-     * @param message The queue message containing answer scoring information
-     * @param context The execution context
+     * @param message      The queue message containing answer scoring information
+     * @param dequeueCount The host's delivery attempt number for this message (1-based)
+     * @param context      The execution context
      */
     @FunctionName("AnswerScoring")
     public void run(
@@ -63,12 +67,26 @@ public class AnswerScoringFunction {
                     queueName = "%" + STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING + "%",
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING
             ) String message,
+            @BindingName("DequeueCount") long dequeueCount,
             final ExecutionContext context) {
+        try (LogContext ignored = LogContext.open(context)) {
+            //defaultValue of maxDequeueCount should match the value in host.json
+            final int maxDequeueCount = getRequiredEnvAsInteger("AzureFunctionsJobHost__extensions__queues__maxDequeueCount", "2");
+            LOGGER.info("Event attempt count {} of {}", dequeueCount, maxDequeueCount);
+            process(message);
+        }
+    }
 
+    private void process(final String message) {
         try {
             final ScoringQueuePayload queuePayload = getObjectMapper().readValue(message, ScoringQueuePayload.class);
 
             final ScoringPayload scoringPayload = blobService.readBlob(queuePayload.filename(), ScoringPayload.class);
+            // Only known once the blob is read: txn= for async answers, origin= (the synchronous
+            // endpoint's invocation id) for sync answers; never both.
+            LogContext.put(LogContext.TRANSACTION_ID, scoringPayload.transactionId());
+            LogContext.put(LogContext.ORIGIN_INVOCATION_ID, scoringPayload.originInvocationId());
+            LogContext.put(LogContext.CLIENT_ID, scoringPayload.clientId());
 
             LOGGER.info("Starting process to score answer for transactionId '{}' and query '{}'", scoringPayload.transactionId(), scoringPayload.userQuery());
 

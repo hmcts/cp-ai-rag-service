@@ -14,6 +14,7 @@ import static uk.gov.moj.cp.ai.util.StringUtil.removeTrailingSlash;
 import static uk.gov.moj.cp.metadata.check.utils.MetadataFilterTransformer.stringToMap;
 
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
+import uk.gov.moj.cp.ai.logging.LogContext;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
@@ -24,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.OutputBinding;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.BlobTrigger;
@@ -70,7 +72,14 @@ public class DocumentBlobTriggerFunction {
             @QueueOutput(name = "queueMessage",
                     queueName = "%" + STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION + "%",
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING)
-            OutputBinding<String> queueMessage) {
+            OutputBinding<String> queueMessage,
+            final ExecutionContext context) {
+        try (LogContext ignored = LogContext.open(context)) {
+            process(blobName, queueMessage);
+        }
+    }
+
+    private void process(final String blobName, final OutputBinding<String> queueMessage) {
         try {
             if (!blobClientService.isBlobAvailable(blobName)) {
                 LOGGER.info("Blob container is not available for blobName: {}.", blobName);
@@ -79,6 +88,8 @@ public class DocumentBlobTriggerFunction {
 
             final String documentId = documentBlobNameResolver.getDocumentId(blobName);
             final String clientId = documentBlobNameResolver.getClientId(blobName);
+            LogContext.put(LogContext.DOCUMENT_ID, documentId);
+            LogContext.put(LogContext.CLIENT_ID, clientId);
             final DocumentIngestionOutcome document = documentUploadService.getDocument(clientId, documentId);
 
             final long blobSize = blobClientService.getBlobClient(blobName).getProperties().getBlobSize();

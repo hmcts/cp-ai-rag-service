@@ -78,7 +78,7 @@ class DocumentIngestionFunctionClientIdentityTest {
         final QueueIngestionMetadata metadata = metadata(CLIENT_ID);
         stubClaimableRow();
 
-        function.run(queueMessage(metadata), 1);
+        function.run(queueMessage(metadata), 1, null);
 
         verify(outcomeTableService).claimLease(eq(CLIENT_ID), eq(DOCUMENT_ID), eq(READ_ETAG), anyString(), any(OffsetDateTime.class));
         verify(orchestrator).processQueueMessage(metadata, new ClaimToken(CLIENT_ID, DOCUMENT_ID, CLAIM_ETAG));
@@ -90,7 +90,7 @@ class DocumentIngestionFunctionClientIdentityTest {
         final QueueIngestionMetadata metadata = metadata(null);
         stubClaimableRow();
 
-        function.run(queueMessage(metadata), 1);
+        function.run(queueMessage(metadata), 1, null);
 
         verify(outcomeTableService).claimLease(isNull(), eq(DOCUMENT_ID), eq(READ_ETAG), anyString(), any(OffsetDateTime.class));
         verify(orchestrator).processQueueMessage(metadata, new ClaimToken(null, DOCUMENT_ID, CLAIM_ETAG));

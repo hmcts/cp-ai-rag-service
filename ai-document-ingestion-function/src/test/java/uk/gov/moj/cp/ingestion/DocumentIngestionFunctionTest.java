@@ -33,6 +33,7 @@ import java.util.Map;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.microsoft.azure.functions.ExecutionContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -53,6 +54,9 @@ class DocumentIngestionFunctionTest {
 
     @Mock
     private DocumentIngestionOutcomeTableService outcomeTableService;
+
+    @Mock
+    private ExecutionContext context;
 
     private DocumentIngestionFunction documentIngestionFunction;
 
@@ -94,7 +98,7 @@ class DocumentIngestionFunctionTest {
         stubClaimableRow();
 
         // when
-        documentIngestionFunction.run(queueMessage(metadata), 1);
+        documentIngestionFunction.run(queueMessage(metadata), 1, context);
 
         // then
         verify(documentIngestionOrchestrator).processQueueMessage(metadata, new ClaimToken(null, DOCUMENT_ID, CLAIM_ETAG));
@@ -107,7 +111,7 @@ class DocumentIngestionFunctionTest {
         final String emptyMessage = "";
 
         // when
-        documentIngestionFunction.run(emptyMessage, 1);
+        documentIngestionFunction.run(emptyMessage, 1, context);
 
         // then
         // Empty messages should return early without calling orchestrator
@@ -124,7 +128,7 @@ class DocumentIngestionFunctionTest {
         when(outcomeTableService.isTerminal("INGESTION_SUCCESS")).thenReturn(true);
 
         // when
-        documentIngestionFunction.run(queueMessage(metadata()), 1);
+        documentIngestionFunction.run(queueMessage(metadata()), 1, context);
 
         // then
         verifyNoInteractions(documentIngestionOrchestrator);
@@ -141,7 +145,7 @@ class DocumentIngestionFunctionTest {
 
         // when & then
         final DocumentProcessingException exception = assertThrows(DocumentProcessingException.class,
-                () -> documentIngestionFunction.run(queueMessage(metadata()), 1));
+                () -> documentIngestionFunction.run(queueMessage(metadata()), 1, context));
         assertTrue(exception.getMessage().contains("Lease held by another worker"));
         verifyNoInteractions(documentIngestionOrchestrator);
         verify(outcomeTableService, never()).claimLease(any(), anyString(), anyString(), anyString(), any());
@@ -156,7 +160,7 @@ class DocumentIngestionFunctionTest {
         when(outcomeTableService.isTerminal("AWAITING_INGESTION")).thenReturn(false);
 
         // when
-        assertDoesNotThrow(() -> documentIngestionFunction.run(queueMessage(metadata()), 3));
+        assertDoesNotThrow(() -> documentIngestionFunction.run(queueMessage(metadata()), 3, context));
 
         // then
         verifyNoInteractions(documentIngestionOrchestrator);
@@ -174,7 +178,7 @@ class DocumentIngestionFunctionTest {
                 .thenReturn(CLAIM_ETAG);
 
         // when
-        documentIngestionFunction.run(queueMessage(metadata), 1);
+        documentIngestionFunction.run(queueMessage(metadata), 1, context);
 
         // then
         verify(documentIngestionOrchestrator).processQueueMessage(metadata, new ClaimToken(null, DOCUMENT_ID, CLAIM_ETAG));
@@ -192,7 +196,7 @@ class DocumentIngestionFunctionTest {
 
         // when & then
         assertThrows(DocumentProcessingException.class,
-                () -> documentIngestionFunction.run(queueMessage(metadata()), 1));
+                () -> documentIngestionFunction.run(queueMessage(metadata()), 1, context));
         verifyNoInteractions(documentIngestionOrchestrator);
     }
 
@@ -206,7 +210,7 @@ class DocumentIngestionFunctionTest {
                 .thenReturn(CLAIM_ETAG);
 
         // when
-        documentIngestionFunction.run(queueMessage(metadata), 1);
+        documentIngestionFunction.run(queueMessage(metadata), 1, context);
 
         // then
         verify(documentIngestionOrchestrator).processQueueMessage(metadata, new ClaimToken(null, DOCUMENT_ID, CLAIM_ETAG));
@@ -221,7 +225,7 @@ class DocumentIngestionFunctionTest {
                 .when(documentIngestionOrchestrator).processQueueMessage(any(), any());
 
         // when
-        assertDoesNotThrow(() -> documentIngestionFunction.run(queueMessage(metadata()), 1));
+        assertDoesNotThrow(() -> documentIngestionFunction.run(queueMessage(metadata()), 1, context));
 
         // then
         verify(documentIngestionOrchestrator, never()).processQueueMessageFailed(any(), any());
@@ -240,7 +244,7 @@ class DocumentIngestionFunctionTest {
 
         // when & then
         final DocumentProcessingException exception = assertThrows(DocumentProcessingException.class,
-                () -> documentIngestionFunction.run(queueMessage(metadata()), 1));
+                () -> documentIngestionFunction.run(queueMessage(metadata()), 1, context));
         assertEquals("Error processing queueMessage", exception.getMessage());
         verify(outcomeTableService).releaseLease(null, DOCUMENT_ID, CLAIM_ETAG);
     }
@@ -255,7 +259,7 @@ class DocumentIngestionFunctionTest {
         doThrow(orchestratorException).when(documentIngestionOrchestrator).processQueueMessage(any(), any());
 
         // when
-        documentIngestionFunction.run(queueMessage(metadata), 3);
+        documentIngestionFunction.run(queueMessage(metadata), 3, context);
 
         // then
         verify(documentIngestionOrchestrator).processQueueMessageFailed(metadata, new ClaimToken(null, DOCUMENT_ID, CLAIM_ETAG));
@@ -272,7 +276,7 @@ class DocumentIngestionFunctionTest {
                     .thenThrow(new JsonProcessingException("Invalid JSON") {
                     });
 
-            assertDoesNotThrow(() -> documentIngestionFunction.run(queueMessage, 1L));
+            assertDoesNotThrow(() -> documentIngestionFunction.run(queueMessage, 1L, context));
 
             verifyNoInteractions(documentIngestionOrchestrator);
             verifyNoInteractions(outcomeTableService);

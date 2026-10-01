@@ -26,6 +26,7 @@ import uk.gov.moj.cp.ai.client.identity.ClientIdentityResolver;
 import uk.gov.moj.cp.ai.client.identity.HeaderClientIdentityResolver;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.http.HttpResponses;
+import uk.gov.moj.cp.ai.logging.LogContext;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.ai.util.StringUtil;
 import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
@@ -102,7 +103,12 @@ public class DocumentUploadFunction {
             @HttpTrigger(name = "req", methods = {HttpMethod.POST},
                     authLevel = FUNCTION, route = "document-upload") HttpRequestMessage<DocumentUploadRequest> request,
             final ExecutionContext context) {
+        try (LogContext ignored = LogContext.open(context)) {
+            return handle(request);
+        }
+    }
 
+    private HttpResponseMessage handle(final HttpRequestMessage<DocumentUploadRequest> request) {
         final ClientContext clientContext;
         try {
             // Enforcement on: reject a missing/invalid client identity before any work.
@@ -112,6 +118,7 @@ public class DocumentUploadFunction {
             return HttpResponses.unauthorized(request);
         }
         final String clientId = clientContext.clientId().orElse(null);
+        LogContext.put(LogContext.CLIENT_ID, clientId);
 
         try {
             final DocumentUploadRequest documentUploadRequest = request.getBody();
@@ -122,6 +129,7 @@ public class DocumentUploadFunction {
             }
 
             final String documentId = documentUploadRequest.getDocumentId();
+            LogContext.put(LogContext.DOCUMENT_ID, documentId); // caller-supplied; validated above
             final String documentName = documentUploadRequest.getDocumentName();
             final String supersededDocuments = Optional.ofNullable(documentUploadRequest.getOverwrites())
                     .orElse(emptyList())

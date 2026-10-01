@@ -26,6 +26,7 @@ import uk.gov.moj.cp.ai.exception.EtagMismatchException;
 import uk.gov.moj.cp.ai.idempotency.ClaimToken;
 import uk.gov.moj.cp.ai.idempotency.IdempotencyGuard;
 import uk.gov.moj.cp.ai.idempotency.LeaseConflictException;
+import uk.gov.moj.cp.ai.logging.LogContext;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.InputChunksPayload;
 import uk.gov.moj.cp.ai.model.ScoringPayload;
@@ -141,7 +142,14 @@ public class AnswerGenerationFunction {
             @BindingName("DequeueCount") long dequeueCount,
             final ExecutionContext context
     ) {
+        // Every line on this thread carries inv= (and, once the payload is parsed, txn= / client=)
+        // until the scope closes — on the normal exit and on the deliberate redelivery rethrow.
+        try (LogContext ignored = LogContext.open(context)) {
+            process(queueMessage, scoringMessage, dequeueCount);
+        }
+    }
 
+    private void process(final String queueMessage, final OutputBinding<String> scoringMessage, final long dequeueCount) {
         //defaultValue of maxDequeueCount should match the value in host.json
         final int maxDequeueCount = getRequiredEnvAsInteger("AzureFunctionsJobHost__extensions__queues__maxDequeueCount", "3");
         LOGGER.info("Event attempt count {} of {}", dequeueCount, maxDequeueCount);
@@ -172,6 +180,8 @@ public class AnswerGenerationFunction {
             // without one keeps the null-scoped (legacy) claim, search and writes.
             final String claimClientId = ClientId.requireValidOrNull(payload.clientId());
             clientId = claimClientId;
+            LogContext.put(LogContext.TRANSACTION_ID, transactionId.toString());
+            LogContext.put(LogContext.CLIENT_ID, claimClientId);
 
             LOGGER.info("Starting answer generation for transactionId '{}'", transactionId);
 
