@@ -94,7 +94,7 @@ public class DocumentIngestionOrchestrator {
         final String documentId = queueIngestionMetadata.documentId();
         final String documentUrl = queueIngestionMetadata.blobUrl();
 
-        LOGGER.info("Starting document ingestion process for document: {} (ID: {})", documentName, documentId);
+        LOGGER.info("Starting document ingestion process for document: {}", documentName);
         // Step 1: Analyze document using Azure Document Intelligence
         AnalyzeResult analyzeResult = documentIntelligenceService.analyzeDocument(documentName, documentUrl);
 
@@ -113,7 +113,7 @@ public class DocumentIngestionOrchestrator {
         // Step 6: Record success (fenced on the claim-time ETag)
         recordOutcome(documentName, documentId, INGESTION_SUCCESS.name(), INGESTION_SUCCESS_REASON, token);
 
-        LOGGER.info("Document ingestion completed successfully for document: {} (ID: {})", documentName, documentId);
+        LOGGER.info("Document ingestion completed successfully for document: {}", documentName);
 
     }
 
@@ -127,8 +127,7 @@ public class DocumentIngestionOrchestrator {
 
         } catch (EtagMismatchException fenceLoss) {
             // Correct by construction: being fenced out means another worker owns the outcome.
-            LOGGER.warn("Fenced FAILED write rejected for documentId: {} — another worker owns the outcome.",
-                    queueIngestionMetadata.documentId(), fenceLoss);
+            LOGGER.warn("Fenced FAILED write rejected — another worker owns the outcome.", fenceLoss);
         }
         // Any other write failure propagates: the invocation fails visibly (poison queue at
         // exhaustion) and the guard releases the lease, instead of silently consuming the
@@ -146,24 +145,24 @@ public class DocumentIngestionOrchestrator {
         try {
             final LeaseSnapshot snapshot = documentIngestionOutcomeTableService.readForClaim(clientId, documentId);
             if (snapshot == null) {
-                LOGGER.error("Not recording INGESTION_FAILED for documentId: {} — status row is missing.", documentId);
+                LOGGER.error("Not recording INGESTION_FAILED — status row is missing.");
                 return;
             }
             if (documentIngestionOutcomeTableService.isTerminal(snapshot.status())) {
-                LOGGER.info("Not recording INGESTION_FAILED for documentId: {} — row is already terminal ({}).", documentId, snapshot.status());
+                LOGGER.info("Not recording INGESTION_FAILED — row is already terminal ({}).", snapshot.status());
                 return;
             }
             if (nonNull(snapshot.leaseExpiresAt()) && snapshot.leaseExpiresAt().isAfter(java.time.OffsetDateTime.now())) {
-                LOGGER.warn("Not recording INGESTION_FAILED for documentId: {} — another worker holds a live lease.", documentId);
+                LOGGER.warn("Not recording INGESTION_FAILED — another worker holds a live lease.");
                 return;
             }
             documentIngestionOutcomeTableService.recordOutcomeFenced(
                     clientId, documentId, INGESTION_FAILED.name(), INGESTION_FAILED_REASON, snapshot.etag());
 
         } catch (EtagMismatchException e) {
-            LOGGER.warn("Not recording INGESTION_FAILED for documentId: {} — row changed concurrently; leaving the outcome to its owner.", documentId, e);
+            LOGGER.warn("Not recording INGESTION_FAILED — row changed concurrently; leaving the outcome to its owner.", e);
         } catch (Exception e) {
-            LOGGER.error("Unable to safely record INGESTION_FAILED for documentId: {} — leaving row unchanged.", documentId, e);
+            LOGGER.error("Unable to safely record INGESTION_FAILED — leaving row unchanged.", e);
         }
     }
 
@@ -187,7 +186,7 @@ public class DocumentIngestionOrchestrator {
                                final String status, final String reason, final ClaimToken token) throws DocumentProcessingException {
         try {
             documentIngestionOutcomeTableService.recordOutcomeFenced(token.clientId(), documentId, status, reason, token.etag());
-            LOGGER.info("event=outcome_recorded status={} documentName={} documentId={}", status, documentName, documentId);
+            LOGGER.info("Ingestion outcome recorded with status {} for document: {}", status, documentName);
         } catch (EtagMismatchException fenceLoss) {
             // Never convert a fence loss into a retry or a FAILED write — the reclaimer owns the outcome.
             throw fenceLoss;

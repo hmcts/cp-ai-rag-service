@@ -187,8 +187,8 @@ traces
 
 ### What deliberately stays as it is
 
-- The 43 statements that already print a transaction or document ID keep it. Existing log queries and the tests that assert message shapes (for example the redelivery message) are unaffected.
-- Service and shared-artefacts classes are untouched.
+- **Messages no longer repeat the journey ID.** A second sweep removed the transaction / document ID from the 31 function-app statements that printed it (the key now arrives from the pattern, so a line read `… [txn=…] - Answer generation completed in 1840 ms`). Four kept an ID on purpose: `GetAnswerGeneration`'s "transactionId is required" (the word, not a value), `CitationProcessor`'s merge line (the *cited* document, not the journey's), and nothing else in the apps. The nine shared-artefacts table-service lines keep theirs: library code cannot assume its caller opened a scope (the eval harness and migration tool call them without one). Exception messages (for example the redelivery message asserted by tests) are not log statements and are unchanged. No alert or dashboard in `cpp-terraform-functionapp-deployment` searched for the old `transactionId=` / `documentId=` text (checked 2026-10-01).
+- Service and shared-artefacts classes are otherwise untouched.
 - No environment variable, `host.json` or API contract change. The only payload change is the additive `originInvocationId` field on the internal scoring blob.
 - The migration tool and the evaluation harness keep their original pattern: neither runs under the Functions host, so they have no invocation to scope.
 

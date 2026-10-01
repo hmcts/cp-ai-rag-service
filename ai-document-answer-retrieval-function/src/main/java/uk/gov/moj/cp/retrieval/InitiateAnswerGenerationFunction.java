@@ -116,13 +116,13 @@ public class InitiateAnswerGenerationFunction {
 
             final UUID transactionId = randomUUID();
             LogContext.put(LogContext.TRANSACTION_ID, transactionId.toString());
-            LOGGER.info("Initiating answer generation async process for the query: {} with transactionId: {}", userQuery, transactionId);
+            LOGGER.info("Initiating answer generation async process for the query: {}", userQuery);
 
             final AnswerGenerationQueuePayload answerGenerationQueuePayload = new AnswerGenerationQueuePayload(transactionId, userQuery, userQueryPrompt, metadataFilters, clientId);
             message.setValue(convert(answerGenerationQueuePayload));
 
             answerGenerationTableService.saveAnswerGenerationRequest(clientId, transactionId.toString(), userQuery, userQueryPrompt, ANSWER_GENERATION_PENDING);
-            LOGGER.info("Successfully initiated answer retrieval processing for the query: {} with transactionId: {}", userQuery, transactionId);
+            LOGGER.info("Successfully initiated answer retrieval processing for the query: {}", userQuery);
 
             return generateResponse(request, ACCEPTED, convert(new UserQueryAnswerRequestAccepted(transactionId.toString())));
 

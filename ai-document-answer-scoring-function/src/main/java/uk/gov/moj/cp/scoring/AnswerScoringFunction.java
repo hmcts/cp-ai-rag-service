@@ -88,7 +88,7 @@ public class AnswerScoringFunction {
             LogContext.put(LogContext.ORIGIN_INVOCATION_ID, scoringPayload.originInvocationId());
             LogContext.put(LogContext.CLIENT_ID, scoringPayload.clientId());
 
-            LOGGER.info("Starting process to score answer for transactionId '{}' and query '{}'", scoringPayload.transactionId(), scoringPayload.userQuery());
+            LOGGER.info("Starting process to score answer for query '{}'", scoringPayload.userQuery());
 
             final ModelScore modelScore = scoringService.evaluateGroundedness(scoringPayload.llmResponse(), scoringPayload.userQuery(), scoringPayload.queryPrompt(), scoringPayload.chunkedEntries());
 
@@ -97,7 +97,7 @@ public class AnswerScoringFunction {
             publishScoreService.publishGroundednessScore(modelScore.groundednessScore(), scoringPayload.userQuery(), scoringPayload.clientId());
 
             if(null != scoringPayload.transactionId()) {
-                LOGGER.info("Recording groundedness score against transaction id: {}", scoringPayload.transactionId());
+                LOGGER.info("Recording groundedness score against the transaction");
                 answerGenerationTableService.recordGroundednessScore(scoringPayload.clientId(), scoringPayload.transactionId(), modelScore.groundednessScore());
             }
 

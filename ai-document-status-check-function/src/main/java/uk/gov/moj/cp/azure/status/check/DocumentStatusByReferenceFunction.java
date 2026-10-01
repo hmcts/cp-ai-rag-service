@@ -101,10 +101,10 @@ public class DocumentStatusByReferenceFunction {
                 return generateResponse(request, NOT_FOUND, convert(new RequestErrored(format("No Document found for the documentReference=%s", documentReference))));
             }
 
-            LOGGER.info("Document with id {} has upload status {}", document.getDocumentId(), document.getStatus());
+            LOGGER.info("Document has upload status {}", document.getStatus());
             return generateResponse(request, HttpStatus.OK, convert(toDocumentStatus(document)));
         } catch (Exception e) {
-            LOGGER.error("Error getting the document upload status for documentReference: {}", documentReference, e);
+            LOGGER.error("Error getting the document upload status", e);
             final String errorMessage = "An internal error occurred: " + e.getMessage();
             return generateResponse(request, HttpStatus.INTERNAL_SERVER_ERROR, convert(new RequestErrored(errorMessage)));
         }

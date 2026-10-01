@@ -99,8 +99,7 @@ public class DocumentIngestionFunction {
         LogContext.put(LogContext.DOCUMENT_ID, documentId);
         LogContext.put(LogContext.CLIENT_ID, clientId);
         try {
-            LOGGER.info("Parsed ingestion metadata - ID: {}, Name: {}, Blob URL: {}",
-                    documentId,
+            LOGGER.info("Parsed ingestion metadata - Name: {}, Blob URL: {}",
                     queueIngestionMetadata.documentName(),
                     queueIngestionMetadata.blobUrl());
 
@@ -110,7 +109,7 @@ public class DocumentIngestionFunction {
         } catch (EtagMismatchException e) {
             // Lost the fencing race at completion: another worker reclaimed the expired lease
             // and owns the outcome. Discard this attempt; no rethrow.
-            LOGGER.warn("Fenced write rejected for documentId='{}' — another worker owns the outcome; discarding this attempt", documentId, e);
+            LOGGER.warn("Fenced write rejected — another worker owns the outcome; discarding this attempt", e);
         } catch (LeaseConflictException e) {
             rethrowOrWarnOnLiveLease(documentId, e, dequeueCount, maxDequeueCount);
         } catch (DocumentProcessingException e) {
@@ -152,7 +151,7 @@ public class DocumentIngestionFunction {
         if (dequeueCount < maxDequeueCount) {
             throw new DocumentProcessingException("Lease held by another worker for documentId: " + documentId, e);
         }
-        LOGGER.warn("Delivery attempts exhausted while a live lease exists for documentId='{}' — leaving the outcome to the leaseholder", documentId, e);
+        LOGGER.warn("Delivery attempts exhausted while a live lease exists — leaving the outcome to the leaseholder", e);
     }
 
     /** Failures during the claim itself (status-row reads etc.) — no claim obtained. */
@@ -161,7 +160,7 @@ public class DocumentIngestionFunction {
         if (dequeueCount < maxDequeueCount) {
             throw new DocumentProcessingException("Error processing queueMessage", e);
         }
-        LOGGER.error("Document ingestion failed during idempotency claim for documentId='{}'", queueIngestionMetadata.documentId(), e);
+        LOGGER.error("Document ingestion failed during idempotency claim", e);
         documentIngestionOrchestrator.processQueueMessageFailedIfSafe(queueIngestionMetadata, clientId);
     }
 
