@@ -92,7 +92,7 @@ public class DocumentChunkingService {
                 }
             }
         } catch (Exception e) {
-            LOGGER.error("Error processing page {}: {}", pageIndex, e.getMessage());
+            LOGGER.error("Error processing page {} — its chunks are dropped from the index", pageIndex, e);
         }
 
         return pageChunks;
