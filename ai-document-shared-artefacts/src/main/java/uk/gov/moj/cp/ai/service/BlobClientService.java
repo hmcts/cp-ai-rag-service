@@ -50,11 +50,12 @@ public class BlobClientService {
         return containerClient.getBlobClient(documentName);
     }
 
-    public void addBlob(final String documentName, final String payload) {
+    /** {@code blobName} is the ID-derived blob filename (transaction/document id based), never a caller-supplied document name. */
+    public void addBlob(final String blobName, final String payload) {
         final byte[] payloadBytes = payload.getBytes(StandardCharsets.UTF_8);
-        BlobClient blobClient = containerClient.getBlobClient(documentName);
+        BlobClient blobClient = containerClient.getBlobClient(blobName);
         blobClient.upload(new java.io.ByteArrayInputStream(payloadBytes), payloadBytes.length, true);
-        LOGGER.info("Blob added: {}/{}", containerClient.getBlobContainerName(), documentName);
+        LOGGER.info("Blob added: {}/{}", containerClient.getBlobContainerName(), blobName);
     }
 
     public String getSasUrl(final String blobName, int urlExpiryMinutes) {

@@ -82,25 +82,11 @@ Cross-file duplication only appears when a query's metadata filter spans multipl
 
 ### Logging & Correlation
 
-All five function apps log through SLF4J → log4j2 to stdout (forwarded to Application Insights as
-console traces) with one identical appender pattern. Every log line written during an invocation
-carries the ID of the **journey** it belongs to — `txn=` on the answer journey (initiate → generate →
-status → score), `doc=` on the document journey (upload → upload check → ingestion → status) — plus
-the host's `inv=` invocation ID and, when client filtering is on, `client=`. The IDs are attached
-once at each function's entry point through the shared `LogContext` (MDC) and inherited by every
-service and shared-artefacts line on that thread, so a single Kusto search returns one journey end
-to end across apps:
-
-```kusto
-traces | where message contains "txn=<transactionId>" | order by timestamp asc
-traces | where message contains "doc=<documentId>"    | order by timestamp asc
-```
-
-The synchronous answer endpoint has no transaction: its lines correlate on `inv=`, and its scoring
-run carries that ID as `origin=`. Queue workers log `Event attempt count N of M` once per delivery.
-The full design, the conventions for new code and the follow-ups (App Insights Java agent for
-structured `customDimensions`, a caller-visible correlation ID for the sync endpoint) are the
-**logging reference architecture**: [`docs/transaction-scoped-logging.md`](docs/transaction-scoped-logging.md).
+Every log line written during an invocation carries the ID of the journey it belongs to (`txn=` for an
+answer, `doc=` for a document, plus the host's `inv=`), attached once at each function's entry point and
+inherited by every line on that thread, so one Kusto search returns a journey end to end across apps.
+The design, the Kusto queries and the conventions for new code are the logging reference architecture:
+[`docs/transaction-scoped-logging.md`](docs/transaction-scoped-logging.md).
 
 ## Prerequisites
 

@@ -94,7 +94,7 @@ public class DocumentIngestionOrchestrator {
         final String documentId = queueIngestionMetadata.documentId();
         final String documentUrl = queueIngestionMetadata.blobUrl();
 
-        LOGGER.info("Starting document ingestion process for document: {}", documentName);
+        LOGGER.info("Starting document ingestion process");
         // Step 1: Analyze document using Azure Document Intelligence
         AnalyzeResult analyzeResult = documentIntelligenceService.analyzeDocument(documentName, documentUrl);
 
@@ -113,7 +113,7 @@ public class DocumentIngestionOrchestrator {
         // Step 6: Record success (fenced on the claim-time ETag)
         recordOutcome(documentName, documentId, INGESTION_SUCCESS.name(), INGESTION_SUCCESS_REASON, token);
 
-        LOGGER.info("Document ingestion completed successfully for document: {}", documentName);
+        LOGGER.info("Document ingestion completed successfully");
 
     }
 
@@ -186,7 +186,7 @@ public class DocumentIngestionOrchestrator {
                                final String status, final String reason, final ClaimToken token) throws DocumentProcessingException {
         try {
             documentIngestionOutcomeTableService.recordOutcomeFenced(token.clientId(), documentId, status, reason, token.etag());
-            LOGGER.info("Ingestion outcome recorded with status {} for document: {}", status, documentName);
+            LOGGER.info("Ingestion outcome recorded with status {}", status);
         } catch (EtagMismatchException fenceLoss) {
             // Never convert a fence loss into a retry or a FAILED write — the reclaimer owns the outcome.
             throw fenceLoss;

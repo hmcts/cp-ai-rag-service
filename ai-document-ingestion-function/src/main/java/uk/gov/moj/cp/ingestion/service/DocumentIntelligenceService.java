@@ -45,7 +45,7 @@ public class DocumentIntelligenceService {
         validateNullOrEmpty(documentName, "Document name cannot be null or empty");
         validateNullOrEmpty(documentUrl, "Document URL cannot be null or empty");
 
-        LOGGER.info("Starting document analysis for: {}", documentName);
+        LOGGER.info("Starting document analysis");
 
         try {
             AnalyzeDocumentOptions options = new AnalyzeDocumentOptions(documentUrl);
@@ -56,8 +56,7 @@ public class DocumentIntelligenceService {
 
             AnalyzeResult result = poller.getFinalResult();
 
-            LOGGER.info("Successfully analyzed document: {} with {} pages",
-                    documentName, result.getPages().size());
+            LOGGER.info("Successfully analyzed document with {} pages", result.getPages().size());
 
             return result;
 

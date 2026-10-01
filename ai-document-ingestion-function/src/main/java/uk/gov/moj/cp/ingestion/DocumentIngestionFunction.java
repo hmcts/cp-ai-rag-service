@@ -99,9 +99,7 @@ public class DocumentIngestionFunction {
         LogContext.put(LogContext.DOCUMENT_ID, documentId);
         LogContext.put(LogContext.CLIENT_ID, clientId);
         try {
-            LOGGER.info("Parsed ingestion metadata - Name: {}, Blob URL: {}",
-                    queueIngestionMetadata.documentName(),
-                    queueIngestionMetadata.blobUrl());
+            LOGGER.info("Parsed ingestion metadata - Blob URL: {}", queueIngestionMetadata.blobUrl());
 
             idempotencyGuard.runOnce(clientId, documentId, token ->
                     processUnderClaim(queueIngestionMetadata, token, dequeueCount, maxDequeueCount));

@@ -137,7 +137,7 @@ public class DocumentUploadFunction {
                     .filter(id -> !isNullOrEmpty(id))
                     .collect(joining(","));
 
-            LOGGER.info("Initiating document upload for documentName: {} supersededDocuments: {}", documentName, supersededDocuments);
+            LOGGER.info("Initiating document upload (supersededDocuments: {})", supersededDocuments);
 
             if (documentUploadService.isDocumentAlreadyProcessed(clientId, documentId)) {
                 final String errorMessage = "An upload request has already been initiated for documentId: " + documentId;
@@ -153,7 +153,7 @@ public class DocumentUploadFunction {
 
             documentUploadService.addDocumentAwaitingUpload(clientId, documentId, documentName, listToMap(documentUploadRequest.getMetadataFilter()), supersededDocuments);
 
-            LOGGER.info("Successfully initiated document upload for documentName: {}", documentName);
+            LOGGER.info("Successfully initiated document upload");
             final FileStorageLocationReturnedSuccessfully fileStorageLocationReturnedSuccessfully = new FileStorageLocationReturnedSuccessfully(storageSasUrl, documentId);
             return generateResponse(request, HttpStatus.OK, convert(fileStorageLocationReturnedSuccessfully));
 
