@@ -92,7 +92,9 @@ public class DocumentChunkingService {
                 }
             }
         } catch (Exception e) {
-            LOGGER.error("Error processing page {} — its chunks are dropped from the index", pageIndex, e);
+            // Partial page: chunks already created are returned and indexed; the remainder of the page is lost.
+            LOGGER.error("Error processing page {} — {} chunk(s) created before the failure are kept, the rest of the page is dropped from the index",
+                    pageIndex, pageChunks.size(), e);
         }
 
         return pageChunks;
