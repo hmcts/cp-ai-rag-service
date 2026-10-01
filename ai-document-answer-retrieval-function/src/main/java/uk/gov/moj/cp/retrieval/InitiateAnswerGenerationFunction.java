@@ -116,18 +116,18 @@ public class InitiateAnswerGenerationFunction {
 
             final UUID transactionId = randomUUID();
             LogContext.put(LogContext.TRANSACTION_ID, transactionId.toString());
-            LOGGER.info("Initiating answer generation async process for the query: {}", userQuery);
+            LOGGER.info("Initiating answer generation async process");
 
             final AnswerGenerationQueuePayload answerGenerationQueuePayload = new AnswerGenerationQueuePayload(transactionId, userQuery, userQueryPrompt, metadataFilters, clientId);
             message.setValue(convert(answerGenerationQueuePayload));
 
             answerGenerationTableService.saveAnswerGenerationRequest(clientId, transactionId.toString(), userQuery, userQueryPrompt, ANSWER_GENERATION_PENDING);
-            LOGGER.info("Successfully initiated answer retrieval processing for the query: {}", userQuery);
+            LOGGER.info("Successfully initiated answer retrieval processing");
 
             return generateResponse(request, ACCEPTED, convert(new UserQueryAnswerRequestAccepted(transactionId.toString())));
 
         } catch (Exception e) {
-            LOGGER.error("Error initiating answer retrieval for request: {}", request, e);
+            LOGGER.error("Error initiating answer retrieval", e);
             final String errorMessage = convert(new RequestErrored("An internal error occurred: " + e.getMessage()));
             return generateResponse(request, INTERNAL_SERVER_ERROR, errorMessage);
         }

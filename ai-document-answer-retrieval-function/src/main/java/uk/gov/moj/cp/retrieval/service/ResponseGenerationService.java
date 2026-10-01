@@ -81,11 +81,11 @@ public class ResponseGenerationService {
     public LlmResponse generateResponse(final String userQuery, final List<ChunkedEntry> chunkedEntries,
                                         final String userQueryPrompt) throws ChatServiceException {
         if (null == chunkedEntries || chunkedEntries.isEmpty()) {
-            LOGGER.warn("No matching data from search database retrieved for query: {}", userQuery);
+            LOGGER.warn("No matching data from search database retrieved for the query");
             return new LlmResponse(LLM_RESPONSE_NO_DATA_AVAILABLE, LLM_RESPONSE_NO_DATA_AVAILABLE, ANSWER_GENERATED);
         }
 
-        LOGGER.info("Generating LLM response for query: {}", userQuery);
+        LOGGER.info("Generating LLM response");
 
         final String formattedChunks = chunkFormatterUtility.buildChunkContext(chunkedEntries);
         LOGGER.info("Constructed retrieved contexts, has {} characters", formattedChunks.length());

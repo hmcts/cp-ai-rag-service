@@ -128,7 +128,7 @@ public class GetAnswerGenerationResultFunction {
             return generateResponse(request, NOT_FOUND, convert(new RequestErrored(String.format("No Answer request found for the transactionId=%s", transactionId))));
 
         } catch (Exception e) {
-            LOGGER.error("Error initiating answer retrieval for request: {}", request, e);
+            LOGGER.error("Error retrieving the generated answer", e);
             final String errorMessage = convert(new RequestErrored("An internal error occurred: " + e.getMessage()));
             return generateResponse(request, INTERNAL_SERVER_ERROR, errorMessage);
         }

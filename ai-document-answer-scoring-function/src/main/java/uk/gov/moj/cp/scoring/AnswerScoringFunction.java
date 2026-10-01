@@ -88,7 +88,7 @@ public class AnswerScoringFunction {
             LogContext.put(LogContext.ORIGIN_INVOCATION_ID, scoringPayload.originInvocationId());
             LogContext.put(LogContext.CLIENT_ID, scoringPayload.clientId());
 
-            LOGGER.info("Starting process to score answer for query '{}'", scoringPayload.userQuery());
+            LOGGER.info("Starting process to score answer");
 
             final ModelScore modelScore = scoringService.evaluateGroundedness(scoringPayload.llmResponse(), scoringPayload.userQuery(), scoringPayload.queryPrompt(), scoringPayload.chunkedEntries());
 

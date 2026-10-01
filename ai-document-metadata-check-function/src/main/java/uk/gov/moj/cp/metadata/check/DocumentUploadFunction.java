@@ -161,7 +161,7 @@ public class DocumentUploadFunction {
             final String duplicateRecordError = format(DUPLICATE_RECORD_ERROR, request.getBody().getDocumentId());
             return generateResponse(request, HttpStatus.BAD_REQUEST, convert(new RequestErrored(duplicateRecordError)));
         } catch (Exception e) {
-            LOGGER.error("Error initiating document upload for request: {}", request, e);
+            LOGGER.error("Error initiating document upload", e);
             final String errorMessage = "An internal error occurred: " + e.getMessage();
             return generateResponse(request, HttpStatus.INTERNAL_SERVER_ERROR, convert(new RequestErrored(errorMessage)));
         }

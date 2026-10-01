@@ -149,7 +149,7 @@ public class SyncAnswerGenerationFunction {
             final String userQueryPrompt = userQueryRequest.getQueryPrompt();
             final List<KeyValuePair> metadataFilters = userQueryRequest.getMetadataFilter().stream().map(uqr -> new KeyValuePair(uqr.getKey(), uqr.getValue())).toList();
 
-            LOGGER.info("Initiating answer generation process for query - {}", userQuery);
+            LOGGER.info("Initiating answer generation process");
 
             final List<Float> queryEmbeddings = embedDataService.getEmbedding(userQuery);
 
@@ -162,7 +162,7 @@ public class SyncAnswerGenerationFunction {
                 llmResponse = applyGuardPolicy(e);
             }
 
-            LOGGER.info("Answer retrieval processing completed for query: {} (status: {})", userQuery, llmResponse.status());
+            LOGGER.info("Answer retrieval processing completed (status: {})", llmResponse.status());
 
             final UserQueryAnswerReturnedSuccessfullySynchronously queryResponse = new UserQueryAnswerReturnedSuccessfullySynchronously(userQuery, llmResponse.formattedLlmResponse(), userQueryPrompt, transformChunkEntries(chunkedEntries));
 
@@ -184,7 +184,7 @@ public class SyncAnswerGenerationFunction {
             return generateResponse(request, OK, responseAsString);
 
         } catch (Exception e) {
-            LOGGER.error("Error processing answer retrieval for request: {}", request, e);
+            LOGGER.error("Error processing answer retrieval", e);
             final String errorMessage = convert(new RequestErrored("An internal error occurred: " + e.getMessage()));
             return generateResponse(request, INTERNAL_SERVER_ERROR, errorMessage);
         }
