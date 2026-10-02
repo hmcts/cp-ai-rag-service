@@ -57,7 +57,7 @@ class AnswerScoringFunctionTest {
         when(scoringServiceMock.evaluateGroundedness(scoringPayload.llmResponse(), scoringPayload.userQuery(), scoringPayload.queryPrompt(), List.of()))
                 .thenReturn(modelScore);
 
-        answerScoringFunction.run(queueMessage, contextMock);
+        answerScoringFunction.run(queueMessage, 1, contextMock);
 
         verify(scoringServiceMock).evaluateGroundedness(scoringPayload.llmResponse(), scoringPayload.userQuery(), scoringPayload.queryPrompt(), List.of());
         verify(publishScoreService).publishGroundednessScore(llmScore, scoringPayload.userQuery(), null);
@@ -70,7 +70,7 @@ class AnswerScoringFunctionTest {
         String invalidMessage = "invalid-json";
 
         Exception exception = assertThrows(RuntimeException.class, () -> {
-            answerScoringFunction.run(invalidMessage, contextMock);
+            answerScoringFunction.run(invalidMessage, 1, contextMock);
         });
 
         assertInstanceOf(JsonProcessingException.class, exception.getCause());
@@ -80,7 +80,7 @@ class AnswerScoringFunctionTest {
     @DisplayName("Handles null message and logs error")
     void handlesNullMessageAndLogsError() {
         assertThrows(RuntimeException.class, () -> {
-            answerScoringFunction.run(null, contextMock);
+            answerScoringFunction.run(null, 1, contextMock);
         });
 
     }
@@ -97,7 +97,7 @@ class AnswerScoringFunctionTest {
                 .thenThrow(new RuntimeException("Scoring service error"));
 
         Exception exception = assertThrows(RuntimeException.class, () -> {
-            answerScoringFunction.run(queueMessage, contextMock);
+            answerScoringFunction.run(queueMessage, 1, contextMock);
         });
 
         assertEquals("Scoring service error", exception.getMessage());

@@ -57,7 +57,7 @@ public class DocumentIngestionOutcomeTableService implements IdempotencyStatusSt
 
         tableService.insertIntoTable(entity);
 
-        LOGGER.info("Document upload record INSERTED into table with status '{}' for document '{}' with ID '{}'", status, documentName, documentId);
+        LOGGER.info("Document upload record INSERTED into table with status '{}' for document with ID '{}'", status, documentId);
     }
 
     public void upsertDocument(final String clientId, final String documentId, final String status, final String reason) {

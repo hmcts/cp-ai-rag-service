@@ -1,5 +1,6 @@
 package uk.gov.moj.cp.ingestion.service;
 
+import static java.util.Objects.requireNonNull;
 import static dev.langchain4j.data.document.splitter.DocumentSplitters.recursive;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
@@ -34,8 +35,8 @@ public class DocumentChunkingService {
     public List<ChunkedEntry> chunkDocument(AnalyzeResult result,
                                             QueueIngestionMetadata queueMetadata,
                                             ChunkingConfig config) throws DocumentProcessingException {
-
-        LOGGER.info("Starting document chunking for: {}", queueMetadata.documentName());
+        requireNonNull(queueMetadata, "queueMetadata");
+        LOGGER.info("Starting document chunking");
 
         try {
             List<ChunkedEntry> finalChunks = new ArrayList<>();
@@ -91,7 +92,9 @@ public class DocumentChunkingService {
                 }
             }
         } catch (Exception e) {
-            LOGGER.error("Error processing page {}: {}", pageIndex, e.getMessage());
+            // Partial page: chunks already created are returned and indexed; the remainder of the page is lost.
+            LOGGER.error("Error processing page {} — {} chunk(s) created before the failure are kept, the rest of the page is dropped from the index",
+                    pageIndex, pageChunks.size(), e);
         }
 
         return pageChunks;
@@ -136,8 +139,7 @@ public class DocumentChunkingService {
                 .clientId(queueMetadata.clientId())
                 .build();
 
-        LOGGER.debug("Created chunk [{}] for page {} of document {}",
-                chunkIndex + 1, pageIndex, queueMetadata.documentName());
+        LOGGER.debug("Created chunk [{}] for page {}", chunkIndex + 1, pageIndex);
 
         return chunk;
     }

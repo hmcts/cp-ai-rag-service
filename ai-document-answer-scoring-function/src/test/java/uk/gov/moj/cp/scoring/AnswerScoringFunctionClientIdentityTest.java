@@ -55,7 +55,7 @@ class AnswerScoringFunctionClientIdentityTest {
         when(scoringService.evaluateGroundedness(payload.llmResponse(), payload.userQuery(), payload.queryPrompt(), List.of()))
                 .thenReturn(new ModelScore(score, "Well supported"));
 
-        function.run(queueMessage, context);
+        function.run(queueMessage, 1, context);
 
         verify(publishScoreService).publishGroundednessScore(score, payload.userQuery(), CLIENT_ID);
         verify(answerGenerationTableService).recordGroundednessScore(CLIENT_ID, TRANSACTION_ID, score);
@@ -71,7 +71,7 @@ class AnswerScoringFunctionClientIdentityTest {
         when(scoringService.evaluateGroundedness(payload.llmResponse(), payload.userQuery(), payload.queryPrompt(), List.of()))
                 .thenReturn(new ModelScore(score, "Well supported"));
 
-        function.run(queueMessage, context);
+        function.run(queueMessage, 1, context);
 
         verify(answerGenerationTableService).recordGroundednessScore(null, TRANSACTION_ID, score);
     }

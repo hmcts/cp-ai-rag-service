@@ -11,9 +11,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Backward-compatibility specs for the additive {@code clientId} field on
- * {@link ScoringPayload}. Existing producers still serialise correctly with
- * {@code clientId} simply absent/null.
+ * Backward-compatibility specs for the additive {@code clientId} and
+ * {@code originInvocationId} fields on {@link ScoringPayload}. Existing producers still
+ * serialise correctly with the fields simply absent/null, and a blob carrying a field this
+ * reader does not know is still readable.
  */
 class ScoringPayloadTest {
 
@@ -45,6 +46,47 @@ class ScoringPayloadTest {
         final ScoringPayload roundTripped = objectMapper.readValue(json, ScoringPayload.class);
 
         assertEquals(clientId, roundTripped.clientId());
+        assertNull(roundTripped.originInvocationId());
         assertEquals(original, roundTripped);
+    }
+
+    @Test
+    @DisplayName("the synchronous producer's originInvocationId round-trips through JSON")
+    void shouldRoundTripOriginInvocationId_whenSet() throws Exception {
+        final String invocationId = randomUUID().toString();
+        final ScoringPayload original = new ScoringPayload(
+                "user query", "llm response", "query prompt", List.of(), null, null, invocationId);
+
+        final String json = objectMapper.writeValueAsString(original);
+        final ScoringPayload roundTripped = objectMapper.readValue(json, ScoringPayload.class);
+
+        assertEquals(invocationId, roundTripped.originInvocationId());
+        assertNull(roundTripped.transactionId());
+        assertEquals(original, roundTripped);
+    }
+
+    @Test
+    @DisplayName("a legacy blob written before the field existed deserialises with originInvocationId null")
+    void shouldDeserialiseLegacyBlob_withoutOriginInvocationId() throws Exception {
+        final String legacyJson = "{\"userQuery\":\"q\",\"llmResponse\":\"a\",\"queryPrompt\":\"p\","
+                + "\"chunkedEntries\":[],\"transactionId\":\"12345\"}";
+
+        final ScoringPayload payload = objectMapper.readValue(legacyJson, ScoringPayload.class);
+
+        assertEquals("12345", payload.transactionId());
+        assertNull(payload.clientId());
+        assertNull(payload.originInvocationId());
+    }
+
+    @Test
+    @DisplayName("a blob carrying a field this reader does not know is still readable (future additive fields)")
+    void shouldIgnoreUnknownFields_fromNewerProducer() throws Exception {
+        final String newerJson = "{\"userQuery\":\"q\",\"llmResponse\":\"a\",\"queryPrompt\":\"p\","
+                + "\"chunkedEntries\":[],\"transactionId\":null,\"clientId\":null,"
+                + "\"originInvocationId\":\"inv-1\",\"someFutureField\":\"x\"}";
+
+        final ScoringPayload payload = objectMapper.readValue(newerJson, ScoringPayload.class);
+
+        assertEquals("inv-1", payload.originInvocationId());
     }
 }

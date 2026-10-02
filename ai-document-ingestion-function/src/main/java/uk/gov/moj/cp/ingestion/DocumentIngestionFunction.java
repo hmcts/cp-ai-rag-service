@@ -15,6 +15,7 @@ import uk.gov.moj.cp.ai.exception.EtagMismatchException;
 import uk.gov.moj.cp.ai.idempotency.ClaimToken;
 import uk.gov.moj.cp.ai.idempotency.IdempotencyGuard;
 import uk.gov.moj.cp.ai.idempotency.LeaseConflictException;
+import uk.gov.moj.cp.ai.logging.LogContext;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
 import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
 import uk.gov.moj.cp.ingestion.exception.DocumentProcessingException;
@@ -23,6 +24,7 @@ import uk.gov.moj.cp.ingestion.service.DocumentIngestionOrchestrator;
 import java.time.Duration;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
@@ -63,12 +65,21 @@ public class DocumentIngestionFunction {
                     queueName = "%" + STORAGE_ACCOUNT_QUEUE_DOCUMENT_INGESTION + "%",
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING
             ) String queueMessage,
-            @BindingName("DequeueCount") long dequeueCount
+            @BindingName("DequeueCount") long dequeueCount,
+            final ExecutionContext context
     ) throws DocumentProcessingException {
+        // Every line on this thread carries inv= (and, once the payload is parsed, doc= / client=)
+        // until the scope closes — on the normal exit and on the redelivery rethrow.
+        try (LogContext ignored = LogContext.open(context)) {
+            process(queueMessage, dequeueCount);
+        }
+    }
 
+    private void process(final String queueMessage, final long dequeueCount) throws DocumentProcessingException {
         LOGGER.info("Document ingestion function triggered ");
         //defaultValue of maxDequeueCount should match the value in host.json
         final int maxDequeueCount = getRequiredEnvAsInteger("AzureFunctionsJobHost__extensions__queues__maxDequeueCount", "3");
+        LOGGER.info("Event attempt count {} of {}", dequeueCount, maxDequeueCount);
 
         if (isNullOrEmpty(queueMessage)) {
             LOGGER.error("Invalid queue queueMessage received: {}", queueMessage);
@@ -85,11 +96,10 @@ public class DocumentIngestionFunction {
         // null-scoped claim; an invalid value fails the invocation here (redelivery, then poison)
         // so a corrupt message never enters the pipeline.
         final String clientId = ClientId.requireValidOrNull(queueIngestionMetadata.clientId());
+        LogContext.put(LogContext.DOCUMENT_ID, documentId);
+        LogContext.put(LogContext.CLIENT_ID, clientId);
         try {
-            LOGGER.info("Parsed ingestion metadata - ID: {}, Name: {}, Blob URL: {}",
-                    documentId,
-                    queueIngestionMetadata.documentName(),
-                    queueIngestionMetadata.blobUrl());
+            LOGGER.info("Parsed ingestion metadata - Blob URL: {}", queueIngestionMetadata.blobUrl());
 
             idempotencyGuard.runOnce(clientId, documentId, token ->
                     processUnderClaim(queueIngestionMetadata, token, dequeueCount, maxDequeueCount));
@@ -97,7 +107,7 @@ public class DocumentIngestionFunction {
         } catch (EtagMismatchException e) {
             // Lost the fencing race at completion: another worker reclaimed the expired lease
             // and owns the outcome. Discard this attempt; no rethrow.
-            LOGGER.warn("Fenced write rejected for documentId='{}' — another worker owns the outcome; discarding this attempt", documentId, e);
+            LOGGER.warn("Fenced write rejected — another worker owns the outcome; discarding this attempt", e);
         } catch (LeaseConflictException e) {
             rethrowOrWarnOnLiveLease(documentId, e, dequeueCount, maxDequeueCount);
         } catch (DocumentProcessingException e) {
@@ -139,7 +149,7 @@ public class DocumentIngestionFunction {
         if (dequeueCount < maxDequeueCount) {
             throw new DocumentProcessingException("Lease held by another worker for documentId: " + documentId, e);
         }
-        LOGGER.warn("Delivery attempts exhausted while a live lease exists for documentId='{}' — leaving the outcome to the leaseholder", documentId, e);
+        LOGGER.warn("Delivery attempts exhausted while a live lease exists — leaving the outcome to the leaseholder", e);
     }
 
     /** Failures during the claim itself (status-row reads etc.) — no claim obtained. */
@@ -148,7 +158,7 @@ public class DocumentIngestionFunction {
         if (dequeueCount < maxDequeueCount) {
             throw new DocumentProcessingException("Error processing queueMessage", e);
         }
-        LOGGER.error("Document ingestion failed during idempotency claim for documentId='{}'", queueIngestionMetadata.documentId(), e);
+        LOGGER.error("Document ingestion failed during idempotency claim", e);
         documentIngestionOrchestrator.processQueueMessageFailedIfSafe(queueIngestionMetadata, clientId);
     }
 

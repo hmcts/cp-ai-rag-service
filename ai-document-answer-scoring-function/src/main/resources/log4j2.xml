@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
+    <!-- Correlation keys come from LogContext (shared artefacts) via MDC; identical in all five function apps.
+         See docs/transaction-scoped-logging.md. %notEmpty{} hides a key that is absent on this line. -->
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
-            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36}%notEmpty{ [txn=%X{transactionId}]}%notEmpty{ [doc=%X{documentId}]}%notEmpty{ [origin=%X{originInvocationId}]}%notEmpty{ [inv=%X{invocationId}]}%notEmpty{ [client=%X{clientId}]} - %msg%n"/>
         </Console>
     </Appenders>
     <Loggers>

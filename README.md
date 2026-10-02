@@ -80,6 +80,14 @@ Cross-file duplication only appears when a query's metadata filter spans multipl
 - `AnswerScoringFunction` evaluates answer groundedness via `ScoringService`
 - `PublishScoreService` records metrics to Azure Monitor
 
+### Logging & Correlation
+
+Every log line written during an invocation carries the ID of the journey it belongs to (`txn=` for an
+answer, `doc=` for a document, plus the host's `inv=`), attached once at each function's entry point and
+inherited by every line on that thread, so one Kusto search returns a journey end to end across apps.
+The design, the Kusto queries and the conventions for new code are the logging reference architecture:
+[`docs/transaction-scoped-logging.md`](docs/transaction-scoped-logging.md).
+
 ## Prerequisites
 
 - Java 21
@@ -152,6 +160,14 @@ The functions depend on the following Azure resources being available in the tar
 - Azure OpenAI Service
 - Azure Document Intelligence
 - Application Insights / Azure Monitor
+
+## Design Documents
+
+| Document | Topic |
+|---|---|
+| [`docs/transaction-scoped-logging.md`](docs/transaction-scoped-logging.md) | **Logging reference architecture** — MDC-based journey correlation (`txn=` / `doc=` / `inv=`) across the five apps, pattern layout, Kusto queries, conventions for new code (DD-43721) |
+| [`docs/idempotency-rag-service.md`](docs/idempotency-rag-service.md) | Effectively-once processing for the queue workers: status-row leases, ETag-fenced terminal writes |
+| [`docs/pipeline/`](docs/pipeline/) | SDLC pipeline artefacts per change (requirements, design, stories), e.g. DD-42722 multi-client data isolation |
 
 ## Related Repositories
 

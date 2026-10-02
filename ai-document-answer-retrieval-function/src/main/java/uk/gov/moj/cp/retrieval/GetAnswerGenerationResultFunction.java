@@ -26,6 +26,7 @@ import uk.gov.moj.cp.ai.client.identity.ClientIdentityResolver;
 import uk.gov.moj.cp.ai.client.identity.HeaderClientIdentityResolver;
 import uk.gov.moj.cp.ai.entity.GeneratedAnswer;
 import uk.gov.moj.cp.ai.http.HttpResponses;
+import uk.gov.moj.cp.ai.logging.LogContext;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.InputChunksPayload;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
@@ -87,7 +88,13 @@ public class GetAnswerGenerationResultFunction {
             @BindingName("transactionId") String transactionId,
             final ExecutionContext context
     ) {
+        try (LogContext ignored = LogContext.open(context)) {
+            LogContext.put(LogContext.TRANSACTION_ID, transactionId); // raw path value; validated inside handle()
+            return handle(request, transactionId);
+        }
+    }
 
+    private HttpResponseMessage handle(final HttpRequestMessage<Optional<String>> request, final String transactionId) {
         final ClientContext clientContext;
         try {
             // Enforcement on: reject a missing/invalid client identity before any lookup.
@@ -97,6 +104,7 @@ public class GetAnswerGenerationResultFunction {
             return HttpResponses.unauthorized(request);
         }
         final String clientId = clientContext.clientId().orElse(null);
+        LogContext.put(LogContext.CLIENT_ID, clientId);
 
         try {
             if (!isValid(transactionId)) {
@@ -120,7 +128,7 @@ public class GetAnswerGenerationResultFunction {
             return generateResponse(request, NOT_FOUND, convert(new RequestErrored(String.format("No Answer request found for the transactionId=%s", transactionId))));
 
         } catch (Exception e) {
-            LOGGER.error("Error initiating answer retrieval for request: {}", request, e);
+            LOGGER.error("Error retrieving the generated answer", e);
             final String errorMessage = convert(new RequestErrored("An internal error occurred: " + e.getMessage()));
             return generateResponse(request, INTERNAL_SERVER_ERROR, errorMessage);
         }

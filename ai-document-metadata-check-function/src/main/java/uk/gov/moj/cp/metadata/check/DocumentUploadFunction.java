@@ -26,6 +26,7 @@ import uk.gov.moj.cp.ai.client.identity.ClientIdentityResolver;
 import uk.gov.moj.cp.ai.client.identity.HeaderClientIdentityResolver;
 import uk.gov.moj.cp.ai.exception.DuplicateRecordException;
 import uk.gov.moj.cp.ai.http.HttpResponses;
+import uk.gov.moj.cp.ai.logging.LogContext;
 import uk.gov.moj.cp.ai.service.BlobClientService;
 import uk.gov.moj.cp.ai.util.StringUtil;
 import uk.gov.moj.cp.metadata.check.service.DocumentUploadService;
@@ -102,7 +103,12 @@ public class DocumentUploadFunction {
             @HttpTrigger(name = "req", methods = {HttpMethod.POST},
                     authLevel = FUNCTION, route = "document-upload") HttpRequestMessage<DocumentUploadRequest> request,
             final ExecutionContext context) {
+        try (LogContext ignored = LogContext.open(context)) {
+            return handle(request);
+        }
+    }
 
+    private HttpResponseMessage handle(final HttpRequestMessage<DocumentUploadRequest> request) {
         final ClientContext clientContext;
         try {
             // Enforcement on: reject a missing/invalid client identity before any work.
@@ -112,6 +118,7 @@ public class DocumentUploadFunction {
             return HttpResponses.unauthorized(request);
         }
         final String clientId = clientContext.clientId().orElse(null);
+        LogContext.put(LogContext.CLIENT_ID, clientId);
 
         try {
             final DocumentUploadRequest documentUploadRequest = request.getBody();
@@ -122,6 +129,7 @@ public class DocumentUploadFunction {
             }
 
             final String documentId = documentUploadRequest.getDocumentId();
+            LogContext.put(LogContext.DOCUMENT_ID, documentId); // caller-supplied; validated above
             final String documentName = documentUploadRequest.getDocumentName();
             final String supersededDocuments = Optional.ofNullable(documentUploadRequest.getOverwrites())
                     .orElse(emptyList())
@@ -129,7 +137,7 @@ public class DocumentUploadFunction {
                     .filter(id -> !isNullOrEmpty(id))
                     .collect(joining(","));
 
-            LOGGER.info("Initiating document upload for the documentId: {} documentName: {} supersededDocuments: {}", documentId, documentName, supersededDocuments);
+            LOGGER.info("Initiating document upload (supersededDocuments: {})", supersededDocuments);
 
             if (documentUploadService.isDocumentAlreadyProcessed(clientId, documentId)) {
                 final String errorMessage = "An upload request has already been initiated for documentId: " + documentId;
@@ -145,7 +153,7 @@ public class DocumentUploadFunction {
 
             documentUploadService.addDocumentAwaitingUpload(clientId, documentId, documentName, listToMap(documentUploadRequest.getMetadataFilter()), supersededDocuments);
 
-            LOGGER.info("Successfully initiated document upload for the documentId: {} documentName: {}", documentId, documentName);
+            LOGGER.info("Successfully initiated document upload");
             final FileStorageLocationReturnedSuccessfully fileStorageLocationReturnedSuccessfully = new FileStorageLocationReturnedSuccessfully(storageSasUrl, documentId);
             return generateResponse(request, HttpStatus.OK, convert(fileStorageLocationReturnedSuccessfully));
 
@@ -153,7 +161,7 @@ public class DocumentUploadFunction {
             final String duplicateRecordError = format(DUPLICATE_RECORD_ERROR, request.getBody().getDocumentId());
             return generateResponse(request, HttpStatus.BAD_REQUEST, convert(new RequestErrored(duplicateRecordError)));
         } catch (Exception e) {
-            LOGGER.error("Error initiating document upload for request: {}", request, e);
+            LOGGER.error("Error initiating document upload", e);
             final String errorMessage = "An internal error occurred: " + e.getMessage();
             return generateResponse(request, HttpStatus.INTERNAL_SERVER_ERROR, convert(new RequestErrored(errorMessage)));
         }

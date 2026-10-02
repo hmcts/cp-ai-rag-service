@@ -18,6 +18,7 @@ import uk.gov.moj.cp.ai.client.identity.ClientIdentityResolver;
 import uk.gov.moj.cp.ai.client.identity.HeaderClientIdentityResolver;
 import uk.gov.moj.cp.ai.entity.DocumentIngestionOutcome;
 import uk.gov.moj.cp.ai.http.HttpResponses;
+import uk.gov.moj.cp.ai.logging.LogContext;
 import uk.gov.moj.cp.ai.service.table.DocumentIngestionOutcomeTableService;
 
 import java.util.Optional;
@@ -70,7 +71,13 @@ public class DocumentStatusByReferenceFunction {
             HttpRequestMessage<Optional<String>> request,
             @BindingName("documentReference") String documentReference,
             final ExecutionContext context) {
+        try (LogContext ignored = LogContext.open(context)) {
+            LogContext.put(LogContext.DOCUMENT_ID, documentReference); // raw path value; validated inside handle()
+            return handle(request, documentReference);
+        }
+    }
 
+    private HttpResponseMessage handle(final HttpRequestMessage<Optional<String>> request, final String documentReference) {
         final ClientContext clientContext;
         try {
             // Enforcement on: reject a missing/invalid client identity before any lookup.
@@ -80,6 +87,7 @@ public class DocumentStatusByReferenceFunction {
             return HttpResponses.unauthorized(request);
         }
         final String clientId = clientContext.clientId().orElse(null);
+        LogContext.put(LogContext.CLIENT_ID, clientId);
 
         try {
             if (!isValid(documentReference)) {
@@ -93,10 +101,10 @@ public class DocumentStatusByReferenceFunction {
                 return generateResponse(request, NOT_FOUND, convert(new RequestErrored(format("No Document found for the documentReference=%s", documentReference))));
             }
 
-            LOGGER.info("Document with id {} has upload status {}", document.getDocumentId(), document.getStatus());
+            LOGGER.info("Document has upload status {}", document.getStatus());
             return generateResponse(request, HttpStatus.OK, convert(toDocumentStatus(document)));
         } catch (Exception e) {
-            LOGGER.error("Error getting the document upload status for documentReference: {}", documentReference, e);
+            LOGGER.error("Error getting the document upload status", e);
             final String errorMessage = "An internal error occurred: " + e.getMessage();
             return generateResponse(request, HttpStatus.INTERNAL_SERVER_ERROR, convert(new RequestErrored(errorMessage)));
         }

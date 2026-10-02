@@ -29,6 +29,7 @@ import uk.gov.moj.cp.metadata.check.utils.DocumentBlobNameResolver;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.models.BlobProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.OutputBinding;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,7 @@ class DocumentBlobTriggerFunctionTest {
     private BlobClientService blobClientService;
     private DocumentUploadService documentUploadService;
     private OutputBinding<String> outputBinding;
+    private ExecutionContext context;
     private DocumentBlobNameResolver documentBlobNameResolver;
     private DocumentBlobTriggerFunction function;
     private BlobProperties blobProperties;
@@ -52,6 +54,7 @@ class DocumentBlobTriggerFunctionTest {
         blobClientService = mock(BlobClientService.class);
         documentUploadService = mock(DocumentUploadService.class);
         outputBinding = mock(OutputBinding.class);
+        context = mock(ExecutionContext.class);
         documentBlobNameResolver = mock(DocumentBlobNameResolver.class);
         function = new DocumentBlobTriggerFunction(blobClientService, documentUploadService, documentBlobNameResolver);
 
@@ -66,7 +69,7 @@ class DocumentBlobTriggerFunctionTest {
     void shouldReturnEarly_whenBlobIsNotAvailable() {
         when(blobClientService.isBlobAvailable(blobName)).thenReturn(false);
 
-        function.run(new byte[]{}, blobName, outputBinding);
+        function.run(new byte[]{}, blobName, outputBinding, context);
 
         verify(blobClientService).isBlobAvailable(blobName);
         verifyNoInteractions(documentUploadService);
@@ -89,7 +92,7 @@ class DocumentBlobTriggerFunctionTest {
 
             when(documentUploadService.getDocument(null, documentId)).thenReturn(document);
 
-            function.run(new byte[]{}, blobName, outputBinding);
+            function.run(new byte[]{}, blobName, outputBinding, context);
 
             verify(documentUploadService).getDocument(null, documentId);
             verify(documentUploadService).updateDocumentAwaitingIngestion(null, documentId);
@@ -129,7 +132,7 @@ class DocumentBlobTriggerFunctionTest {
             final long documentSize = 81L * 1024 * 1024;
             when(blobProperties.getBlobSize()).thenReturn(documentSize);
 
-            function.run(new byte[]{}, blobName, outputBinding);
+            function.run(new byte[]{}, blobName, outputBinding, context);
 
             verify(documentUploadService).getDocument(null, documentId);
             verify(documentUploadService).updateDocumentFileSizeOverLimit(null, documentId, documentSize, maxSizeLimit);
@@ -158,7 +161,7 @@ class DocumentBlobTriggerFunctionTest {
             when(document.getMetadata()).thenReturn("{\"version\":\"1.0\"}");
             when(documentUploadService.getDocument("client-1", documentId)).thenReturn(document);
 
-            function.run(new byte[]{}, prefixedBlobName, outputBinding);
+            function.run(new byte[]{}, prefixedBlobName, outputBinding, context);
 
             final ArgumentCaptor<String> queueMessageCaptor = ArgumentCaptor.forClass(String.class);
             verify(outputBinding).setValue(queueMessageCaptor.capture());
@@ -185,7 +188,7 @@ class DocumentBlobTriggerFunctionTest {
             when(document.getMetadata()).thenReturn("{\"version\":\"1.0\"}");
             when(documentUploadService.getDocument(null, documentId)).thenReturn(document);
 
-            function.run(new byte[]{}, blobName, outputBinding);
+            function.run(new byte[]{}, blobName, outputBinding, context);
 
             final ArgumentCaptor<String> queueMessageCaptor = ArgumentCaptor.forClass(String.class);
             verify(outputBinding).setValue(queueMessageCaptor.capture());
@@ -211,7 +214,7 @@ class DocumentBlobTriggerFunctionTest {
         when(documentUploadService.getDocument(null, documentId)).thenReturn(document);
 
         final IllegalStateException exception = assertThrows(IllegalStateException.class,
-                () -> function.run(new byte[]{}, blobName, outputBinding));
+                () -> function.run(new byte[]{}, blobName, outputBinding, context));
 
         assertTrue(exception.getMessage().contains("Unable to serialize message"));
     }

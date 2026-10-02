@@ -22,6 +22,7 @@ import uk.gov.moj.cp.ai.client.identity.ClientIdentityException;
 import uk.gov.moj.cp.ai.client.identity.ClientIdentityResolver;
 import uk.gov.moj.cp.ai.client.identity.HeaderClientIdentityResolver;
 import uk.gov.moj.cp.ai.http.HttpResponses;
+import uk.gov.moj.cp.ai.logging.LogContext;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.ai.service.table.AnswerGenerationTableService;
 import uk.gov.moj.cp.retrieval.model.AnswerGenerationQueuePayload;
@@ -79,7 +80,13 @@ public class InitiateAnswerGenerationFunction {
             @QueueOutput(name = "message", queueName = "%" + STORAGE_ACCOUNT_QUEUE_ANSWER_GENERATION + "%",
                     connection = AI_RAG_SERVICE_STORAGE_ACCOUNT_CONNECTION_STRING) OutputBinding<String> message,
             final ExecutionContext context) {
+        try (LogContext ignored = LogContext.open(context)) {
+            return handle(request, message);
+        }
+    }
 
+    private HttpResponseMessage handle(final HttpRequestMessage<AnswerUserQueryRequest> request,
+                                       final OutputBinding<String> message) {
         final ClientContext clientContext;
         try {
             // Enforcement on: reject a missing/invalid client identity before enqueuing or persisting.
@@ -89,6 +96,7 @@ public class InitiateAnswerGenerationFunction {
             return HttpResponses.unauthorized(request);
         }
         final String clientId = clientContext.clientId().orElse(null);
+        LogContext.put(LogContext.CLIENT_ID, clientId);
 
         try {
             final AnswerUserQueryRequest userQueryRequest = request.getBody();
@@ -107,18 +115,19 @@ public class InitiateAnswerGenerationFunction {
             final List<KeyValuePair> metadataFilters = userQueryRequest.getMetadataFilter().stream().map(uqr -> new KeyValuePair(uqr.getKey(), uqr.getValue())).toList();
 
             final UUID transactionId = randomUUID();
-            LOGGER.info("Initiating answer generation async process for the query: {} with transactionId: {}", userQuery, transactionId);
+            LogContext.put(LogContext.TRANSACTION_ID, transactionId.toString());
+            LOGGER.info("Initiating answer generation async process");
 
             final AnswerGenerationQueuePayload answerGenerationQueuePayload = new AnswerGenerationQueuePayload(transactionId, userQuery, userQueryPrompt, metadataFilters, clientId);
             message.setValue(convert(answerGenerationQueuePayload));
 
             answerGenerationTableService.saveAnswerGenerationRequest(clientId, transactionId.toString(), userQuery, userQueryPrompt, ANSWER_GENERATION_PENDING);
-            LOGGER.info("Successfully initiated answer retrieval processing for the query: {} with transactionId: {}", userQuery, transactionId);
+            LOGGER.info("Successfully initiated answer retrieval processing");
 
             return generateResponse(request, ACCEPTED, convert(new UserQueryAnswerRequestAccepted(transactionId.toString())));
 
         } catch (Exception e) {
-            LOGGER.error("Error initiating answer retrieval for request: {}", request, e);
+            LOGGER.error("Error initiating answer retrieval", e);
             final String errorMessage = convert(new RequestErrored("An internal error occurred: " + e.getMessage()));
             return generateResponse(request, INTERNAL_SERVER_ERROR, errorMessage);
         }

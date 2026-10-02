@@ -47,7 +47,7 @@ public class DocumentUploadService {
     public boolean isDocumentAlreadyProcessed(final String clientId, final String documentId) {
         final DocumentIngestionOutcome firstDocumentMatching = getDocument(clientId, documentId);
         if (nonNull(firstDocumentMatching)) {
-            LOGGER.info("Document '{}' is already processed and has status '{}'.", documentId, firstDocumentMatching.getStatus());
+            LOGGER.info("Document is already processed and has status '{}'.", firstDocumentMatching.getStatus());
             return true;
         }
         return false;

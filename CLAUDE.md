@@ -55,6 +55,10 @@ Key environment variables required across functions:
 - Client identity (multi-client isolation, DD-42722 — functions/workers now wired behind the flag; enforcement activates only at cut-over): `CLIENT_FILTERING_ENABLED` (default `false`) gates client-identity enforcement. Off preserves pre-multi-client behaviour exactly — the resolver returns an unenforced context, so the `clientId` stays null everywhere (no filter clause, legacy table/blob keying, single-dimension telemetry). On makes the APIM-injected identity header mandatory: the five HTTP functions reject a missing/invalid header with **401** (shared `HttpResponses.unauthorized`) and thread the resolved `clientId` into their search / dedup / table / queue-payload / blob-name calls; the two queue workers and the scorer recover it from the payload (re-validated via `ClientId.requireValid` when present) and scope their fenced writes, search, prefixed blobs and the `client_id` telemetry dimension to it; a cross-client lookup naturally resolves to **404**. `CLIENT_IDENTITY_HEADER` (default `X-Client-Id`) names the internal header the shared `HeaderClientIdentityResolver` (`uk.gov.moj.cp.ai.client.identity`, shared artefacts) reads — the single point of change when the AMP consumer-identity mechanism is finalised. Design: `docs/pipeline/DD-42722-multi-tenant-data-isolation/02-design.md`.
 - `LLM_REASONING_EFFORT` — optional; applied by `AzureChatService` **only to reasoning models** (gpt-5/o-series), ignored for gpt-4o. On a reasoning deployment this shares the `max_completion_tokens` budget with the answer, so higher effort can exhaust it and return an empty `finish_reason=length` response. The evaluation (`ai-document-system-prompt-harness-eval/src/main/resources/system-prompt-evaluation-cross-model.md`) found `none` eliminates those truncations on gpt-5.1 with no measured citation-coverage loss; `AzureChatService` therefore **defaults reasoning models to `none`** when the var is unset (override with `minimal|low|medium|high`).
 
+## Logging & Correlation
+
+Logging in this repo follows one reference architecture: **[`docs/transaction-scoped-logging.md`](docs/transaction-scoped-logging.md)** (DD-43721). Read it before adding a function, a log statement or a payload field. In one line: SLF4J → log4j2, never `context.getLogger()`; every `@FunctionName` method opens the shared `LogContext` (MDC) around its whole body and `put`s the journey key, so every line carries `txn=` / `doc=` / `inv=` from the pattern — IDs and document names are never written into messages.
+
 ## Module Structure
 
 Multi-module Maven project with five Azure Functions, one shared library, and one integration-test module:
@@ -218,7 +222,7 @@ plugin files.
 
 - **Read first:** `.claude/context/azure-functions.md` — the authoritative deltas
   (Maven not Gradle, `@FunctionName` not controllers, no actuator probes,
-  `context.getLogger()` not logback, Azure DevOps not GitHub Actions,
+  SLF4J/log4j2 + `LogContext` MDC not logback, Azure DevOps not GitHub Actions,
   connection-strings as a tracked deviation). It supersedes the plugin's
   `tech-stack.md`, `azure-cloud-native.md`, and `logging-standards.md`.
 - **Overridden agents** (`.claude/agents/`): `implementation`, `doc-generator`,
