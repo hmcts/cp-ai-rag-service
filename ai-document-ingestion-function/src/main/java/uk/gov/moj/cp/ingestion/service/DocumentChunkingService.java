@@ -80,7 +80,7 @@ public class DocumentChunkingService {
 
         List<DocumentLine> lines = extractTextFromPage(page);
         String fullText = layoutAwareTextEnabled
-                ? LayoutAwarePageText.join(lines)
+                ? LayoutAwarePageText.join(lines, page.getAngle())
                 : String.join(" ", lines.stream().map(DocumentLine::getContent).toList());
 
         if (fullText.trim().isEmpty()) {

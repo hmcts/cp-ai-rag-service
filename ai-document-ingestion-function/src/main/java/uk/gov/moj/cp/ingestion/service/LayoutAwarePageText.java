@@ -12,16 +12,18 @@ import com.azure.ai.documentintelligence.models.DocumentLine;
  *
  * <p>Line order and content are never changed; only the separator between consecutive lines is
  * chosen. A line whose polygon is missing or incomplete always gets {@code \n} on both sides.
+ * On a rotated page (|page angle| > 45 degrees) every separator is {@code \n}.
  */
 final class LayoutAwarePageText {
 
     private static final int MIN_POLYGON_VALUES = 8;
     private static final double SAME_ROW_TOLERANCE_FACTOR = 0.5;
+    private static final double MAX_UPRIGHT_ANGLE_DEGREES = 45.0;
 
     private LayoutAwarePageText() {
     }
 
-    static String join(final List<DocumentLine> lines) {
+    static String join(final List<DocumentLine> lines, final Double pageAngle) {
         if (lines == null || lines.isEmpty()) {
             return "";
         }
@@ -37,7 +39,7 @@ final class LayoutAwarePageText {
         }
 
         final double medianHeight = median(heights);
-        final boolean geometryUsable = medianHeight > 0;
+        final boolean geometryUsable = isUpright(pageAngle) && medianHeight > 0;
 
         final StringBuilder text = new StringBuilder(lines.get(0).getContent());
         for (int i = 1; i < lines.size(); i++) {
@@ -53,6 +55,22 @@ final class LayoutAwarePageText {
                 && next != null
                 && Math.abs(next.midY() - prev.midY()) <= SAME_ROW_TOLERANCE_FACTOR * medianHeight
                 && next.minX() > prev.maxX();
+    }
+
+    /**
+     * A null angle is treated as upright; otherwise the angle is normalised to (-180, 180].
+     */
+    private static boolean isUpright(final Double pageAngle) {
+        if (pageAngle == null) {
+            return true;
+        }
+        double angle = pageAngle % 360;
+        if (angle > 180) {
+            angle -= 360;
+        } else if (angle <= -180) {
+            angle += 360;
+        }
+        return Math.abs(angle) <= MAX_UPRIGHT_ANGLE_DEGREES;
     }
 
     /**
@@ -82,7 +100,7 @@ final class LayoutAwarePageText {
             for (int i = 0; i < polygon.size(); i += 2) {
                 final Double x = polygon.get(i);
                 final Double y = polygon.get(i + 1);
-                if (x == null || y == null) {
+                if (!isFinite(x) || !isFinite(y)) {
                     return null;
                 }
                 minX = Math.min(minX, x);
@@ -91,6 +109,10 @@ final class LayoutAwarePageText {
                 maxY = Math.max(maxY, y);
             }
             return new Box(minX, maxX, minY, maxY);
+        }
+
+        private static boolean isFinite(final Double value) {
+            return value != null && Double.isFinite(value);
         }
 
         double height() {

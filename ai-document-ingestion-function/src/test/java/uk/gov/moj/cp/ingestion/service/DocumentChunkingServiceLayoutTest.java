@@ -1,12 +1,8 @@
 package uk.gov.moj.cp.ingestion.service;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -65,12 +61,12 @@ class DocumentChunkingServiceLayoutTest {
 
         final List<ChunkedEntry> chunks = new DocumentChunkingService(true).chunkDocument(analyzeResult, metadata);
 
-        assertThat(chunks, is(not(List.of())));
-        final String text = String.join("\n", chunks.stream().map(ChunkedEntry::chunk).toList());
-        assertThat(text, containsString(
-                "1. DRIVE A MOTOR VEHICLE WITH THE\tFINE 120.00\n"
-                        + "PROPORTION OF SPECIFIED CONTROLLED\tDISQUALIFIED FROM DRIVING -"));
-        assertThat(text, containsString("DRUG ABOVE THE SPECIFIED LIMIT\t12 MONTHS"));
+        final String expectedPageText = "RECORD OF PREVIOUS CONVICTIONS\n"
+                + "OFFENCE\tSENTENCE\n"
+                + "1. DRIVE A MOTOR VEHICLE WITH THE\tFINE 120.00\n"
+                + "PROPORTION OF SPECIFIED CONTROLLED\tDISQUALIFIED FROM DRIVING -\n"
+                + "DRUG ABOVE THE SPECIFIED LIMIT\t12 MONTHS";
+        assertEquals(List.of(expectedPageText), chunks.stream().map(ChunkedEntry::chunk).toList());
     }
 
     @Test
@@ -102,6 +98,19 @@ class DocumentChunkingServiceLayoutTest {
         }
     }
 
+    @Test
+    @DisplayName("Rotated page: the page angle reaches the helper and every separator is a newline")
+    void shouldNewlineJoinRotatedPage() throws Exception {
+        final DocumentPage page = secondPage();
+        when(page.getAngle()).thenReturn(90.8);
+        when(analyzeResult.getPages()).thenReturn(List.of(page));
+
+        final List<ChunkedEntry> chunks = new DocumentChunkingService(true).chunkDocument(analyzeResult, metadata);
+
+        assertEquals(List.of("2. FAIL TO SURRENDER TO CUSTODY AT\nCONDITIONAL DISCHARGE\nAPPOINTED TIME\n12 MONTHS"),
+                chunks.stream().map(ChunkedEntry::chunk).toList());
+    }
+
     /**
      * Rows as Document Intelligence returns them for a two-column printout: the offence (left) is
      * followed by its sentence (right) on the same row.
@@ -131,14 +140,14 @@ class DocumentChunkingServiceLayoutTest {
 
     private static DocumentPage pageOf(final List<DocumentLine> lines) {
         final DocumentPage page = mock(DocumentPage.class);
-        lenient().when(page.getLines()).thenReturn(lines);
+        when(page.getLines()).thenReturn(lines);
         return page;
     }
 
     private static DocumentLine line(final String content, final double minX, final double top, final double maxX) {
         final DocumentLine line = mock(DocumentLine.class);
-        lenient().when(line.getContent()).thenReturn(content);
-        lenient().when(line.getPolygon()).thenReturn(
+        when(line.getContent()).thenReturn(content);
+        when(line.getPolygon()).thenReturn(
                 List.of(minX, top, maxX, top, maxX, top + LINE_HEIGHT, minX, top + LINE_HEIGHT));
         return line;
     }
