@@ -35,6 +35,7 @@ public class DocumentChunkingService {
 
     public DocumentChunkingService(final boolean layoutAwareTextEnabled) {
         this.layoutAwareTextEnabled = layoutAwareTextEnabled;
+        LOGGER.info("Layout-aware page text enabled: {}", layoutAwareTextEnabled);
     }
 
     public List<ChunkedEntry> chunkDocument(AnalyzeResult result,
@@ -77,8 +78,10 @@ public class DocumentChunkingService {
                                            ChunkingConfig config) {
         List<ChunkedEntry> pageChunks = new ArrayList<>();
 
-        List<String> lines = extractTextFromPage(page);
-        String fullText = String.join(" ", lines);
+        List<DocumentLine> lines = extractTextFromPage(page);
+        String fullText = layoutAwareTextEnabled
+                ? LayoutAwarePageText.join(lines)
+                : String.join(" ", lines.stream().map(DocumentLine::getContent).toList());
 
         if (fullText.trim().isEmpty()) {
             LOGGER.warn("Page {} has no extractable text, skipping", pageIndex);
@@ -110,12 +113,12 @@ public class DocumentChunkingService {
         return pageChunks;
     }
 
-    private List<String> extractTextFromPage(DocumentPage page) {
-        List<String> lines = new ArrayList<>();
+    private List<DocumentLine> extractTextFromPage(DocumentPage page) {
+        List<DocumentLine> lines = new ArrayList<>();
         if (page.getLines() != null) {
             for (DocumentLine line : page.getLines()) {
                 if (line != null && line.getContent() != null) {
-                    lines.add(line.getContent());
+                    lines.add(line);
                 }
             }
         }

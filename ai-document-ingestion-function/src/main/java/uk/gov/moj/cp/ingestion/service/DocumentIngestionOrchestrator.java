@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.ingestion.service;
 
 
+import static java.lang.Boolean.parseBoolean;
 import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
 import static uk.gov.hmcts.cp.openapi.model.DocumentIngestionStatus.INGESTION_FAILED;
@@ -36,6 +37,8 @@ public class DocumentIngestionOrchestrator {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentIngestionOrchestrator.class);
 
+    public static final String INGESTION_LAYOUT_AWARE_TEXT_ENABLED = "INGESTION_LAYOUT_AWARE_TEXT_ENABLED";
+
     private static final String INGESTION_SUCCESS_REASON = "Document ingestion completed successfully";
     private static final String INGESTION_FAILED_REASON = "Document ingestion failed during processing";
 
@@ -66,7 +69,8 @@ public class DocumentIngestionOrchestrator {
 
         this.documentIngestionOutcomeTableService = documentIngestionOutcomeTableService;
 
-        this.documentChunkingService = new DocumentChunkingService();
+        this.documentChunkingService = new DocumentChunkingService(
+                parseBoolean(getRequiredEnv(INGESTION_LAYOUT_AWARE_TEXT_ENABLED, "false")));
 
         this.chunkEmbeddingService = new ChunkEmbeddingService();
 
