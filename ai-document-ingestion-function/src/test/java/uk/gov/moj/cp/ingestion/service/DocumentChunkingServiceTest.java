@@ -1,7 +1,11 @@
 package uk.gov.moj.cp.ingestion.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
@@ -11,6 +15,8 @@ import java.util.Collections;
 import java.util.List;
 
 import com.azure.ai.documentintelligence.models.AnalyzeResult;
+import com.azure.ai.documentintelligence.models.DocumentLine;
+import com.azure.ai.documentintelligence.models.DocumentPage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -92,5 +98,40 @@ class DocumentChunkingServiceTest {
 
         // then
         assertNotNull(chunks);
+    }
+
+    @Test
+    @DisplayName("AC-1 (DD-43810): toggle off space-joins lines even when line geometry is present")
+    void shouldSpaceJoinLinesWhenToggleOff() throws Exception {
+        // given: a two-column page where every line carries a usable polygon
+        final List<DocumentLine> lines = List.of(
+                lineWithPolygon("1. DRIVE A MOTOR VEHICLE WITH THE", 0.5, 1.00, 3.0, 1.12),
+                lineWithPolygon("FINE 120.00", 4.0, 1.00, 5.5, 1.12),
+                lineWithPolygon("PROPORTION OF SPECIFIED CONTROLLED", 0.5, 1.20, 3.0, 1.32),
+                lineWithPolygon("DISQUALIFIED FROM DRIVING -", 4.0, 1.20, 5.5, 1.32));
+        final DocumentPage page = mock(DocumentPage.class);
+        when(page.getLines()).thenReturn(lines);
+        when(analyzeResult.getPages()).thenReturn(List.of(page));
+
+        final String expected = "1. DRIVE A MOTOR VEHICLE WITH THE FINE 120.00 "
+                + "PROPORTION OF SPECIFIED CONTROLLED DISQUALIFIED FROM DRIVING -";
+
+        // when
+        final List<ChunkedEntry> noArgChunks = new DocumentChunkingService().chunkDocument(analyzeResult, metadata);
+        final List<ChunkedEntry> toggleOffChunks = new DocumentChunkingService(false).chunkDocument(analyzeResult, metadata);
+
+        // then
+        assertEquals(List.of(expected), noArgChunks.stream().map(ChunkedEntry::chunk).toList());
+        assertEquals(List.of(expected), toggleOffChunks.stream().map(ChunkedEntry::chunk).toList());
+    }
+
+    private static DocumentLine lineWithPolygon(final String content,
+                                                final double x0, final double y0,
+                                                final double x1, final double y1) {
+        final DocumentLine line = mock(DocumentLine.class);
+        when(line.getContent()).thenReturn(content);
+        // lenient: the toggle-off path must not need the geometry
+        lenient().when(line.getPolygon()).thenReturn(List.of(x0, y0, x1, y0, x1, y1, x0, y1));
+        return line;
     }
 }

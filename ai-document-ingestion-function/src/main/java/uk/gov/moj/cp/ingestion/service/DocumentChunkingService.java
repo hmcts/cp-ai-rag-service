@@ -27,6 +27,16 @@ public class DocumentChunkingService {
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentChunkingService.class);
     private static final int MIN_CHUNK_LENGTH = 10;
 
+    private final boolean layoutAwareTextEnabled;
+
+    public DocumentChunkingService() {
+        this(false);
+    }
+
+    public DocumentChunkingService(final boolean layoutAwareTextEnabled) {
+        this.layoutAwareTextEnabled = layoutAwareTextEnabled;
+    }
+
     public List<ChunkedEntry> chunkDocument(AnalyzeResult result,
                                             QueueIngestionMetadata queueMetadata) throws DocumentProcessingException {
         return chunkDocument(result, queueMetadata, ChunkingConfig.getDefault());
