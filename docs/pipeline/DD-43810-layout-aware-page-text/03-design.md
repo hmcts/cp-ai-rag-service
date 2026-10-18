@@ -5,12 +5,10 @@ Keep Document Intelligence's line order and only change the separator between co
 Geometry only, behind `INGESTION_LAYOUT_AWARE_TEXT_ENABLED` (default `false`). When off, the existing `String.join(" ", ...)` path runs unchanged.
 
 ## Change (ai-document-ingestion-function only)
-- `DocumentChunkingService`: add `DocumentChunkingService(boolean layoutAwareTextEnabled)`. The existing no-arg constructor delegates with `false`, so existing tests and callers stay env-free and byte-identical.
+- `DocumentChunkingService` resolves its own toggle, like `DiversificationService` does for `SEARCH_RESULTS_ENABLE_MMR`. The no-arg constructor reads `parseBoolean(getRequiredEnv(INGESTION_LAYOUT_AWARE_TEXT_ENABLED, "false"))`, and the constant is a `public static final String` on the service. A package-private `DocumentChunkingService(boolean)` constructor is the test seam. Callers, including `DocumentIngestionOrchestrator`, are unchanged.
   The constructor logs on construction through the existing slf4j `LOGGER`: `LOGGER.info("Layout-aware page text enabled: {}", layoutAwareTextEnabled)`.
 - `extractTextFromPage` returns the filtered `List<DocumentLine>` (same null-line and null-content filter as today). `processPage` then joins with `" "` when off and calls the helper when on.
 - New package-private `final class LayoutAwarePageText` (in the same `service` package) with `static String join(List<DocumentLine> lines, Double pageAngle)`; `processPage` passes `page.getAngle()`. It is stateless and needs no env, so it is tested directly.
-- `DocumentIngestionOrchestrator` (the composition root, production constructor):
-  `new DocumentChunkingService(parseBoolean(getRequiredEnv(INGESTION_LAYOUT_AWARE_TEXT_ENABLED, "false")))`. This uses the same idiom as `SEARCH_RESULTS_ENABLE_MMR` and `CLIENT_FILTERING_ENABLED`; the constant is a `public static final String` on the orchestrator.
 - `ChunkingConfig` is unchanged. The toggle is a service setting, not a per-call chunking parameter, and adding it to the record would change `getDefault()` and every call site.
 
 ## Algorithm (`LayoutAwarePageText.join`)

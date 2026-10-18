@@ -1,7 +1,9 @@
 package uk.gov.moj.cp.ingestion.service;
 
+import static java.lang.Boolean.parseBoolean;
 import static java.util.Objects.requireNonNull;
 import static dev.langchain4j.data.document.splitter.DocumentSplitters.recursive;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
@@ -24,16 +26,18 @@ import org.slf4j.LoggerFactory;
 
 public class DocumentChunkingService {
 
+    public static final String INGESTION_LAYOUT_AWARE_TEXT_ENABLED = "INGESTION_LAYOUT_AWARE_TEXT_ENABLED";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentChunkingService.class);
     private static final int MIN_CHUNK_LENGTH = 10;
 
     private final boolean layoutAwareTextEnabled;
 
     public DocumentChunkingService() {
-        this(false);
+        this(parseBoolean(getRequiredEnv(INGESTION_LAYOUT_AWARE_TEXT_ENABLED, "false")));
     }
 
-    public DocumentChunkingService(final boolean layoutAwareTextEnabled) {
+    DocumentChunkingService(final boolean layoutAwareTextEnabled) {
         this.layoutAwareTextEnabled = layoutAwareTextEnabled;
         LOGGER.info("Layout-aware page text enabled: {}", layoutAwareTextEnabled);
     }
