@@ -40,20 +40,20 @@ class LayoutAwarePageTextTest {
     @Test
     @DisplayName("AC-2: a next line on the same row and to the right is joined with a tab")
     void shouldTabJoinSameRowLineToTheRight() {
-        final DocumentLine left = line("1. DRIVE A MOTOR VEHICLE WITH THE", box(LEFT_MIN_X, ROW_1_TOP, LEFT_MAX_X, ROW_1_TOP + LINE_HEIGHT));
-        final DocumentLine right = line("FINE 120.00", box(RIGHT_MIN_X, ROW_1_TOP + 0.01, RIGHT_MAX_X, ROW_1_TOP + 0.01 + LINE_HEIGHT));
+        final DocumentLine left = line("1. REPLACE THE MAIN WATER PUMP AND", box(LEFT_MIN_X, ROW_1_TOP, LEFT_MAX_X, ROW_1_TOP + LINE_HEIGHT));
+        final DocumentLine right = line("COST 120.00", box(RIGHT_MIN_X, ROW_1_TOP + 0.01, RIGHT_MAX_X, ROW_1_TOP + 0.01 + LINE_HEIGHT));
 
-        assertEquals("1. DRIVE A MOTOR VEHICLE WITH THE\tFINE 120.00", LayoutAwarePageText.join(List.of(left, right), null));
+        assertEquals("1. REPLACE THE MAIN WATER PUMP AND\tCOST 120.00", LayoutAwarePageText.join(List.of(left, right), null));
     }
 
     @Test
     @DisplayName("AC-2: a small baseline drift within half the median line height still counts as the same row")
     void shouldTabJoinWhenMidYDriftWithinHalfMedianLineHeight() {
         // median height 0.12 -> tolerance 0.06; drift of 0.05 is within it
-        final DocumentLine left = line("OFFENCE TEXT ON THE LEFT", box(LEFT_MIN_X, ROW_1_TOP, LEFT_MAX_X, ROW_1_TOP + LINE_HEIGHT));
-        final DocumentLine right = line("SENTENCE ON THE RIGHT", box(RIGHT_MIN_X, ROW_1_TOP + 0.05, RIGHT_MAX_X, ROW_1_TOP + 0.05 + LINE_HEIGHT));
+        final DocumentLine left = line("DESCRIPTION TEXT ON THE LEFT", box(LEFT_MIN_X, ROW_1_TOP, LEFT_MAX_X, ROW_1_TOP + LINE_HEIGHT));
+        final DocumentLine right = line("DETAIL ON THE RIGHT", box(RIGHT_MIN_X, ROW_1_TOP + 0.05, RIGHT_MAX_X, ROW_1_TOP + 0.05 + LINE_HEIGHT));
 
-        assertEquals("OFFENCE TEXT ON THE LEFT\tSENTENCE ON THE RIGHT", LayoutAwarePageText.join(List.of(left, right), null));
+        assertEquals("DESCRIPTION TEXT ON THE LEFT\tDETAIL ON THE RIGHT", LayoutAwarePageText.join(List.of(left, right), null));
     }
 
     // ---- AC-3 ---------------------------------------------------------------------------------
@@ -212,11 +212,11 @@ class LayoutAwarePageTextTest {
     @DisplayName("AC-5: normalising tabs and newlines to spaces gives the space-joined text (no reorder, no loss)")
     void shouldPreserveOrderAndTextWhenWhitespaceNormalised() {
         final List<DocumentLine> lines = List.of(
-                line("RECORD OF PREVIOUS CONVICTIONS", box(LEFT_MIN_X, 0.50, RIGHT_MAX_X, 0.50 + LINE_HEIGHT)),
-                line("1. DRIVE A MOTOR VEHICLE WITH THE", box(LEFT_MIN_X, ROW_1_TOP, LEFT_MAX_X, ROW_1_TOP + LINE_HEIGHT)),
-                line("FINE 120.00", box(RIGHT_MIN_X, ROW_1_TOP, RIGHT_MAX_X, ROW_1_TOP + LINE_HEIGHT)),
-                line("PROPORTION OF SPECIFIED CONTROLLED", box(LEFT_MIN_X, ROW_2_TOP, LEFT_MAX_X, ROW_2_TOP + LINE_HEIGHT)),
-                line("DISQUALIFIED FROM DRIVING -", box(RIGHT_MIN_X, ROW_2_TOP, RIGHT_MAX_X, ROW_2_TOP + LINE_HEIGHT)),
+                line("SCHEDULE OF WORKS", box(LEFT_MIN_X, 0.50, RIGHT_MAX_X, 0.50 + LINE_HEIGHT)),
+                line("1. REPLACE THE MAIN WATER PUMP AND", box(LEFT_MIN_X, ROW_1_TOP, LEFT_MAX_X, ROW_1_TOP + LINE_HEIGHT)),
+                line("COST 120.00", box(RIGHT_MIN_X, ROW_1_TOP, RIGHT_MAX_X, ROW_1_TOP + LINE_HEIGHT)),
+                line("ASSOCIATED PIPEWORK IN THE NORTH", box(LEFT_MIN_X, ROW_2_TOP, LEFT_MAX_X, ROW_2_TOP + LINE_HEIGHT)),
+                line("COMPLETED IN 5 DAYS", box(RIGHT_MIN_X, ROW_2_TOP, RIGHT_MAX_X, ROW_2_TOP + LINE_HEIGHT)),
                 line("LINE WITH NO GEOMETRY", null),
                 line("12 MONTHS", box(RIGHT_MIN_X, ROW_3_TOP, RIGHT_MAX_X, ROW_3_TOP + LINE_HEIGHT)),
                 line("  padded content kept verbatim  ", box(LEFT_MIN_X, 1.60, LEFT_MAX_X, 1.60 + LINE_HEIGHT)));

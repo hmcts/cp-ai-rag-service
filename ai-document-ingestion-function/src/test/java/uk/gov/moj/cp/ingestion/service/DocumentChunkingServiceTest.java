@@ -105,16 +105,16 @@ class DocumentChunkingServiceTest {
     void shouldSpaceJoinLinesWhenToggleOff() throws Exception {
         // given: a two-column page where every line carries a usable polygon
         final List<DocumentLine> lines = List.of(
-                lineWithPolygon("1. DRIVE A MOTOR VEHICLE WITH THE", 0.5, 1.00, 3.0, 1.12),
-                lineWithPolygon("FINE 120.00", 4.0, 1.00, 5.5, 1.12),
-                lineWithPolygon("PROPORTION OF SPECIFIED CONTROLLED", 0.5, 1.20, 3.0, 1.32),
-                lineWithPolygon("DISQUALIFIED FROM DRIVING -", 4.0, 1.20, 5.5, 1.32));
+                lineWithPolygon("1. REPLACE THE MAIN WATER PUMP AND", 0.5, 1.00, 3.0, 1.12),
+                lineWithPolygon("COST 120.00", 4.0, 1.00, 5.5, 1.12),
+                lineWithPolygon("ASSOCIATED PIPEWORK IN THE NORTH", 0.5, 1.20, 3.0, 1.32),
+                lineWithPolygon("COMPLETED IN 5 DAYS", 4.0, 1.20, 5.5, 1.32));
         final DocumentPage page = mock(DocumentPage.class);
         when(page.getLines()).thenReturn(lines);
         when(analyzeResult.getPages()).thenReturn(List.of(page));
 
-        final String expected = "1. DRIVE A MOTOR VEHICLE WITH THE FINE 120.00 "
-                + "PROPORTION OF SPECIFIED CONTROLLED DISQUALIFIED FROM DRIVING -";
+        final String expected = "1. REPLACE THE MAIN WATER PUMP AND COST 120.00 "
+                + "ASSOCIATED PIPEWORK IN THE NORTH COMPLETED IN 5 DAYS";
 
         // when
         final List<ChunkedEntry> noArgChunks = new DocumentChunkingService().chunkDocument(analyzeResult, metadata);

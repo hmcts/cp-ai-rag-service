@@ -2,8 +2,8 @@
 
 ## Purpose
 `DocumentChunkingService.processPage` joins every Document Intelligence (`prebuilt-layout`) line on a page with a single space, so all line breaks and column gaps are lost.
-On two-column pages, such as PNC printouts (an external format we cannot change), the offence and sentence columns merge into one run-on string.
-The LLM then reports "no relevant previous convictions" or invents offences built from merged rows.
+On pages laid out in columns, such as tabular records or listings produced by external systems whose format we cannot change, the text of separate columns merges into one run-on string.
+The LLM then reports that the information is not present, or combines text from separate rows into entries that do not exist.
 DI already returns one line per column fragment with a bounding polygon; this change keeps DI's line order and only picks a layout-aware separator (tab or newline) between lines.
 
 ## Functional requirements
@@ -15,7 +15,7 @@ DI already returns one line per column fragment with a bounding polygon; this ch
 - **FR-6** Leave splitter size/overlap, minimum chunk length, page numbering, chunk index and chunk metadata unchanged.
 
 ## Non-functional requirements
-- **NFR-1** Domain-agnostic: decisions use line geometry only, with no content or keyword rules (e.g. no "PNCID" checks).
+- **NFR-1** Domain-agnostic: decisions use line geometry only, with no content or keyword rules (e.g. no checks on header text or document type).
 - **NFR-2** No OpenAPI contract change and no search-index schema change.
 - **NFR-3** Only documents ingested after enablement are affected; existing indexed chunks stay as they are until re-ingested.
 - **NFR-4** Unit tests cover same-row tab, new-row newline, missing-polygon fallback, toggle off/on and empty/null lines; the module's coverage gate still passes.
@@ -32,6 +32,6 @@ DI already returns one line per column fragment with a bounding polygon; this ch
 - **AC-3** With the toggle ON, a line that starts a new row, or sits to the left of / overlaps the previous line, is preceded by `\n`.
 - **AC-4** With the toggle ON, a line with a null or incomplete polygon is joined to its neighbours by `\n`, and no exception is thrown.
 - **AC-5** With the toggle ON, the page text with tabs/newlines replaced by single spaces equals the toggle-OFF text (no reorder, no loss).
-- **AC-6** With the toggle ON, a two-column fixture modelled on a PNC printout keeps each offence and its sentence on separate tab-delimited rows.
+- **AC-6** With the toggle ON, a two-column fixture keeps each left-hand description line next to its right-hand detail on tab-delimited rows.
 - **AC-7** Page numbers and chunk metadata for a fixture document match the toggle-OFF run (chunk boundaries may shift, as the splitter prefers newlines).
 - **AC-8** `mvn verify -pl ai-document-ingestion-function` passes with the new unit tests included.

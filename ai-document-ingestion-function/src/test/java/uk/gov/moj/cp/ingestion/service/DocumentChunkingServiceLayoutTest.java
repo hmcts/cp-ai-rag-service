@@ -24,9 +24,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * DD-43810: with layout-aware page text enabled, a two-column PNC-style page keeps each offence next
- * to its own sentence on tab-delimited rows, and page numbers / chunk metadata stay the same as the
- * toggle-off run. Fixture text is generic and fictional.
+ * DD-43810: with layout-aware page text enabled, a page laid out in two columns keeps each left-hand
+ * description next to its right-hand detail on tab-delimited rows, and page numbers / chunk metadata
+ * stay the same as the toggle-off run. Fixture text is generic and fictional.
  */
 @ExtendWith(MockitoExtension.class)
 class DocumentChunkingServiceLayoutTest {
@@ -38,8 +38,8 @@ class DocumentChunkingServiceLayoutTest {
     private static final double RIGHT_MAX_X = 5.5;
 
     private static final String DOCUMENT_ID = "123e4567-e89b-12d3-a456-426614174000";
-    private static final String DOCUMENT_NAME = "previous-convictions.pdf";
-    private static final String BLOB_URL = "https://storage.blob.core.windows.net/container/previous-convictions.pdf";
+    private static final String DOCUMENT_NAME = "two-column-schedule.pdf";
+    private static final String BLOB_URL = "https://storage.blob.core.windows.net/container/two-column-schedule.pdf";
     private static final String CLIENT_ID = "11111111-1111-1111-1111-111111111111";
 
     @Mock
@@ -49,30 +49,30 @@ class DocumentChunkingServiceLayoutTest {
 
     @BeforeEach
     void setUp() {
-        metadata = new QueueIngestionMetadata(DOCUMENT_ID, DOCUMENT_NAME, Map.of("document_type", "PNC"),
+        metadata = new QueueIngestionMetadata(DOCUMENT_ID, DOCUMENT_NAME, Map.of("document_type", "schedule"),
                 BLOB_URL, "2025-10-07T10:30:45.123456Z", CLIENT_ID);
     }
 
     @Test
-    @DisplayName("AC-6: two-column PNC-style page keeps each offence and its sentence on tab-delimited rows")
-    void shouldKeepOffenceAndSentenceOnTabDelimitedRows() throws Exception {
-        final List<DocumentPage> pages = List.of(twoColumnConvictionsPage());
+    @DisplayName("AC-6: two-column page keeps each description and its detail on tab-delimited rows")
+    void shouldKeepDescriptionAndDetailOnTabDelimitedRows() throws Exception {
+        final List<DocumentPage> pages = List.of(twoColumnSchedulePage());
         when(analyzeResult.getPages()).thenReturn(pages);
 
         final List<ChunkedEntry> chunks = new DocumentChunkingService(true).chunkDocument(analyzeResult, metadata);
 
-        final String expectedPageText = "RECORD OF PREVIOUS CONVICTIONS\n"
-                + "OFFENCE\tSENTENCE\n"
-                + "1. DRIVE A MOTOR VEHICLE WITH THE\tFINE 120.00\n"
-                + "PROPORTION OF SPECIFIED CONTROLLED\tDISQUALIFIED FROM DRIVING -\n"
-                + "DRUG ABOVE THE SPECIFIED LIMIT\t12 MONTHS";
+        final String expectedPageText = "SCHEDULE OF WORKS\n"
+                + "DESCRIPTION\tDETAIL\n"
+                + "1. REPLACE THE MAIN WATER PUMP AND\tCOST 120.00\n"
+                + "ASSOCIATED PIPEWORK IN THE NORTH\tCOMPLETED IN 5 DAYS\n"
+                + "WING PLANT ROOM\tWARRANTY 12 MONTHS";
         assertEquals(List.of(expectedPageText), chunks.stream().map(ChunkedEntry::chunk).toList());
     }
 
     @Test
     @DisplayName("AC-7: page numbers and chunk metadata match the toggle-off run")
     void shouldKeepPageNumbersAndMetadataSameAsToggleOff() throws Exception {
-        final List<DocumentPage> pages = List.of(twoColumnConvictionsPage(), secondPage());
+        final List<DocumentPage> pages = List.of(twoColumnSchedulePage(), secondPage());
         when(analyzeResult.getPages()).thenReturn(pages);
 
         final List<ChunkedEntry> off = new DocumentChunkingService(false).chunkDocument(analyzeResult, metadata);
@@ -85,7 +85,7 @@ class DocumentChunkingServiceLayoutTest {
         assertEquals(off.stream().map(ChunkedEntry::pageNumber).toList(),
                 on.stream().map(ChunkedEntry::pageNumber).toList());
 
-        final List<KeyValuePair> expectedCustomMetadata = List.of(new KeyValuePair("document_type", "PNC"));
+        final List<KeyValuePair> expectedCustomMetadata = List.of(new KeyValuePair("document_type", "schedule"));
         for (final ChunkedEntry chunk : on) {
             assertEquals(DOCUMENT_ID, chunk.documentId());
             assertEquals(DOCUMENT_NAME, chunk.documentFileName());
@@ -107,34 +107,34 @@ class DocumentChunkingServiceLayoutTest {
 
         final List<ChunkedEntry> chunks = new DocumentChunkingService(true).chunkDocument(analyzeResult, metadata);
 
-        assertEquals(List.of("2. FAIL TO SURRENDER TO CUSTODY AT\nCONDITIONAL DISCHARGE\nAPPOINTED TIME\n12 MONTHS"),
+        assertEquals(List.of("2. REPAINT THE EXTERNAL WINDOW\nCOST 80.00\nFRAMES ON THE SOUTH ELEVATION\nWARRANTY 6 MONTHS"),
                 chunks.stream().map(ChunkedEntry::chunk).toList());
     }
 
     /**
-     * Rows as Document Intelligence returns them for a two-column printout: the offence (left) is
-     * followed by its sentence (right) on the same row.
+     * Rows as Document Intelligence returns them for a two-column page: each left-hand description
+     * line is followed by its right-hand detail on the same row.
      */
-    private static DocumentPage twoColumnConvictionsPage() {
+    private static DocumentPage twoColumnSchedulePage() {
         final List<DocumentLine> lines = List.of(
-                line("RECORD OF PREVIOUS CONVICTIONS", LEFT_MIN_X, 0.50, RIGHT_MAX_X),
-                line("OFFENCE", LEFT_MIN_X, 0.80, LEFT_MAX_X),
-                line("SENTENCE", RIGHT_MIN_X, 0.80, RIGHT_MAX_X),
-                line("1. DRIVE A MOTOR VEHICLE WITH THE", LEFT_MIN_X, 1.00, LEFT_MAX_X),
-                line("FINE 120.00", RIGHT_MIN_X, 1.00, RIGHT_MAX_X),
-                line("PROPORTION OF SPECIFIED CONTROLLED", LEFT_MIN_X, 1.20, LEFT_MAX_X),
-                line("DISQUALIFIED FROM DRIVING -", RIGHT_MIN_X, 1.20, RIGHT_MAX_X),
-                line("DRUG ABOVE THE SPECIFIED LIMIT", LEFT_MIN_X, 1.40, LEFT_MAX_X),
-                line("12 MONTHS", RIGHT_MIN_X, 1.40, RIGHT_MAX_X));
+                line("SCHEDULE OF WORKS", LEFT_MIN_X, 0.50, RIGHT_MAX_X),
+                line("DESCRIPTION", LEFT_MIN_X, 0.80, LEFT_MAX_X),
+                line("DETAIL", RIGHT_MIN_X, 0.80, RIGHT_MAX_X),
+                line("1. REPLACE THE MAIN WATER PUMP AND", LEFT_MIN_X, 1.00, LEFT_MAX_X),
+                line("COST 120.00", RIGHT_MIN_X, 1.00, RIGHT_MAX_X),
+                line("ASSOCIATED PIPEWORK IN THE NORTH", LEFT_MIN_X, 1.20, LEFT_MAX_X),
+                line("COMPLETED IN 5 DAYS", RIGHT_MIN_X, 1.20, RIGHT_MAX_X),
+                line("WING PLANT ROOM", LEFT_MIN_X, 1.40, LEFT_MAX_X),
+                line("WARRANTY 12 MONTHS", RIGHT_MIN_X, 1.40, RIGHT_MAX_X));
         return pageOf(lines);
     }
 
     private static DocumentPage secondPage() {
         final List<DocumentLine> lines = List.of(
-                line("2. FAIL TO SURRENDER TO CUSTODY AT", LEFT_MIN_X, 1.00, LEFT_MAX_X),
-                line("CONDITIONAL DISCHARGE", RIGHT_MIN_X, 1.00, RIGHT_MAX_X),
-                line("APPOINTED TIME", LEFT_MIN_X, 1.20, LEFT_MAX_X),
-                line("12 MONTHS", RIGHT_MIN_X, 1.20, RIGHT_MAX_X));
+                line("2. REPAINT THE EXTERNAL WINDOW", LEFT_MIN_X, 1.00, LEFT_MAX_X),
+                line("COST 80.00", RIGHT_MIN_X, 1.00, RIGHT_MAX_X),
+                line("FRAMES ON THE SOUTH ELEVATION", LEFT_MIN_X, 1.20, LEFT_MAX_X),
+                line("WARRANTY 6 MONTHS", RIGHT_MIN_X, 1.20, RIGHT_MAX_X));
         return pageOf(lines);
     }
 

@@ -30,7 +30,7 @@ Geometry only, behind `INGESTION_LAYOUT_AWARE_TEXT_ENABLED` (default `false`). W
 | `LayoutAwarePageTextTest.shouldNewlineWhenNewRow` / `shouldNewlineWhenSameRowButLeftOfOrOverlapping` | AC-3 |
 | `LayoutAwarePageTextTest.shouldNewlineWhenPolygonNullOrFewerThanEightValues` (either side; also no usable polygon on page, empty and single-line input) | AC-4 |
 | `LayoutAwarePageTextTest.shouldPreserveOrderAndTextWhenWhitespaceNormalised` | AC-5 |
-| `DocumentChunkingServiceLayoutTest.shouldKeepOffenceAndSentenceOnTabDelimitedRows` (two-column PNC-style fixture) | AC-6 |
+| `DocumentChunkingServiceLayoutTest.shouldKeepDescriptionAndDetailOnTabDelimitedRows` (two-column fixture) | AC-6 |
 | `DocumentChunkingServiceLayoutTest.shouldKeepPageNumbersAndMetadataSameAsToggleOff` | AC-7 |
 | `mvn verify -pl ai-document-ingestion-function` (JaCoCo gate) | AC-8 |
 
@@ -39,7 +39,7 @@ Geometry only, behind `INGESTION_LAYOUT_AWARE_TEXT_ENABLED` (default `false`). W
 - `withChunkedEntries` callers will see `\t`/`\n` in `chunkContent`. This is additive whitespace with no schema change; tell consumers.
 - Rotated pages (|DI page angle| > 45°) fall back to newline-only separators; small skew only widens the row tolerance and the strict no-overlap test keeps columns apart.
 - Mixed corpus: documents ingested before enablement keep their space-joined text until re-ingested.
-- Rollout: merge with the toggle off, then (as a follow-up in `cpp-functionapp-deployment`) set it `true` on ste, re-ingest the ragEval bundles and compare against the baseline before promoting.
+- Rollout: merge with the toggle off, then (as a follow-up in `cpp-functionapp-deployment`) set it `true` on ste, re-ingest the ragEval evaluation documents and compare against the baseline before promoting.
 - Rollback: set the toggle to `false`, a settings-only change with no data migration. Documents already ingested keep their text until re-ingested.
 
 ## Not applicable
