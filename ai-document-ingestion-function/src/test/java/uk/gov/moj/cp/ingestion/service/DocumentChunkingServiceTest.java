@@ -85,16 +85,16 @@ class DocumentChunkingServiceTest {
     @DisplayName("Chunk Document with Different Document Types")
     void shouldChunkDocumentWithDifferentDocumentTypes() throws Exception {
         // given
-        QueueIngestionMetadata mccMetadata = new QueueIngestionMetadata(
+        QueueIngestionMetadata reportMetadata = new QueueIngestionMetadata(
                 "53ac8b90-c4c8-472c-a5ee-fe84ed96047b",
-                "Burglary-IDPC.pdf",
-                Collections.singletonMap("document_type", "MCC"),
-                "https://storage.blob.core.windows.net/container/Burglary-IDPC.pdf",
+                "sample-document.pdf",
+                Collections.singletonMap("document_type", "report"),
+                "https://storage.blob.core.windows.net/container/sample-document.pdf",
                 "2025-10-06T05:14:39.658828Z"
         );
 
         // when
-        List<ChunkedEntry> chunks = documentChunkingService.chunkDocument(analyzeResult, mccMetadata);
+        List<ChunkedEntry> chunks = documentChunkingService.chunkDocument(analyzeResult, reportMetadata);
 
         // then
         assertNotNull(chunks);
