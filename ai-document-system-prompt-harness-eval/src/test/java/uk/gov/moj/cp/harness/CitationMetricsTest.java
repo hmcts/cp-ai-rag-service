@@ -12,7 +12,9 @@ import org.junit.jupiter.api.Test;
 import uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.harness.CitationMetrics.Compliance;
+import uk.gov.moj.cp.retrieval.model.CitationScope;
 import uk.gov.moj.cp.retrieval.model.LlmResponse;
+import uk.gov.moj.cp.retrieval.service.CitationProcessor;
 
 /**
  * Unit tests for {@link CitationMetrics} — the derivation of the citation/verbosity metrics that
@@ -132,5 +134,57 @@ class CitationMetricsTest {
     @Test
     void proseOf_handlesNull() {
         assertEquals("", CitationMetrics.proseOf(null));
+    }
+
+    @Test
+    void compute_oneInvalidAndOneValidEntry_reportsInvalidAndRenderedCounts() {
+        final String raw = "The first item is listed [1]. The second item is listed [2]."
+                + factMap(obj(1, "doc-A", "1"), obj(2, "doc-A-garbled", "2"));
+        final Compliance c = compute(raw, "");
+
+        assertEquals(1, c.invalidCitations());
+        assertEquals(1, c.renderedCitations());
+        assertEquals(0, c.trimmedPages());
+    }
+
+    @Test
+    void compute_onlyValidCitations_matchesTheProductionOutcome() {
+        final String raw = "The first item is listed [1][2]. The second item is listed [3]."
+                + factMap(obj(1, "doc-A", "1"), obj(2, "doc-A", "2"), obj(3, "doc-B", "2"));
+        final Compliance c = compute(raw, "");
+        final CitationProcessor.CitationOutcome production =
+                new CitationProcessor().processCitations(raw, CitationScope.from(SCOPE_CHUNKS));
+
+        assertEquals(0, c.invalidCitations());
+        assertEquals(production.renderedCitations(), c.renderedCitations());
+        assertEquals(production.strippedMarkers(), c.strippedMarkers());
+        assertEquals(2, c.renderedCitations(), "[1][2] merges, [3] renders on its own");
+    }
+
+    @Test
+    void compute_unretrievedPage_isCountedAsTrimmed() {
+        final String raw = "The first item is listed [1]." + factMap(obj(1, "doc-A", "1,9"));
+        final Compliance c = compute(raw, "");
+
+        assertEquals(1, c.trimmedPages());
+        assertEquals(0, c.invalidCitations());
+        assertEquals(1, c.renderedCitations());
+    }
+
+    @Test
+    void compute_withNoChunks_validatesAgainstAnEmptyScope() {
+        final String raw = "The first item is listed [1]." + factMap(obj(1, "doc-A", "1"));
+        final Compliance c = CitationMetrics.compute(
+                new LlmResponse(raw, "", AnswerGenerationStatus.ANSWER_GENERATED), List.of());
+
+        assertEquals(1, c.invalidCitations(), "no chunks never means skip validation");
+        assertEquals(0, c.renderedCitations());
+    }
+
+    @Test
+    void invalidOrNotMeasured_printsNaForARunWithoutCompliance() {
+        assertEquals("n/a", CitationMetrics.invalidOrNotMeasured(null));
+        final String raw = "The first item is listed [1]." + factMap(obj(1, "doc-A-garbled", "1"));
+        assertEquals("1", CitationMetrics.invalidOrNotMeasured(compute(raw, "")));
     }
 }

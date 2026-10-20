@@ -31,9 +31,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -161,8 +159,14 @@ public final class TestHarness {
                            String version) {
     }
 
+    /**
+     * One (prompt × LLM × query × iteration) cell. {@code compliance} is computed once in
+     * {@link #runCell} from the response and the chunks it was generated from, and is
+     * {@code null} whenever {@code response} is (SKIPPED / ERROR).
+     */
     record RunResult(String promptLabel, String llmLabel, String queryLabel, int iteration,
-                     LlmResponse response, TokenUsage usage, long durationMs, String error) {
+                     LlmResponse response, TokenUsage usage, long durationMs, String error,
+                     CitationMetrics.Compliance compliance) {
     }
 
     /**
@@ -176,16 +180,6 @@ public final class TestHarness {
             return lastUsage.getAndSet(null);
         }
     }
-
-    /**
-     * {@link CitationMetrics.Compliance} per response, computed once in {@link #runCell} with the
-     * chunks the response was generated from (citations are validated against them). The summary,
-     * consistency and detail sections all read the same metrics; recomputing would also re-run the
-     * citation processor, whose INFO lines would then spam every report section. Cells run on
-     * per-model worker threads, so the map is synchronised.
-     */
-    private static final Map<LlmResponse, CitationMetrics.Compliance> COMPLIANCE_BY_RESPONSE =
-            Collections.synchronizedMap(new IdentityHashMap<>());
 
     public static void main(final String[] args) throws InterruptedException {
         final List<SystemPromptConfig> systemPrompts = loadPrompts();
@@ -348,7 +342,8 @@ public final class TestHarness {
         if (chunks == null || chunks.isEmpty()) {
             LOGGER.info("[skip] iter={} prompt={} llm={} query={} — no chunks",
                     iter, spc.label(), lc.label(), uqc.label());
-            return new RunResult(spc.label(), lc.label(), uqc.label(), iter, null, null, 0L, "SKIPPED: no chunks for query");
+            return new RunResult(spc.label(), lc.label(), uqc.label(), iter, null, null, 0L, "SKIPPED: no chunks for query",
+                    null);
         }
         if (CALL_DELAY_SECONDS > 0) {
             Thread.sleep(Duration.ofSeconds(CALL_DELAY_SECONDS).toMillis());
@@ -358,10 +353,13 @@ public final class TestHarness {
         final long t0 = System.currentTimeMillis();
         try {
             final LlmResponse r = svc.svc().generateResponse(uqc.userQuery(), chunks, uqc.userQueryPrompt());
-            final RunResult result = new RunResult(spc.label(), lc.label(), uqc.label(), iter, r, svc.takeUsage(),
-                    System.currentTimeMillis() - t0, null);
-            COMPLIANCE_BY_RESPONSE.put(r, CitationMetrics.compute(r, chunks));
-            return result;
+            final TokenUsage usage = svc.takeUsage();
+            final long durationMs = System.currentTimeMillis() - t0;
+            // Computed once, with the same chunks the answer was generated from: the citation
+            // processor validates against them, so the counts match the production outcome. The
+            // report sections all read this value; recomputing would re-run the processor.
+            return new RunResult(spc.label(), lc.label(), uqc.label(), iter, r, usage, durationMs, null,
+                    CitationMetrics.compute(r, chunks));
         } catch (final Exception e) {
             // Includes ChatServiceException and transient transport failures (e.g. read timeouts on
             // long gpt-5.1 reasoning calls). Record the cell as an ERROR and carry on. Usage is
@@ -369,7 +367,7 @@ public final class TestHarness {
             // those calls are billed, so they belong in the cost totals.
             LOGGER.warn("[run] FAILED iter={} prompt={} llm={} query={}", iter, spc.label(), lc.label(), uqc.label(), e);
             return new RunResult(spc.label(), lc.label(), uqc.label(), iter, null, svc.takeUsage(),
-                    System.currentTimeMillis() - t0, e.toString());
+                    System.currentTimeMillis() - t0, e.toString(), null);
         }
     }
 
@@ -610,12 +608,12 @@ public final class TestHarness {
     private static void printSummary(final List<RunResult> results) {
         LOGGER.info("");
         LOGGER.info("================================= SUMMARY (per-run) =================================");
-        LOGGER.info(String.format("%4s | %-26s | %-26s | %-22s | %6s | %6s | %6s | %6s | %6s",
-                "iter", "query", "prompt", "llm", "status", "ms", "chars", "prose", "words"));
-        LOGGER.info("-".repeat(160));
+        LOGGER.info(String.format("%4s | %-26s | %-26s | %-22s | %6s | %6s | %6s | %6s | %6s | %8s | %7s",
+                "iter", "query", "prompt", "llm", "status", "ms", "chars", "prose", "words", "rendered", "invalid"));
+        LOGGER.info("-".repeat(180));
         for (final RunResult r : results) {
-            final CitationMetrics.Compliance c = r.response() != null ? computeCompliance(r.response()) : null;
-            LOGGER.info(String.format("%4d | %-26s | %-26s | %-22s | %6s | %6d | %6d | %6d | %6d",
+            final CitationMetrics.Compliance c = r.compliance();
+            LOGGER.info(String.format("%4d | %-26s | %-26s | %-22s | %6s | %6d | %6d | %6d | %6d | %8s | %7s",
                     r.iteration(),
                     truncate(r.queryLabel(), 26),
                     truncate(r.promptLabel(), 26),
@@ -624,7 +622,9 @@ public final class TestHarness {
                     r.durationMs(),
                     rawLen(r),
                     c != null ? c.proseChars() : 0,
-                    c != null ? c.proseWords() : 0));
+                    c != null ? c.proseWords() : 0,
+                    c != null ? String.valueOf(c.renderedCitations()) : "n/a",
+                    CitationMetrics.invalidOrNotMeasured(c)));
         }
     }
 
@@ -686,7 +686,7 @@ public final class TestHarness {
     /** Per-(query, prompt, LLM) cell aggregate across the {@link #REPETITIONS} iterations. */
     private record CellStats(int ok, int jsonPresent, int matched, int substituted,
                              long proseAvg, long wordAvg, long citeAvg, long pageAvg, long stackAvg,
-                             int uncited, long msAvg) {
+                             int uncited, int invalid, long msAvg) {
     }
 
     /** Aggregate stats per (query, prompt, LLM) cell across the {@link #REPETITIONS} iterations. */
@@ -699,18 +699,19 @@ public final class TestHarness {
 
         LOGGER.info("");
         LOGGER.info("======== CONSISTENCY ACROSS {} ITERATIONS ========", REPETITIONS);
-        LOGGER.info(String.format("%-26s | %-22s | %-22s | %-7s | %-7s | %-7s | %-7s | %8s | %7s | %5s | %5s | %6s | %7s | %7s",
-                "query", "prompt", "llm", "ok", "json", "match", "subst", "proseAvg", "wordAvg", "cites", "pages", "stacks", "uncited", "msAvg"));
-        LOGGER.info("-".repeat(189));
+        LOGGER.info(String.format("%-26s | %-22s | %-22s | %-7s | %-7s | %-7s | %-7s | %8s | %7s | %5s | %5s | %6s | %7s | %-7s | %7s",
+                "query", "prompt", "llm", "ok", "json", "match", "subst", "proseAvg", "wordAvg", "cites", "pages", "stacks", "uncited", "invalid", "msAvg"));
+        LOGGER.info("-".repeat(199));
 
         for (final List<RunResult> runs : grouped.values()) {
             final RunResult first = runs.get(0);
             final CellStats s = computeCellStats(runs);
             final int n = runs.size();
-            LOGGER.info(String.format("%-26s | %-22s | %-22s | %5d/%d | %5d/%d | %5d/%d | %5d/%d | %8d | %7d | %5d | %5d | %6d | %7d | %7d",
+            LOGGER.info(String.format("%-26s | %-22s | %-22s | %5d/%d | %5d/%d | %5d/%d | %5d/%d | %8d | %7d | %5d | %5d | %6d | %7d | %5d/%d | %7d",
                     truncate(first.queryLabel(), 26), truncate(first.promptLabel(), 22), truncate(first.llmLabel(), 22),
                     s.ok(), n, s.jsonPresent(), n, s.matched(), n, s.substituted(), n,
-                    s.proseAvg(), s.wordAvg(), s.citeAvg(), s.pageAvg(), s.stackAvg(), s.uncited(), s.msAvg()));
+                    s.proseAvg(), s.wordAvg(), s.citeAvg(), s.pageAvg(), s.stackAvg(), s.uncited(),
+                    s.invalid(), s.ok(), s.msAvg()));
         }
 
         printConsistencyLegend();
@@ -727,15 +728,16 @@ public final class TestHarness {
         long pageSum = 0;
         long stackSum = 0;
         int uncited = 0;
+        int invalid = 0;
         long msSum = 0;
         for (final RunResult r : runs) {
-            if (r.error() != null || r.response() == null
+            if (r.error() != null || r.response() == null || r.compliance() == null
                     || !"ANSWER_GENERATED".equals(String.valueOf(r.response().status()))) {
                 continue;
             }
             ok++;
             msSum += r.durationMs();
-            final CitationMetrics.Compliance c = computeCompliance(r.response());
+            final CitationMetrics.Compliance c = r.compliance();
             jsonPresent += c.jsonBlockPresent() ? 1 : 0;
             matched += c.inlineSubsetOfJson() ? 1 : 0;
             substituted += c.processorSubstituted() ? 1 : 0;
@@ -745,11 +747,12 @@ public final class TestHarness {
             pageSum += c.citedPages();
             stackSum += c.sameDocStackedRuns();
             uncited += c.uncitedSubstantive() ? 1 : 0;
+            invalid += c.invalidCitations() > 0 ? 1 : 0;
         }
         final int denom = ok > 0 ? ok : 1;
         return new CellStats(ok, jsonPresent, matched, substituted,
                 proseSum / denom, wordSum / denom, citeSum / denom, pageSum / denom, stackSum / denom,
-                uncited, msSum / denom);
+                uncited, invalid, msSum / denom);
     }
 
     private static void printConsistencyLegend() {
@@ -772,14 +775,9 @@ public final class TestHarness {
         LOGGER.info("  msAvg    = mean generation latency (ms) across the cell's OK runs — model speed at a glance");
         LOGGER.info("  uncited  = substantive answers (>= " + CitationMetrics.SUBSTANTIVE_PROSE_WORDS + " prose words) with ZERO rendered citations —");
         LOGGER.info("             the citation guard's rejection signal; legitimate short refusals do not count");
-    }
-
-    /**
-     * Citation-format compliance metrics for one response, computed once in {@link #runCell} so the
-     * summary, consistency and detail sections share a single {@link CitationMetrics#compute} pass.
-     */
-    static CitationMetrics.Compliance computeCompliance(final LlmResponse response) {
-        return COMPLIANCE_BY_RESPONSE.get(response);
+        LOGGER.info("  invalid  = OK runs with at least one FACT_MAP_JSON entry dropped by citation validation");
+        LOGGER.info("             (documentId, filename or pages not matching the retrieved chunks) — x/ok;");
+        LOGGER.info("             per-run counts, and pages trimmed from kept entries, are in the detail section");
     }
 
     /** Applies the same pre-call delay as generation calls; restores the interrupt flag if interrupted. */
@@ -827,17 +825,19 @@ public final class TestHarness {
             LOGGER.info("ERROR: {}", r.error());
             return;
         }
-        if (r.response() == null) {
+        if (r.response() == null || r.compliance() == null) {
             return;
         }
-        final CitationMetrics.Compliance c = computeCompliance(r.response());
+        final CitationMetrics.Compliance c = r.compliance();
         LOGGER.info("status: {} | jsonBlock: {} | inlineIds: {} | jsonIds: {}"
                         + " | drift: {} | match: {} | subst: {} | proseChars: {} | proseWords: {}"
-                        + " | citedPages: {} | sameDocStacks: {} | rendered: {} | stripped: {} | uncitedSubstantive: {}",
+                        + " | citedPages: {} | sameDocStacks: {} | rendered: {} | stripped: {} | uncitedSubstantive: {}"
+                        + " | invalid: {} | trimmedPages: {}",
                 r.response().status(), c.jsonBlockPresent(), c.inlineIds(), c.jsonIds(),
                 c.rawDriftMarkers(), c.inlineSubsetOfJson(), c.processorSubstituted(),
                 c.proseChars(), c.proseWords(), c.citedPages(), c.sameDocStackedRuns(),
-                c.renderedCitations(), c.strippedMarkers(), c.uncitedSubstantive());
+                c.renderedCitations(), c.strippedMarkers(), c.uncitedSubstantive(),
+                c.invalidCitations(), c.trimmedPages());
         LOGGER.info("");
         LOGGER.info("RAW RESPONSE:");
         LOGGER.info(safe(r.response().rawLlmResponse()));

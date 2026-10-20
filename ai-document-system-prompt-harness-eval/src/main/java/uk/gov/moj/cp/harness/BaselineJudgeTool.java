@@ -291,7 +291,7 @@ public final class BaselineJudgeTool {
     // ---- run-file + query-file loading -----------------------------------------------------------
 
     /** Rows keyed by (queryLabel|promptLabel|iteration) for one model, ANSWER_GENERATED only. */
-    private static Map<String, PersistedRow> rowsOf(final JsonNode run, final String model) {
+    static Map<String, PersistedRow> rowsOf(final JsonNode run, final String model) {
         final Map<String, PersistedRow> out = new LinkedHashMap<>();
         for (final JsonNode r : run.get("results")) {
             if (!model.equals(r.get("llmLabel").asText())

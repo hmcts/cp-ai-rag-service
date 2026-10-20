@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.slf4j.Logger;
@@ -28,6 +29,13 @@ import org.slf4j.LoggerFactory;
  * The {@code meta} header records what produced the run — models, prompt, query file, retrieval
  * source (live or snapshot path) and generation knobs — so a baseline is interpretable on its
  * own. Output directory override: {@code HARNESS_RESULTS_DIR}.
+ *
+ * <p>Citation validation (DD-43809): each row's {@code metrics} carries {@code invalidCitations}
+ * and {@code trimmedPages}, and {@code meta.citationValidation} is {@code true}. Files written
+ * before that change have neither, because their citations were rendered without validation.
+ * Any reader must therefore treat an absent {@code metrics.invalidCitations} /
+ * {@code metrics.trimmedPages} (or an absent {@code meta.citationValidation}) as <em>not
+ * measured</em> and display {@code n/a} — never 0. {@link #persistedCount} applies that rule.
  */
 final class RunResultStore {
 
@@ -46,6 +54,23 @@ final class RunResultStore {
                         final List<TestHarness.LlmConfig> llms,
                         final String queryFile,
                         final String snapshotFile) throws Exception {
+        final Map<String, Object> out = document(results, prompts, llms, queryFile, snapshotFile);
+        final Path dir = resolveResultsDir();
+        Files.createDirectories(dir);
+        final Path file = dir.resolve("harness-run-"
+                + ZonedDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".json");
+        MAPPER.writerWithDefaultPrettyPrinter().writeValue(file.toFile(), out);
+        LOGGER.info("[results] persisted {} result rows to {}",
+                ((List<?>) out.get("results")).size(), file.toAbsolutePath());
+        return file;
+    }
+
+    /** The persisted document — {@code meta} header plus one row per result — without any file I/O. */
+    static Map<String, Object> document(final List<TestHarness.RunResult> results,
+                                        final List<TestHarness.SystemPromptConfig> prompts,
+                                        final List<TestHarness.LlmConfig> llms,
+                                        final String queryFile,
+                                        final String snapshotFile) {
         final Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("generatedAt", ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
         meta.put("queryFile", queryFile);
@@ -58,6 +83,7 @@ final class RunResultStore {
         meta.put("reasoningEffort", env("LLM_REASONING_EFFORT", ""));
         meta.put("citationGuardMode", env("CITATION_GUARD_MODE", ""));
         meta.put("modelPrices", env("HARNESS_MODEL_PRICES", ""));
+        meta.put("citationValidation", true);
 
         final TokenCostTable costs = TokenCostTable.fromEnv();
         final List<Map<String, Object>> rows = new ArrayList<>();
@@ -82,7 +108,9 @@ final class RunResultStore {
             if (r.response() != null) {
                 row.put("rawResponse", r.response().rawLlmResponse());
                 row.put("formattedResponse", r.response().formattedLlmResponse());
-                row.put("metrics", metricsOf(TestHarness.computeCompliance(r.response())));
+                if (r.compliance() != null) {
+                    row.put("metrics", metricsOf(r.compliance()));
+                }
             }
             rows.add(row);
         }
@@ -90,14 +118,16 @@ final class RunResultStore {
         final Map<String, Object> out = new LinkedHashMap<>();
         out.put("meta", meta);
         out.put("results", rows);
+        return out;
+    }
 
-        final Path dir = resolveResultsDir();
-        Files.createDirectories(dir);
-        final Path file = dir.resolve("harness-run-"
-                + ZonedDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".json");
-        MAPPER.writerWithDefaultPrettyPrinter().writeValue(file.toFile(), out);
-        LOGGER.info("[results] persisted {} result rows to {}", rows.size(), file.toAbsolutePath());
-        return file;
+    /**
+     * A persisted validation count for display: its value, or {@code n/a} when the row has no
+     * such metric (a file written before citation validation, or a row with no metrics).
+     */
+    static String persistedCount(final JsonNode row, final String metricKey) {
+        final JsonNode metrics = row.get("metrics");
+        return metrics != null && metrics.hasNonNull(metricKey) ? metrics.get(metricKey).asText() : "n/a";
     }
 
     /** Flattens the compliance record to the scalar metrics the reports print. */
@@ -114,6 +144,8 @@ final class RunResultStore {
         m.put("renderedCitations", c.renderedCitations());
         m.put("strippedMarkers", c.strippedMarkers());
         m.put("uncitedSubstantive", c.uncitedSubstantive());
+        m.put("invalidCitations", c.invalidCitations());
+        m.put("trimmedPages", c.trimmedPages());
         return m;
     }
 
