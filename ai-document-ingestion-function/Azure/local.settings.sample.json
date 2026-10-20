@@ -24,6 +24,7 @@
     "EMBEDDING_SERVICE_PROVIDER": "openai",
 
     "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT": "<your-document-intelligence-endpoint>",
+    "INGESTION_LAYOUT_AWARE_TEXT_ENABLED": "false",
 
     "EMBEDDINGS_BATCH_SIZE": "2048",
 

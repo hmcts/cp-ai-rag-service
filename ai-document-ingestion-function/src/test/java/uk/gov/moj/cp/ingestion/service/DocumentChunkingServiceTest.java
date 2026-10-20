@@ -1,7 +1,11 @@
 package uk.gov.moj.cp.ingestion.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.QueueIngestionMetadata;
@@ -11,6 +15,8 @@ import java.util.Collections;
 import java.util.List;
 
 import com.azure.ai.documentintelligence.models.AnalyzeResult;
+import com.azure.ai.documentintelligence.models.DocumentLine;
+import com.azure.ai.documentintelligence.models.DocumentPage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -79,18 +85,53 @@ class DocumentChunkingServiceTest {
     @DisplayName("Chunk Document with Different Document Types")
     void shouldChunkDocumentWithDifferentDocumentTypes() throws Exception {
         // given
-        QueueIngestionMetadata mccMetadata = new QueueIngestionMetadata(
+        QueueIngestionMetadata reportMetadata = new QueueIngestionMetadata(
                 "53ac8b90-c4c8-472c-a5ee-fe84ed96047b",
-                "Burglary-IDPC.pdf",
-                Collections.singletonMap("document_type", "MCC"),
-                "https://storage.blob.core.windows.net/container/Burglary-IDPC.pdf",
+                "sample-document.pdf",
+                Collections.singletonMap("document_type", "report"),
+                "https://storage.blob.core.windows.net/container/sample-document.pdf",
                 "2025-10-06T05:14:39.658828Z"
         );
 
         // when
-        List<ChunkedEntry> chunks = documentChunkingService.chunkDocument(analyzeResult, mccMetadata);
+        List<ChunkedEntry> chunks = documentChunkingService.chunkDocument(analyzeResult, reportMetadata);
 
         // then
         assertNotNull(chunks);
+    }
+
+    @Test
+    @DisplayName("AC-1 (DD-43810): toggle off space-joins lines even when line geometry is present")
+    void shouldSpaceJoinLinesWhenToggleOff() throws Exception {
+        // given: a two-column page where every line carries a usable polygon
+        final List<DocumentLine> lines = List.of(
+                lineWithPolygon("1. REPLACE THE MAIN WATER PUMP AND", 0.5, 1.00, 3.0, 1.12),
+                lineWithPolygon("COST 120.00", 4.0, 1.00, 5.5, 1.12),
+                lineWithPolygon("ASSOCIATED PIPEWORK IN THE NORTH", 0.5, 1.20, 3.0, 1.32),
+                lineWithPolygon("COMPLETED IN 5 DAYS", 4.0, 1.20, 5.5, 1.32));
+        final DocumentPage page = mock(DocumentPage.class);
+        when(page.getLines()).thenReturn(lines);
+        when(analyzeResult.getPages()).thenReturn(List.of(page));
+
+        final String expected = "1. REPLACE THE MAIN WATER PUMP AND COST 120.00 "
+                + "ASSOCIATED PIPEWORK IN THE NORTH COMPLETED IN 5 DAYS";
+
+        // when
+        final List<ChunkedEntry> noArgChunks = new DocumentChunkingService().chunkDocument(analyzeResult, metadata);
+        final List<ChunkedEntry> toggleOffChunks = new DocumentChunkingService(false).chunkDocument(analyzeResult, metadata);
+
+        // then
+        assertEquals(List.of(expected), noArgChunks.stream().map(ChunkedEntry::chunk).toList());
+        assertEquals(List.of(expected), toggleOffChunks.stream().map(ChunkedEntry::chunk).toList());
+    }
+
+    private static DocumentLine lineWithPolygon(final String content,
+                                                final double x0, final double y0,
+                                                final double x1, final double y1) {
+        final DocumentLine line = mock(DocumentLine.class);
+        when(line.getContent()).thenReturn(content);
+        // lenient: the toggle-off path must not need the geometry
+        lenient().when(line.getPolygon()).thenReturn(List.of(x0, y0, x1, y0, x1, y1, x0, y1));
+        return line;
     }
 }

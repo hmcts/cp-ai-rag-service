@@ -1,7 +1,9 @@
 package uk.gov.moj.cp.ingestion.service;
 
+import static java.lang.Boolean.parseBoolean;
 import static java.util.Objects.requireNonNull;
 import static dev.langchain4j.data.document.splitter.DocumentSplitters.recursive;
+import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
@@ -24,8 +26,21 @@ import org.slf4j.LoggerFactory;
 
 public class DocumentChunkingService {
 
+    public static final String INGESTION_LAYOUT_AWARE_TEXT_ENABLED = "INGESTION_LAYOUT_AWARE_TEXT_ENABLED";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentChunkingService.class);
     private static final int MIN_CHUNK_LENGTH = 10;
+
+    private final boolean layoutAwareTextEnabled;
+
+    public DocumentChunkingService() {
+        this(parseBoolean(getRequiredEnv(INGESTION_LAYOUT_AWARE_TEXT_ENABLED, "false")));
+    }
+
+    DocumentChunkingService(final boolean layoutAwareTextEnabled) {
+        this.layoutAwareTextEnabled = layoutAwareTextEnabled;
+        LOGGER.info("Layout-aware page text enabled: {}", layoutAwareTextEnabled);
+    }
 
     public List<ChunkedEntry> chunkDocument(AnalyzeResult result,
                                             QueueIngestionMetadata queueMetadata) throws DocumentProcessingException {
@@ -67,8 +82,10 @@ public class DocumentChunkingService {
                                            ChunkingConfig config) {
         List<ChunkedEntry> pageChunks = new ArrayList<>();
 
-        List<String> lines = extractTextFromPage(page);
-        String fullText = String.join(" ", lines);
+        List<DocumentLine> lines = extractTextFromPage(page);
+        String fullText = layoutAwareTextEnabled
+                ? LayoutAwarePageText.join(lines, page.getAngle())
+                : String.join(" ", lines.stream().map(DocumentLine::getContent).toList());
 
         if (fullText.trim().isEmpty()) {
             LOGGER.warn("Page {} has no extractable text, skipping", pageIndex);
@@ -100,12 +117,12 @@ public class DocumentChunkingService {
         return pageChunks;
     }
 
-    private List<String> extractTextFromPage(DocumentPage page) {
-        List<String> lines = new ArrayList<>();
+    private List<DocumentLine> extractTextFromPage(DocumentPage page) {
+        List<DocumentLine> lines = new ArrayList<>();
         if (page.getLines() != null) {
             for (DocumentLine line : page.getLines()) {
                 if (line != null && line.getContent() != null) {
-                    lines.add(line.getContent());
+                    lines.add(line);
                 }
             }
         }
