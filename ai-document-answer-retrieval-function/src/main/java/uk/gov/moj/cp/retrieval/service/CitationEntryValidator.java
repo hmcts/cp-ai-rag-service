@@ -4,7 +4,6 @@ import static uk.gov.moj.cp.retrieval.model.CitationKeys.CITATION_ID;
 import static uk.gov.moj.cp.retrieval.model.CitationKeys.DOCUMENT_FILE_NAME;
 import static uk.gov.moj.cp.retrieval.model.CitationKeys.DOCUMENT_ID;
 import static uk.gov.moj.cp.retrieval.model.CitationKeys.INDIVIDUAL_PAGE_NUMBERS;
-import static uk.gov.moj.cp.retrieval.service.CitationProcessor.stringifyJsonValue;
 
 import uk.gov.moj.cp.ai.util.StringUtil;
 import uk.gov.moj.cp.retrieval.model.CitationScope;
@@ -22,6 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 /**
  * Validates the model's {@code <FACT_MAP_JSON>} entries against the {@link CitationScope} of the
@@ -186,5 +186,16 @@ final class CitationEntryValidator {
         } catch (final NumberFormatException e) {
             return null;
         }
+    }
+
+    /** A JSON value as text: a JSON array is joined with {@code ,}; {@code null} stays {@code null}. */
+    private static String stringifyJsonValue(final Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof final List<?> list) {
+            return list.stream().map(String::valueOf).collect(Collectors.joining(","));
+        }
+        return String.valueOf(value);
     }
 }

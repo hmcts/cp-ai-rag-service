@@ -3,6 +3,7 @@ package uk.gov.moj.cp.retrieval.service;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.apache.logging.log4j.Level;
@@ -54,6 +55,16 @@ final class LogCapture implements AutoCloseable {
             return events.stream()
                     .filter(event -> event.getLevel() == level)
                     .map(event -> event.getMessage().getFormattedMessage())
+                    .toList();
+        }
+    }
+
+    /** Throwables attached to any captured event, in order. */
+    List<Throwable> thrown() {
+        synchronized (events) {
+            return events.stream()
+                    .map(LogEvent::getThrown)
+                    .filter(Objects::nonNull)
                     .toList();
         }
     }

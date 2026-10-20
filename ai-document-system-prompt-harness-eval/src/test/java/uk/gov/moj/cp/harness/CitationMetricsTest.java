@@ -12,9 +12,7 @@ import org.junit.jupiter.api.Test;
 import uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.harness.CitationMetrics.Compliance;
-import uk.gov.moj.cp.retrieval.model.CitationScope;
 import uk.gov.moj.cp.retrieval.model.LlmResponse;
-import uk.gov.moj.cp.retrieval.service.CitationProcessor;
 
 /**
  * Unit tests for {@link CitationMetrics} — the derivation of the citation/verbosity metrics that
@@ -148,16 +146,14 @@ class CitationMetricsTest {
     }
 
     @Test
-    void compute_onlyValidCitations_matchesTheProductionOutcome() {
+    void compute_onlyValidCitations_reportsNoInvalidAndEveryCitationRendered() {
         final String raw = "The first item is listed [1][2]. The second item is listed [3]."
                 + factMap(obj(1, "doc-A", "1"), obj(2, "doc-A", "2"), obj(3, "doc-B", "2"));
         final Compliance c = compute(raw, "");
-        final CitationProcessor.CitationOutcome production =
-                new CitationProcessor().processCitations(raw, CitationScope.from(SCOPE_CHUNKS));
 
         assertEquals(0, c.invalidCitations());
-        assertEquals(production.renderedCitations(), c.renderedCitations());
-        assertEquals(production.strippedMarkers(), c.strippedMarkers());
+        assertEquals(0, c.trimmedPages());
+        assertEquals(0, c.strippedMarkers());
         assertEquals(2, c.renderedCitations(), "[1][2] merges, [3] renders on its own");
     }
 

@@ -161,8 +161,8 @@ public final class TestHarness {
 
     /**
      * One (prompt × LLM × query × iteration) cell. {@code compliance} is computed once in
-     * {@link #runCell} from the response and the chunks it was generated from, and is
-     * {@code null} whenever {@code response} is (SKIPPED / ERROR).
+     * {@link #runCell} from the response and the chunks it was generated from; it is
+     * {@code null} whenever {@code response} is (SKIPPED / ERROR), or if computing it failed.
      */
     record RunResult(String promptLabel, String llmLabel, String queryLabel, int iteration,
                      LlmResponse response, TokenUsage usage, long durationMs, String error,
@@ -351,15 +351,9 @@ public final class TestHarness {
         LOGGER.info("[run] iter={} prompt={} llm={} query={}", iter, spc.label(), lc.label(), uqc.label());
         svc.takeUsage(); // clear any stale capture before the call
         final long t0 = System.currentTimeMillis();
+        final LlmResponse r;
         try {
-            final LlmResponse r = svc.svc().generateResponse(uqc.userQuery(), chunks, uqc.userQueryPrompt());
-            final TokenUsage usage = svc.takeUsage();
-            final long durationMs = System.currentTimeMillis() - t0;
-            // Computed once, with the same chunks the answer was generated from: the citation
-            // processor validates against them, so the counts match the production outcome. The
-            // report sections all read this value; recomputing would re-run the processor.
-            return new RunResult(spc.label(), lc.label(), uqc.label(), iter, r, usage, durationMs, null,
-                    CitationMetrics.compute(r, chunks));
+            r = svc.svc().generateResponse(uqc.userQuery(), chunks, uqc.userQueryPrompt());
         } catch (final Exception e) {
             // Includes ChatServiceException and transient transport failures (e.g. read timeouts on
             // long gpt-5.1 reasoning calls). Record the cell as an ERROR and carry on. Usage is
@@ -368,6 +362,26 @@ public final class TestHarness {
             LOGGER.warn("[run] FAILED iter={} prompt={} llm={} query={}", iter, spc.label(), lc.label(), uqc.label(), e);
             return new RunResult(spc.label(), lc.label(), uqc.label(), iter, null, svc.takeUsage(),
                     System.currentTimeMillis() - t0, e.toString(), null);
+        }
+        final TokenUsage usage = svc.takeUsage();
+        final long durationMs = System.currentTimeMillis() - t0;
+        return new RunResult(spc.label(), lc.label(), uqc.label(), iter, r, usage, durationMs, null,
+                complianceOf(r, chunks));
+    }
+
+    /**
+     * Computed once, with the same chunks the answer was generated from: the citation processor
+     * validates against them, so the counts match the production outcome, and the report sections
+     * all read this value. Outside the generation try-block on purpose: a metrics failure must not
+     * turn a successful, billed response into an ERROR cell or lose its usage — the cell keeps its
+     * response and simply has no compliance.
+     */
+    private static CitationMetrics.Compliance complianceOf(final LlmResponse response, final List<ChunkedEntry> chunks) {
+        try {
+            return CitationMetrics.compute(response, chunks);
+        } catch (final RuntimeException e) {
+            LOGGER.warn("[run] citation metrics failed; the run is kept without compliance metrics", e);
+            return null;
         }
     }
 
@@ -825,10 +839,24 @@ public final class TestHarness {
             LOGGER.info("ERROR: {}", r.error());
             return;
         }
-        if (r.response() == null || r.compliance() == null) {
+        if (r.response() == null) {
             return;
         }
         final CitationMetrics.Compliance c = r.compliance();
+        if (c == null) {
+            LOGGER.info("status: {} | metrics: n/a", r.response().status());
+        } else {
+            logComplianceDetail(r, c);
+        }
+        LOGGER.info("");
+        LOGGER.info("RAW RESPONSE:");
+        LOGGER.info(safe(r.response().rawLlmResponse()));
+        LOGGER.info("");
+        LOGGER.info("FORMATTED RESPONSE (after CitationProcessor):");
+        LOGGER.info(safe(r.response().formattedLlmResponse()));
+    }
+
+    private static void logComplianceDetail(final RunResult r, final CitationMetrics.Compliance c) {
         LOGGER.info("status: {} | jsonBlock: {} | inlineIds: {} | jsonIds: {}"
                         + " | drift: {} | match: {} | subst: {} | proseChars: {} | proseWords: {}"
                         + " | citedPages: {} | sameDocStacks: {} | rendered: {} | stripped: {} | uncitedSubstantive: {}"
@@ -838,12 +866,6 @@ public final class TestHarness {
                 c.proseChars(), c.proseWords(), c.citedPages(), c.sameDocStackedRuns(),
                 c.renderedCitations(), c.strippedMarkers(), c.uncitedSubstantive(),
                 c.invalidCitations(), c.trimmedPages());
-        LOGGER.info("");
-        LOGGER.info("RAW RESPONSE:");
-        LOGGER.info(safe(r.response().rawLlmResponse()));
-        LOGGER.info("");
-        LOGGER.info("FORMATTED RESPONSE (after CitationProcessor):");
-        LOGGER.info(safe(r.response().formattedLlmResponse()));
     }
 
     // ---- env + string helpers ----------------------------------------------

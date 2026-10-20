@@ -7,6 +7,7 @@ import uk.gov.moj.cp.ai.model.KeyValuePair;
 import uk.gov.moj.cp.retrieval.model.CitationScope;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -30,11 +31,15 @@ public final class CitationScopeFixtures {
     }
 
     /** One retrieved document: its id, the filename it was shown with and its retrieved pages. */
-    public record Doc(String documentId, String fileName, int... pages) {
+    public record Doc(String documentId, String fileName, List<Integer> pages) {
+
+        public Doc {
+            pages = List.copyOf(pages);
+        }
     }
 
     public static Doc doc(final String documentId, final String fileName, final int... pages) {
-        return new Doc(documentId, fileName, pages);
+        return new Doc(documentId, fileName, Arrays.stream(pages).boxed().toList());
     }
 
     /** Document A with its default retrieved pages {2, 3}. */
@@ -51,7 +56,7 @@ public final class CitationScopeFixtures {
     public static List<ChunkedEntry> chunksOf(final Doc... docs) {
         final List<ChunkedEntry> chunks = new ArrayList<>();
         for (final Doc d : docs) {
-            for (final int page : d.pages()) {
+            for (final Integer page : d.pages()) {
                 chunks.add(chunk(d.documentId(), d.fileName(), page, null));
             }
         }

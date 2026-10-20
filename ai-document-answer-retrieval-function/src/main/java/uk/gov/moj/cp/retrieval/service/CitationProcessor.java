@@ -125,12 +125,17 @@ public class CitationProcessor {
      *  group 1 is that whitespace, group 2 the citation id. Bounded quantifiers only (S5852). */
     private static final Pattern MARKER_WITH_GAP_PATTERN = Pattern.compile("([ \\t]{0,3})\\[(\\d{1,9})\\]");
 
+    /** A citation id whose drift forms may be removed: numeric, like every bare marker. */
+    private static final Pattern NUMERIC_CITATION_ID = Pattern.compile("\\d{1,9}");
+
     /** Above this many surviving {@code [N]} markers, the output is treated as catastrophic. */
     private static final int CATASTROPHIC_BRACKET_THRESHOLD = 100;
 
-    /** Placeholder regex template; the {@code %s} is substituted with the citation id. */
+    /** Placeholder regex template; the {@code %s} is substituted with the citation id. The label
+     *  separator and the leading whitespace are bounded so the two cannot backtrack against each
+     *  other (S5852). */
     private static final String PLACEHOLDER_REGEX_TEMPLATE =
-            "(?i)\\[\\^?(?:(?:Source|doc|Citation|Ref)[\\s:]+)?\\s*%s(?:[\\s,;:][^\\[\\]]*)?\\]";
+            "(?i)\\[\\^?(?:(?:Source|doc|Citation|Ref)[\\s:]{1,5})?\\s{0,3}%s(?:[\\s,;:][^\\[\\]]*)?\\]";
 
     /** The user-visible citation format. */
     private static final String CITATION_FORMAT = "::(Source: [%s], Pages %s|%s|documentId=%s)";
@@ -159,6 +164,10 @@ public class CitationProcessor {
                                   boolean emptyFactMap, int inlineMarkers,
                                   int renderedCitations, int strippedMarkers,
                                   ValidationCounts validation) {
+
+        public CitationOutcome {
+            validation = validation == null ? ValidationCounts.NONE : validation;
+        }
 
         /** {@code FACT_MAP_JSON} entries dropped by validation. */
         public int invalidEntries() {
@@ -245,13 +254,22 @@ public class CitationProcessor {
         try {
             final List<Map<String, Object>> citations =
                     objectMapper.readValue(jsonPayload, new TypeReference<>() { });
+            if (citations == null) {
+                LOGGER.warn("Citation JSON payload is null; returning narrative without citations.");
+                return parseFailureOutcome(answerText, inlineMarkers);
+            }
             return applyCitations(answerText, citations, inlineMarkers,
                     scope == null ? CitationScope.empty() : scope);
         } catch (final Exception e) {
             LOGGER.warn("Failed to parse citation JSON or substitute placeholders; returning narrative without citations.", e);
-            return new CitationOutcome(stripUnresolvedCitationMarkers(answerText, true).trim(),
-                    true, false, inlineMarkers, 0, inlineMarkers, ValidationCounts.NONE);
+            return parseFailureOutcome(answerText, inlineMarkers);
         }
+    }
+
+    /** No usable citation JSON: every bare marker is stripped and nothing renders. */
+    private static CitationOutcome parseFailureOutcome(final String answerText, final int inlineMarkers) {
+        return new CitationOutcome(stripUnresolvedCitationMarkers(answerText, true).trim(),
+                true, false, inlineMarkers, 0, inlineMarkers, ValidationCounts.NONE);
     }
 
     /**
@@ -347,11 +365,18 @@ public class CitationProcessor {
         return new MarkerRemoval(out.append(text, last, text.length()).toString(), dropped + orphans);
     }
 
-    /** Removes every tolerant-form placeholder ({@code [Source N]}, {@code [N p.7]} …) of the dropped ids. */
+    /**
+     * Removes every tolerant-form placeholder ({@code [Source N]}, {@code [N p.7]} …) of the dropped
+     * numeric ids. A non-numeric id (e.g. {@code "a"}) is skipped: its tolerant form would also
+     * match ordinary bracketed prose such as {@code [A note]}.
+     */
     private static MarkerRemoval removeDriftForms(final String text, final Collection<String> droppedIds) {
         String remaining = text;
         int removed = 0;
         for (final String droppedId : droppedIds) {
+            if (!NUMERIC_CITATION_ID.matcher(droppedId).matches()) {
+                continue;
+            }
             final Matcher drift = Pattern.compile(String.format(PLACEHOLDER_REGEX_TEMPLATE, Pattern.quote(droppedId)))
                     .matcher(remaining);
             final long found = drift.results().count();
@@ -470,16 +495,6 @@ public class CitationProcessor {
 
     private static String documentIdOf(final ResolvedCitation resolved) {
         return resolved == null ? null : resolved.document().documentId();
-    }
-
-    static String stringifyJsonValue(final Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof final List<?> list) {
-            return list.stream().map(String::valueOf).collect(Collectors.joining(","));
-        }
-        return String.valueOf(value);
     }
 
     /**

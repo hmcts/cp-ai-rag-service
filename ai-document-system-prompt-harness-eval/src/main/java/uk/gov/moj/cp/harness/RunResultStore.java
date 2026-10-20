@@ -35,7 +35,8 @@ import org.slf4j.LoggerFactory;
  * before that change have neither, because their citations were rendered without validation.
  * Any reader must therefore treat an absent {@code metrics.invalidCitations} /
  * {@code metrics.trimmedPages} (or an absent {@code meta.citationValidation}) as <em>not
- * measured</em> and display {@code n/a} — never 0. {@link #persistedCount} applies that rule.
+ * measured</em> and display {@code n/a} — never 0. {@link #persistedCount} implements that rule
+ * and is the helper any such reader must use; no reader displays these counts today.
  */
 final class RunResultStore {
 

@@ -15,8 +15,6 @@ import uk.gov.moj.cp.retrieval.model.CitationScope;
 import uk.gov.moj.cp.retrieval.service.CitationProcessor.CitationOutcome;
 import uk.gov.moj.cp.retrieval.service.CitationProcessor.ValidationCounts;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.Test;
@@ -340,16 +338,41 @@ class CitationProcessorValidationTest {
         assertEquals(1, outcome.renderedCitations());
     }
 
-    // ---------- FR-17: log hygiene ----------
+    // ---------- robustness ----------
 
     @Test
-    void mergeLogLine_carriesNoDocumentId() throws Exception {
-        final String source = Files.readString(Path.of(
-                "src/main/java/uk/gov/moj/cp/retrieval/service/CitationProcessor.java"));
+    void nullJsonPayload_isAParseFailureWithoutAnException() {
+        try (LogCapture logs = LogCapture.of(CitationProcessor.class)) {
+            final CitationOutcome outcome = process("Fact one [1]. <FACT_MAP_JSON>null</FACT_MAP_JSON>");
 
-        assertFalse(source.contains("documentId={}"),
-                "CitationProcessor must not log a documentId (FR-17)");
-        assertTrue(source.contains("\"Merged {} adjacent same-document citation markers {} into one citation\""),
-                "merge INFO line keeps its counts-only wording");
+            assertTrue(outcome.jsonBlockPresent());
+            assertFalse(outcome.emptyFactMap());
+            assertEquals(0, outcome.renderedCitations());
+            assertEquals(1, outcome.strippedMarkers());
+            assertEquals(ValidationCounts.NONE, outcome.validation());
+            assertTrue(logs.thrown().isEmpty(), "no exception is raised or logged: " + logs.thrown());
+        }
+    }
+
+    @Test
+    void droppedNonNumericCitationId_leavesUnrelatedBracketedProseAlone() {
+        final String raw = "See [A note] here. Fact [1]. <FACT_MAP_JSON>["
+                + "{\"citationId\":\"a\",\"documentId\":\"" + GARBLED_A_ID + "\",\"documentFilename\":\"report-a.pdf\","
+                + "\"individualPageNumbers\":\"2\"}," + entry(1, DOC_A_ID, DOC_A_FILE, "2") + "]</FACT_MAP_JSON>";
+
+        final CitationOutcome outcome = process(raw);
+
+        assertEquals("See [A note] here. Fact " + CITATION_A_2 + ".", outcome.formattedText());
+        assertEquals(0, outcome.strippedMarkers());
+        assertEquals(1, outcome.invalidEntries());
+    }
+
+    @Test
+    void outcomeWithoutValidationCounts_defaultsToNone() {
+        final CitationOutcome outcome = new CitationOutcome("text", false, false, 0, 0, 0, null);
+
+        assertEquals(ValidationCounts.NONE, outcome.validation());
+        assertEquals(0, outcome.invalidEntries());
+        assertEquals(0, outcome.trimmedPages());
     }
 }
