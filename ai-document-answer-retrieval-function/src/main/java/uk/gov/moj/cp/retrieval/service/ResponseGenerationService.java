@@ -15,8 +15,8 @@ import uk.gov.moj.cp.retrieval.exception.CitationDegradedException;
 import uk.gov.moj.cp.retrieval.model.CitationGuardMode;
 import uk.gov.moj.cp.retrieval.model.CitationScope;
 import uk.gov.moj.cp.retrieval.model.LlmResponse;
+import uk.gov.moj.cp.retrieval.model.ValidationCounts;
 import uk.gov.moj.cp.retrieval.service.CitationProcessor.CitationOutcome;
-import uk.gov.moj.cp.retrieval.service.CitationProcessor.ValidationCounts;
 
 import java.util.List;
 import java.util.Locale;
@@ -158,7 +158,7 @@ public class ResponseGenerationService {
         LOGGER.warn("Citation validation: answer accepted after removing invalid citation entries or pages — "
                         + "entries={}, invalid={} [causeCitationId={}, causeDocument={}, causeFilename={}, causePages={}], "
                         + "trimmedPages={}, rendered={}",
-                counts.factMapEntries(), counts.invalidEntries(), counts.noCitationId(), counts.invalidDocumentId(),
+                counts.factMapEntries(), counts.invalidEntries(), counts.invalidCitationId(), counts.invalidDocumentId(),
                 counts.invalidFileName(), counts.noValidPage(), counts.trimmedPages(), outcome.renderedCitations());
     }
 

@@ -120,8 +120,7 @@ class CitationScopeTest {
                 chunk(DOC_A_ID, DOC_A_FILE, 2, null),
                 chunk(DOC_A_ID, DOC_A_FILE, 3, null)));
 
-        assertEquals(List.of(2, 3), List.copyOf(scope.document(DOC_A_ID).orElseThrow().pages()),
-                "pages are de-duplicated and sorted");
+        assertEquals(Set.of(2, 3), scope.document(DOC_A_ID).orElseThrow().pages(), "pages are de-duplicated");
     }
 
     @Test

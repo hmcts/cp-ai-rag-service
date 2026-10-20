@@ -35,7 +35,7 @@ class CitationProcessorDriftTest {
         final String raw = "The item was recorded in the register [1 p.7]. " + CITATION_JSON_BLOCK;
         final String expected = "The item was recorded in the register " + CITATION_FORMATTED + ".";
 
-        assertEquals(expected, citationProcessor.processAndFormatCitations(raw, SCOPE));
+        assertEquals(expected, citationProcessor.processCitations(raw, SCOPE).formattedText());
     }
 
     @Test
@@ -44,7 +44,7 @@ class CitationProcessorDriftTest {
         final String raw = "The item was recorded in the register [Source 1]. " + CITATION_JSON_BLOCK;
         final String expected = "The item was recorded in the register " + CITATION_FORMATTED + ".";
 
-        assertEquals(expected, citationProcessor.processAndFormatCitations(raw, SCOPE));
+        assertEquals(expected, citationProcessor.processCitations(raw, SCOPE).formattedText());
     }
 
     @Test
@@ -55,7 +55,7 @@ class CitationProcessorDriftTest {
         final String expected = "For example: <FACT_MAP_JSON>[]</FACT_MAP_JSON>\n\n"
                 + "The real answer cites " + CITATION_FORMATTED + ".";
 
-        assertEquals(expected, citationProcessor.processAndFormatCitations(raw, SCOPE));
+        assertEquals(expected, citationProcessor.processCitations(raw, SCOPE).formattedText());
     }
 
     @Test
@@ -69,7 +69,7 @@ class CitationProcessorDriftTest {
         runaway.append(". <FACT_MAP_JSON>[{\"citationId\":\"1\",\"documentFilename\":\"report-a.pdf\","
                 + "\"pageNumbers\":\"1\",\"individualPageNumbers\":\"1\",\"documentId\":\"abc\"}");
 
-        final String actual = citationProcessor.processAndFormatCitations(runaway.toString(), SCOPE);
+        final String actual = citationProcessor.processCitations(runaway.toString(), SCOPE).formattedText();
 
         final long bracketCount = actual.chars().filter(c -> c == '[').count();
         assertTrue(bracketCount < 100,

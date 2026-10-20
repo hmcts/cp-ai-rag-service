@@ -37,7 +37,7 @@ class CitationProcessorGpt51Test {
         // Reasoning-token budget exhausted mid-answer: prose with citations, no tag emitted.
         final String raw = "The item was recorded in the register [1]. It was also listed in the index [2].";
 
-        final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
+        final String actual = citationProcessor.processCitations(raw, SCOPE).formattedText();
 
         assertFalse(actual.contains("[1]"), "orphan [1] must be stripped: " + actual);
         assertFalse(actual.contains("[2]"), "orphan [2] must be stripped: " + actual);
@@ -50,7 +50,7 @@ class CitationProcessorGpt51Test {
         final String raw = "The item was recorded in the register [1]. "
                 + "<FACT_MAP_JSON>[{\"citationId\":1,\"documentFilename\":\"report-a.pdf\"";
 
-        final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
+        final String actual = citationProcessor.processCitations(raw, SCOPE).formattedText();
 
         assertFalse(actual.contains("[1]"), "orphan [1] must be stripped when tag never closes: " + actual);
     }
@@ -60,7 +60,7 @@ class CitationProcessorGpt51Test {
     void inlineIdWithoutJsonEntry_isStripped() {
         final String raw = "Claim one [1] and claim two [2]. " + JSON_ONE;
 
-        final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
+        final String actual = citationProcessor.processCitations(raw, SCOPE).formattedText();
 
         assertTrue(actual.contains("::(Source: [report-a.pdf]"), "valid citation 1 must render: " + actual);
         assertFalse(actual.contains("[2]"), "orphan [2] (no JSON entry) must be stripped: " + actual);
@@ -71,7 +71,7 @@ class CitationProcessorGpt51Test {
     void joinedIdsNoBlock_areStripped() {
         final String raw = "Both points are confirmed [1, 2].";
 
-        final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
+        final String actual = citationProcessor.processCitations(raw, SCOPE).formattedText();
 
         assertFalse(actual.contains("[1"), "joined orphan markers must be stripped: " + actual);
         assertFalse(actual.contains("2]"), "joined orphan markers must be stripped: " + actual);
@@ -83,7 +83,7 @@ class CitationProcessorGpt51Test {
     void plainNoFindingsAnswer_unchanged() {
         final String raw = "The retrieved documents do not contain information about previous inspection results.";
 
-        final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
+        final String actual = citationProcessor.processCitations(raw, SCOPE).formattedText();
 
         assertEquals(raw, actual);
     }

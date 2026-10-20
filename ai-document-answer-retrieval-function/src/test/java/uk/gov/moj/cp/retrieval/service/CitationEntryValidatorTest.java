@@ -18,7 +18,7 @@ import static uk.gov.moj.cp.retrieval.service.CitationScopeFixtures.scopeOf;
 import uk.gov.moj.cp.retrieval.model.CitationScope;
 import uk.gov.moj.cp.retrieval.service.CitationEntryValidator.ResolvedCitation;
 import uk.gov.moj.cp.retrieval.service.CitationEntryValidator.ValidationResult;
-import uk.gov.moj.cp.retrieval.service.CitationProcessor.ValidationCounts;
+import uk.gov.moj.cp.retrieval.model.ValidationCounts;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -84,7 +84,6 @@ class CitationEntryValidatorTest {
         final ValidationResult result = validate(entry(1, DOC_A_ID, DOC_A_FILE, "\"2,3\""));
 
         final ResolvedCitation resolved = result.resolvedById().get("1");
-        assertEquals("1", resolved.citationId());
         assertEquals(DOC_A_ID, resolved.document().documentId());
         assertEquals(DOC_A_FILE, resolved.document().displayedFileName());
         assertEquals(Set.of(2, 3), resolved.pages());
@@ -198,6 +197,17 @@ class CitationEntryValidatorTest {
         assertEquals(Set.of(2, 3), fromArray.resolvedById().get("1").pages());
         assertEquals(fromArray.resolvedById().get("1").pages(), fromString.resolvedById().get("1").pages());
         assertEquals(fromArray.resolvedById().get("1").pages(), fromStringArray.resolvedById().get("1").pages());
+    }
+
+    @Test
+    void arrayElementHoldingCommaJoinedPages_isSplitIntoSeparatePages() {
+        final ValidationResult joined = validate(entry(1, DOC_A_ID, DOC_A_FILE, "[\"2,3\"]"));
+        final ValidationResult mixed = validate(entry(1, DOC_A_ID, DOC_A_FILE, "[\"2,3\", 5]"));
+
+        assertEquals(Set.of(2, 3), joined.resolvedById().get("1").pages());
+        assertEquals(0, joined.counts().trimmedPages());
+        assertEquals(Set.of(2, 3), mixed.resolvedById().get("1").pages());
+        assertEquals(1, mixed.counts().trimmedPages());
     }
 
     @Test
@@ -319,7 +329,7 @@ class CitationEntryValidatorTest {
 
         assertTrue(result.resolvedById().isEmpty());
         assertTrue(result.droppedIds().isEmpty(), "an entry with no id cannot leave a marker behind");
-        assertEquals(3, result.counts().noCitationId());
+        assertEquals(3, result.counts().invalidCitationId());
         assertEquals(3, result.counts().invalidEntries());
     }
 
@@ -328,7 +338,7 @@ class CitationEntryValidatorTest {
         final ValidationResult result = CitationEntryValidator.validate(
                 Arrays.asList(null, entries(array(entry(1, DOC_A_ID, DOC_A_FILE, "\"2\""))).get(0)), SCOPE);
 
-        assertEquals(1, result.counts().noCitationId());
+        assertEquals(1, result.counts().invalidCitationId());
         assertEquals(Set.of("1"), result.resolvedById().keySet());
     }
 
@@ -343,7 +353,7 @@ class CitationEntryValidatorTest {
 
         final ValidationCounts counts = result.counts();
         assertEquals(new ValidationCounts(5, 1, 1, 1, 1, 0), counts);
-        assertEquals(counts.noCitationId() + counts.invalidDocumentId() + counts.invalidFileName()
+        assertEquals(counts.invalidCitationId() + counts.invalidDocumentId() + counts.invalidFileName()
                 + counts.noValidPage(), counts.invalidEntries());
         assertEquals(4, counts.invalidEntries());
         assertEquals(Set.of("2", "3", "4"), result.droppedIds());
@@ -391,5 +401,18 @@ class CitationEntryValidatorTest {
         assertThrows(UnsupportedOperationException.class, () -> result.resolvedById().clear());
         assertThrows(UnsupportedOperationException.class, () -> result.droppedIds().clear());
         assertThrows(UnsupportedOperationException.class, () -> result.resolvedById().get("1").pages().clear());
+    }
+
+    @Test
+    void nonNumericCitationId_isInvalid() {
+        final ValidationResult result = validate(
+                entry("a", DOC_A_ID, DOC_A_FILE, "\"2\""),
+                entry("1a", DOC_A_ID, DOC_A_FILE, "\"2\""),
+                "{\"citationId\":1.5,\"documentId\":\"" + DOC_A_ID + "\",\"documentFilename\":\"report-a.pdf\",\"individualPageNumbers\":\"2\"}",
+                entry(2, DOC_A_ID, DOC_A_FILE, "\"2\""));
+
+        assertEquals(Set.of("2"), result.resolvedById().keySet());
+        assertEquals(3, result.counts().invalidCitationId());
+        assertTrue(result.droppedIds().isEmpty(), "an entry without a usable id leaves no marker to remove");
     }
 }

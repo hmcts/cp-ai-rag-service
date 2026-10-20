@@ -5,23 +5,21 @@ import static uk.gov.moj.cp.retrieval.model.CitationKeys.DOCUMENT_FILE_NAME;
 import static uk.gov.moj.cp.retrieval.model.CitationKeys.DOCUMENT_ID;
 import static uk.gov.moj.cp.retrieval.model.CitationKeys.INDIVIDUAL_PAGE_NUMBERS;
 
-import uk.gov.moj.cp.ai.util.StringUtil;
 import uk.gov.moj.cp.retrieval.model.CitationScope;
 import uk.gov.moj.cp.retrieval.model.CitationScope.CitableDocument;
-import uk.gov.moj.cp.retrieval.service.CitationProcessor.ValidationCounts;
+import uk.gov.moj.cp.retrieval.model.ValidationCounts;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 /**
  * Validates the model's {@code <FACT_MAP_JSON>} entries against the {@link CitationScope} of the
@@ -31,7 +29,7 @@ import java.util.stream.Collectors;
  * <p>Each entry is checked in this order and fails on the <strong>first</strong> broken rule, so
  * it carries exactly one cause:
  * <ol>
- *   <li>{@code citationId} present and non-blank — stringified then trimmed, so {@code 1} and
+ *   <li>{@code citationId} is numeric ({@value #NUMERIC_ID}) once trimmed, so {@code 1} and
  *       {@code "1"} are the same key;</li>
  *   <li>{@code documentId} is a JSON string that <em>exactly</em> names a citable document in
  *       the scope (case-sensitive, no trimming, no repair);</li>
@@ -49,23 +47,22 @@ import java.util.stream.Collectors;
  */
 final class CitationEntryValidator {
 
+    /** A citation id or page number: the only form a marker or a page can take. */
+    static final String NUMERIC_ID = "\\d{1,9}";
+
+    private static final Pattern NUMERIC = Pattern.compile(NUMERIC_ID);
+
     private CitationEntryValidator() {
     }
 
     /**
-     * One citationId that survived validation.
+     * One citationId that survived validation (the id is its key in {@link ValidationResult}).
      *
-     * @param citationId   the trimmed citationId key
      * @param document     the retrieved document it resolves to (never the model's copy)
      * @param pages        the surviving retrieved pages, ascending and de-duplicated
      * @param trimmedPages page tokens removed from this entry
      */
-    record ResolvedCitation(String citationId, CitableDocument document, SortedSet<Integer> pages,
-                            int trimmedPages) {
-
-        ResolvedCitation {
-            pages = Collections.unmodifiableSortedSet(new TreeSet<>(pages));
-        }
+    record ResolvedCitation(CitableDocument document, SortedSet<Integer> pages, int trimmedPages) {
     }
 
     /**
@@ -77,19 +74,13 @@ final class CitationEntryValidator {
                             ValidationCounts counts) {
     }
 
-    /** Why an entry was dropped — exactly one per invalid entry. */
-    private enum Cause { NO_CITATION_ID, DOCUMENT_ID, FILE_NAME, PAGES }
-
-    /** The result of checking one entry: either a resolved citation or the cause it failed on. */
-    private record Check(ResolvedCitation resolved, Cause cause) {
-
-        static Check valid(final ResolvedCitation resolved) {
-            return new Check(resolved, null);
-        }
-
-        static Check invalid(final Cause cause) {
-            return new Check(null, cause);
-        }
+    /** Per-cause counters for one {@link #validate} call. */
+    private static final class Tally {
+        private int invalidCitationId;
+        private int invalidDocumentId;
+        private int invalidFileName;
+        private int noValidPage;
+        private int trimmedPages;
     }
 
     /**
@@ -101,101 +92,73 @@ final class CitationEntryValidator {
         final List<Map<String, Object>> effectiveEntries = entries == null ? List.of() : entries;
 
         final Map<String, ResolvedCitation> resolvedById = new LinkedHashMap<>();
-        final Set<String> seenIds = new LinkedHashSet<>();
-        final Map<Cause, Integer> causes = new EnumMap<>(Cause.class);
-        int trimmedPages = 0;
-
+        final Set<String> droppedIds = new LinkedHashSet<>();
+        final Tally tally = new Tally();
         for (final Map<String, Object> entry : effectiveEntries) {
             final String citationId = citationIdOf(entry);
-            final Check check = citationId == null
-                    ? Check.invalid(Cause.NO_CITATION_ID)
-                    : check(entry, citationId, effectiveScope);
-            if (citationId != null) {
-                seenIds.add(citationId);
+            if (citationId == null) {
+                tally.invalidCitationId++;
+                continue;
             }
-            if (check.cause() != null) {
-                causes.merge(check.cause(), 1, Integer::sum);
-            } else if (resolvedById.putIfAbsent(citationId, check.resolved()) == null) {
-                trimmedPages += check.resolved().trimmedPages();
+            droppedIds.add(citationId);
+            final ResolvedCitation resolved = check(entry, effectiveScope, tally);
+            if (resolved != null && resolvedById.putIfAbsent(citationId, resolved) == null) {
+                tally.trimmedPages += resolved.trimmedPages();
             }
         }
-
-        final Set<String> droppedIds = new LinkedHashSet<>(seenIds);
         droppedIds.removeAll(resolvedById.keySet());
 
-        final ValidationCounts counts = new ValidationCounts(effectiveEntries.size(),
-                causes.getOrDefault(Cause.NO_CITATION_ID, 0), causes.getOrDefault(Cause.DOCUMENT_ID, 0),
-                causes.getOrDefault(Cause.FILE_NAME, 0), causes.getOrDefault(Cause.PAGES, 0), trimmedPages);
+        final ValidationCounts counts = new ValidationCounts(effectiveEntries.size(), tally.invalidCitationId,
+                tally.invalidDocumentId, tally.invalidFileName, tally.noValidPage, tally.trimmedPages);
         return new ValidationResult(Collections.unmodifiableMap(resolvedById),
                 Collections.unmodifiableSet(droppedIds), counts);
     }
 
-    /** The trimmed citationId key of an entry, or {@code null} when missing or blank. */
+    /** The trimmed, numeric citationId of an entry, or {@code null} when missing or not numeric. */
     private static String citationIdOf(final Map<String, Object> entry) {
-        if (entry == null) {
-            return null;
-        }
-        final String citationId = stringifyJsonValue(entry.get(CITATION_ID));
-        return StringUtil.isNullOrEmpty(citationId) ? null : citationId.trim();
+        final Object value = entry == null ? null : entry.get(CITATION_ID);
+        final String citationId = value == null ? null : String.valueOf(value).trim();
+        return citationId != null && NUMERIC.matcher(citationId).matches() ? citationId : null;
     }
 
-    private static Check check(final Map<String, Object> entry, final String citationId, final CitationScope scope) {
-        final Optional<CitableDocument> document = entry.get(DOCUMENT_ID) instanceof final String documentId
-                ? scope.document(documentId)
-                : Optional.empty();
-        if (document.isEmpty()) {
-            return Check.invalid(Cause.DOCUMENT_ID);
+    /** The resolved citation for a valid entry, or {@code null} after counting its cause in {@code tally}. */
+    private static ResolvedCitation check(final Map<String, Object> entry, final CitationScope scope,
+                                          final Tally tally) {
+        final CitableDocument document = entry.get(DOCUMENT_ID) instanceof final String documentId
+                ? scope.document(documentId).orElse(null)
+                : null;
+        if (document == null) {
+            tally.invalidDocumentId++;
+            return null;
         }
-        final CitableDocument citable = document.get();
-        if (!(entry.get(DOCUMENT_FILE_NAME) instanceof final String fileName) || !citable.matchesFileName(fileName)) {
-            return Check.invalid(Cause.FILE_NAME);
+        if (!(entry.get(DOCUMENT_FILE_NAME) instanceof final String fileName) || !document.matchesFileName(fileName)) {
+            tally.invalidFileName++;
+            return null;
         }
 
         final SortedSet<Integer> surviving = new TreeSet<>();
         int trimmed = 0;
         for (final String token : pageTokens(entry.get(INDIVIDUAL_PAGE_NUMBERS))) {
-            final Integer page = parsePage(token);
-            if (page != null && citable.pages().contains(page)) {
-                surviving.add(page);
+            if (NUMERIC.matcher(token).matches() && document.pages().contains(Integer.parseInt(token))) {
+                surviving.add(Integer.parseInt(token));
             } else {
                 trimmed++;
             }
         }
         if (surviving.isEmpty()) {
-            return Check.invalid(Cause.PAGES);
+            tally.noValidPage++;
+            return null;
         }
-        return Check.valid(new ResolvedCitation(citationId, citable, surviving, trimmed));
+        return new ResolvedCitation(document, Collections.unmodifiableSortedSet(surviving), trimmed);
     }
 
-    /** Page tokens of a JSON array or comma string: split on ',', trimmed, empties ignored. */
+    /** Page tokens of a JSON array or a comma string; every value, array elements included, is
+     *  split on ',' — so {@code ["2,3"]} reads as pages 2 and 3 — then trimmed, empties ignored. */
     private static List<String> pageTokens(final Object pages) {
-        final String joined = stringifyJsonValue(pages);
-        if (StringUtil.isNullOrEmpty(joined)) {
-            return List.of();
-        }
-        return Arrays.stream(joined.split(","))
+        final Stream<?> values = pages instanceof final List<?> list ? list.stream() : Stream.ofNullable(pages);
+        return values.flatMap(value -> Arrays.stream(String.valueOf(value).split(",")))
                 .map(String::trim)
                 .filter(token -> !token.isEmpty())
                 .toList();
-    }
-
-    /** The integer page a token names, or {@code null} for anything else ({@code iv}, {@code 2-3}, {@code 7.0}). */
-    private static Integer parsePage(final String token) {
-        try {
-            return Integer.parseInt(token);
-        } catch (final NumberFormatException e) {
-            return null;
-        }
-    }
-
-    /** A JSON value as text: a JSON array is joined with {@code ,}; {@code null} stays {@code null}. */
-    private static String stringifyJsonValue(final Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof final List<?> list) {
-            return list.stream().map(String::valueOf).collect(Collectors.joining(","));
-        }
-        return String.valueOf(value);
     }
 }

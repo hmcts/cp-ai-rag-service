@@ -1,18 +1,18 @@
 package uk.gov.moj.cp.retrieval.model;
 
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toSet;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.util.ChunkFormatterUtility;
 
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.SortedSet;
-import java.util.TreeSet;
+import java.util.Set;
 
 /**
  * Per-answer, immutable view of what the model was shown: documentId → displayed filename plus
@@ -39,44 +39,33 @@ public record CitationScope(Map<String, CitableDocument> documents) {
     }
 
     /**
-     * Builds the scope from the retrieved chunks, in retrieval order. The <strong>first</strong>
-     * chunk of each document sets its displayed filename through
-     * {@link ChunkFormatterUtility#displayedFileName}, exactly as the prompt builder does — even
-     * when that name is null, so a later chunk's name can never win (the model never saw it).
-     * Pages are the union of the non-null {@code pageNumber}s of the document's chunks.
+     * Builds the scope from the retrieved chunks, grouped by documentId exactly as the prompt
+     * builder groups them: the <strong>first</strong> chunk of each document sets its displayed
+     * filename through {@link ChunkFormatterUtility#displayedFileName} (a later chunk's name never
+     * wins — the model never saw it), and pages are the non-null {@code pageNumber}s of the
+     * document's chunks.
      *
-     * @param chunks the chunk list sent to the model; {@code null} or empty yields {@link #empty()}
+     * @param chunks the chunk list sent to the model; {@code null} or empty yields an empty scope
      */
     public static CitationScope from(final List<ChunkedEntry> chunks) {
-        if (chunks == null || chunks.isEmpty()) {
+        if (chunks == null) {
             return EMPTY;
         }
-
-        final Map<String, String> displayedNames = new LinkedHashMap<>();
-        final Map<String, SortedSet<Integer>> pagesByDocument = new HashMap<>();
-        for (final ChunkedEntry chunk : chunks) {
-            final String documentId = chunk.documentId();
-            if (isNullOrEmpty(documentId)) {
-                continue;
-            }
-            // containsKey + put rather than putIfAbsent: a null first-chunk name must stay null.
-            if (!displayedNames.containsKey(documentId)) {
-                displayedNames.put(documentId, ChunkFormatterUtility.displayedFileName(chunk));
-            }
-            final SortedSet<Integer> pages = pagesByDocument.computeIfAbsent(documentId, id -> new TreeSet<>());
-            if (chunk.pageNumber() != null) {
-                pages.add(chunk.pageNumber());
-            }
-        }
-
         final Map<String, CitableDocument> documents = new HashMap<>();
-        displayedNames.forEach((documentId, name) -> {
-            final SortedSet<Integer> pages = pagesByDocument.get(documentId);
-            if (!isNullOrEmpty(name) && !pages.isEmpty()) {
-                documents.put(documentId, new CitableDocument(documentId, name, pages));
-            }
-        });
-        return documents.isEmpty() ? EMPTY : new CitationScope(documents);
+        chunks.stream()
+                .filter(chunk -> !isNullOrEmpty(chunk.documentId()))
+                .collect(groupingBy(ChunkedEntry::documentId))
+                .forEach((documentId, documentChunks) -> {
+                    final String name = ChunkFormatterUtility.displayedFileName(documentChunks.getFirst());
+                    final Set<Integer> pages = documentChunks.stream()
+                            .map(ChunkedEntry::pageNumber)
+                            .filter(Objects::nonNull)
+                            .collect(toSet());
+                    if (!isNullOrEmpty(name) && !pages.isEmpty()) {
+                        documents.put(documentId, new CitableDocument(documentId, name, pages));
+                    }
+                });
+        return new CitationScope(documents);
     }
 
     /** Exact, case-sensitive lookup — no trimming or case folding. {@code null} → empty. */
@@ -89,12 +78,12 @@ public record CitationScope(Map<String, CitableDocument> documents) {
      *
      * @param documentId        the retrieved documentId
      * @param displayedFileName the filename shown in the prompt
-     * @param pages             the retrieved pages, ascending
+     * @param pages             the retrieved pages
      */
-    public record CitableDocument(String documentId, String displayedFileName, SortedSet<Integer> pages) {
+    public record CitableDocument(String documentId, String displayedFileName, Set<Integer> pages) {
 
         public CitableDocument {
-            pages = Collections.unmodifiableSortedSet(new TreeSet<>(pages));
+            pages = Set.copyOf(pages);
         }
 
         /**

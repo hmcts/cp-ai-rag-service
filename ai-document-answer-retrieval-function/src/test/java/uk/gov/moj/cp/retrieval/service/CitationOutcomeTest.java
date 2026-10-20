@@ -110,15 +110,6 @@ class CitationOutcomeTest {
     }
 
     @Test
-    void processAndFormatCitations_DelegatesToOutcomeText() {
-        String raw = "The item was recorded [1]. <FACT_MAP_JSON>[{\"citationId\":1,"
-                + "\"documentFilename\":\"report-a.pdf\",\"individualPageNumbers\":\"3\",\"documentId\":\"docA\"}]</FACT_MAP_JSON>";
-
-        assertEquals(citationProcessor.processCitations(raw, SCOPE).formattedText(),
-                citationProcessor.processAndFormatCitations(raw, SCOPE));
-    }
-
-    @Test
     void emptyInput_YieldsEmptyOutcome() {
         CitationOutcome outcome = citationProcessor.processCitations("", SCOPE);
         assertEquals("", outcome.formattedText());

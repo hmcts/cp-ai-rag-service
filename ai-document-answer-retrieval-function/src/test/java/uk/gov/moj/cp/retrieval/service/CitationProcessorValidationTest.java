@@ -13,7 +13,7 @@ import static uk.gov.moj.cp.retrieval.service.CitationScopeFixtures.scopeOf;
 
 import uk.gov.moj.cp.retrieval.model.CitationScope;
 import uk.gov.moj.cp.retrieval.service.CitationProcessor.CitationOutcome;
-import uk.gov.moj.cp.retrieval.service.CitationProcessor.ValidationCounts;
+import uk.gov.moj.cp.retrieval.model.ValidationCounts;
 
 import java.util.regex.Pattern;
 
@@ -308,7 +308,7 @@ class CitationProcessorValidationTest {
         final CitationOutcome outcome = process(raw);
 
         assertEquals("Fact " + CITATION_A_3 + ".", outcome.formattedText());
-        assertEquals(1, outcome.validation().noCitationId());
+        assertEquals(1, outcome.validation().invalidCitationId());
         assertEquals(1, outcome.invalidEntries());
     }
 
@@ -355,15 +355,29 @@ class CitationProcessorValidationTest {
     }
 
     @Test
-    void droppedNonNumericCitationId_leavesUnrelatedBracketedProseAlone() {
-        final String raw = "See [A note] here. Fact [1]. <FACT_MAP_JSON>["
-                + "{\"citationId\":\"a\",\"documentId\":\"" + GARBLED_A_ID + "\",\"documentFilename\":\"report-a.pdf\","
-                + "\"individualPageNumbers\":\"2\"}," + entry(1, DOC_A_ID, DOC_A_FILE, "2") + "]</FACT_MAP_JSON>";
+    void nonNumericCitationId_isInvalidAndBracketedTextIsLeftAsProse() {
+        final String raw = "See [A note] and [a] here. Fact [1]. <FACT_MAP_JSON>["
+                + "{\"citationId\":\"a\",\"documentId\":\"" + DOC_A_ID + "\",\"documentFilename\":\"report-a.pdf\","
+                + "\"individualPageNumbers\":\"3\"}," + entry(1, DOC_A_ID, DOC_A_FILE, "2") + "]</FACT_MAP_JSON>";
 
         final CitationOutcome outcome = process(raw);
 
-        assertEquals("See [A note] here. Fact " + CITATION_A_2 + ".", outcome.formattedText());
+        assertEquals("See [A note] and [a] here. Fact " + CITATION_A_2 + ".", outcome.formattedText());
+        assertEquals(1, outcome.validation().invalidCitationId());
+        assertEquals(1, outcome.invalidEntries());
         assertEquals(0, outcome.strippedMarkers());
+    }
+
+    @Test
+    void driftFormOfADroppedIdInsideASpacedRun_isRemovedAndTheRunStillMerges() {
+        final CitationOutcome outcome = process("Claim [1] [2 p.3] [3]." + block(
+                entry(1, DOC_A_ID, DOC_A_FILE, "2"),
+                entry(2, GARBLED_A_ID, DOC_A_FILE, "3"),
+                entry(3, DOC_A_ID, DOC_A_FILE, "3")));
+
+        assertEquals("Claim " + CITATION_A_2_3 + ".", outcome.formattedText());
+        assertEquals(1, outcome.renderedCitations());
+        assertEquals(1, outcome.strippedMarkers());
         assertEquals(1, outcome.invalidEntries());
     }
 

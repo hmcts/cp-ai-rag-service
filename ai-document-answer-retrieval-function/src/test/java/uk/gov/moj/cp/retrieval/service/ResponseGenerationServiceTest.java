@@ -28,7 +28,7 @@ import uk.gov.moj.cp.retrieval.model.CitationGuardMode;
 import uk.gov.moj.cp.retrieval.model.CitationScope;
 import uk.gov.moj.cp.retrieval.model.LlmResponse;
 import uk.gov.moj.cp.retrieval.service.CitationProcessor.CitationOutcome;
-import uk.gov.moj.cp.retrieval.service.CitationProcessor.ValidationCounts;
+import uk.gov.moj.cp.retrieval.model.ValidationCounts;
 
 import java.util.ArrayList;
 import java.util.List;

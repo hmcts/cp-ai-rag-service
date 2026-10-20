@@ -42,7 +42,7 @@ class CitationProcessorMergeTest {
                 + entry(1, "report-a.pdf", "10,11", "doc123") + "," + entry(2, "report-a.pdf", "12", "doc123")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
+        String result = citationProcessor.processCitations(raw, SCOPE).formattedText();
 
         assertEquals("The item was received and recorded "
                 + "::(Source: [report-a.pdf], Pages 10-12|10,11,12|documentId=doc123).", result);
@@ -54,7 +54,7 @@ class CitationProcessorMergeTest {
                 + entry(1, "report-a.pdf", "3", "doc123") + "," + entry(2, "report-a.pdf", "7", "doc123")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
+        String result = citationProcessor.processCitations(raw, SCOPE).formattedText();
 
         assertEquals("Facts established over two days "
                 + "::(Source: [report-a.pdf], Pages 3,7|3,7|documentId=doc123).", result);
@@ -66,7 +66,7 @@ class CitationProcessorMergeTest {
                 + entry(1, "report-a.pdf", "3", "doc123") + "," + entry(2, "report-a.pdf", "7", "doc123")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
+        String result = citationProcessor.processCitations(raw, SCOPE).formattedText();
 
         assertEquals("Fact one ::(Source: [report-a.pdf], Pages 3|3|documentId=doc123)\n"
                 + "Fact two ::(Source: [report-a.pdf], Pages 7|7|documentId=doc123)", result);
@@ -79,7 +79,7 @@ class CitationProcessorMergeTest {
                 + "]</FACT_MAP_JSON>";
         CitationScope scope = scopeOf(doc("docA", "report-a.pdf", 1), doc("docB", "notes-b.pdf", 2));
 
-        String result = citationProcessor.processAndFormatCitations(raw, scope);
+        String result = citationProcessor.processCitations(raw, scope).formattedText();
 
         assertEquals("Both documents describe the process "
                 + "::(Source: [report-a.pdf], Pages 1|1|documentId=docA)"
@@ -93,7 +93,7 @@ class CitationProcessorMergeTest {
                 + entry(3, "notes-b.pdf", "5", "docB")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
+        String result = citationProcessor.processCitations(raw, SCOPE).formattedText();
 
         assertEquals("The sequence of events is established "
                 + "::(Source: [report-a.pdf], Pages 1,2|1,2|documentId=docA)"
@@ -107,7 +107,7 @@ class CitationProcessorMergeTest {
                 + entry(3, "notes-b.pdf", "5", "docB")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
+        String result = citationProcessor.processCitations(raw, SCOPE).formattedText();
 
         assertEquals("All three sources agree "
                 + "::(Source: [report-a.pdf], Pages 1|1|documentId=docA)"
@@ -121,7 +121,7 @@ class CitationProcessorMergeTest {
                 + entry(1, "report-a.pdf", "10,11", "doc123") + "," + entry(2, "report-a.pdf", "12", "doc123")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
+        String result = citationProcessor.processCitations(raw, SCOPE).formattedText();
 
         assertEquals("It was received and recorded "
                 + "::(Source: [report-a.pdf], Pages 10-12|10,11,12|documentId=doc123). "
@@ -134,7 +134,7 @@ class CitationProcessorMergeTest {
                 + entry(1, "report-a.pdf", "3,7", "doc123") + "," + entry(2, "report-a.pdf", "7,8,2", "doc123")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
+        String result = citationProcessor.processCitations(raw, SCOPE).formattedText();
 
         assertEquals("The timeline is set out in the appendices "
                 + "::(Source: [report-a.pdf], Pages 2,3,7,8|2,3,7,8|documentId=doc123).", result);
@@ -146,7 +146,7 @@ class CitationProcessorMergeTest {
                 + entry(1, "report-a.pdf", "1", "docA") + "," + entry(2, "report-a.pdf", "2", "docA")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
+        String result = citationProcessor.processCitations(raw, SCOPE).formattedText();
 
         assertEquals("The account is confirmed "
                 + "::(Source: [report-a.pdf], Pages 1,2|1,2|documentId=docA).", result);
@@ -158,7 +158,7 @@ class CitationProcessorMergeTest {
                 + entry(1, "report-a.pdf", "4,5", "doc123")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
+        String result = citationProcessor.processCitations(raw, SCOPE).formattedText();
 
         assertEquals("The point is repeated for emphasis "
                 + "::(Source: [report-a.pdf], Pages 4,5|4,5|documentId=doc123).", result);
@@ -171,7 +171,7 @@ class CitationProcessorMergeTest {
                 + "]</FACT_MAP_JSON>";
         CitationScope scope = scopeOf(doc("doc123", "guide.pdf", 2, 3));
 
-        String result = citationProcessor.processAndFormatCitations(raw, scope);
+        String result = citationProcessor.processCitations(raw, scope).formattedText();
 
         assertEquals("The introduction and appendix both apply "
                 + "::(Source: [guide.pdf], Pages 2,3|2,3|documentId=doc123).", result);
@@ -183,7 +183,7 @@ class CitationProcessorMergeTest {
                 + entry(1, "report-a.pdf", "10,11", "doc123") + "," + entry(2, "report-a.pdf", "12", "doc123")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
+        String result = citationProcessor.processCitations(raw, SCOPE).formattedText();
 
         assertEquals("The facts are agreed "
                 + "::(Source: [report-a.pdf], Pages 10-12|10,11,12|documentId=doc123).", result);
@@ -198,7 +198,7 @@ class CitationProcessorMergeTest {
                 + "\"individualPageNumbers\":\"13\",\"documentId\":\"doc123\"}"
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
+        String result = citationProcessor.processCitations(raw, SCOPE).formattedText();
 
         assertEquals("The content spans the document set "
                 + "::(Source: [report-a.pdf], Pages 10-13|10,11,12,13|documentId=doc123).", result);
