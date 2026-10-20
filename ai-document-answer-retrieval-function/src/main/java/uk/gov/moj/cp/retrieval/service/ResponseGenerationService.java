@@ -16,6 +16,7 @@ import uk.gov.moj.cp.retrieval.model.CitationGuardMode;
 import uk.gov.moj.cp.retrieval.model.CitationScope;
 import uk.gov.moj.cp.retrieval.model.LlmResponse;
 import uk.gov.moj.cp.retrieval.service.CitationProcessor.CitationOutcome;
+import uk.gov.moj.cp.retrieval.service.CitationProcessor.ValidationCounts;
 
 import java.util.List;
 import java.util.Locale;
@@ -70,8 +71,10 @@ public class ResponseGenerationService {
     }
 
     /**
-     * Generates the answer with a single LLM attempt. The citation guard evaluates every answer
-     * regardless of mode. When the guard is enforcing ({@code CITATION_GUARD_MODE} != OFF) and
+     * Generates the answer with a single LLM attempt. The answer's citations are validated against
+     * a {@link CitationScope} built once from {@code chunkedEntries} — the same list rendered into
+     * the prompt — so each attempt is checked against its own retrieval. The citation guard
+     * evaluates every answer regardless of mode. When the guard is enforcing ({@code CITATION_GUARD_MODE} != OFF) and
      * the answer comes back citation-degraded, a {@link CitationDegradedException} carrying the
      * degraded answer is thrown — retry and exhaustion policy belong to the caller: the async
      * queue worker retries via queue redelivery; the synchronous path applies the policy
@@ -106,32 +109,57 @@ public class ResponseGenerationService {
     }
 
     /**
-     * Applies the citation guard to one raw answer. A degraded answer throws
-     * {@link CitationDegradedException} when the guard is enforcing; with the guard OFF it is
-     * returned as generated, carrying the guard reason so the degradation is still recorded.
+     * Applies the citation guard to one raw answer, after validating its citations against
+     * {@code citationScope}. A degraded answer — including one whose every citation entry failed
+     * validation, so nothing rendered — throws {@link CitationDegradedException} when the guard is
+     * enforcing; with the guard OFF it is returned as generated, carrying the guard reason
+     * (which ends {@code invalid=N}, the entries dropped by validation) so the degradation is
+     * still recorded. An accepted answer that lost some entries or pages to validation keeps a
+     * null reason (the reason column is reserved for real degradation) and logs one counts-only
+     * WARN.
      */
     private LlmResponse toGuardedResponse(final String rawLlmResponse, final CitationScope citationScope) {
         final CitationOutcome outcome = citationProcessor.processCitations(rawLlmResponse, citationScope);
         if (isAcceptable(outcome)) {
-            LOGGER.info("Citation guard [{}]: accepted {} — rendered={}, inlineMarkers={}, stripped={}, jsonBlock={}, formattedLength={} chars",
+            LOGGER.info("Citation guard [{}]: accepted {} — rendered={}, inlineMarkers={}, stripped={}, jsonBlock={}, formattedLength={} chars, invalid={}, trimmedPages={}",
                     guardMode.name().toLowerCase(Locale.ROOT),
                     outcome.renderedCitations() >= 1 ? "cited answer" : "no-evidence refusal",
                     outcome.renderedCitations(), outcome.inlineMarkers(), outcome.strippedMarkers(),
-                    outcome.jsonBlockPresent(), outcome.formattedText().length());
+                    outcome.jsonBlockPresent(), outcome.formattedText().length(),
+                    outcome.invalidEntries(), outcome.trimmedPages());
+            warnIfPartlyInvalid(outcome);
             return new LlmResponse(rawLlmResponse, outcome.formattedText(), ANSWER_GENERATED);
         }
         // Mode-prefixed so the reason column alone tells a first-attempt OFF degradation apart
         // from a DELIVER/REJECT outcome reached after the caller's retries.
         final String reason = String.format(
-                "[guard=%s] Citations missing: jsonBlock=%s, inlineMarkers=%d, rendered=%d, stripped=%d",
+                "[guard=%s] Citations missing: jsonBlock=%s, inlineMarkers=%d, rendered=%d, stripped=%d, invalid=%d",
                 guardMode.name().toLowerCase(Locale.ROOT), outcome.jsonBlockPresent(), outcome.inlineMarkers(),
-                outcome.renderedCitations(), outcome.strippedMarkers());
+                outcome.renderedCitations(), outcome.strippedMarkers(), outcome.invalidEntries());
         if (guardMode == CitationGuardMode.OFF) {
             LOGGER.warn("Citation guard (off): delivering citation-degraded answer without retry — {}.", reason);
             return new LlmResponse(rawLlmResponse, outcome.formattedText(), ANSWER_GENERATED, reason);
         }
         LOGGER.warn("Citation guard: degraded answer — {}.", reason);
         throw new CitationDegradedException(reason, rawLlmResponse, outcome.formattedText());
+    }
+
+    /**
+     * Partial invalidity — at least one citation rendered, but validation dropped entries or
+     * trimmed pages — is accepted without a reason and surfaced by exactly one WARN. Counts only:
+     * correlation comes from the MDC, and the cause labels deliberately avoid a literal
+     * {@code documentId=} token so log searches for it stay clean.
+     */
+    private static void warnIfPartlyInvalid(final CitationOutcome outcome) {
+        if (outcome.renderedCitations() < 1 || (outcome.invalidEntries() == 0 && outcome.trimmedPages() == 0)) {
+            return;
+        }
+        final ValidationCounts counts = outcome.validation();
+        LOGGER.warn("Citation validation: answer accepted after removing invalid citation entries or pages — "
+                        + "entries={}, invalid={} [causeCitationId={}, causeDocument={}, causeFilename={}, causePages={}], "
+                        + "trimmedPages={}, rendered={}",
+                counts.factMapEntries(), counts.invalidEntries(), counts.noCitationId(), counts.invalidDocumentId(),
+                counts.invalidFileName(), counts.noValidPage(), counts.trimmedPages(), outcome.renderedCitations());
     }
 
     /**
