@@ -12,6 +12,9 @@ import java.util.Optional;
 
 public class ChunkFormatterUtility {
 
+    /** Custom-metadata key whose non-blank value, when present, is the filename shown to the model. */
+    public static final String MATERIAL_NAME_METADATA_KEY = "material_name";
+
     public String buildChunkContext(List<ChunkedEntry> chunkedEntries) {
 
         if (chunkedEntries == null || chunkedEntries.isEmpty()) {
@@ -26,8 +29,7 @@ public class ChunkFormatterUtility {
         for (Map.Entry<String, List<ChunkedEntry>> entriesPerDocument : entriesByDocumentId.entrySet()) {
             final String documentId = entriesPerDocument.getKey();
             final ChunkedEntry firstChunkForDocumentId = entriesPerDocument.getValue().getFirst();
-            String documentFileName = extractMaterialName(firstChunkForDocumentId)
-                    .orElse(firstChunkForDocumentId.documentFileName());
+            final String documentFileName = displayedFileName(firstChunkForDocumentId);
             sb.append("<DOCUMENT DOCUMENT_ID=\"").append(documentId).append("\" DOCUMENT_FILENAME=\"").append(documentFileName).append("\">\n");
             for (ChunkedEntry entry : entriesPerDocument.getValue()) {
                 final String pageNumber = null != entry.pageNumber() ? entry.pageNumber().toString() : "";
@@ -46,13 +48,27 @@ public class ChunkFormatterUtility {
         return sb.toString();
     }
 
-    private Optional<String> extractMaterialName(ChunkedEntry entry) {
+    /**
+     * The filename shown to the model for the document whose <strong>first</strong> retrieved chunk
+     * is {@code firstChunkOfDocument}: the non-blank {@value #MATERIAL_NAME_METADATA_KEY}
+     * custom-metadata value, else {@code documentFileName} (which may be null).
+     *
+     * <p>This is the single rule shared by the prompt builder ({@link #buildChunkContext}) and the
+     * answer-retrieval citation validation, so the two can never disagree about which filename the
+     * model was shown. Static on purpose: callers that mock a {@code ChunkFormatterUtility}
+     * instance still get the real rule.
+     */
+    public static String displayedFileName(final ChunkedEntry firstChunkOfDocument) {
+        return extractMaterialName(firstChunkOfDocument).orElse(firstChunkOfDocument.documentFileName());
+    }
+
+    private static Optional<String> extractMaterialName(ChunkedEntry entry) {
         if (entry.customMetadata() == null || entry.customMetadata().isEmpty()) {
             return Optional.empty();
         }
 
         return entry.customMetadata().stream()
-                .filter(pair -> "material_name".equals(pair.key()))
+                .filter(pair -> MATERIAL_NAME_METADATA_KEY.equals(pair.key()))
                 .map(KeyValuePair::value)
                 .filter(value -> !isNullOrEmpty(value))
                 .findFirst();
