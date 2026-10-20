@@ -46,6 +46,9 @@ import org.slf4j.LoggerFactory;
  *   <li>A kept citation renders the documentId, filename and pages from retrieval, never the
  *       model's copies; the compressed page form is always recomputed from the surviving pages.
  *       A {@code null} or empty scope makes every entry invalid — validation is never skipped.</li>
+ *   <li>Rendered citations stay behind opaque sentinels ({@link RenderedCitations}) until the
+ *       final step, so a filename that looks like a marker or a citation is never substituted,
+ *       stripped or counted by a later pass.</li>
  * </ul>
  *
  * <p>Tolerance rules implemented:
@@ -131,9 +134,6 @@ public class CitationProcessor {
 
     /** The user-visible citation format. */
     private static final String CITATION_FORMAT = "::(Source: [%s], Pages %s|%s|documentId=%s)";
-
-    /** Stable prefix of {@link #CITATION_FORMAT}, used to count rendered citations. */
-    private static final String RENDERED_CITATION_PREFIX = "::(Source: [";
 
     private static final String NOT_AVAILABLE = "N/A";
 
@@ -221,6 +221,10 @@ public class CitationProcessor {
         if (StringUtil.isNullOrEmpty(rawLlmOutput)) {
             return new CitationOutcome("", false, false, 0, 0, 0, ValidationCounts.NONE);
         }
+        return process(RenderedCitations.withoutSentinelDelimiter(rawLlmOutput), scope);
+    }
+
+    private CitationOutcome process(final String rawLlmOutput, final CitationScope scope) {
 
         final TagLocation lastTag = findLastJsonTag(rawLlmOutput);
         if (lastTag == null) {
@@ -252,7 +256,8 @@ public class CitationProcessor {
 
     /**
      * Steps after a successful parse: validate, remove the markers of ids with no valid entry,
-     * merge same-document runs, substitute from the scope, then strip any leftover marker.
+     * merge same-document runs, substitute from the scope, strip any leftover marker, and only
+     * then expand the rendered citations — so no marker pass ever sees a rendered filename.
      */
     private static CitationOutcome applyCitations(final String answerText, final List<Map<String, Object>> citations,
                                                   final int inlineMarkers, final CitationScope scope) {
@@ -261,29 +266,19 @@ public class CitationProcessor {
         final ValidationResult validation = CitationEntryValidator.validate(citations, scope);
 
         final MarkerRemoval removal = removeUnresolvableMarkers(answerText, validation);
-        String text = mergeSameDocumentRuns(removal.text(), validation.resolvedById());
+        final RenderedCitations rendered = new RenderedCitations();
+        String text = mergeSameDocumentRuns(removal.text(), validation.resolvedById(), rendered);
         for (final ResolvedCitation resolved : validation.resolvedById().values()) {
-            text = substituteCitation(text, resolved);
+            text = substituteCitation(text, resolved, rendered);
         }
         final int leftover = countBareMarkers(text);
-        final String formatted = stripUnresolvedCitationMarkers(text, false).trim();
-        return new CitationOutcome(formatted, true, emptyFactMap, inlineMarkers,
-                countRenderedCitations(formatted), removal.removed() + leftover, validation.counts());
+        final String withSentinels = stripUnresolvedCitationMarkers(text, false).trim();
+        return new CitationOutcome(rendered.expand(withSentinels), true, emptyFactMap, inlineMarkers,
+                rendered.count(withSentinels), removal.removed() + leftover, validation.counts());
     }
 
     private static int countBareMarkers(final String text) {
         return (int) BARE_BRACKET_INT.matcher(text).results().count();
-    }
-
-    /** Rendered citations = occurrences of the citation format prefix in the formatted text. */
-    private static int countRenderedCitations(final String formatted) {
-        int count = 0;
-        int from = 0;
-        while ((from = formatted.indexOf(RENDERED_CITATION_PREFIX, from)) >= 0) {
-            count++;
-            from += RENDERED_CITATION_PREFIX.length();
-        }
-        return count;
     }
 
     private static TagLocation findLastJsonTag(final String rawLlmOutput) {
@@ -384,10 +379,11 @@ public class CitationProcessor {
         }
     }
 
-    private static String substituteCitation(final String answerText, final ResolvedCitation resolved) {
-        final String formatted = formatCitation(resolved.document(), resolved.pages());
+    private static String substituteCitation(final String answerText, final ResolvedCitation resolved,
+                                             final RenderedCitations rendered) {
+        final String sentinel = rendered.register(formatCitation(resolved.document(), resolved.pages()));
         final String placeholderRegex = String.format(PLACEHOLDER_REGEX_TEMPLATE, Pattern.quote(resolved.citationId()));
-        return answerText.replaceAll(placeholderRegex, Matcher.quoteReplacement(formatted));
+        return answerText.replaceAll(placeholderRegex, Matcher.quoteReplacement(sentinel));
     }
 
     /** Renders one citation entirely from retrieval: displayed filename, documentId and pages. */
@@ -406,7 +402,8 @@ public class CitationProcessor {
      * runs citing different documents are re-emitted verbatim for the ordinary substitution.
      */
     private static String mergeSameDocumentRuns(final String answerText,
-                                                final Map<String, ResolvedCitation> resolvedById) {
+                                                final Map<String, ResolvedCitation> resolvedById,
+                                                final RenderedCitations rendered) {
         if (resolvedById.isEmpty()) {
             return answerText;
         }
@@ -416,7 +413,7 @@ public class CitationProcessor {
         int last = 0;
         while (run.find()) {
             out.append(answerText, last, run.start());
-            out.append(buildRunReplacement(run.group(), resolvedById));
+            out.append(buildRunReplacement(run.group(), resolvedById, rendered));
             last = run.end();
         }
         return out.append(answerText, last, answerText.length()).toString();
@@ -426,7 +423,8 @@ public class CitationProcessor {
      * Rewrites one adjacent-marker run: maximal consecutive ids resolving to the same document
      * become one merged citation; every other id is re-emitted as its original {@code [N]}.
      */
-    private static String buildRunReplacement(final String runText, final Map<String, ResolvedCitation> resolvedById) {
+    private static String buildRunReplacement(final String runText, final Map<String, ResolvedCitation> resolvedById,
+                                              final RenderedCitations rendered) {
         final List<String> ids = new ArrayList<>();
         final Matcher marker = SINGLE_MARKER_PATTERN.matcher(runText);
         while (marker.find()) {
@@ -442,19 +440,20 @@ public class CitationProcessor {
                     && documentId.equals(documentIdOf(resolvedById.get(ids.get(j))))) {
                 j++;
             }
-            appendGroup(out, ids.subList(i, j), resolvedById);
+            appendGroup(out, ids.subList(i, j), resolvedById, rendered);
             i = j;
         }
         return out.toString();
     }
 
     private static void appendGroup(final StringBuilder out, final List<String> groupIds,
-                                    final Map<String, ResolvedCitation> resolvedById) {
+                                    final Map<String, ResolvedCitation> resolvedById,
+                                    final RenderedCitations rendered) {
         if (groupIds.size() < 2) {
             out.append('[').append(groupIds.get(0)).append(']');
             return;
         }
-        out.append(formatMergedCitation(groupIds, resolvedById));
+        out.append(rendered.register(formatMergedCitation(groupIds, resolvedById)));
         LOGGER.info("Merged {} adjacent same-document citation markers {} into one citation",
                 groupIds.size(), groupIds);
     }
