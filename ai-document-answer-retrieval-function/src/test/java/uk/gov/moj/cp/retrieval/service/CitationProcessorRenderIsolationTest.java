@@ -39,6 +39,17 @@ class CitationProcessorRenderIsolationTest {
     }
 
     @Test
+    void displayedNameContainingReplacementSyntax_isRenderedVerbatim() {
+        final CitationScope scope = CitationScope.from(List.of(chunk(DOC_A_ID, DOC_A_FILE, 2, "price $1 report.pdf")));
+
+        final CitationOutcome outcome = citationProcessor.processCitations(
+                "Fact [1]." + block(entry(1, DOC_A_ID, "price $1 report.pdf", "2")), scope);
+
+        assertEquals("Fact " + citation("price $1 report.pdf", "2", DOC_A_ID) + ".", outcome.formattedText());
+        assertEquals(1, outcome.renderedCitations());
+    }
+
+    @Test
     void numericDisplayedName_isNotStrippedAsAnUnresolvedMarker() {
         final CitationScope scope = CitationScope.from(List.of(chunk(DOC_A_ID, DOC_A_FILE, 2, "12345")));
 
@@ -90,7 +101,7 @@ class CitationProcessorRenderIsolationTest {
     }
 
     @Test
-    void mergedCitationWithNumericDisplayedName_survivesTheSafetyStrip() {
+    void mergedCitationWithNumericDisplayedName_survivesTheMarkerPasses() {
         final CitationScope scope = CitationScope.from(List.of(
                 chunk(DOC_A_ID, DOC_A_FILE, 2, "777"),
                 chunk(DOC_A_ID, DOC_A_FILE, 3, "777")));
