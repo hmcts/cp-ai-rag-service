@@ -4,11 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
 import uk.gov.hmcts.cp.openapi.model.AnswerGenerationStatus;
+import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.harness.CitationMetrics.Compliance;
 import uk.gov.moj.cp.retrieval.model.LlmResponse;
 
@@ -19,8 +21,18 @@ import uk.gov.moj.cp.retrieval.model.LlmResponse;
  */
 class CitationMetricsTest {
 
+    /** The chunks every test response is generated from: doc-A pages 1-5 and doc-B page 2, both shown as f.pdf. */
+    private static final List<ChunkedEntry> SCOPE_CHUNKS = List.of(
+            chunk("doc-A", 1), chunk("doc-A", 2), chunk("doc-A", 3), chunk("doc-A", 4), chunk("doc-A", 5),
+            chunk("doc-B", 2));
+
+    private static ChunkedEntry chunk(final String documentId, final int page) {
+        return ChunkedEntry.builder().documentId(documentId).documentFileName("f.pdf").pageNumber(page).build();
+    }
+
     private static Compliance compute(final String raw, final String formatted) {
-        return CitationMetrics.compute(new LlmResponse(raw, formatted, AnswerGenerationStatus.ANSWER_GENERATED));
+        return CitationMetrics.compute(new LlmResponse(raw, formatted, AnswerGenerationStatus.ANSWER_GENERATED),
+                SCOPE_CHUNKS);
     }
 
     /** A FACT_MAP_JSON block wrapping the given flat object literals. */

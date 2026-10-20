@@ -3,6 +3,10 @@ package uk.gov.moj.cp.retrieval.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static uk.gov.moj.cp.retrieval.service.CitationScopeFixtures.doc;
+import static uk.gov.moj.cp.retrieval.service.CitationScopeFixtures.scopeOf;
+
+import uk.gov.moj.cp.retrieval.model.CitationScope;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,6 +23,8 @@ import org.junit.jupiter.api.Test;
  */
 class CitationProcessorGpt51Test {
 
+    private static final CitationScope SCOPE = scopeOf(doc("abc-123", "case.pdf", 7));
+
     private static final String JSON_ONE =
             "<FACT_MAP_JSON>[{\"citationId\":1,\"documentFilename\":\"case.pdf\","
                     + "\"individualPageNumbers\":\"7\",\"documentId\":\"abc-123\"}]</FACT_MAP_JSON>";
@@ -31,7 +37,7 @@ class CitationProcessorGpt51Test {
         // Reasoning-token budget exhausted mid-answer: prose with citations, no tag emitted.
         final String raw = "The defendant was charged with assault [1]. He was also charged with theft [2].";
 
-        final String actual = citationProcessor.processAndFormatCitations(raw);
+        final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
 
         assertFalse(actual.contains("[1]"), "orphan [1] must be stripped: " + actual);
         assertFalse(actual.contains("[2]"), "orphan [2] must be stripped: " + actual);
@@ -44,7 +50,7 @@ class CitationProcessorGpt51Test {
         final String raw = "The defendant was charged with assault [1]. "
                 + "<FACT_MAP_JSON>[{\"citationId\":1,\"documentFilename\":\"case.pdf\"";
 
-        final String actual = citationProcessor.processAndFormatCitations(raw);
+        final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
 
         assertFalse(actual.contains("[1]"), "orphan [1] must be stripped when tag never closes: " + actual);
     }
@@ -54,7 +60,7 @@ class CitationProcessorGpt51Test {
     void inlineIdWithoutJsonEntry_isStripped() {
         final String raw = "Claim one [1] and claim two [2]. " + JSON_ONE;
 
-        final String actual = citationProcessor.processAndFormatCitations(raw);
+        final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
 
         assertTrue(actual.contains("::(Source: [case.pdf]"), "valid citation 1 must render: " + actual);
         assertFalse(actual.contains("[2]"), "orphan [2] (no JSON entry) must be stripped: " + actual);
@@ -65,7 +71,7 @@ class CitationProcessorGpt51Test {
     void joinedIdsNoBlock_areStripped() {
         final String raw = "Both offences are made out [1, 2].";
 
-        final String actual = citationProcessor.processAndFormatCitations(raw);
+        final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
 
         assertFalse(actual.contains("[1"), "joined orphan markers must be stripped: " + actual);
         assertFalse(actual.contains("2]"), "joined orphan markers must be stripped: " + actual);
@@ -77,7 +83,7 @@ class CitationProcessorGpt51Test {
     void plainNoFindingsAnswer_unchanged() {
         final String raw = "The retrieved documents do not contain information about previous burglary convictions.";
 
-        final String actual = citationProcessor.processAndFormatCitations(raw);
+        final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
 
         assertEquals(raw, actual);
     }

@@ -13,6 +13,7 @@ import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.ai.util.ChunkFormatterUtility;
 import uk.gov.moj.cp.retrieval.exception.CitationDegradedException;
 import uk.gov.moj.cp.retrieval.model.CitationGuardMode;
+import uk.gov.moj.cp.retrieval.model.CitationScope;
 import uk.gov.moj.cp.retrieval.model.LlmResponse;
 import uk.gov.moj.cp.retrieval.service.CitationProcessor.CitationOutcome;
 
@@ -87,6 +88,9 @@ public class ResponseGenerationService {
 
         LOGGER.info("Generating LLM response");
 
+        // Built once from the same list rendered into the prompt; citations are validated against it.
+        final CitationScope citationScope = CitationScope.from(chunkedEntries);
+
         final String formattedChunks = chunkFormatterUtility.buildChunkContext(chunkedEntries);
         LOGGER.info("Constructed retrieved contexts, has {} characters", formattedChunks.length());
 
@@ -94,7 +98,7 @@ public class ResponseGenerationService {
 
         return chatService.callModel(systemPromptTemplate, userInstruction, String.class)
                 .filter(rawLlmResponse -> !isNullOrEmpty(rawLlmResponse))
-                .map(this::toGuardedResponse)
+                .map(rawLlmResponse -> toGuardedResponse(rawLlmResponse, citationScope))
                 .orElseGet(() -> {
                     LOGGER.warn("LLM returned no response.");
                     return new LlmResponse(LLM_RESPONSE_FAILURE_TO_GENERATE, LLM_RESPONSE_FAILURE_TO_GENERATE, ANSWER_GENERATION_FAILED);
@@ -106,8 +110,8 @@ public class ResponseGenerationService {
      * {@link CitationDegradedException} when the guard is enforcing; with the guard OFF it is
      * returned as generated, carrying the guard reason so the degradation is still recorded.
      */
-    private LlmResponse toGuardedResponse(final String rawLlmResponse) {
-        final CitationOutcome outcome = citationProcessor.processCitations(rawLlmResponse);
+    private LlmResponse toGuardedResponse(final String rawLlmResponse, final CitationScope citationScope) {
+        final CitationOutcome outcome = citationProcessor.processCitations(rawLlmResponse, citationScope);
         if (isAcceptable(outcome)) {
             LOGGER.info("Citation guard [{}]: accepted {} — rendered={}, inlineMarkers={}, stripped={}, jsonBlock={}, formattedLength={} chars",
                     guardMode.name().toLowerCase(Locale.ROOT),

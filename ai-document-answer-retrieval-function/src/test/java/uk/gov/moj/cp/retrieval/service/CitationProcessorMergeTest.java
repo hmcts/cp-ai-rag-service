@@ -1,6 +1,10 @@
 package uk.gov.moj.cp.retrieval.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static uk.gov.moj.cp.retrieval.service.CitationScopeFixtures.doc;
+import static uk.gov.moj.cp.retrieval.service.CitationScopeFixtures.scopeOf;
+
+import uk.gov.moj.cp.retrieval.model.CitationScope;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -9,9 +13,16 @@ import org.junit.jupiter.api.Test;
  * Pins the same-document stacked-run merge: adjacent bare {@code [N]} markers whose
  * citationIds resolve to the SAME documentId collapse into one formatted citation with
  * the union of the entries' pages, while different-document adjacency, non-adjacent
- * reuse, and unresolved ids keep their existing behaviour.
+ * reuse, and unresolved ids keep their existing behaviour. Markers of ids with no valid
+ * entry are removed before run detection, so they never split a run.
  */
 class CitationProcessorMergeTest {
+
+    /** Default retrieval scope; tests that reuse an id under a different filename declare their own. */
+    private static final CitationScope SCOPE = scopeOf(
+            doc("doc123", "case.pdf", 2, 3, 4, 5, 7, 8, 10, 11, 12, 13),
+            doc("docA", "case.pdf", 1, 2),
+            doc("docB", "witness.pdf", 5));
 
     private CitationProcessor citationProcessor;
 
@@ -31,7 +42,7 @@ class CitationProcessorMergeTest {
                 + entry(1, "case.pdf", "10,11", "doc123") + "," + entry(2, "case.pdf", "12", "doc123")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw);
+        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
 
         assertEquals("The defendant was arrested and charged "
                 + "::(Source: [case.pdf], Pages 10-12|10,11,12|documentId=doc123).", result);
@@ -43,7 +54,7 @@ class CitationProcessorMergeTest {
                 + entry(1, "case.pdf", "3", "doc123") + "," + entry(2, "case.pdf", "7", "doc123")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw);
+        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
 
         assertEquals("Facts established over two days "
                 + "::(Source: [case.pdf], Pages 3,7|3,7|documentId=doc123).", result);
@@ -55,7 +66,7 @@ class CitationProcessorMergeTest {
                 + entry(1, "case.pdf", "3", "doc123") + "," + entry(2, "case.pdf", "7", "doc123")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw);
+        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
 
         assertEquals("Fact one ::(Source: [case.pdf], Pages 3|3|documentId=doc123)\n"
                 + "Fact two ::(Source: [case.pdf], Pages 7|7|documentId=doc123)", result);
@@ -66,8 +77,9 @@ class CitationProcessorMergeTest {
         String raw = "Both Acts criminalise the conduct [1][2]. <FACT_MAP_JSON>["
                 + entry(1, "theft-act.pdf", "1", "docA") + "," + entry(2, "fraud-act.pdf", "2", "docB")
                 + "]</FACT_MAP_JSON>";
+        CitationScope scope = scopeOf(doc("docA", "theft-act.pdf", 1), doc("docB", "fraud-act.pdf", 2));
 
-        String result = citationProcessor.processAndFormatCitations(raw);
+        String result = citationProcessor.processAndFormatCitations(raw, scope);
 
         assertEquals("Both Acts criminalise the conduct "
                 + "::(Source: [theft-act.pdf], Pages 1|1|documentId=docA)"
@@ -81,7 +93,7 @@ class CitationProcessorMergeTest {
                 + entry(3, "witness.pdf", "5", "docB")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw);
+        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
 
         assertEquals("The sequence of events is established "
                 + "::(Source: [case.pdf], Pages 1,2|1,2|documentId=docA)"
@@ -95,7 +107,7 @@ class CitationProcessorMergeTest {
                 + entry(3, "witness.pdf", "5", "docB")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw);
+        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
 
         assertEquals("All three sources agree "
                 + "::(Source: [case.pdf], Pages 1|1|documentId=docA)"
@@ -109,7 +121,7 @@ class CitationProcessorMergeTest {
                 + entry(1, "case.pdf", "10,11", "doc123") + "," + entry(2, "case.pdf", "12", "doc123")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw);
+        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
 
         assertEquals("He was arrested and charged "
                 + "::(Source: [case.pdf], Pages 10-12|10,11,12|documentId=doc123). "
@@ -122,23 +134,22 @@ class CitationProcessorMergeTest {
                 + entry(1, "case.pdf", "3,7", "doc123") + "," + entry(2, "case.pdf", "7,8,2", "doc123")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw);
+        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
 
         assertEquals("The chronology is set out in the exhibits "
                 + "::(Source: [case.pdf], Pages 2,3,7,8|2,3,7,8|documentId=doc123).", result);
     }
 
     @Test
-    void unknownIdInsideRun_BreaksMergeAndIsStripped() {
+    void unknownIdInsideRun_IsStrippedAndRunStillMerges() {
         String raw = "The account is corroborated [1][9][2]. <FACT_MAP_JSON>["
                 + entry(1, "case.pdf", "1", "docA") + "," + entry(2, "case.pdf", "2", "docA")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw);
+        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
 
         assertEquals("The account is corroborated "
-                + "::(Source: [case.pdf], Pages 1|1|documentId=docA)"
-                + "::(Source: [case.pdf], Pages 2|2|documentId=docA).", result);
+                + "::(Source: [case.pdf], Pages 1,2|1,2|documentId=docA).", result);
     }
 
     @Test
@@ -147,22 +158,23 @@ class CitationProcessorMergeTest {
                 + entry(1, "case.pdf", "4,5", "doc123")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw);
+        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
 
         assertEquals("The point is repeated for emphasis "
                 + "::(Source: [case.pdf], Pages 4,5|4,5|documentId=doc123).", result);
     }
 
     @Test
-    void nonNumericPageTokens_AreToleratedInUnion() {
+    void nonNumericPageTokens_AreTrimmedFromUnion() {
         String raw = "The preamble and schedule both apply [1][2]. <FACT_MAP_JSON>["
                 + entry(1, "act.pdf", "iv,2", "doc123") + "," + entry(2, "act.pdf", "3", "doc123")
                 + "]</FACT_MAP_JSON>";
+        CitationScope scope = scopeOf(doc("doc123", "act.pdf", 2, 3));
 
-        String result = citationProcessor.processAndFormatCitations(raw);
+        String result = citationProcessor.processAndFormatCitations(raw, scope);
 
         assertEquals("The preamble and schedule both apply "
-                + "::(Source: [act.pdf], Pages 2,3,iv|2,3,iv|documentId=doc123).", result);
+                + "::(Source: [act.pdf], Pages 2,3|2,3|documentId=doc123).", result);
     }
 
     @Test
@@ -171,7 +183,7 @@ class CitationProcessorMergeTest {
                 + entry(1, "case.pdf", "10,11", "doc123") + "," + entry(2, "case.pdf", "12", "doc123")
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw);
+        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
 
         assertEquals("The facts are agreed "
                 + "::(Source: [case.pdf], Pages 10-12|10,11,12|documentId=doc123).", result);
@@ -186,7 +198,7 @@ class CitationProcessorMergeTest {
                 + "\"individualPageNumbers\":\"13\",\"documentId\":\"doc123\"}"
                 + "]</FACT_MAP_JSON>";
 
-        String result = citationProcessor.processAndFormatCitations(raw);
+        String result = citationProcessor.processAndFormatCitations(raw, SCOPE);
 
         assertEquals("The evidence spans the bundle "
                 + "::(Source: [case.pdf], Pages 10-13|10,11,12,13|documentId=doc123).", result);

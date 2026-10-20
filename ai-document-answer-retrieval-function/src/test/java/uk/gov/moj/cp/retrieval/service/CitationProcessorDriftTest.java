@@ -3,6 +3,10 @@ package uk.gov.moj.cp.retrieval.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static uk.gov.moj.cp.retrieval.service.CitationScopeFixtures.doc;
+import static uk.gov.moj.cp.retrieval.service.CitationScopeFixtures.scopeOf;
+
+import uk.gov.moj.cp.retrieval.model.CitationScope;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,6 +18,8 @@ import org.junit.jupiter.api.Test;
  *
  */
 class CitationProcessorDriftTest {
+
+    private static final CitationScope SCOPE = scopeOf(doc("abc-123", "case.pdf", 7));
 
     private static final String CITATION_FORMATTED =
             "::(Source: [case.pdf], Pages 7|7|documentId=abc-123)";
@@ -29,7 +35,7 @@ class CitationProcessorDriftTest {
         final String raw = "The defendant was charged with assault [1 p.7]. " + CITATION_JSON_BLOCK;
         final String expected = "The defendant was charged with assault " + CITATION_FORMATTED + ".";
 
-        assertEquals(expected, citationProcessor.processAndFormatCitations(raw));
+        assertEquals(expected, citationProcessor.processAndFormatCitations(raw, SCOPE));
     }
 
     @Test
@@ -38,7 +44,7 @@ class CitationProcessorDriftTest {
         final String raw = "The defendant was charged with assault [Source 1]. " + CITATION_JSON_BLOCK;
         final String expected = "The defendant was charged with assault " + CITATION_FORMATTED + ".";
 
-        assertEquals(expected, citationProcessor.processAndFormatCitations(raw));
+        assertEquals(expected, citationProcessor.processAndFormatCitations(raw, SCOPE));
     }
 
     @Test
@@ -49,7 +55,7 @@ class CitationProcessorDriftTest {
         final String expected = "For example: <FACT_MAP_JSON>[]</FACT_MAP_JSON>\n\n"
                 + "The real answer cites " + CITATION_FORMATTED + ".";
 
-        assertEquals(expected, citationProcessor.processAndFormatCitations(raw));
+        assertEquals(expected, citationProcessor.processAndFormatCitations(raw, SCOPE));
     }
 
     @Test
@@ -63,7 +69,7 @@ class CitationProcessorDriftTest {
         runaway.append(". <FACT_MAP_JSON>[{\"citationId\":\"1\",\"documentFilename\":\"case.pdf\","
                 + "\"pageNumbers\":\"1\",\"individualPageNumbers\":\"1\",\"documentId\":\"abc\"}");
 
-        final String actual = citationProcessor.processAndFormatCitations(runaway.toString());
+        final String actual = citationProcessor.processAndFormatCitations(runaway.toString(), SCOPE);
 
         final long bracketCount = actual.chars().filter(c -> c == '[').count();
         assertTrue(bracketCount < 100,

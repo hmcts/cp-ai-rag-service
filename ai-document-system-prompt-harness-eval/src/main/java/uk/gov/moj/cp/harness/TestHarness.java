@@ -31,6 +31,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -177,12 +178,14 @@ public final class TestHarness {
     }
 
     /**
-     * {@link CitationMetrics.Compliance} per response, computed once. The summary, consistency and
-     * detail sections all need the same metrics; recomputing would also re-run the citation
-     * processor, whose INFO lines would then spam every report section. Reporting is single-threaded
-     * (post-join), so a plain identity map suffices.
+     * {@link CitationMetrics.Compliance} per response, computed once in {@link #runCell} with the
+     * chunks the response was generated from (citations are validated against them). The summary,
+     * consistency and detail sections all read the same metrics; recomputing would also re-run the
+     * citation processor, whose INFO lines would then spam every report section. Cells run on
+     * per-model worker threads, so the map is synchronised.
      */
-    private static final Map<LlmResponse, CitationMetrics.Compliance> COMPLIANCE_BY_RESPONSE = new IdentityHashMap<>();
+    private static final Map<LlmResponse, CitationMetrics.Compliance> COMPLIANCE_BY_RESPONSE =
+            Collections.synchronizedMap(new IdentityHashMap<>());
 
     public static void main(final String[] args) throws InterruptedException {
         final List<SystemPromptConfig> systemPrompts = loadPrompts();
@@ -355,8 +358,10 @@ public final class TestHarness {
         final long t0 = System.currentTimeMillis();
         try {
             final LlmResponse r = svc.svc().generateResponse(uqc.userQuery(), chunks, uqc.userQueryPrompt());
-            return new RunResult(spc.label(), lc.label(), uqc.label(), iter, r, svc.takeUsage(),
+            final RunResult result = new RunResult(spc.label(), lc.label(), uqc.label(), iter, r, svc.takeUsage(),
                     System.currentTimeMillis() - t0, null);
+            COMPLIANCE_BY_RESPONSE.put(r, CitationMetrics.compute(r, chunks));
+            return result;
         } catch (final Exception e) {
             // Includes ChatServiceException and transient transport failures (e.g. read timeouts on
             // long gpt-5.1 reasoning calls). Record the cell as an ERROR and carry on. Usage is
@@ -770,11 +775,11 @@ public final class TestHarness {
     }
 
     /**
-     * Citation-format compliance metrics for one response, memoised per response so the summary,
-     * consistency and detail sections share a single {@link CitationMetrics#compute} pass.
+     * Citation-format compliance metrics for one response, computed once in {@link #runCell} so the
+     * summary, consistency and detail sections share a single {@link CitationMetrics#compute} pass.
      */
     static CitationMetrics.Compliance computeCompliance(final LlmResponse response) {
-        return COMPLIANCE_BY_RESPONSE.computeIfAbsent(response, CitationMetrics::compute);
+        return COMPLIANCE_BY_RESPONSE.get(response);
     }
 
     /** Applies the same pre-call delay as generation calls; restores the interrupt flag if interrupted. */

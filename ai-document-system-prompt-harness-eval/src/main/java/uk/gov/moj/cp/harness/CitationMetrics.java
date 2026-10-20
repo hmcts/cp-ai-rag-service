@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.harness;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -8,6 +9,8 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import uk.gov.moj.cp.ai.model.ChunkedEntry;
+import uk.gov.moj.cp.retrieval.model.CitationScope;
 import uk.gov.moj.cp.retrieval.model.LlmResponse;
 import uk.gov.moj.cp.retrieval.service.CitationProcessor;
 
@@ -78,8 +81,11 @@ final class CitationMetrics {
      * inline {@code [N]} markers (bare) vs any-bracket-citation matches (difference = drift),
      * JSON citationId values, whether every inline id appears in the JSON, whether
      * {@link CitationProcessor} actually substituted, and whether a parseable JSON block exists.
+     *
+     * @param chunks the chunks the response was generated from — the citation processor validates
+     *               the response's citations against them, exactly as production does
      */
-    static Compliance compute(final LlmResponse response) {
+    static Compliance compute(final LlmResponse response, final List<ChunkedEntry> chunks) {
         final String raw = response.rawLlmResponse() == null ? "" : response.rawLlmResponse();
         final String formatted = response.formattedLlmResponse() == null ? "" : response.formattedLlmResponse();
 
@@ -139,7 +145,7 @@ final class CitationMetrics {
 
         // Same signal the production citation guard consumes: rendered/stripped counts and the
         // "substantive but uncited" flag (legitimate short refusals stay below the word floor).
-        final CitationProcessor.CitationOutcome outcome = OUTCOME_PROCESSOR.processCitations(raw);
+        final CitationProcessor.CitationOutcome outcome = OUTCOME_PROCESSOR.processCitations(raw, CitationScope.from(chunks));
         final boolean uncitedSubstantive =
                 proseWords >= SUBSTANTIVE_PROSE_WORDS && outcome.renderedCitations() == 0;
 
