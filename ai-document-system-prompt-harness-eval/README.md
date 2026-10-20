@@ -47,8 +47,12 @@ It then produces two things:
 | `proseAvg` / `wordAvg` | answer length excluding the JSON block and inline markers — a citation-independent verbosity measure |
 | `cites` / `pages` | distinct citations and total source pages cited — coverage guards |
 | `stacks` | same-document stacked `[N][M]` runs in the raw output (should be 0; the prompt asks the model to group them) |
-| `rendered` / `stripped` | citations rendered to the reader vs. markers stripped as unresolved |
+| `rendered` / `stripped` | citations rendered to the reader vs. markers stripped as unresolved; stripped includes markers of citations dropped by validation |
 | `uncited` | substantive answers (≥ 50 prose words) with **zero** rendered citations |
+| `invalid` | OK runs with at least one FACT_MAP_JSON entry dropped by citation validation (documentId, filename or pages not matching the retrieved chunks), as x/ok; the per-run count is in the summary and detail sections |
+| `trimmed` | page tokens trimmed from kept citations because they were not retrieved pages of that document (detail section, `trimmedPages`) |
+
+These counts come from the same validation production applies (DD-43809), computed against each run's own chunks. Persisted result files record them as `metrics.invalidCitations` / `metrics.trimmedPages` with `meta.citationValidation: true`. Files written before DD-43809 carry no validation counts — read them as `n/a`, not 0 — and their formatted answers may contain unvalidated citations, so baselines across the change are not strictly comparable.
 
 ### Comparison dimensions (LLM judge)
 
