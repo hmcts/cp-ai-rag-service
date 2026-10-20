@@ -49,7 +49,7 @@ class CitationMetricsTest {
 
     @Test
     void compute_wellFormedAnswer_reportsMarkersJsonAndPages() {
-        final String raw = "The defendant assaulted the victim [1]. He later fled the scene [2]."
+        final String raw = "The item arrived damaged [1]. It was later returned to the supplier [2]."
                 + factMap(obj(1, "doc-A", "3,4"), obj(2, "doc-A", "5"));
         final Compliance c = compute(raw, "formatted ::(Source: [f.pdf], Pages 3)");
 
@@ -84,7 +84,7 @@ class CitationMetricsTest {
 
     @Test
     void compute_shortRefusal_isNotUncited() {
-        final Compliance c = compute("No relevant previous convictions found.", "");
+        final Compliance c = compute("No relevant previous records found.", "");
         assertEquals(0, c.renderedCitations());
         assertTrue(c.proseWords() < CitationMetrics.SUBSTANTIVE_PROSE_WORDS);
         assertFalse(c.uncitedSubstantive(), "below the substantive word floor");
@@ -92,7 +92,7 @@ class CitationMetricsTest {
 
     @Test
     void compute_adjacentMarkersSameDocument_countAsOneStackedRun() {
-        final String raw = "The victim suffered harm [1][2][3] as described."
+        final String raw = "The item showed wear [1][2][3] as described."
                 + factMap(obj(1, "doc-A", "1"), obj(2, "doc-A", "2"), obj(3, "doc-A", "3"));
         assertEquals(1, compute(raw, "").sameDocStackedRuns());
     }

@@ -28,15 +28,15 @@ import org.junit.jupiter.api.Test;
 class CitationProcessorGpt41Test {
 
     private static final CitationScope SCOPE = scopeOf(
-            doc("abc-123", "case.pdf", 7, 8, 9), doc("a-id", "a.pdf", 1), doc("b-id", "b.pdf", 2));
+            doc("abc-123", "report-a.pdf", 7, 8, 9), doc("a-id", "a.pdf", 1), doc("b-id", "b.pdf", 2));
 
     private final CitationProcessor citationProcessor = new CitationProcessor();
 
     private static final String CITATION_FORMATTED =
-            "::(Source: [case.pdf], Pages 7|7|documentId=abc-123)";
+            "::(Source: [report-a.pdf], Pages 7|7|documentId=abc-123)";
 
     private static final String JSON_ONE =
-            "<FACT_MAP_JSON>[{\"citationId\":\"1\",\"documentFilename\":\"case.pdf\","
+            "<FACT_MAP_JSON>[{\"citationId\":\"1\",\"documentFilename\":\"report-a.pdf\","
                     + "\"pageNumbers\":\"7\",\"individualPageNumbers\":\"7\","
                     + "\"documentId\":\"abc-123\"}]</FACT_MAP_JSON>";
 
@@ -50,38 +50,38 @@ class CitationProcessorGpt41Test {
 
     @Test @DisplayName("A1 [1] bare bracket")
     void a1_bareBracket() {
-        assertEquals("The defendant was charged " + CITATION_FORMATTED + ".",
-                citationProcessor.processAndFormatCitations("The defendant was charged [1]. " + JSON_ONE, SCOPE));
+        assertEquals("The item was recorded " + CITATION_FORMATTED + ".",
+                citationProcessor.processAndFormatCitations("The item was recorded [1]. " + JSON_ONE, SCOPE));
     }
 
     @Test @DisplayName("A2 [1:7] colon-suffixed page hint")
     void a2_colonSuffix() {
-        assertEquals("The defendant was charged " + CITATION_FORMATTED + ".",
-                citationProcessor.processAndFormatCitations("The defendant was charged [1:7]. " + JSON_ONE, SCOPE));
+        assertEquals("The item was recorded " + CITATION_FORMATTED + ".",
+                citationProcessor.processAndFormatCitations("The item was recorded [1:7]. " + JSON_ONE, SCOPE));
     }
 
     @Test @DisplayName("A3 [1, page 7] full-word page suffix")
     void a3_fullWordPage() {
-        assertEquals("The defendant was charged " + CITATION_FORMATTED + ".",
-                citationProcessor.processAndFormatCitations("The defendant was charged [1, page 7]. " + JSON_ONE, SCOPE));
+        assertEquals("The item was recorded " + CITATION_FORMATTED + ".",
+                citationProcessor.processAndFormatCitations("The item was recorded [1, page 7]. " + JSON_ONE, SCOPE));
     }
 
     @Test @DisplayName("A4 **[1]** markdown bold around placeholder")
     void a4_boldMarkdown() {
-        assertEquals("The defendant was charged **" + CITATION_FORMATTED + "**.",
-                citationProcessor.processAndFormatCitations("The defendant was charged **[1]**. " + JSON_ONE, SCOPE));
+        assertEquals("The item was recorded **" + CITATION_FORMATTED + "**.",
+                citationProcessor.processAndFormatCitations("The item was recorded **[1]**. " + JSON_ONE, SCOPE));
     }
 
     @Test @DisplayName("A5 [^1] footnote-style placeholder")
     void a5_footnoteStyle() {
-        assertEquals("The defendant was charged " + CITATION_FORMATTED + ".",
-                citationProcessor.processAndFormatCitations("The defendant was charged [^1]. " + JSON_ONE, SCOPE));
+        assertEquals("The item was recorded " + CITATION_FORMATTED + ".",
+                citationProcessor.processAndFormatCitations("The item was recorded [^1]. " + JSON_ONE, SCOPE));
     }
 
     @Test @DisplayName("A6 [1, 2] comma-joined ids — both substituted")
     void a6_commaJoinedIds() {
         final String actual = citationProcessor.processAndFormatCitations(
-                "Both Acts criminalise this [1, 2]. " + JSON_TWO, SCOPE);
+                "Both documents describe this [1, 2]. " + JSON_TWO, SCOPE);
 
         assertTrue(actual.contains("a.pdf"), "citation 1 missing: " + actual);
         assertTrue(actual.contains("b.pdf"), "citation 2 missing: " + actual);
@@ -90,7 +90,7 @@ class CitationProcessorGpt41Test {
     @Test @DisplayName("A7 [1; 2] semicolon-joined ids — both substituted")
     void a7_semicolonJoinedIds() {
         final String actual = citationProcessor.processAndFormatCitations(
-                "Both Acts criminalise this [1; 2]. " + JSON_TWO, SCOPE);
+                "Both documents describe this [1; 2]. " + JSON_TWO, SCOPE);
 
         assertTrue(actual.contains("a.pdf"), "citation 1 missing: " + actual);
         assertTrue(actual.contains("b.pdf"), "citation 2 missing: " + actual);
@@ -98,27 +98,27 @@ class CitationProcessorGpt41Test {
 
     @Test @DisplayName("A8 [ 1 ] whitespace inside bracket")
     void a8_whitespaceInsideBracket() {
-        assertEquals("The defendant was charged " + CITATION_FORMATTED + ".",
-                citationProcessor.processAndFormatCitations("The defendant was charged [ 1 ]. " + JSON_ONE, SCOPE));
+        assertEquals("The item was recorded " + CITATION_FORMATTED + ".",
+                citationProcessor.processAndFormatCitations("The item was recorded [ 1 ]. " + JSON_ONE, SCOPE));
     }
 
     @Test @DisplayName("A9 [citation 1] lowercase label")
     void a9_lowercaseLabel() {
-        assertEquals("The defendant was charged " + CITATION_FORMATTED + ".",
-                citationProcessor.processAndFormatCitations("The defendant was charged [citation 1]. " + JSON_ONE, SCOPE));
+        assertEquals("The item was recorded " + CITATION_FORMATTED + ".",
+                citationProcessor.processAndFormatCitations("The item was recorded [citation 1]. " + JSON_ONE, SCOPE));
     }
 
     @Test @DisplayName("A10 [Citation: 1] label with colon separator")
     void a10_labelWithColon() {
-        assertEquals("The defendant was charged " + CITATION_FORMATTED + ".",
-                citationProcessor.processAndFormatCitations("The defendant was charged [Citation: 1]. " + JSON_ONE, SCOPE));
+        assertEquals("The item was recorded " + CITATION_FORMATTED + ".",
+                citationProcessor.processAndFormatCitations("The item was recorded [Citation: 1]. " + JSON_ONE, SCOPE));
     }
 
     @Test @DisplayName("A11 (1) parens must NOT be treated as a citation")
     void a11_parensNotCitation() {
         // The system prompt reserves parens for in-prose list enumeration.
-        final String raw = "The defendant was charged (1). " + JSON_ONE;
-        assertEquals("The defendant was charged (1).",
+        final String raw = "The item was recorded (1). " + JSON_ONE;
+        assertEquals("The item was recorded (1).",
                 citationProcessor.processAndFormatCitations(raw, SCOPE));
     }
 
@@ -126,7 +126,7 @@ class CitationProcessorGpt41Test {
 
     @Test @DisplayName("B1 ```xml fence wrapping the tag")
     void b1_codeFenceAroundTag() {
-        final String raw = "The defendant was charged [1].\n```xml\n" + JSON_ONE + "\n```";
+        final String raw = "The item was recorded [1].\n```xml\n" + JSON_ONE + "\n```";
 
         final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
         assertTrue(actual.contains(CITATION_FORMATTED), "expected substituted citation, got: " + actual);
@@ -134,8 +134,8 @@ class CitationProcessorGpt41Test {
 
     @Test @DisplayName("B2 ```json fence INSIDE the tag (around the JSON payload)")
     void b2_codeFenceInsideTag() {
-        final String raw = "The defendant was charged [1].\n<FACT_MAP_JSON>\n```json\n"
-                + "[{\"citationId\":\"1\",\"documentFilename\":\"case.pdf\","
+        final String raw = "The item was recorded [1].\n<FACT_MAP_JSON>\n```json\n"
+                + "[{\"citationId\":\"1\",\"documentFilename\":\"report-a.pdf\","
                 + "\"pageNumbers\":\"7\",\"individualPageNumbers\":\"7\",\"documentId\":\"abc-123\"}]"
                 + "\n```\n</FACT_MAP_JSON>";
 
@@ -145,8 +145,8 @@ class CitationProcessorGpt41Test {
 
     @Test @DisplayName("B3 lowercase <fact_map_json> tag")
     void b3_lowercaseTag() {
-        final String raw = "The defendant was charged [1]. "
-                + "<fact_map_json>[{\"citationId\":\"1\",\"documentFilename\":\"case.pdf\","
+        final String raw = "The item was recorded [1]. "
+                + "<fact_map_json>[{\"citationId\":\"1\",\"documentFilename\":\"report-a.pdf\","
                 + "\"pageNumbers\":\"7\",\"individualPageNumbers\":\"7\",\"documentId\":\"abc-123\"}]</fact_map_json>";
 
         final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
@@ -155,8 +155,8 @@ class CitationProcessorGpt41Test {
 
     @Test @DisplayName("B4 <FACT_MAP_JSON > tag with internal whitespace")
     void b4_tagWithWhitespace() {
-        final String raw = "The defendant was charged [1]. "
-                + "<FACT_MAP_JSON >[{\"citationId\":\"1\",\"documentFilename\":\"case.pdf\","
+        final String raw = "The item was recorded [1]. "
+                + "<FACT_MAP_JSON >[{\"citationId\":\"1\",\"documentFilename\":\"report-a.pdf\","
                 + "\"pageNumbers\":\"7\",\"individualPageNumbers\":\"7\",\"documentId\":\"abc-123\"}]</FACT_MAP_JSON >";
 
         final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
@@ -167,19 +167,19 @@ class CitationProcessorGpt41Test {
 
     @Test @DisplayName("C1 citationId as a JSON number rather than a string")
     void c1_citationIdAsJsonNumber() {
-        final String raw = "The defendant was charged [1]. "
-                + "<FACT_MAP_JSON>[{\"citationId\":1,\"documentFilename\":\"case.pdf\","
+        final String raw = "The item was recorded [1]. "
+                + "<FACT_MAP_JSON>[{\"citationId\":1,\"documentFilename\":\"report-a.pdf\","
                 + "\"pageNumbers\":\"7\",\"individualPageNumbers\":\"7\",\"documentId\":\"abc-123\"}]</FACT_MAP_JSON>";
 
-        assertEquals("The defendant was charged " + CITATION_FORMATTED + ".",
+        assertEquals("The item was recorded " + CITATION_FORMATTED + ".",
                 citationProcessor.processAndFormatCitations(raw, SCOPE));
     }
 
     @Test @DisplayName("C2 individualPageNumbers as a JSON array rather than a CSV string")
     void c2_pageNumbersAsArray() {
         // pageNumbers omitted to force the processor to compress the array itself.
-        final String raw = "The defendant was charged [1]. "
-                + "<FACT_MAP_JSON>[{\"citationId\":\"1\",\"documentFilename\":\"case.pdf\","
+        final String raw = "The item was recorded [1]. "
+                + "<FACT_MAP_JSON>[{\"citationId\":\"1\",\"documentFilename\":\"report-a.pdf\","
                 + "\"individualPageNumbers\":[7,8,9],\"documentId\":\"abc-123\"}]</FACT_MAP_JSON>";
 
         final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
@@ -189,8 +189,8 @@ class CitationProcessorGpt41Test {
 
     @Test @DisplayName("C3 missing documentId drops the citation rather than rendering a fallback or throwing")
     void c3_missingDocumentId() {
-        final String raw = "The defendant was charged [1]. "
-                + "<FACT_MAP_JSON>[{\"citationId\":\"1\",\"documentFilename\":\"case.pdf\","
+        final String raw = "The item was recorded [1]. "
+                + "<FACT_MAP_JSON>[{\"citationId\":\"1\",\"documentFilename\":\"report-a.pdf\","
                 + "\"pageNumbers\":\"7\",\"individualPageNumbers\":\"7\"}]</FACT_MAP_JSON>";
 
         final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
@@ -204,16 +204,16 @@ class CitationProcessorGpt41Test {
 
     @Test @DisplayName("D1 citation tag emitted BEFORE the answer body — answer preserved")
     void d1_jsonBeforeAnswer() {
-        final String raw = JSON_ONE + "\n\nThe defendant was charged [1].";
+        final String raw = JSON_ONE + "\n\nThe item was recorded [1].";
 
         final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
-        assertTrue(actual.contains("The defendant was charged"), "answer body lost: " + actual);
+        assertTrue(actual.contains("The item was recorded"), "answer body lost: " + actual);
         assertTrue(actual.contains(CITATION_FORMATTED), "citation not substituted: " + actual);
     }
 
     @Test @DisplayName("D2 prose AFTER the citation tag is preserved")
     void d2_proseAfterJsonTag() {
-        final String raw = "The defendant was charged [1]. " + JSON_ONE
+        final String raw = "The item was recorded [1]. " + JSON_ONE
                 + "\n\nLet me know if you need more.";
 
         final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
@@ -223,11 +223,11 @@ class CitationProcessorGpt41Test {
 
     @Test @DisplayName("D3 citation tag in the MIDDLE — prose on both sides preserved")
     void d3_jsonInMiddle() {
-        final String raw = "The defendant was charged [1]. " + JSON_ONE
+        final String raw = "The item was recorded [1]. " + JSON_ONE
                 + " Additional context here [1].";
 
         final String actual = citationProcessor.processAndFormatCitations(raw, SCOPE);
-        assertTrue(actual.contains("The defendant was charged"), "leading prose lost: " + actual);
+        assertTrue(actual.contains("The item was recorded"), "leading prose lost: " + actual);
         assertTrue(actual.contains("Additional context here"), "trailing prose lost: " + actual);
 
         final int substitutions = actual.split("::\\(Source", -1).length - 1;
@@ -237,9 +237,9 @@ class CitationProcessorGpt41Test {
 
     @Test @DisplayName("D4 CRLF line endings are tolerated")
     void d4_crlfLineEndings() {
-        final String raw = "The defendant was charged [1].\r\n" + JSON_ONE;
+        final String raw = "The item was recorded [1].\r\n" + JSON_ONE;
 
-        assertEquals("The defendant was charged " + CITATION_FORMATTED + ".",
+        assertEquals("The item was recorded " + CITATION_FORMATTED + ".",
                 citationProcessor.processAndFormatCitations(raw, SCOPE));
     }
 }

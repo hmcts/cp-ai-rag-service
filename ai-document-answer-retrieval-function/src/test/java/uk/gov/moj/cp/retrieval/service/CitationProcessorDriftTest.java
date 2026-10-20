@@ -19,12 +19,12 @@ import org.junit.jupiter.api.Test;
  */
 class CitationProcessorDriftTest {
 
-    private static final CitationScope SCOPE = scopeOf(doc("abc-123", "case.pdf", 7));
+    private static final CitationScope SCOPE = scopeOf(doc("abc-123", "report-a.pdf", 7));
 
     private static final String CITATION_FORMATTED =
-            "::(Source: [case.pdf], Pages 7|7|documentId=abc-123)";
+            "::(Source: [report-a.pdf], Pages 7|7|documentId=abc-123)";
     private static final String CITATION_JSON_BLOCK =
-            "<FACT_MAP_JSON>[{\"citationId\":\"1\",\"documentFilename\":\"case.pdf\","
+            "<FACT_MAP_JSON>[{\"citationId\":\"1\",\"documentFilename\":\"report-a.pdf\","
                     + "\"pageNumbers\":\"7\",\"individualPageNumbers\":\"7\","
                     + "\"documentId\":\"abc-123\"}]</FACT_MAP_JSON>";
     private final CitationProcessor citationProcessor = new CitationProcessor();
@@ -32,8 +32,8 @@ class CitationProcessorDriftTest {
     @Test
     @DisplayName("Drift 1: [1 p.7] page-suffix drift is still substituted")
     void pageSuffixInBracket_isSubstituted() {
-        final String raw = "The defendant was charged with assault [1 p.7]. " + CITATION_JSON_BLOCK;
-        final String expected = "The defendant was charged with assault " + CITATION_FORMATTED + ".";
+        final String raw = "The item was recorded in the register [1 p.7]. " + CITATION_JSON_BLOCK;
+        final String expected = "The item was recorded in the register " + CITATION_FORMATTED + ".";
 
         assertEquals(expected, citationProcessor.processAndFormatCitations(raw, SCOPE));
     }
@@ -41,8 +41,8 @@ class CitationProcessorDriftTest {
     @Test
     @DisplayName("Drift 2: [Source 1] label-padded drift is still substituted")
     void labelPaddedBracket_isSubstituted() {
-        final String raw = "The defendant was charged with assault [Source 1]. " + CITATION_JSON_BLOCK;
-        final String expected = "The defendant was charged with assault " + CITATION_FORMATTED + ".";
+        final String raw = "The item was recorded in the register [Source 1]. " + CITATION_JSON_BLOCK;
+        final String expected = "The item was recorded in the register " + CITATION_FORMATTED + ".";
 
         assertEquals(expected, citationProcessor.processAndFormatCitations(raw, SCOPE));
     }
@@ -66,7 +66,7 @@ class CitationProcessorDriftTest {
             runaway.append('[').append(i).append(']');
         }
         // Truncation at maxTokens leaves the JSON without a closing tag
-        runaway.append(". <FACT_MAP_JSON>[{\"citationId\":\"1\",\"documentFilename\":\"case.pdf\","
+        runaway.append(". <FACT_MAP_JSON>[{\"citationId\":\"1\",\"documentFilename\":\"report-a.pdf\","
                 + "\"pageNumbers\":\"1\",\"individualPageNumbers\":\"1\",\"documentId\":\"abc\"}");
 
         final String actual = citationProcessor.processAndFormatCitations(runaway.toString(), SCOPE);

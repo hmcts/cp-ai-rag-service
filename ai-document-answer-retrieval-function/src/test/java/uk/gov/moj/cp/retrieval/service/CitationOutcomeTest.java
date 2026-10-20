@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
  */
 class CitationOutcomeTest {
 
-    private static final CitationScope SCOPE = scopeOf(doc("docA", "case.pdf", 3, 7));
+    private static final CitationScope SCOPE = scopeOf(doc("docA", "report-a.pdf", 3, 7));
 
     private CitationProcessor citationProcessor;
 
@@ -30,8 +30,8 @@ class CitationOutcomeTest {
 
     @Test
     void cleanCitedAnswer_RendersAllCitations() {
-        String raw = "The defendant was charged [1]. <FACT_MAP_JSON>[{\"citationId\":1,"
-                + "\"documentFilename\":\"case.pdf\",\"individualPageNumbers\":\"3\",\"documentId\":\"docA\"}]</FACT_MAP_JSON>";
+        String raw = "The item was recorded [1]. <FACT_MAP_JSON>[{\"citationId\":1,"
+                + "\"documentFilename\":\"report-a.pdf\",\"individualPageNumbers\":\"3\",\"documentId\":\"docA\"}]</FACT_MAP_JSON>";
 
         CitationOutcome outcome = citationProcessor.processCitations(raw, SCOPE);
 
@@ -74,7 +74,7 @@ class CitationOutcomeTest {
     void entryCollapse_CountsRenderedAndStrippedSeparately() {
         // The observed gpt-4o pathology: many inline markers, one JSON entry.
         String raw = "Fact one [1]. Fact two [2]. Fact three [3]. <FACT_MAP_JSON>[{\"citationId\":1,"
-                + "\"documentFilename\":\"case.pdf\",\"individualPageNumbers\":\"3\",\"documentId\":\"docA\"}]</FACT_MAP_JSON>";
+                + "\"documentFilename\":\"report-a.pdf\",\"individualPageNumbers\":\"3\",\"documentId\":\"docA\"}]</FACT_MAP_JSON>";
 
         CitationOutcome outcome = citationProcessor.processCitations(raw, SCOPE);
 
@@ -98,9 +98,9 @@ class CitationOutcomeTest {
 
     @Test
     void mergedSameDocumentRun_CountsAsOneRenderedCitation() {
-        String raw = "Arrested and charged [1][2]. <FACT_MAP_JSON>[{\"citationId\":1,"
-                + "\"documentFilename\":\"case.pdf\",\"individualPageNumbers\":\"3\",\"documentId\":\"docA\"},"
-                + "{\"citationId\":2,\"documentFilename\":\"case.pdf\",\"individualPageNumbers\":\"7\",\"documentId\":\"docA\"}]</FACT_MAP_JSON>";
+        String raw = "Received and recorded [1][2]. <FACT_MAP_JSON>[{\"citationId\":1,"
+                + "\"documentFilename\":\"report-a.pdf\",\"individualPageNumbers\":\"3\",\"documentId\":\"docA\"},"
+                + "{\"citationId\":2,\"documentFilename\":\"report-a.pdf\",\"individualPageNumbers\":\"7\",\"documentId\":\"docA\"}]</FACT_MAP_JSON>";
 
         CitationOutcome outcome = citationProcessor.processCitations(raw, SCOPE);
 
@@ -111,8 +111,8 @@ class CitationOutcomeTest {
 
     @Test
     void processAndFormatCitations_DelegatesToOutcomeText() {
-        String raw = "The defendant was charged [1]. <FACT_MAP_JSON>[{\"citationId\":1,"
-                + "\"documentFilename\":\"case.pdf\",\"individualPageNumbers\":\"3\",\"documentId\":\"docA\"}]</FACT_MAP_JSON>";
+        String raw = "The item was recorded [1]. <FACT_MAP_JSON>[{\"citationId\":1,"
+                + "\"documentFilename\":\"report-a.pdf\",\"individualPageNumbers\":\"3\",\"documentId\":\"docA\"}]</FACT_MAP_JSON>";
 
         assertEquals(citationProcessor.processCitations(raw, SCOPE).formattedText(),
                 citationProcessor.processAndFormatCitations(raw, SCOPE));

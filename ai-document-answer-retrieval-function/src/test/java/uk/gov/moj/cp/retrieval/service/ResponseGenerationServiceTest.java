@@ -83,8 +83,8 @@ class ResponseGenerationServiceTest {
 
     @Test
     void generateResponse_ReturnsTrimmedAndCitationFormattedResponse_WhenChatServiceReturnsValidResponse() throws ChatServiceException {
-        final String userQuery = "What is the legal implication?";
-        final String userQueryPrompt = "Provide detailed legal advice.";
+        final String userQuery = "What is the main implication?";
+        final String userQueryPrompt = "Provide a detailed summary.";
         final String mockRawLlmResponse = "Valid AI Response [1]] " +
                 "and even more response with faulty citation [2]";
 
@@ -117,8 +117,8 @@ class ResponseGenerationServiceTest {
 
     @Test
     void generateResponse_ReturnsNoResponseMessage_WhenChatServiceReturnsEmpty() throws ChatServiceException {
-        final String userQuery = "What is the legal implication?";
-        final String userQueryPrompt = "Provide detailed legal advice.";
+        final String userQuery = "What is the main implication?";
+        final String userQueryPrompt = "Provide a detailed summary.";
         final List<ChunkedEntry> chunkedEntries = List.of(
                 ChunkedEntry.builder()
                         .id("id1")
@@ -149,8 +149,8 @@ class ResponseGenerationServiceTest {
 
     @Test
     void generateResponse_propagatesException_WhenChatServiceThrowsChatServiceException() throws ChatServiceException {
-        final String userQuery = "What is the legal implication?";
-        final String userQueryPrompt = "Provide detailed legal advice.";
+        final String userQuery = "What is the main implication?";
+        final String userQueryPrompt = "Provide a detailed summary.";
         final List<ChunkedEntry> chunkedEntries = List.of(
                 ChunkedEntry.builder()
                         .id("id1")
@@ -176,8 +176,8 @@ class ResponseGenerationServiceTest {
 
     @Test
     void generateResponse_ThrowsException_WhenChatServiceThrowsChatServiceException() throws ChatServiceException {
-        final String userQuery = "What is the legal implication?";
-        final String userQueryPrompt = "Provide detailed legal advice.";
+        final String userQuery = "What is the main implication?";
+        final String userQueryPrompt = "Provide a detailed summary.";
         final List<ChunkedEntry> chunkedEntries = List.of(
                 ChunkedEntry.builder()
                         .id("id1")
@@ -203,8 +203,8 @@ class ResponseGenerationServiceTest {
 
     @Test
     void generateResponse_ReturnsDefaultContextMessage_WhenChunkedEntriesAreNullOrEmpty() throws ChatServiceException {
-        final String userQuery = "What is the legal implication?";
-        final String userQueryPrompt = "Provide detailed legal advice.";
+        final String userQuery = "What is the main implication?";
+        final String userQueryPrompt = "Provide a detailed summary.";
 
         LlmResponse result = responseGenerationService.generateResponse(userQuery, null, userQueryPrompt);
         assertEquals(LLM_RESPONSE_NO_DATA_AVAILABLE, result.rawLlmResponse());
