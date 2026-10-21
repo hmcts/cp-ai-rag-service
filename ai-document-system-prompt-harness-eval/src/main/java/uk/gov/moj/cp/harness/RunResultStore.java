@@ -30,13 +30,10 @@ import org.slf4j.LoggerFactory;
  * source (live or snapshot path) and generation knobs — so a baseline is interpretable on its
  * own. Output directory override: {@code HARNESS_RESULTS_DIR}.
  *
- * <p>Citation validation (DD-43809): each row's {@code metrics} carries {@code invalidCitations}
- * and {@code trimmedPages}, and {@code meta.citationValidation} is {@code true}. Files written
- * before that change have neither, because their citations were rendered without validation.
- * Any reader must therefore treat an absent {@code metrics.invalidCitations} /
- * {@code metrics.trimmedPages} (or an absent {@code meta.citationValidation}) as <em>not
- * measured</em> and display {@code n/a} — never 0. {@link #persistedCount} implements that rule
- * and is the helper any such reader must use; no reader displays these counts today.
+ * <p>Files with {@code meta.citationValidation} carry {@code metrics.invalidCitations} and
+ * {@code metrics.trimmedPages}; older files rendered citations without validation, so an absent
+ * count means <em>not measured</em> ({@code n/a}), never 0. Readers must use
+ * {@link #persistedCount}, which applies that rule.
  */
 final class RunResultStore {
 
@@ -66,7 +63,7 @@ final class RunResultStore {
         return file;
     }
 
-    /** The persisted document — {@code meta} header plus one row per result — without any file I/O. */
+    /** The persisted document, without file I/O. */
     static Map<String, Object> document(final List<TestHarness.RunResult> results,
                                         final List<TestHarness.SystemPromptConfig> prompts,
                                         final List<TestHarness.LlmConfig> llms,
@@ -122,10 +119,6 @@ final class RunResultStore {
         return out;
     }
 
-    /**
-     * A persisted validation count for display: its value, or {@code n/a} when the row has no
-     * such metric (a file written before citation validation, or a row with no metrics).
-     */
     static String persistedCount(final JsonNode row, final String metricKey) {
         final JsonNode metrics = row.get("metrics");
         return metrics != null && metrics.hasNonNull(metricKey) ? metrics.get(metricKey).asText() : "n/a";

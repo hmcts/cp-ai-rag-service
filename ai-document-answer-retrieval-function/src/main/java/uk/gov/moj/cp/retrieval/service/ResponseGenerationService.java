@@ -71,16 +71,11 @@ public class ResponseGenerationService {
     }
 
     /**
-     * Generates the answer with a single LLM attempt. The answer's citations are validated against
-     * a {@link CitationScope} built once from {@code chunkedEntries} — the same list rendered into
-     * the prompt — so each attempt is checked against its own retrieval. The citation guard
-     * evaluates every answer regardless of mode. When the guard is enforcing ({@code CITATION_GUARD_MODE} != OFF) and
-     * the answer comes back citation-degraded, a {@link CitationDegradedException} carrying the
-     * degraded answer is thrown — retry and exhaustion policy belong to the caller: the async
-     * queue worker retries via queue redelivery; the synchronous path applies the policy
-     * immediately. With the guard OFF a citation-degraded answer is returned as
-     * {@code ANSWER_GENERATED} with the guard reason attached, so the degradation is still
-     * recorded (reason column, logs) without any retry or rejection.
+     * One LLM attempt, then the citation guard. Citations are validated against a
+     * {@link CitationScope} of {@code chunkedEntries}, the list rendered into the prompt, so each
+     * attempt is checked against its own retrieval. A citation-degraded answer throws
+     * {@link CitationDegradedException} — retry and exhaustion policy belong to the caller —
+     * unless the guard is OFF, which returns it as {@code ANSWER_GENERATED} with the guard reason.
      */
     public LlmResponse generateResponse(final String userQuery, final List<ChunkedEntry> chunkedEntries,
                                         final String userQueryPrompt) throws ChatServiceException {
@@ -91,7 +86,6 @@ public class ResponseGenerationService {
 
         LOGGER.info("Generating LLM response");
 
-        // Built once from the same list rendered into the prompt; citations are validated against it.
         final CitationScope citationScope = CitationScope.from(chunkedEntries);
 
         final String formattedChunks = chunkFormatterUtility.buildChunkContext(chunkedEntries);
@@ -109,14 +103,9 @@ public class ResponseGenerationService {
     }
 
     /**
-     * Applies the citation guard to one raw answer, after validating its citations against
-     * {@code citationScope}. A degraded answer — including one whose every citation entry failed
-     * validation, so nothing rendered — throws {@link CitationDegradedException} when the guard is
-     * enforcing; with the guard OFF it is returned as generated, carrying the guard reason
-     * (which ends {@code invalid=N}, the entries dropped by validation) so the degradation is
-     * still recorded. An accepted answer that lost some entries or pages to validation keeps a
-     * null reason (the reason column is reserved for real degradation) and logs one counts-only
-     * WARN.
+     * The reason ends {@code invalid=N}: entries dropped by validation. An accepted answer that
+     * lost entries or pages to validation keeps a null reason — the reason column means real
+     * degradation — and gets one counts-only WARN instead.
      */
     private LlmResponse toGuardedResponse(final String rawLlmResponse, final CitationScope citationScope) {
         final CitationOutcome outcome = citationProcessor.processCitations(rawLlmResponse, citationScope);
@@ -144,12 +133,8 @@ public class ResponseGenerationService {
         throw new CitationDegradedException(reason, rawLlmResponse, outcome.formattedText());
     }
 
-    /**
-     * Partial invalidity — at least one citation rendered, but validation dropped entries or
-     * trimmed pages — is accepted without a reason and surfaced by exactly one WARN. Counts only:
-     * correlation comes from the MDC, and the cause labels deliberately avoid a literal
-     * {@code documentId=} token so log searches for it stay clean.
-     */
+    /** Counts only (correlation comes from the MDC); the cause labels avoid a literal
+     *  {@code documentId=} token so log searches for it stay clean. */
     private static void warnIfPartlyInvalid(final CitationOutcome outcome) {
         if (outcome.renderedCitations() < 1 || (outcome.invalidEntries() == 0 && outcome.trimmedPages() == 0)) {
             return;
@@ -163,9 +148,8 @@ public class ResponseGenerationService {
     }
 
     /**
-     * An answer is citation-acceptable when it carries at least one rendered citation, or when
-     * it is a deliberate no-evidence refusal (block present, empty array, no markers written).
-     * Evaluated in every guard mode; the mode only decides what happens to an unacceptable one.
+     * At least one rendered citation, or a deliberate no-evidence refusal (block present, empty
+     * array, no markers). Evaluated in every guard mode; the mode only decides what happens next.
      */
     private boolean isAcceptable(final CitationOutcome outcome) {
         if (outcome.renderedCitations() >= 1) {

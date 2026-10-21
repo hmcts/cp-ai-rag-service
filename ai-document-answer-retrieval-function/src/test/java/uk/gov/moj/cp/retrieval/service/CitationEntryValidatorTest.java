@@ -30,9 +30,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit tests for {@link CitationEntryValidator}: each {@code FACT_MAP_JSON} entry is checked
- * against the {@link CitationScope} the model was shown. Fixtures: document A
- * ({@code report-a.pdf}, pages {2, 3}) and document B ({@code notes-b.pdf}, page {5}).
+ * Unit tests for {@link CitationEntryValidator}, with the {@link CitationScopeFixtures#docA()} /
+ * {@link CitationScopeFixtures#docB()} fixtures.
  */
 class CitationEntryValidatorTest {
 

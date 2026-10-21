@@ -159,11 +159,8 @@ public final class TestHarness {
                            String version) {
     }
 
-    /**
-     * One (prompt × LLM × query × iteration) cell. {@code compliance} is computed once in
-     * {@link #runCell} from the response and the chunks it was generated from; it is
-     * {@code null} whenever {@code response} is (SKIPPED / ERROR), or if computing it failed.
-     */
+    /** One (prompt × LLM × query × iteration) cell; {@code compliance} is null without a response
+     *  or if computing it failed. */
     record RunResult(String promptLabel, String llmLabel, String queryLabel, int iteration,
                      LlmResponse response, TokenUsage usage, long durationMs, String error,
                      CitationMetrics.Compliance compliance) {
@@ -369,13 +366,8 @@ public final class TestHarness {
                 complianceOf(r, chunks));
     }
 
-    /**
-     * Computed once, with the same chunks the answer was generated from: the citation processor
-     * validates against them, so the counts match the production outcome, and the report sections
-     * all read this value. Outside the generation try-block on purpose: a metrics failure must not
-     * turn a successful, billed response into an ERROR cell or lose its usage — the cell keeps its
-     * response and simply has no compliance.
-     */
+    /** Outside the generation try-block on purpose: a metrics failure must not turn a successful,
+     *  billed response into an ERROR cell or lose its usage. */
     private static CitationMetrics.Compliance complianceOf(final LlmResponse response, final List<ChunkedEntry> chunks) {
         try {
             return CitationMetrics.compute(response, chunks);

@@ -15,10 +15,8 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * A rendered citation carries the retrieved filename verbatim, and a filename can contain text
- * that looks like a citation marker ({@code [12345]}, {@code [1]}, {@code 2 …}) or like a rendered
- * citation. These tests pin that a rendered citation is never fed back through the marker
- * substitution, stripping or counting passes.
+ * Pins that a filename looking like a marker or a citation is rendered verbatim and never
+ * re-processed (see {@link RenderedCitations}).
  */
 class CitationProcessorRenderIsolationTest {
 

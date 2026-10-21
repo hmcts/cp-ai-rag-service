@@ -14,15 +14,8 @@ import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.apache.logging.log4j.core.config.Property;
 
 /**
- * Test helper that captures the log4j2 events written to the named loggers while it is open.
- * Use in try-with-resources so the appender is always detached:
- *
- * <pre>{@code
- * try (LogCapture logs = LogCapture.of(ResponseGenerationService.class, CitationProcessor.class)) {
- *     ...
- *     assertEquals(1, logs.messages(Level.WARN).size());
- * }
- * }</pre>
+ * Captures the log4j2 events of the named loggers while open; use in try-with-resources so the
+ * appender is always detached.
  */
 final class LogCapture implements AutoCloseable {
 

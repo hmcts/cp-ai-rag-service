@@ -12,7 +12,6 @@ import java.util.Optional;
 
 public class ChunkFormatterUtility {
 
-    /** Custom-metadata key whose non-blank value, when present, is the filename shown to the model. */
     public static final String MATERIAL_NAME_METADATA_KEY = "material_name";
 
     public String buildChunkContext(List<ChunkedEntry> chunkedEntries) {
@@ -49,14 +48,9 @@ public class ChunkFormatterUtility {
     }
 
     /**
-     * The filename shown to the model for the document whose <strong>first</strong> retrieved chunk
-     * is {@code firstChunkOfDocument}: the non-blank {@value #MATERIAL_NAME_METADATA_KEY}
-     * custom-metadata value, else {@code documentFileName} (which may be null).
-     *
-     * <p>This is the single rule shared by the prompt builder ({@link #buildChunkContext}) and the
-     * answer-retrieval citation validation, so the two can never disagree about which filename the
-     * model was shown. Static on purpose: callers that mock a {@code ChunkFormatterUtility}
-     * instance still get the real rule.
+     * The non-blank {@value #MATERIAL_NAME_METADATA_KEY} metadata value, else {@code documentFileName}
+     * (may be null). Shared with citation validation so the two never disagree about the filename
+     * the model saw; static so a mocked instance still applies the real rule.
      */
     public static String displayedFileName(final ChunkedEntry firstChunkOfDocument) {
         return extractMaterialName(firstChunkOfDocument).orElse(firstChunkOfDocument.documentFileName());

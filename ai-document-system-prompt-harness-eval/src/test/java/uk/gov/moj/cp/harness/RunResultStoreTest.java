@@ -18,9 +18,7 @@ import uk.gov.moj.cp.harness.TestHarness.RunResult;
 import uk.gov.moj.cp.retrieval.model.LlmResponse;
 
 /**
- * Unit tests for the persisted shape of a harness run ({@link RunResultStore#document}): the
- * citation-validation counts and the {@code meta.citationValidation} marker, and that rows with
- * no compliance (SKIPPED / ERROR) persist without metrics. No file or environment I/O.
+ * Unit tests for the persisted shape of a harness run ({@link RunResultStore#document}).
  */
 class RunResultStoreTest {
 

@@ -11,26 +11,20 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Test fixtures for citation validation: builds the retrieved chunk list (and the
- * {@link CitationScope} derived from it) that a test answer is validated against.
- *
- * <p>Each test class declares its scope explicitly — scopes are never derived from a fixture's
- * own FACT_MAP_JSON, which would make the tests circular and hide validation bugs.
+ * Retrieved-chunk fixtures for citation tests. Every test declares its scope explicitly; deriving
+ * it from the answer's own FACT_MAP_JSON would make the tests circular.
  */
 public final class CitationScopeFixtures {
 
-    /** Document A of the requirements fixtures: shown as {@code report-a.pdf}, pages {2, 3}. */
     public static final String DOC_A_ID = "aaaaaaaa-0000-4000-8000-000000000001";
     public static final String DOC_A_FILE = "report-a.pdf";
 
-    /** Document B of the requirements fixtures: shown as {@code notes-b.pdf}, page {5}. */
     public static final String DOC_B_ID = "bbbbbbbb-0000-4000-8000-000000000002";
     public static final String DOC_B_FILE = "notes-b.pdf";
 
     private CitationScopeFixtures() {
     }
 
-    /** One retrieved document: its id, the filename it was shown with and its retrieved pages. */
     public record Doc(String documentId, String fileName, List<Integer> pages) {
 
         public Doc {
@@ -42,17 +36,17 @@ public final class CitationScopeFixtures {
         return new Doc(documentId, fileName, Arrays.stream(pages).boxed().toList());
     }
 
-    /** Document A with its default retrieved pages {2, 3}. */
+    /** Document A: {@code report-a.pdf}, pages 2 and 3. */
     public static Doc docA() {
         return doc(DOC_A_ID, DOC_A_FILE, 2, 3);
     }
 
-    /** Document B with its default retrieved page {5}. */
+    /** Document B: {@code notes-b.pdf}, page 5. */
     public static Doc docB() {
         return doc(DOC_B_ID, DOC_B_FILE, 5);
     }
 
-    /** One chunk per page, in argument order, with {@code documentFileName} = the doc's filename. */
+    /** One chunk per page, in argument order. */
     public static List<ChunkedEntry> chunksOf(final Doc... docs) {
         final List<ChunkedEntry> chunks = new ArrayList<>();
         for (final Doc d : docs) {
@@ -63,15 +57,11 @@ public final class CitationScopeFixtures {
         return chunks;
     }
 
-    /** {@code CitationScope.from(chunksOf(docs))}. */
     public static CitationScope scopeOf(final Doc... docs) {
         return CitationScope.from(chunksOf(docs));
     }
 
-    /**
-     * A single chunk. {@code page} may be null (a chunk with no page number); {@code materialName}
-     * is added as the {@code material_name} custom metadata when non-null.
-     */
+    /** {@code page} and {@code materialName} may be null. */
     public static ChunkedEntry chunk(final String documentId, final String fileName, final Integer page,
                                      final String materialName) {
         final List<KeyValuePair> metadata = materialName == null

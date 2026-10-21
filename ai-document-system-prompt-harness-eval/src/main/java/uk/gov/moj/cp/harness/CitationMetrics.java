@@ -21,11 +21,9 @@ import uk.gov.moj.cp.retrieval.service.CitationProcessor;
  * uncited").
  *
  * <p>Extracted from {@link TestHarness} so this logic is unit-testable without the harness's
- * env-bound static initialisation. It performs no environment access and no I/O:
- * {@link CitationProcessor} is deterministic in-process string processing, so {@link #compute}
- * is a pure function of the response <strong>and its chunks</strong>. The citations are validated
- * against those chunks exactly as production validates them, so the rendered, stripped, invalid
- * and trimmed counts equal the production {@code CitationOutcome} for the same answer.
+ * env-bound static initialisation. No environment access or I/O; citations are validated against
+ * the chunks by the production {@link CitationProcessor}, so the rendered, stripped, invalid and
+ * trimmed counts are exactly what production computes for the same answer.
  */
 final class CitationMetrics {
 
@@ -70,9 +68,8 @@ final class CitationMetrics {
      * matches over bare ones; {@code jsonEntries}/{@code jsonIds} come from the FACT_MAP_JSON block;
      * {@code proseChars}/{@code proseWords} measure the narrative with the JSON block and every inline
      * bracket marker removed, so verbosity is comparable across models independently of citation count.
-     * {@code invalidCitations} / {@code trimmedPages} are the production validation counts: FACT_MAP_JSON
-     * entries dropped because they did not match the retrieved chunks, and page tokens trimmed from
-     * the entries that were kept.
+     * {@code invalidCitations} / {@code trimmedPages} are the production
+     * {@link uk.gov.moj.cp.retrieval.model.ValidationCounts}.
      */
     record Compliance(int rawInlineMarkers, Set<Integer> inlineIds, int rawDriftMarkers,
                       int jsonEntries, Set<Integer> jsonIds,
@@ -87,9 +84,6 @@ final class CitationMetrics {
      * inline {@code [N]} markers (bare) vs any-bracket-citation matches (difference = drift),
      * JSON citationId values, whether every inline id appears in the JSON, whether
      * {@link CitationProcessor} actually substituted, and whether a parseable JSON block exists.
-     *
-     * @param chunks the chunks the response was generated from — the citation processor validates
-     *               the response's citations against them, exactly as production does
      */
     static Compliance compute(final LlmResponse response, final List<ChunkedEntry> chunks) {
         final String raw = response.rawLlmResponse() == null ? "" : response.rawLlmResponse();

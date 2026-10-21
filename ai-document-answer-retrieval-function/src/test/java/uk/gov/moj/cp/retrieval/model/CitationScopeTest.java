@@ -27,8 +27,7 @@ import java.util.TreeSet;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit tests for {@link CitationScope}: the per-answer view of what the model was shown, built
- * once from the retrieved chunk list (documentId → displayed filename + retrieved pages).
+ * Unit tests for {@link CitationScope}.
  */
 class CitationScopeTest {
 

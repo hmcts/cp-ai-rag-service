@@ -29,97 +29,66 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Post-processes raw LLM output into the user-visible citation format.
+ * Turns raw LLM output into the user-visible answer: parses the {@code <FACT_MAP_JSON>} block,
+ * validates its entries ({@link CitationEntryValidator}) and replaces the inline {@code [N]}
+ * markers of valid entries with citations rendered from retrieval, held as
+ * {@link RenderedCitations} sentinels until the end. Markers without a valid entry are removed.
  *
- * <p>Extracts the {@code <FACT_MAP_JSON>} payload, validates every entry against the chunks the
- * model was actually shown ({@link CitationEntryValidator} owns the rules), and replaces the
- * inline {@code [N]} placeholders of the valid entries with the human-readable source string,
- * rendered from retrieval — never from the model's copies. Placeholders of ids with no valid
- * entry are removed. Citation ids are numeric; anything else in brackets is prose.
- *
- * <p>Tolerance rules implemented, covering the LLM output drift observed with GPT-4o, GPT-4.1
- * and GPT-5.1:
+ * <p>Tolerated LLM drift:
  * <ul>
- *   <li>Uses the <strong>last</strong> {@code <FACT_MAP_JSON>} block, so an echoed example tag
- *       does not discard the real answer, and keeps prose on both sides of the tag.</li>
- *   <li>Strips markdown {@code ```json} fences around the payload; accepts the tags in any
- *       letter case and with whitespace inside the angle brackets.</li>
- *   <li>Expands joined ids such as {@code [1, 2]} into {@code [1][2]}.</li>
- *   <li>Accepts drift forms of a placeholder: {@code [N p.X]}, {@code [N, p.X]}, {@code [N:X]},
- *       {@code [^N]}, {@code [ N ]}, {@code [Source N]}, {@code [doc N]}, {@code [Citation N]},
- *       {@code [Ref N]} (label case-insensitive).</li>
- *   <li>Merges a run of adjacent bare markers resolving to the <strong>same</strong> retrieved
- *       document (e.g. {@code [2][3]}, gaps of at most a few spaces, never across a newline) into
- *       one citation with the union of their pages; adjacent markers of different documents stay
- *       separate. Markers without a valid entry are removed from the run first, so they never
- *       split it.</li>
- *   <li>Strips every bare {@code [N]} marker when there is no usable block — the GPT-4o
- *       counter-loop ({@code [1][2]...[N]}) and GPT-5.1 reasoning-token truncation, where the
- *       block never arrives — so the reader never sees naked brackets.</li>
+ *   <li>the last block wins, so an echoed example tag is ignored; prose either side is kept</li>
+ *   <li>{@code ```json} fences around the payload; tags in any case or with inner whitespace</li>
+ *   <li>joined ids: {@code [1, 2]} becomes {@code [1][2]}</li>
+ *   <li>drift forms: {@code [N p.X]}, {@code [N:X]}, {@code [^N]}, {@code [ N ]},
+ *       {@code [Source N]}, {@code [doc N]}, {@code [Citation N]}, {@code [Ref N]}</li>
+ *   <li>adjacent markers of the same document ({@code [2][3]}) merge into one citation</li>
+ *   <li>no usable block (counter-loop, reasoning-token truncation): every bare marker is stripped</li>
  * </ul>
- *
- * <p>Rendered citations stay behind opaque sentinels ({@link RenderedCitations}) until the final
- * step, so a filename that looks like a marker or a citation is never re-processed or counted.
  */
 public class CitationProcessor {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CitationProcessor.class);
 
-    /** Matches the LLM citation block, case-insensitive and whitespace-tolerant in the tag. */
     private static final Pattern JSON_TAG_PATTERN = Pattern.compile(
             "<\\s*" + FACT_MAP_ATTRIBUTE_KEY + "\\s*>(.*?)<\\s*/\\s*" + FACT_MAP_ATTRIBUTE_KEY + "\\s*>",
             Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
 
-    /** Markdown code fences a model may wrap around the JSON payload. Stripped before parsing. */
     private static final Pattern CODE_FENCE_OPEN =
             Pattern.compile("\\A\\s*```(?:json|JSON)?\\s*", Pattern.DOTALL);
     private static final Pattern CODE_FENCE_CLOSE =
             Pattern.compile("\\s*```\\s*\\z", Pattern.DOTALL);
 
-    /** Comma- or semicolon-joined citation ids in a single bracket, e.g. {@code [1, 2]}. */
     private static final Pattern JOINED_IDS_PATTERN =
             Pattern.compile("\\[(" + NUMERIC_ID + "(?:[ \\t]{0,3}[,;][ \\t]{0,3}" + NUMERIC_ID + "){1,50})\\]");
 
-    /** Splitter for the joined-id pattern groups. */
     private static final Pattern JOINED_IDS_SEPARATOR = Pattern.compile("\\s*[,;]\\s*");
 
-    /** A bare {@code [N]} marker; group 1 is the citation id. */
     private static final Pattern BARE_MARKER_PATTERN = Pattern.compile("\\[(" + NUMERIC_ID + ")\\]");
 
-    /** A run of one or more bare markers separated by at most three spaces or tabs (a newline ends
-     *  the run — citations of separate list items must not merge). Bounded quantifiers, each
-     *  repetition anchored on a literal '[' (S5852). */
+    /** One or more bare markers, at most three spaces or tabs apart; a newline ends the run, so
+     *  citations of separate list items never merge. */
     private static final Pattern MARKER_RUN_PATTERN =
             Pattern.compile("\\[" + NUMERIC_ID + "\\](?:[ \\t]{0,3}\\[" + NUMERIC_ID + "\\]){0,50}");
 
-    /** Any placeholder, bare or drift form; group 1 is the citation id. The label separator and
-     *  leading whitespace are bounded so they cannot backtrack against each other (S5852). */
+    /** A bare or drift-form placeholder; group 1 is the citation id. */
     private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile(
             "(?i)\\[\\^?(?:(?:Source|doc|Citation|Ref)[\\s:]{1,5})?\\s{0,3}(" + NUMERIC_ID
                     + ")(?:[\\s,;:][^\\[\\]]*)?\\]");
 
-    /** Above this many markers removed at once, the output is treated as catastrophic. */
     private static final int CATASTROPHIC_MARKER_THRESHOLD = 100;
 
-    /** The user-visible citation format. */
     private static final String CITATION_FORMAT = "::(Source: [%s], Pages %s|%s|documentId=%s)";
 
     private final ObjectMapper objectMapper = getObjectMapper();
 
     /**
-     * The outcome of citation post-processing, consumed by the citation guard in
-     * {@code ResponseGenerationService} to decide whether an answer may progress.
+     * The result the citation guard in {@link ResponseGenerationService} decides on.
      *
-     * @param formattedText      the user-visible answer
-     * @param jsonBlockPresent   a complete {@code <FACT_MAP_JSON>} block was found
-     * @param emptyFactMap       the block parsed to an empty array (deliberate no-evidence refusal);
-     *                           computed on the original list, so "every entry invalid" is never a refusal
-     * @param inlineMarkers      bare {@code [N]} markers the model wrote (after joined-id normalisation)
-     * @param renderedCitations  citations rendered into the formatted text
-     * @param strippedMarkers    markers removed without being rendered (ids with no valid entry,
-     *                           including drift forms of dropped ids; every marker when no block)
-     * @param validation         entry-level validation counts; {@link ValidationCounts#NONE} when
-     *                           there was no parseable block
+     * @param emptyFactMap    the block parsed to {@code []}; judged on the original list, so an
+     *                        answer whose every entry is invalid is not a refusal
+     * @param inlineMarkers   bare markers the model wrote, after joined-id expansion
+     * @param strippedMarkers markers removed without being rendered
+     * @param validation      {@link ValidationCounts#NONE} when there was no parseable block
      */
     public record CitationOutcome(String formattedText, boolean jsonBlockPresent,
                                   boolean emptyFactMap, int inlineMarkers,
@@ -130,24 +99,16 @@ public class CitationProcessor {
             validation = validation == null ? ValidationCounts.NONE : validation;
         }
 
-        /** {@code FACT_MAP_JSON} entries dropped by validation. */
         public int invalidEntries() {
             return validation.invalidEntries();
         }
 
-        /** Page tokens trimmed from the citations that were kept. */
         public int trimmedPages() {
             return validation.trimmedPages();
         }
     }
 
-    /**
-     * Extracts the citations, validates them against {@code scope} and renders the valid ones.
-     *
-     * @param rawLlmOutput the raw text output containing the narrative and the embedded JSON
-     * @param scope        what the model was shown; {@code null} is treated as {@link CitationScope#empty()}
-     *                     (every entry invalid — validation is never skipped)
-     */
+    /** @param scope what the model was shown; {@code null} means no entry can be valid */
     public CitationOutcome processCitations(final String rawLlmOutput, final CitationScope scope) {
         if (StringUtil.isNullOrEmpty(rawLlmOutput)) {
             return new CitationOutcome("", false, false, 0, 0, 0, ValidationCounts.NONE);
@@ -176,7 +137,6 @@ public class CitationProcessor {
         }
     }
 
-    /** No usable citation JSON: every bare marker is stripped and nothing renders. */
     private static CitationOutcome withoutCitations(final String answerText, final boolean jsonBlockPresent) {
         final int markers = countBareMarkers(answerText);
         warnStripped(markers, markers, "came with no usable <" + FACT_MAP_ATTRIBUTE_KEY
@@ -186,13 +146,9 @@ public class CitationProcessor {
     }
 
     /**
-     * Renders the validated citations in three passes, then expands them:
-     * <ol>
-     *   <li>drift forms of dropped ids are removed, so they cannot break a run;</li>
-     *   <li>each run of bare markers loses the ids with no valid entry, and its remaining ids
-     *       become one citation per consecutive same-document group;</li>
-     *   <li>the remaining drift forms of resolved ids become their citation.</li>
-     * </ol>
+     * Three passes, in this order: drop the drift forms of dropped ids (so they cannot split a
+     * run); render each run of bare markers, minus ids without a valid entry, as one citation per
+     * same-document group; render the remaining drift forms of resolved ids.
      */
     private static CitationOutcome applyCitations(final String answerText, final List<Map<String, Object>> citations,
                                                   final ValidationResult validation) {
@@ -235,7 +191,6 @@ public class CitationProcessor {
                 removed.driftForms + removed.bareMarkers, validation.counts());
     }
 
-    /** Markers removed without being rendered, while one answer is processed. */
     private static final class Removed {
         private int driftForms;
         private int bareMarkers;
@@ -274,18 +229,14 @@ public class CitationProcessor {
         return format(resolved.document(), resolved.pages());
     }
 
-    /** Renders one citation entirely from retrieval: displayed filename, documentId and pages. */
     private static String format(final CitableDocument document, final SortedSet<Integer> pages) {
         final String individual = pages.stream().map(String::valueOf).collect(Collectors.joining(","));
         return String.format(CITATION_FORMAT, document.displayedFileName(), compressPageRange(pages),
                 individual, document.documentId());
     }
 
-    /**
-     * Logs markers removed without being rendered: a catastrophic count (the counter-loop) always,
-     * otherwise only the {@code reported} ones, with {@code reason}. Markers of entries that failed
-     * validation are expected and counted by the caller, so they are not reported on their own.
-     */
+    /** Warns on a catastrophic count, else on {@code reported} markers only: validation drops are
+     *  expected and reported by the guard. */
     private static void warnStripped(final int removed, final int reported, final String reason) {
         if (removed > CATASTROPHIC_MARKER_THRESHOLD) {
             LOGGER.warn("Catastrophic citation pathology: {} unresolved [N] markers; stripping all.", removed);
@@ -322,10 +273,7 @@ public class CitationProcessor {
         return CODE_FENCE_CLOSE.matcher(afterOpen).replaceFirst("");
     }
 
-    /**
-     * Compresses ascending pages to a hyphenated range form, e.g. {1,2,3,5,6} becomes
-     * {@code "1-3,5,6"}; a pair of consecutive pages stays a pair ({@code "5,6"}).
-     */
+    /** Ascending pages to range form: {@code 1,2,3,5,6} becomes {@code 1-3,5,6} (pairs stay pairs). */
     static String compressPageRange(final Collection<Integer> sortedPages) {
         final StringBuilder out = new StringBuilder();
         Integer rangeStart = null;
@@ -357,6 +305,5 @@ public class CitationProcessor {
         }
     }
 
-    /** Internal record capturing the position and payload of a matched {@code <FACT_MAP_JSON>} tag. */
     private record TagLocation(int start, int end, String payload) { }
 }

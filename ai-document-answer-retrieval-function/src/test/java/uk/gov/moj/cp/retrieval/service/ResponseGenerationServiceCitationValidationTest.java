@@ -38,10 +38,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Citation validation through the citation guard, with the real {@link CitationProcessor} and
- * {@link ChunkFormatterUtility} and only the model and the instruction builder mocked.
- * Fixtures: document A ({@code report-a.pdf}, pages {2, 3}) and document B ({@code notes-b.pdf},
- * page {5}).
+ * Citation validation through the citation guard: real {@link CitationProcessor} and
+ * {@link ChunkFormatterUtility}, only the model and the instruction builder mocked.
  */
 class ResponseGenerationServiceCitationValidationTest {
 

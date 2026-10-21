@@ -19,10 +19,8 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * Pins the agreement between the prompt builder and the citation validator: for every document,
- * the {@code DOCUMENT_FILENAME} the model was shown in {@code <RETRIEVED_DOCUMENTS>} must equal
- * the displayed name {@link CitationScope} validates against. Parses the real
- * {@link ChunkFormatterUtility#buildChunkContext} output rather than re-stating the rule.
+ * Pins that the {@code DOCUMENT_FILENAME} in real {@link ChunkFormatterUtility#buildChunkContext}
+ * output equals the displayed name {@link CitationScope} validates against, for every document.
  */
 class CitationScopePromptAgreementTest {
 

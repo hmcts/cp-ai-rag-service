@@ -15,15 +15,9 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Per-answer, immutable view of what the model was shown: documentId → displayed filename plus
- * the set of retrieved pages. Built once from the exact chunk list rendered into
- * {@code <RETRIEVED_DOCUMENTS>}, and the sole source of "retrieved" truth when the citation
- * processor validates the model's {@code FACT_MAP_JSON} entries.
- *
- * <p>A document is <em>citable</em> only when it has a non-blank displayed filename and at least
- * one retrieved page; any other document is left out, so an entry naming it fails validation.
- *
- * @param documents citable documents keyed by their exact documentId
+ * What the model was shown for one answer: each citable document's displayed filename and
+ * retrieved pages. A document is citable only with a non-blank displayed filename and at least
+ * one page; others are left out, so an entry naming them fails validation.
  */
 public record CitationScope(Map<String, CitableDocument> documents) {
 
@@ -33,19 +27,14 @@ public record CitationScope(Map<String, CitableDocument> documents) {
         documents = Map.copyOf(documents);
     }
 
-    /** The scope with no citable document: every citation entry validated against it is invalid. */
     public static CitationScope empty() {
         return EMPTY;
     }
 
     /**
-     * Builds the scope from the retrieved chunks, grouped by documentId exactly as the prompt
-     * builder groups them: the <strong>first</strong> chunk of each document sets its displayed
-     * filename through {@link ChunkFormatterUtility#displayedFileName} (a later chunk's name never
-     * wins — the model never saw it), and pages are the non-null {@code pageNumber}s of the
-     * document's chunks.
-     *
-     * @param chunks the chunk list sent to the model; {@code null} or empty yields an empty scope
+     * Groups the chunks sent to the model exactly as the prompt builder does: the first chunk of
+     * a document names it via {@link ChunkFormatterUtility#displayedFileName}, because that is the
+     * only name the model saw.
      */
     public static CitationScope from(final List<ChunkedEntry> chunks) {
         if (chunks == null) {
@@ -68,28 +57,18 @@ public record CitationScope(Map<String, CitableDocument> documents) {
         return new CitationScope(documents);
     }
 
-    /** Exact, case-sensitive lookup — no trimming or case folding. {@code null} → empty. */
+    /** Exact lookup: no trimming or case folding. */
     public Optional<CitableDocument> document(final String documentId) {
         return documentId == null ? Optional.empty() : Optional.ofNullable(documents.get(documentId));
     }
 
-    /**
-     * One citable document as the model was shown it.
-     *
-     * @param documentId        the retrieved documentId
-     * @param displayedFileName the filename shown in the prompt
-     * @param pages             the retrieved pages
-     */
     public record CitableDocument(String documentId, String displayedFileName, Set<Integer> pages) {
 
         public CitableDocument {
             pages = Set.copyOf(pages);
         }
 
-        /**
-         * True when {@code candidate}, trimmed, equals the displayed filename case-insensitively.
-         * {@code null} and blank never match.
-         */
+        /** Trimmed and case-insensitive; blank never matches. */
         public boolean matchesFileName(final String candidate) {
             if (isNullOrEmpty(candidate) || displayedFileName == null) {
                 return false;

@@ -20,11 +20,8 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * End-to-end tests of citation validation inside {@link CitationProcessor}: entries are checked
- * against the chunks the model was shown, invalid entries are dropped before same-document runs
- * are merged, and kept citations render documentId, filename and pages from retrieval.
- * Fixtures: document A ({@code report-a.pdf}, pages {2, 3}) and document B ({@code notes-b.pdf},
- * page {5}).
+ * Citation validation through {@link CitationProcessor}, with the
+ * {@link CitationScopeFixtures#docA()} / {@link CitationScopeFixtures#docB()} fixtures.
  */
 class CitationProcessorValidationTest {
 
