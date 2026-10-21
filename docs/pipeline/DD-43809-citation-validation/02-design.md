@@ -509,13 +509,11 @@ None. Orphan-marker handling (Decision 3) confirmed by the product owner on 2026
 
 The design above is what was reviewed. Code review and a simplification pass then changed these points. The implementation follows this section where the two differ.
 
-- **Rendered citations are isolated.** Merge and substitution insert opaque sentinels (`RenderedCitations`), and the real citation text is expanded as the last step. This stops a displayed filename that looks like a marker (`12345`, `2 notes.pdf`, `[1]`) from being substituted, stripped or counted by a later pass. `renderedCitations` counts sentinels.
-- **Three passes replace Decision 3 steps 6–9.** All three use one precompiled placeholder pattern:
-  1. remove the drift forms of dropped ids;
-  2. per run of one or more bare markers, drop ids with no valid entry and render one citation per consecutive same-document group;
-  3. render the remaining drift forms of resolved ids.
+- **Two passes replace Decision 3 steps 6–9.**
+  1. **Clean** the answer against the validated entries. A marker of a valid entry, bare or drift form (`[Source 2]`, `[2 p.3]`), becomes a bare `[N]`. A bare marker with no valid entry, or a drift form of a dropped id, is removed, together with its gap when it sits inside a run.
+  2. **Render** each run of bare markers as one citation per consecutive same-document group.
 
-  The post-substitution safety strip is removed because it could never fire. `[1][9][2]` and `[1] [2 p.3] [3]` (2 dropped) still merge into one citation.
+  Rendering is the last pass over the text, so a displayed filename that looks like a marker (`12345`, `2 notes.pdf`, `[1]`) is never re-read, and no placeholder mechanism is needed. `renderedCitations` is counted as citations are written. The post-substitution safety strip is removed because it could never fire. `[1][9][2]` and `[1] [2 p.3] [3]` (2 dropped) still merge into one citation. Drift forms of valid ids now merge like bare markers: `[1] [Source 2]` citing one document gives one citation.
 - **Citation ids are numeric only (`\d{1,9}`).** A non-numeric `citationId` is an invalid entry. The cause is renamed from `noCitationId` to `invalidCitationId`, and text like `[a]` stays as prose. The same id fragment is shared by every marker pattern and by page parsing. Nine digits always fit an `int`.
 - **Pages:** every value, including JSON array elements, is split on `,`, so `["2,3"]` reads as pages 2 and 3. `compressPageRange` takes the sorted integer pages.
 - **Types:** `ValidationCounts` moved to `uk.gov.moj.cp.retrieval.model`, which breaks the validator↔processor cycle. `CitationScope.CitableDocument.pages` is a plain `Set`. `ResolvedCitation` no longer carries the citationId. `processAndFormatCitations` was removed.
