@@ -379,6 +379,27 @@ class CitationProcessorValidationTest {
     }
 
     @Test
+    void driftFormOfAValidIdNextToASameDocumentMarker_mergesLikeABareMarker() {
+        final CitationOutcome outcome = process("Claim [1] [Source 2]." + block(
+                entry(1, DOC_A_ID, DOC_A_FILE, "2"),
+                entry(2, DOC_A_ID, DOC_A_FILE, "3")));
+
+        assertEquals("Claim " + CITATION_A_2_3 + ".", outcome.formattedText());
+        assertEquals(1, outcome.renderedCitations());
+        assertEquals(0, outcome.strippedMarkers());
+    }
+
+    @Test
+    void driftFormOfAValidIdNextToAnotherDocumentMarker_rendersAdjacentLikeBareMarkers() {
+        final CitationOutcome outcome = process("Claim [1] [Source 2]." + block(
+                entry(1, DOC_A_ID, DOC_A_FILE, "2"),
+                entry(2, DOC_B_ID, DOC_B_FILE, "5")));
+
+        assertEquals("Claim " + CITATION_A_2 + CITATION_B_5 + ".", outcome.formattedText());
+        assertEquals(2, outcome.renderedCitations());
+    }
+
+    @Test
     void outcomeWithoutValidationCounts_defaultsToNone() {
         final CitationOutcome outcome = new CitationOutcome("text", false, false, 0, 0, 0, null);
 

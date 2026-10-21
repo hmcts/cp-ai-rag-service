@@ -1,7 +1,6 @@
 package uk.gov.moj.cp.retrieval.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static uk.gov.moj.cp.retrieval.service.CitationScopeFixtures.DOC_A_FILE;
 import static uk.gov.moj.cp.retrieval.service.CitationScopeFixtures.DOC_A_ID;
 import static uk.gov.moj.cp.retrieval.service.CitationScopeFixtures.DOC_B_ID;
@@ -16,7 +15,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Pins that a filename looking like a marker or a citation is rendered verbatim and never
- * re-processed (see {@link RenderedCitations}).
+ * re-processed: rendering is the last pass over the text.
  */
 class CitationProcessorRenderIsolationTest {
 
@@ -108,18 +107,6 @@ class CitationProcessorRenderIsolationTest {
                 "Fact [1][2]." + block(entry(1, DOC_A_ID, "777", "2"), entry(2, DOC_A_ID, "777", "3")), scope);
 
         assertEquals("Fact " + citation("777", "2,3", DOC_A_ID) + ".", outcome.formattedText());
-        assertEquals(1, outcome.renderedCitations());
-    }
-
-    @Test
-    void sentinelDelimiterInTheModelText_cannotForgeARenderedCitation() {
-        final CitationScope scope = CitationScope.from(List.of(chunk(DOC_A_ID, DOC_A_FILE, 2, null)));
-
-        final CitationOutcome outcome = citationProcessor.processCitations(
-                "Fact \uE000CIT0\uE000 here [1]." + block(entry(1, DOC_A_ID, DOC_A_FILE, "2")), scope);
-
-        assertFalse(outcome.formattedText().contains("\uE000"), outcome.formattedText());
-        assertEquals("Fact CIT0 here " + citation(DOC_A_FILE, "2", DOC_A_ID) + ".", outcome.formattedText());
         assertEquals(1, outcome.renderedCitations());
     }
 }

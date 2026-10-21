@@ -11,14 +11,12 @@ import uk.gov.moj.cp.retrieval.model.ValidationCounts;
 import uk.gov.moj.cp.retrieval.service.CitationEntryValidator.ResolvedCitation;
 import uk.gov.moj.cp.retrieval.service.CitationEntryValidator.ValidationResult;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -31,8 +29,8 @@ import org.slf4j.LoggerFactory;
 /**
  * Turns raw LLM output into the user-visible answer: parses the {@code <FACT_MAP_JSON>} block,
  * validates its entries ({@link CitationEntryValidator}) and replaces the inline {@code [N]}
- * markers of valid entries with citations rendered from retrieval, held as
- * {@link RenderedCitations} sentinels until the end. Markers without a valid entry are removed.
+ * markers of valid entries with citations rendered from retrieval. Markers without a valid entry
+ * are removed.
  *
  * <p>Tolerated LLM drift:
  * <ul>
@@ -70,9 +68,10 @@ public class CitationProcessor {
     private static final Pattern MARKER_RUN_PATTERN =
             Pattern.compile("\\[" + NUMERIC_ID + "\\](?:[ \\t]{0,3}\\[" + NUMERIC_ID + "\\]){0,50}");
 
-    /** A bare or drift-form placeholder; group 1 is the citation id. */
-    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile(
-            "(?i)\\[\\^?(?:(?:Source|doc|Citation|Ref)[\\s:]{1,5})?\\s{0,3}(" + NUMERIC_ID
+    /** A bare or drift-form marker with the run-sized gap before it; group 1 is the gap, group 2
+     *  the citation id. */
+    private static final Pattern GAP_AND_PLACEHOLDER_PATTERN = Pattern.compile(
+            "(?i)([ \\t]{0,3})\\[\\^?(?:(?:Source|doc|Citation|Ref)[\\s:]{1,5})?\\s{0,3}(" + NUMERIC_ID
                     + ")(?:[\\s,;:][^\\[\\]]*)?\\]");
 
     private static final int CATASTROPHIC_MARKER_THRESHOLD = 100;
@@ -113,16 +112,14 @@ public class CitationProcessor {
         if (StringUtil.isNullOrEmpty(rawLlmOutput)) {
             return new CitationOutcome("", false, false, 0, 0, 0, ValidationCounts.NONE);
         }
-        final String raw = RenderedCitations.withoutSentinelDelimiter(rawLlmOutput);
-
-        final TagLocation lastTag = findLastJsonTag(raw);
+        final TagLocation lastTag = findLastJsonTag(rawLlmOutput);
         if (lastTag == null) {
             LOGGER.warn("Raw output missing required <{}> tags; cannot format citations.", FACT_MAP_ATTRIBUTE_KEY);
-            return withoutCitations(normaliseJoinedIds(raw), false);
+            return withoutCitations(normaliseJoinedIds(rawLlmOutput), false);
         }
 
         final String answerText = normaliseJoinedIds(
-                (raw.substring(0, lastTag.start) + " " + raw.substring(lastTag.end)).trim());
+                (rawLlmOutput.substring(0, lastTag.start) + " " + rawLlmOutput.substring(lastTag.end)).trim());
         try {
             final List<Map<String, Object>> citations =
                     objectMapper.readValue(stripCodeFences(lastTag.payload).trim(), new TypeReference<>() { });
@@ -146,87 +143,72 @@ public class CitationProcessor {
     }
 
     /**
-     * Three passes, in this order: drop the drift forms of dropped ids (so they cannot split a
-     * run); render each run of bare markers, minus ids without a valid entry, as one citation per
-     * same-document group; render the remaining drift forms of resolved ids.
+     * Two passes. First the answer is made to match the validated entries: a marker of a valid
+     * entry, bare or drift form, becomes a bare {@code [N]}; a bare marker without one, and a drift
+     * form of a dropped id, is removed (with its gap, inside a run, so the run still merges).
+     * Then each run of bare markers is rendered, one citation per same-document group. Rendering
+     * is the last pass, so a rendered filename that looks like a marker is never re-read.
      */
     private static CitationOutcome applyCitations(final String answerText, final List<Map<String, Object>> citations,
                                                   final ValidationResult validation) {
         final Map<String, ResolvedCitation> resolvedById = validation.resolvedById();
         final Set<String> droppedIds = validation.droppedIds();
-        final RenderedCitations rendered = new RenderedCitations();
-        final Removed removed = new Removed();
+        final Counts counts = new Counts();
 
-        final String withoutDroppedDrift = PLACEHOLDER_PATTERN.matcher(answerText).replaceAll(match -> {
-            if (isBare(match) || !droppedIds.contains(match.group(1))) {
+        final String cleaned = GAP_AND_PLACEHOLDER_PATTERN.matcher(answerText).replaceAll(match -> {
+            final String gap = match.group(1);
+            final String id = match.group(2);
+            if (resolvedById.containsKey(id)) {
+                return Matcher.quoteReplacement(gap + "[" + id + "]");
+            }
+            final boolean bare = match.group().length() == gap.length() + id.length() + 2;
+            if (!bare && !droppedIds.contains(id)) {
                 return Matcher.quoteReplacement(match.group());
             }
-            removed.driftForms++;
-            return "";
+            counts.removed++;
+            counts.orphans += droppedIds.contains(id) ? 0 : 1;
+            final boolean insideRun = match.start() > 0 && answerText.charAt(match.start() - 1) == ']';
+            return insideRun ? "" : Matcher.quoteReplacement(gap);
         });
+        warnStripped(counts.removed, counts.orphans, "had no matching JSON citation entry");
 
-        final String withRuns = MARKER_RUN_PATTERN.matcher(withoutDroppedDrift).replaceAll(run -> {
-            final List<String> ids = new ArrayList<>();
-            final Matcher marker = BARE_MARKER_PATTERN.matcher(run.group());
-            while (marker.find()) {
-                final String id = marker.group(1);
-                if (resolvedById.containsKey(id)) {
-                    ids.add(id);
-                } else {
-                    removed.bareMarkers++;
-                    removed.orphans += droppedIds.contains(id) ? 0 : 1;
-                }
-            }
-            return Matcher.quoteReplacement(renderRun(ids, resolvedById, rendered));
-        });
-        warnStripped(removed.bareMarkers, removed.orphans, "had no matching JSON citation entry");
+        final String formatted = MARKER_RUN_PATTERN.matcher(cleaned).replaceAll(run ->
+                Matcher.quoteReplacement(renderRun(run.group(), resolvedById, counts))).trim();
 
-        final String withSentinels = PLACEHOLDER_PATTERN.matcher(withRuns).replaceAll(match -> {
-            final ResolvedCitation resolved = resolvedById.get(match.group(1));
-            return Matcher.quoteReplacement(resolved == null ? match.group() : rendered.register(render(resolved)));
-        }).trim();
-
-        return new CitationOutcome(rendered.expand(withSentinels), true, citations.isEmpty(),
-                countBareMarkers(answerText), rendered.count(withSentinels),
-                removed.driftForms + removed.bareMarkers, validation.counts());
+        return new CitationOutcome(formatted, true, citations.isEmpty(), countBareMarkers(answerText),
+                counts.rendered, counts.removed, validation.counts());
     }
 
-    private static final class Removed {
-        private int driftForms;
-        private int bareMarkers;
+    private static final class Counts {
+        private int removed;
         private int orphans;
+        private int rendered;
     }
 
-    private static boolean isBare(final MatchResult placeholder) {
-        return placeholder.group().length() == placeholder.group(1).length() + 2;
-    }
-
-    /** One sentinel per maximal group of consecutive ids resolving to the same document. */
-    private static String renderRun(final List<String> ids, final Map<String, ResolvedCitation> resolvedById,
-                                    final RenderedCitations rendered) {
+    /** One citation per maximal group of consecutive ids resolving to the same document. */
+    private static String renderRun(final String run, final Map<String, ResolvedCitation> resolvedById,
+                                    final Counts counts) {
+        final List<ResolvedCitation> markers = BARE_MARKER_PATTERN.matcher(run).results()
+                .map(marker -> resolvedById.get(marker.group(1)))
+                .toList();
         final StringBuilder out = new StringBuilder();
         int start = 0;
-        while (start < ids.size()) {
-            final CitableDocument document = resolvedById.get(ids.get(start)).document();
+        while (start < markers.size()) {
+            final CitableDocument document = markers.get(start).document();
             final SortedSet<Integer> pages = new TreeSet<>();
             int end = start;
-            while (end < ids.size() && resolvedById.get(ids.get(end)).document().documentId()
-                    .equals(document.documentId())) {
-                pages.addAll(resolvedById.get(ids.get(end)).pages());
+            while (end < markers.size() && markers.get(end).document().documentId().equals(document.documentId())) {
+                pages.addAll(markers.get(end).pages());
                 end++;
             }
             if (end - start > 1) {
-                LOGGER.info("Merged {} adjacent same-document citation markers {} into one citation",
-                        end - start, ids.subList(start, end));
+                LOGGER.info("Merged {} adjacent same-document citation markers into one citation", end - start);
             }
-            out.append(rendered.register(format(document, pages)));
+            out.append(format(document, pages));
+            counts.rendered++;
             start = end;
         }
         return out.toString();
-    }
-
-    private static String render(final ResolvedCitation resolved) {
-        return format(resolved.document(), resolved.pages());
     }
 
     private static String format(final CitableDocument document, final SortedSet<Integer> pages) {
