@@ -78,6 +78,7 @@ final class CitationEntryValidator {
             }
             droppedIds.add(citationId);
             final ResolvedCitation resolved = check(entry, effectiveScope, tally);
+            // First valid entry per citationId wins; a later valid entry with the same id is ignored.
             if (resolved != null && resolvedById.putIfAbsent(citationId, resolved) == null) {
                 tally.trimmedPages += resolved.trimmedPages();
             }
