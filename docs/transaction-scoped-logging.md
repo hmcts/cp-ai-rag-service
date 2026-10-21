@@ -187,7 +187,7 @@ traces
 
 ### What deliberately stays as it is
 
-- Service and shared-artefacts classes are otherwise untouched.
+- Service and shared-artefacts classes are untouched.
 - No environment variable, `host.json` or API contract change. The only payload change is the additive `originInvocationId` field on the internal scoring blob.
 - The migration tool and the evaluation harness keep their original pattern: neither runs under the Functions host, so they have no invocation to scope.
 
