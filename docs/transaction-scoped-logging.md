@@ -147,7 +147,7 @@ One line, identical in each of the five apps' `src/main/resources/log4j2.xml`. `
 An answer-worker line written by a service class that knows nothing about the context:
 
 ```text
-12:01:15.188 [pool-2-thread-1] WARN  u.g.m.c.r.service.ResponseGenerationService [txn=3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90] [inv=0d1c7a4e-8b2f-4c6d-9e1a-3b5c7d9f1a2b] - Citation guard (off): delivering citation-degraded answer without retry — [guard=off] Citations missing: jsonBlock=false, inlineMarkers=3, rendered=0, stripped=3.
+12:01:15.188 [pool-2-thread-1] WARN  u.g.m.c.r.service.ResponseGenerationService [txn=3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90] [inv=0d1c7a4e-8b2f-4c6d-9e1a-3b5c7d9f1a2b] - Citation guard (off): delivering citation-degraded answer without retry — [guard=off] Citations missing: jsonBlock=false, inlineMarkers=3, rendered=0, stripped=3, invalid=0.
 ```
 
 and an ingestion line:
@@ -187,8 +187,7 @@ traces
 
 ### What deliberately stays as it is
 
-- **Messages no longer repeat the journey ID.** A second sweep removed the transaction / document ID from the 31 function-app statements that printed it (the key now arrives from the pattern, so a line read `… [txn=…] - Answer generation completed in 1840 ms`). Four kept an ID on purpose: `GetAnswerGeneration`'s "transactionId is required" (the word, not a value), `CitationProcessor`'s merge line (the *cited* document, not the journey's), and nothing else in the apps. The nine shared-artefacts table-service lines keep theirs: library code cannot assume its caller opened a scope (the eval harness and migration tool call them without one). Exception messages (for example the redelivery message asserted by tests) are not log statements and are unchanged. No alert or dashboard in `cpp-terraform-functionapp-deployment` searched for the old `transactionId=` / `documentId=` text (checked 2026-10-01).
-- Service and shared-artefacts classes are otherwise untouched.
+- Service and shared-artefacts classes are untouched.
 - No environment variable, `host.json` or API contract change. The only payload change is the additive `originInvocationId` field on the internal scoring blob.
 - The migration tool and the evaluation harness keep their original pattern: neither runs under the Functions host, so they have no invocation to scope.
 

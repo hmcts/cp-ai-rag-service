@@ -25,8 +25,10 @@ import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.ai.util.ChunkFormatterUtility;
 import uk.gov.moj.cp.retrieval.exception.CitationDegradedException;
 import uk.gov.moj.cp.retrieval.model.CitationGuardMode;
+import uk.gov.moj.cp.retrieval.model.CitationScope;
 import uk.gov.moj.cp.retrieval.model.LlmResponse;
 import uk.gov.moj.cp.retrieval.service.CitationProcessor.CitationOutcome;
+import uk.gov.moj.cp.retrieval.model.ValidationCounts;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -60,11 +62,11 @@ class ResponseGenerationServiceTest {
     final String mockSystemPromptTemplate = "Some random prompt template";
 
     private static CitationOutcome citedOutcome(final String formatted) {
-        return new CitationOutcome(formatted, true, false, 1, 1, 0);
+        return new CitationOutcome(formatted, true, false, 1, 1, 0, ValidationCounts.NONE);
     }
 
     private static CitationOutcome degradedOutcome(final String formatted) {
-        return new CitationOutcome(formatted, false, false, 3, 0, 3);
+        return new CitationOutcome(formatted, false, false, 3, 0, 3, ValidationCounts.NONE);
     }
 
     private ResponseGenerationService serviceWithGuard(final CitationGuardMode mode) {
@@ -81,8 +83,8 @@ class ResponseGenerationServiceTest {
 
     @Test
     void generateResponse_ReturnsTrimmedAndCitationFormattedResponse_WhenChatServiceReturnsValidResponse() throws ChatServiceException {
-        final String userQuery = "What is the legal implication?";
-        final String userQueryPrompt = "Provide detailed legal advice.";
+        final String userQuery = "What is the main implication?";
+        final String userQueryPrompt = "Provide a detailed summary.";
         final String mockRawLlmResponse = "Valid AI Response [1]] " +
                 "and even more response with faulty citation [2]";
 
@@ -96,7 +98,7 @@ class ResponseGenerationServiceTest {
                 .build());
 
 
-        when(citationProcessor.processCitations(mockRawLlmResponse)).thenReturn(citedOutcome(mockFormattedLlmResponse));
+        when(citationProcessor.processCitations(eq(mockRawLlmResponse), any(CitationScope.class))).thenReturn(citedOutcome(mockFormattedLlmResponse));
         when(chunkFormatterUtility.buildChunkContext(chunkedEntries)).thenReturn(mockFormattedChunk);
         when(userInstructionService.buildUserInstruction(userQuery, userQueryPrompt, mockFormattedChunk)).thenReturn(mockUserInstructions);
         when(mockChatService.callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class)))
@@ -107,7 +109,7 @@ class ResponseGenerationServiceTest {
         assertEquals(mockFormattedLlmResponse, result.formattedLlmResponse());
         assertEquals(mockRawLlmResponse, result.rawLlmResponse());
         assertEquals(ANSWER_GENERATED, result.status());
-        verify(citationProcessor).processCitations(mockRawLlmResponse);
+        verify(citationProcessor).processCitations(eq(mockRawLlmResponse), eq(CitationScope.from(chunkedEntries)));
         verify(chunkFormatterUtility).buildChunkContext(chunkedEntries);
         verify(userInstructionService).buildUserInstruction(userQuery, userQueryPrompt, mockFormattedChunk);
         verify(mockChatService).callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class));
@@ -115,8 +117,8 @@ class ResponseGenerationServiceTest {
 
     @Test
     void generateResponse_ReturnsNoResponseMessage_WhenChatServiceReturnsEmpty() throws ChatServiceException {
-        final String userQuery = "What is the legal implication?";
-        final String userQueryPrompt = "Provide detailed legal advice.";
+        final String userQuery = "What is the main implication?";
+        final String userQueryPrompt = "Provide a detailed summary.";
         final List<ChunkedEntry> chunkedEntries = List.of(
                 ChunkedEntry.builder()
                         .id("id1")
@@ -140,15 +142,15 @@ class ResponseGenerationServiceTest {
 
         // Single attempt: retries are the callers' concern (queue redelivery on the async path).
         verify(mockChatService, times(1)).callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class));
-        verify(citationProcessor, never()).processCitations(any());
+        verify(citationProcessor, never()).processCitations(any(), any());
         verify(chunkFormatterUtility).buildChunkContext(chunkedEntries);
         verify(userInstructionService).buildUserInstruction(userQuery, userQueryPrompt, mockFormattedChunk);
     }
 
     @Test
     void generateResponse_propagatesException_WhenChatServiceThrowsChatServiceException() throws ChatServiceException {
-        final String userQuery = "What is the legal implication?";
-        final String userQueryPrompt = "Provide detailed legal advice.";
+        final String userQuery = "What is the main implication?";
+        final String userQueryPrompt = "Provide a detailed summary.";
         final List<ChunkedEntry> chunkedEntries = List.of(
                 ChunkedEntry.builder()
                         .id("id1")
@@ -174,8 +176,8 @@ class ResponseGenerationServiceTest {
 
     @Test
     void generateResponse_ThrowsException_WhenChatServiceThrowsChatServiceException() throws ChatServiceException {
-        final String userQuery = "What is the legal implication?";
-        final String userQueryPrompt = "Provide detailed legal advice.";
+        final String userQuery = "What is the main implication?";
+        final String userQueryPrompt = "Provide a detailed summary.";
         final List<ChunkedEntry> chunkedEntries = List.of(
                 ChunkedEntry.builder()
                         .id("id1")
@@ -201,8 +203,8 @@ class ResponseGenerationServiceTest {
 
     @Test
     void generateResponse_ReturnsDefaultContextMessage_WhenChunkedEntriesAreNullOrEmpty() throws ChatServiceException {
-        final String userQuery = "What is the legal implication?";
-        final String userQueryPrompt = "Provide detailed legal advice.";
+        final String userQuery = "What is the main implication?";
+        final String userQueryPrompt = "Provide a detailed summary.";
 
         LlmResponse result = responseGenerationService.generateResponse(userQuery, null, userQueryPrompt);
         assertEquals(LLM_RESPONSE_NO_DATA_AVAILABLE, result.rawLlmResponse());
@@ -236,14 +238,14 @@ class ResponseGenerationServiceTest {
 
         when(mockChatService.callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class)))
                 .thenReturn(Optional.of("uncited raw"));
-        when(citationProcessor.processCitations("uncited raw")).thenReturn(degradedOutcome("uncited formatted"));
+        when(citationProcessor.processCitations(eq("uncited raw"), any(CitationScope.class))).thenReturn(degradedOutcome("uncited formatted"));
 
         final CitationDegradedException ex = assertThrows(CitationDegradedException.class,
                 () -> responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt));
 
         assertEquals("uncited raw", ex.rawLlmResponse());
         assertEquals("uncited formatted", ex.formattedText());
-        assertThat(ex.getMessage(), is("[guard=deliver] Citations missing: jsonBlock=false, inlineMarkers=3, rendered=0, stripped=3"));
+        assertThat(ex.getMessage(), is("[guard=deliver] Citations missing: jsonBlock=false, inlineMarkers=3, rendered=0, stripped=3, invalid=0"));
         // Single attempt only — retry policy belongs to the caller (queue redelivery on async).
         verify(mockChatService, times(1)).callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class));
     }
@@ -256,8 +258,8 @@ class ResponseGenerationServiceTest {
 
         when(mockChatService.callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class)))
                 .thenReturn(Optional.of("refusal raw"));
-        when(citationProcessor.processCitations("refusal raw"))
-                .thenReturn(new CitationOutcome("No relevant evidence found.", true, true, 0, 0, 0));
+        when(citationProcessor.processCitations(eq("refusal raw"), any(CitationScope.class)))
+                .thenReturn(new CitationOutcome("No relevant evidence found.", true, true, 0, 0, 0, ValidationCounts.NONE));
 
         final LlmResponse result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
 
@@ -275,7 +277,7 @@ class ResponseGenerationServiceTest {
 
         when(mockChatService.callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class)))
                 .thenReturn(Optional.of("uncited raw"));
-        when(citationProcessor.processCitations("uncited raw")).thenReturn(degradedOutcome("uncited formatted"));
+        when(citationProcessor.processCitations(eq("uncited raw"), any(CitationScope.class))).thenReturn(degradedOutcome("uncited formatted"));
 
         // No exception: OFF never retries or rejects — but the degradation is still measured and recorded.
         final LlmResponse result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
@@ -283,7 +285,7 @@ class ResponseGenerationServiceTest {
         assertEquals(ANSWER_GENERATED, result.status());
         assertEquals("uncited raw", result.rawLlmResponse());
         assertEquals("uncited formatted", result.formattedLlmResponse());
-        assertThat(result.reason(), is("[guard=off] Citations missing: jsonBlock=false, inlineMarkers=3, rendered=0, stripped=3"));
+        assertThat(result.reason(), is("[guard=off] Citations missing: jsonBlock=false, inlineMarkers=3, rendered=0, stripped=3, invalid=0"));
         verify(mockChatService, times(1)).callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class));
     }
 
@@ -296,7 +298,7 @@ class ResponseGenerationServiceTest {
 
         when(mockChatService.callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class)))
                 .thenReturn(Optional.of("cited raw"));
-        when(citationProcessor.processCitations("cited raw")).thenReturn(citedOutcome("cited formatted"));
+        when(citationProcessor.processCitations(eq("cited raw"), any(CitationScope.class))).thenReturn(citedOutcome("cited formatted"));
 
         final LlmResponse result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
 
@@ -314,12 +316,53 @@ class ResponseGenerationServiceTest {
 
         when(mockChatService.callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class)))
                 .thenReturn(Optional.of("refusal raw"));
-        when(citationProcessor.processCitations("refusal raw"))
-                .thenReturn(new CitationOutcome("No relevant evidence found.", true, true, 0, 0, 0));
+        when(citationProcessor.processCitations(eq("refusal raw"), any(CitationScope.class)))
+                .thenReturn(new CitationOutcome("No relevant evidence found.", true, true, 0, 0, 0, ValidationCounts.NONE));
 
         final LlmResponse result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
 
         assertEquals(ANSWER_GENERATED, result.status());
+        assertNull(result.reason());
+    }
+
+    @Test
+    void citationGuard_ReasonCarriesInvalidCount_WhenEveryEntryFailedValidation() throws ChatServiceException {
+        final String userQuery = "query";
+        final String userQueryPrompt = "prompt";
+        final List<ChunkedEntry> chunkedEntries = stubbedChunks(userQuery, userQueryPrompt);
+        final CitationOutcome allInvalid = new CitationOutcome("invalid formatted", true, false, 2, 0, 2,
+                new ValidationCounts(2, 0, 2, 0, 0, 0));
+
+        when(mockChatService.callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class)))
+                .thenReturn(Optional.of("invalid raw"));
+        when(citationProcessor.processCitations(eq("invalid raw"), any(CitationScope.class))).thenReturn(allInvalid);
+
+        final CitationDegradedException ex = assertThrows(CitationDegradedException.class,
+                () -> responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt));
+        assertThat(ex.getMessage(), is("[guard=deliver] Citations missing: jsonBlock=true, inlineMarkers=2, rendered=0, stripped=2, invalid=2"));
+
+        final LlmResponse offResult = serviceWithGuard(CitationGuardMode.OFF)
+                .generateResponse(userQuery, chunkedEntries, userQueryPrompt);
+        assertEquals(ANSWER_GENERATED, offResult.status());
+        assertThat(offResult.reason(), is("[guard=off] Citations missing: jsonBlock=true, inlineMarkers=2, rendered=0, stripped=2, invalid=2"));
+    }
+
+    @Test
+    void citationGuard_RecordsNoReason_WhenSomeEntriesWereDroppedButACitationRendered() throws ChatServiceException {
+        final String userQuery = "query";
+        final String userQueryPrompt = "prompt";
+        final List<ChunkedEntry> chunkedEntries = stubbedChunks(userQuery, userQueryPrompt);
+        final CitationOutcome partlyInvalid = new CitationOutcome("partly cited formatted", true, false, 3, 2, 1,
+                new ValidationCounts(3, 0, 1, 0, 0, 1));
+
+        when(mockChatService.callModel(eq(mockSystemPromptTemplate), eq(mockUserInstructions), eq(String.class)))
+                .thenReturn(Optional.of("partly cited raw"));
+        when(citationProcessor.processCitations(eq("partly cited raw"), any(CitationScope.class))).thenReturn(partlyInvalid);
+
+        final LlmResponse result = responseGenerationService.generateResponse(userQuery, chunkedEntries, userQueryPrompt);
+
+        assertEquals(ANSWER_GENERATED, result.status());
+        assertEquals("partly cited formatted", result.formattedLlmResponse());
         assertNull(result.reason());
     }
 }

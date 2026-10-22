@@ -12,6 +12,8 @@ import java.util.Optional;
 
 public class ChunkFormatterUtility {
 
+    public static final String MATERIAL_NAME_METADATA_KEY = "material_name";
+
     public String buildChunkContext(List<ChunkedEntry> chunkedEntries) {
 
         if (chunkedEntries == null || chunkedEntries.isEmpty()) {
@@ -26,8 +28,7 @@ public class ChunkFormatterUtility {
         for (Map.Entry<String, List<ChunkedEntry>> entriesPerDocument : entriesByDocumentId.entrySet()) {
             final String documentId = entriesPerDocument.getKey();
             final ChunkedEntry firstChunkForDocumentId = entriesPerDocument.getValue().getFirst();
-            String documentFileName = extractMaterialName(firstChunkForDocumentId)
-                    .orElse(firstChunkForDocumentId.documentFileName());
+            final String documentFileName = displayedFileName(firstChunkForDocumentId);
             sb.append("<DOCUMENT DOCUMENT_ID=\"").append(documentId).append("\" DOCUMENT_FILENAME=\"").append(documentFileName).append("\">\n");
             for (ChunkedEntry entry : entriesPerDocument.getValue()) {
                 final String pageNumber = null != entry.pageNumber() ? entry.pageNumber().toString() : "";
@@ -46,13 +47,22 @@ public class ChunkFormatterUtility {
         return sb.toString();
     }
 
-    private Optional<String> extractMaterialName(ChunkedEntry entry) {
+    /**
+     * The non-blank {@value #MATERIAL_NAME_METADATA_KEY} metadata value, else {@code documentFileName}
+     * (may be null). Shared with citation validation so the two never disagree about the filename
+     * the model saw; static so a mocked instance still applies the real rule.
+     */
+    public static String displayedFileName(final ChunkedEntry firstChunkOfDocument) {
+        return extractMaterialName(firstChunkOfDocument).orElse(firstChunkOfDocument.documentFileName());
+    }
+
+    private static Optional<String> extractMaterialName(ChunkedEntry entry) {
         if (entry.customMetadata() == null || entry.customMetadata().isEmpty()) {
             return Optional.empty();
         }
 
         return entry.customMetadata().stream()
-                .filter(pair -> "material_name".equals(pair.key()))
+                .filter(pair -> MATERIAL_NAME_METADATA_KEY.equals(pair.key()))
                 .map(KeyValuePair::value)
                 .filter(value -> !isNullOrEmpty(value))
                 .findFirst();

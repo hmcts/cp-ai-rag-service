@@ -1,6 +1,7 @@
 package uk.gov.moj.cp.harness;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -8,18 +9,21 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import uk.gov.moj.cp.ai.model.ChunkedEntry;
+import uk.gov.moj.cp.retrieval.model.CitationScope;
 import uk.gov.moj.cp.retrieval.model.LlmResponse;
 import uk.gov.moj.cp.retrieval.service.CitationProcessor;
 
 /**
- * Pure, stateless derivation of citation-format compliance metrics from a single LLM response —
- * the numbers every evaluation report headlines (prose length, cited pages, rendered/stripped
- * citations, same-document stacking, "substantive but uncited").
+ * Pure, stateless derivation of citation-format compliance metrics from a single LLM response and
+ * the chunks it was generated from — the numbers every evaluation report headlines (prose length,
+ * cited pages, rendered/stripped/invalid citations, same-document stacking, "substantive but
+ * uncited").
  *
  * <p>Extracted from {@link TestHarness} so this logic is unit-testable without the harness's
- * env-bound static initialisation. It performs no environment access and no I/O:
- * {@link CitationProcessor} is deterministic in-process string processing, so {@link #compute}
- * is a pure function of its input.
+ * env-bound static initialisation. No environment access or I/O; citations are validated against
+ * the chunks by the production {@link CitationProcessor}, so the rendered, stripped, invalid and
+ * trimmed counts are exactly what production computes for the same answer.
  */
 final class CitationMetrics {
 
@@ -64,13 +68,15 @@ final class CitationMetrics {
      * matches over bare ones; {@code jsonEntries}/{@code jsonIds} come from the FACT_MAP_JSON block;
      * {@code proseChars}/{@code proseWords} measure the narrative with the JSON block and every inline
      * bracket marker removed, so verbosity is comparable across models independently of citation count.
+     * {@code invalidCitations} / {@code trimmedPages} are the production
+     * {@link uk.gov.moj.cp.retrieval.model.ValidationCounts}.
      */
     record Compliance(int rawInlineMarkers, Set<Integer> inlineIds, int rawDriftMarkers,
                       int jsonEntries, Set<Integer> jsonIds,
                       boolean inlineSubsetOfJson, boolean processorSubstituted,
                       boolean jsonBlockPresent, int proseChars, int proseWords, int citedPages,
                       int sameDocStackedRuns, int renderedCitations, int strippedMarkers,
-                      boolean uncitedSubstantive) {
+                      boolean uncitedSubstantive, int invalidCitations, int trimmedPages) {
     }
 
     /**
@@ -79,7 +85,7 @@ final class CitationMetrics {
      * JSON citationId values, whether every inline id appears in the JSON, whether
      * {@link CitationProcessor} actually substituted, and whether a parseable JSON block exists.
      */
-    static Compliance compute(final LlmResponse response) {
+    static Compliance compute(final LlmResponse response, final List<ChunkedEntry> chunks) {
         final String raw = response.rawLlmResponse() == null ? "" : response.rawLlmResponse();
         final String formatted = response.formattedLlmResponse() == null ? "" : response.formattedLlmResponse();
 
@@ -139,13 +145,19 @@ final class CitationMetrics {
 
         // Same signal the production citation guard consumes: rendered/stripped counts and the
         // "substantive but uncited" flag (legitimate short refusals stay below the word floor).
-        final CitationProcessor.CitationOutcome outcome = OUTCOME_PROCESSOR.processCitations(raw);
+        final CitationProcessor.CitationOutcome outcome = OUTCOME_PROCESSOR.processCitations(raw, CitationScope.from(chunks));
         final boolean uncitedSubstantive =
                 proseWords >= SUBSTANTIVE_PROSE_WORDS && outcome.renderedCitations() == 0;
 
         return new Compliance(bareCount, inlineIds, driftCount, jsonEntryCount, jsonIds,
                 inlineSubsetOfJson, processorSubstituted, jsonBlockPresent, proseChars, proseWords, citedPages,
-                sameDocStackedRuns, outcome.renderedCitations(), outcome.strippedMarkers(), uncitedSubstantive);
+                sameDocStackedRuns, outcome.renderedCitations(), outcome.strippedMarkers(), uncitedSubstantive,
+                outcome.invalidEntries(), outcome.trimmedPages());
+    }
+
+    /** The invalid-citation count for a report column, or {@code n/a} for a run with no compliance. */
+    static String invalidOrNotMeasured(final Compliance compliance) {
+        return compliance == null ? "n/a" : String.valueOf(compliance.invalidCitations());
     }
 
     /**

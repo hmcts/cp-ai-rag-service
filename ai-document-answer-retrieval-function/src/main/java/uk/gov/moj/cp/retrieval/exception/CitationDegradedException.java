@@ -1,9 +1,8 @@
 package uk.gov.moj.cp.retrieval.exception;
 
 /**
- * Thrown by the citation guard when a generated answer is citation-degraded — no
- * {@code <FACT_MAP_JSON>} block, unparseable citation JSON, or every inline marker stripped as
- * unresolved — and is therefore not fit to progress as-is.
+ * Thrown by the citation guard ({@code ResponseGenerationService}) for a citation-degraded
+ * answer; the message is the guard reason.
  *
  * <p>Unchecked by design: on the async queue path it propagates through the worker's generic
  * exception handling so the message is redelivered (a fresh end-to-end attempt) until

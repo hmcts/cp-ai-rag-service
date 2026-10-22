@@ -1,6 +1,10 @@
 package uk.gov.moj.cp.ai.util;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.xmlunit.assertj3.XmlAssert.assertThat;
+import static uk.gov.moj.cp.ai.util.ChunkFormatterUtility.MATERIAL_NAME_METADATA_KEY;
+import static uk.gov.moj.cp.ai.util.ChunkFormatterUtility.displayedFileName;
 
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
 import uk.gov.moj.cp.ai.model.KeyValuePair;
@@ -99,5 +103,44 @@ class ChunkFormatterUtilityTest {
         String result = chunkFormatterUtility.buildChunkContext(List.of(entry));
         assertThat(result).valueByXPath("/RETRIEVED_DOCUMENTS/DOCUMENT[@DOCUMENT_ID='doc3']/DATA[1]/PAGE_NUMBER").isEmpty();
     }
-}
 
+    @Test
+    void displayedFileName_ReturnsMaterialName_WhenPresentAndNonBlank() {
+        final ChunkedEntry entry = ChunkedEntry.builder()
+                .documentFileName("report-a.pdf")
+                .customMetadata(List.of(new KeyValuePair("other_key", "value"),
+                        new KeyValuePair(MATERIAL_NAME_METADATA_KEY, "summary-a")))
+                .build();
+        assertEquals("summary-a", displayedFileName(entry));
+    }
+
+    @Test
+    void displayedFileName_FallsBackToDocumentFileName_WhenMaterialNameBlank() {
+        final ChunkedEntry entry = ChunkedEntry.builder()
+                .documentFileName("report-a.pdf")
+                .customMetadata(List.of(new KeyValuePair(MATERIAL_NAME_METADATA_KEY, "")))
+                .build();
+        assertEquals("report-a.pdf", displayedFileName(entry));
+    }
+
+    @Test
+    void displayedFileName_FallsBackToDocumentFileName_WhenMaterialNameAbsent() {
+        final ChunkedEntry withOtherMetadata = ChunkedEntry.builder()
+                .documentFileName("report-a.pdf")
+                .customMetadata(List.of(new KeyValuePair("other_key", "value")))
+                .build();
+        final ChunkedEntry withNullMetadata = ChunkedEntry.builder()
+                .documentFileName("notes-b.pdf")
+                .build();
+        assertEquals("report-a.pdf", displayedFileName(withOtherMetadata));
+        assertEquals("notes-b.pdf", displayedFileName(withNullMetadata));
+    }
+
+    @Test
+    void displayedFileName_ReturnsNull_WhenNoMaterialNameAndNoDocumentFileName() {
+        final ChunkedEntry entry = ChunkedEntry.builder()
+                .customMetadata(List.of())
+                .build();
+        assertNull(displayedFileName(entry));
+    }
+}
