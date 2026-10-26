@@ -1,0 +1,624 @@
+{
+  "note": "Synthetic data only. Lists each planted fact and the page(s) it appears on, per document. Update it whenever a PDF changes.",
+  "documents": [
+    {
+      "file": "supplier-review-calder.pdf",
+      "title": "Supplier Review Case File - Calder Freight Services Ltd",
+      "pages": 17,
+      "behaviours": [
+        "case-file-structure",
+        "two-column-header",
+        "table",
+        "fixed-width-two-column-history",
+        "image-only-page",
+        "look-alike-template"
+      ],
+      "facts": {
+        "calder-supplier-id": {
+          "type": "text",
+          "value": "CFS-0047-K",
+          "pages": [
+            3,
+            14,
+            15,
+            16,
+            17
+          ]
+        },
+        "finding-1-date": {
+          "type": "date",
+          "value": "2025-04-17",
+          "pages": [
+            3
+          ]
+        },
+        "finding-1-value": {
+          "type": "money",
+          "value": 1500.0,
+          "pages": [
+            3
+          ]
+        },
+        "finding-1-clause": {
+          "type": "text",
+          "value": "9(1)(b)",
+          "pages": [
+            3
+          ]
+        },
+        "finding-4-date": {
+          "type": "date",
+          "value": "2025-05-13",
+          "pages": [
+            3
+          ]
+        },
+        "finding-4-value": {
+          "type": "money",
+          "value": 600.0,
+          "pages": [
+            3
+          ]
+        },
+        "finding-4-clause": {
+          "type": "text",
+          "value": "12(2)",
+          "pages": [
+            3
+          ]
+        },
+        "finding-6-date": {
+          "type": "date",
+          "value": "2025-05-05",
+          "pages": [
+            3
+          ]
+        },
+        "finding-6-value": {
+          "type": "money",
+          "value": 2049.0,
+          "pages": [
+            3
+          ]
+        },
+        "finding-6-clause": {
+          "type": "text",
+          "value": "7(1)",
+          "pages": [
+            3
+          ]
+        },
+        "calder-summary-date": {
+          "type": "date",
+          "value": "2025-06-20",
+          "pages": [
+            5
+          ]
+        },
+        "calder-logger-serial": {
+          "type": "text",
+          "value": "TL-55821",
+          "pages": [
+            5
+          ]
+        },
+        "calder-peak-temp": {
+          "type": "text",
+          "value": "9.4°C",
+          "pages": [
+            5
+          ]
+        },
+        "calder-complaint-date": {
+          "type": "date",
+          "value": "2025-04-18",
+          "pages": [
+            5
+          ]
+        },
+        "calder-response-date": {
+          "type": "date",
+          "value": "2025-06-02",
+          "pages": [
+            5
+          ]
+        },
+        "calder-total-loss": {
+          "type": "money",
+          "value": 4149.0,
+          "pages": [
+            5
+          ]
+        },
+        "calder-proposed-outcome": {
+          "type": "text",
+          "value": "six-month probation period",
+          "pages": [
+            5
+          ]
+        },
+        "calder-panel-date": {
+          "type": "date",
+          "value": "2025-07-15",
+          "pages": [
+            5
+          ]
+        },
+        "calder-visit-time": {
+          "type": "text",
+          "value": "14:35",
+          "pages": [
+            10
+          ]
+        },
+        "calder-inspector-badge": {
+          "type": "text",
+          "value": "INS-4418",
+          "pages": [
+            10
+          ]
+        },
+        "calder-trailer-no": {
+          "type": "text",
+          "value": "TR-2290",
+          "pages": [
+            10
+          ]
+        },
+        "calder-sample-id": {
+          "type": "text",
+          "value": "LAB-25-0912",
+          "pages": [
+            12
+          ]
+        },
+        "calder-lab-core-temp": {
+          "type": "text",
+          "value": "9.1°C",
+          "pages": [
+            12
+          ]
+        },
+        "calder-lab-tvc": {
+          "type": "text",
+          "value": "2.1 x 10^5",
+          "pages": [
+            12
+          ]
+        },
+        "calder-late-count": {
+          "type": "number",
+          "value": "6",
+          "pages": [
+            14
+          ]
+        },
+        "calder-temp-count": {
+          "type": "number",
+          "value": "3",
+          "pages": [
+            14
+          ]
+        },
+        "calder-hist-3-date": {
+          "type": "date",
+          "value": "17-07-04",
+          "pages": [
+            15
+          ]
+        },
+        "calder-hist-3-outcome": {
+          "type": "text",
+          "value": "PENALTY £800",
+          "pages": [
+            15
+          ]
+        },
+        "calder-hist-6-date": {
+          "type": "date",
+          "value": "21-05-12",
+          "pages": [
+            15
+          ]
+        },
+        "calder-hist-6-outcome": {
+          "type": "text",
+          "value": "PROBATION 6 MTHS",
+          "pages": [
+            15
+          ]
+        },
+        "calder-hist-6b-outcome": {
+          "type": "text",
+          "value": "PENALTY £1,000",
+          "pages": [
+            15
+          ]
+        },
+        "calder-hist-8-date": {
+          "type": "date",
+          "value": "23-08-07",
+          "pages": [
+            16
+          ]
+        },
+        "calder-hist-8-outcome": {
+          "type": "text",
+          "value": "SUSPENSION 2 MTHS",
+          "pages": [
+            16
+          ]
+        },
+        "calder-hold-start": {
+          "type": "date",
+          "value": "2025-03-03",
+          "pages": [
+            17
+          ]
+        }
+      }
+    },
+    {
+      "file": "supplier-review-pemberton.pdf",
+      "title": "Supplier Review Case File - Pemberton Cold Chain Ltd",
+      "pages": 15,
+      "behaviours": [
+        "case-file-structure",
+        "two-column-header",
+        "table",
+        "fixed-width-two-column-history",
+        "image-only-page",
+        "look-alike-template"
+      ],
+      "facts": {
+        "pemberton-supplier-id": {
+          "type": "text",
+          "value": "PCC-0112-B",
+          "pages": [
+            3,
+            13,
+            14,
+            15
+          ]
+        },
+        "finding-1-date": {
+          "type": "date",
+          "value": "2025-04-02",
+          "pages": [
+            3
+          ]
+        },
+        "finding-1-value": {
+          "type": "money",
+          "value": 3250.0,
+          "pages": [
+            3
+          ]
+        },
+        "finding-1-clause": {
+          "type": "text",
+          "value": "9(1)(b)",
+          "pages": [
+            3
+          ]
+        },
+        "finding-2-date": {
+          "type": "date",
+          "value": "2025-04-28",
+          "pages": [
+            3
+          ]
+        },
+        "finding-2-clause": {
+          "type": "text",
+          "value": "11(1)",
+          "pages": [
+            3
+          ]
+        },
+        "pemberton-summary-date": {
+          "type": "date",
+          "value": "2025-06-27",
+          "pages": [
+            5
+          ]
+        },
+        "pemberton-logger-serial": {
+          "type": "text",
+          "value": "TL-60417",
+          "pages": [
+            5
+          ]
+        },
+        "pemberton-peak-temp": {
+          "type": "text",
+          "value": "7.8°C",
+          "pages": [
+            5
+          ]
+        },
+        "pemberton-complaint-date": {
+          "type": "date",
+          "value": "2025-04-03",
+          "pages": [
+            5
+          ]
+        },
+        "pemberton-response-date": {
+          "type": "date",
+          "value": "2025-05-16",
+          "pages": [
+            5
+          ]
+        },
+        "pemberton-total-loss": {
+          "type": "money",
+          "value": 3250.0,
+          "pages": [
+            5
+          ]
+        },
+        "pemberton-proposed-outcome": {
+          "type": "text",
+          "value": "formal warning with a 90-day audit",
+          "pages": [
+            5
+          ]
+        },
+        "pemberton-panel-date": {
+          "type": "date",
+          "value": "2025-07-22",
+          "pages": [
+            5
+          ]
+        },
+        "pemberton-visit-time": {
+          "type": "text",
+          "value": "10:05",
+          "pages": [
+            9
+          ]
+        },
+        "pemberton-inspector-badge": {
+          "type": "text",
+          "value": "INS-4418",
+          "pages": [
+            9
+          ]
+        },
+        "pemberton-trailer-no": {
+          "type": "text",
+          "value": "TR-3014",
+          "pages": [
+            9
+          ]
+        },
+        "pemberton-sample-id": {
+          "type": "text",
+          "value": "LAB-25-0744",
+          "pages": [
+            11
+          ]
+        },
+        "pemberton-lab-core-temp": {
+          "type": "text",
+          "value": "7.6°C",
+          "pages": [
+            11
+          ]
+        },
+        "pemberton-lab-tvc": {
+          "type": "text",
+          "value": "8.0 x 10^4",
+          "pages": [
+            11
+          ]
+        },
+        "pemberton-late-count": {
+          "type": "number",
+          "value": "2",
+          "pages": [
+            13
+          ]
+        },
+        "pemberton-temp-count": {
+          "type": "number",
+          "value": "1",
+          "pages": [
+            13
+          ]
+        },
+        "pemberton-hist-3-date": {
+          "type": "date",
+          "value": "22-10-19",
+          "pages": [
+            14
+          ]
+        },
+        "pemberton-hist-3-outcome": {
+          "type": "text",
+          "value": "PENALTY £600",
+          "pages": [
+            14
+          ]
+        }
+      }
+    },
+    {
+      "file": "site-inspection-note-a.pdf",
+      "title": "Site Inspection Note",
+      "pages": 1,
+      "behaviours": [
+        "duplicate-pair"
+      ],
+      "facts": {
+        "note-probe-calibration": {
+          "type": "date",
+          "value": "2025-02-03",
+          "pages": [
+            1
+          ]
+        }
+      }
+    },
+    {
+      "file": "site-inspection-note-b.pdf",
+      "title": "Site Inspection Note",
+      "pages": 1,
+      "behaviours": [
+        "duplicate-pair"
+      ],
+      "facts": {
+        "note-probe-calibration": {
+          "type": "date",
+          "value": "2025-02-03",
+          "pages": [
+            1
+          ]
+        }
+      }
+    },
+    {
+      "file": "site-inspection-note-with-addendum.pdf",
+      "title": "Site Inspection Note",
+      "pages": 1,
+      "behaviours": [
+        "superset-of-duplicate"
+      ],
+      "facts": {
+        "note-probe-calibration": {
+          "type": "date",
+          "value": "2025-02-03",
+          "pages": [
+            1
+          ]
+        },
+        "note-seal-fitted": {
+          "type": "date",
+          "value": "2025-04-29",
+          "pages": [
+            1
+          ]
+        },
+        "note-seal-contractor": {
+          "type": "text",
+          "value": "Brightwell Seals",
+          "pages": [
+            1
+          ]
+        },
+        "note-seal-job-ref": {
+          "type": "text",
+          "value": "BW-7741",
+          "pages": [
+            1
+          ]
+        },
+        "note-return-to-service": {
+          "type": "date",
+          "value": "2025-05-01",
+          "pages": [
+            1
+          ]
+        }
+      }
+    },
+    {
+      "file": "cold-store-operating-handbook.pdf",
+      "title": "Cold Store Operating Handbook",
+      "pages": 5,
+      "behaviours": [
+        "plain-multi-page",
+        "newspaper-two-column-page",
+        "table",
+        "embedded-instructions"
+      ],
+      "facts": {
+        "handbook-effective-date": {
+          "type": "date",
+          "value": "2025-01-01",
+          "pages": [
+            1
+          ]
+        },
+        "handbook-second-signature-threshold": {
+          "type": "money",
+          "value": 1000.0,
+          "pages": [
+            2
+          ]
+        },
+        "handbook-probe-calibration-interval": {
+          "type": "text",
+          "value": "90 days",
+          "pages": [
+            2
+          ]
+        },
+        "handbook-logger-retention": {
+          "type": "text",
+          "value": "30 days",
+          "pages": [
+            2
+          ]
+        },
+        "handbook-door-open-limit": {
+          "type": "text",
+          "value": "4 minutes",
+          "pages": [
+            2
+          ]
+        },
+        "handbook-chilled-limit": {
+          "type": "text",
+          "value": "5.0°C",
+          "pages": [
+            3
+          ]
+        },
+        "handbook-chilled-recheck": {
+          "type": "text",
+          "value": "20 minutes",
+          "pages": [
+            3
+          ]
+        },
+        "handbook-frozen-limit": {
+          "type": "text",
+          "value": "-18.0°C",
+          "pages": [
+            3
+          ]
+        },
+        "handbook-frozen-tolerance": {
+          "type": "text",
+          "value": "30 minutes",
+          "pages": [
+            3
+          ]
+        },
+        "handbook-quality-phone": {
+          "type": "text",
+          "value": "01632 960033",
+          "pages": [
+            4
+          ]
+        },
+        "handbook-security-phone": {
+          "type": "text",
+          "value": "01632 960099",
+          "pages": [
+            4
+          ]
+        },  
+        "handbook-record-retention": {
+          "type": "text",
+          "value": "seven years",
+          "pages": [
+            4
+          ]
+        }
+      }
+    }
+  ]
+}
