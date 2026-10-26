@@ -104,6 +104,15 @@ Item format (draft):
 - **Typed facts, not hand-written regexes.** Each `type` (date, number, duration, money, text)
   has one shared normaliser that accepts the usual formats. ragEval's regex date patterns
   missed `April 21, 2024`; typed normalisers fix that class of bug once, for every item.
+- **Normalise both sides before matching.** The matcher normalises the answer (and chunk text)
+  and the expected value the same way: Unicode NFKC, collapsed whitespace, and spaces allowed
+  inside numbers. Document Intelligence rewrites some text: on ste (2026-10-26) `°C` came back
+  as `℃`, `£4,149` as `£4, 149` and `cl.4(1)` as `cl. 4 (1)`. Without this, 6 of the corpus's 84
+  fact occurrences read as missing although they were on the right page.
+- **The normalisation stays in the eval, not in ingestion.** Ingestion stores Document
+  Intelligence's text as returned. A corpus-wide clean-up isn't safe for every client (NFKC turns
+  `m²` into `m2`; joining `4, 149` would merge real lists), and there is no evidence yet that the
+  rewrites hurt retrieval or answers. See follow-up F1.
 - `goldPages` names documents by file name. The runner maps them to the documentIds it
   generated at ingestion.
 
@@ -164,6 +173,12 @@ Keeping the PR tier small matters: every item costs ingestion time and LLM calls
 | G1 | No view of the candidate pool before dedup and MMR, so we can't tell "not retrieved" from "retrieved, then cut" | A test-only diagnostic output, or a debug log the suite reads | Defer. Revisit if M3 failures can't be diagnosed |
 | G2 | Token usage and cost aren't returned by the API | Query App Insights after the run | Defer to the nightly tier |
 | G3 | Refusal detection beyond the no-data sentinel (the model may refuse in its own words) | Treat "no rendered citation and no expected fact" as a refusal, or add phrases to the dataset config | Decide in requirements (OQ-4) |
+
+### Possible follow-ups (raise only if the eval shows a need)
+
+| ID | Follow-up | Trigger |
+|---|---|---|
+| F1 | Narrow ingestion text normalisation (e.g. `℃`/`℉` → `°C`/`°F` only), behind a flag like `INGESTION_LAYOUT_AWARE_TEXT_ENABLED`; affects newly ingested documents only | Items asking for rewritten values show answers repeating the odd form (`£4, 149`) or low retrieval rank for those pages |
 
 ---
 
