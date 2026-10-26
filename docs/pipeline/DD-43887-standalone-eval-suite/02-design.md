@@ -82,24 +82,54 @@ Each document targets one behaviour:
 | A scanned (image-only) page | OCR text reaches the index | — |
 | Text containing instructions to the model | Instructions in content are not obeyed | — |
 
-Item format (draft):
+The dataset is `eval/dataset.json` (first 10 items written). It has three parts:
+
+- **`documents`:** the metadata each PDF is ingested with. The service combines metadata
+  filters with AND, so every document carries `corpus=eval-v1`, a `set` tag, and where needed
+  a narrower tag (`supplier`). An item picks its scope with one filter.
+- **`manifest`:** points to `documents/corpus-manifest.json`, which lists every planted fact
+  with its type, value and page(s).
+- **`items`:** each item refers to manifest facts by `"<file>#<fact-id>"` instead of repeating
+  values, so values and gold pages have a single source.
 
 ```json
 {
-  "id": "plain-001",
+  "id": "lookalike-001",
+  "behaviour": "Two documents from the same template: values must come from the right one",
   "tier": ["smoke", "full"],
-  "query": "What maintenance interval is set for the north pump?",
-  "queryPrompt": "default",
-  "metadataFilter": [{ "key": "corpus", "value": "eval-v1" }],
+  "query": "In the Pemberton Cold Chain Ltd review, what peak core temperature did the trailer's logger record, and what is the logger's serial number?",
+  "metadataFilter": [{ "key": "set", "value": "supplier-reviews" }],
   "expectedFacts": [
-    { "id": "interval", "type": "duration", "value": "90 days" },
-    { "id": "since", "type": "date", "value": "2024-03-14" }
+    { "ref": "supplier-review-pemberton.pdf#pemberton-peak-temp" },
+    { "ref": "supplier-review-pemberton.pdf#pemberton-logger-serial" }
   ],
-  "forbidden": [{ "id": "south-pump-interval", "type": "duration", "value": "30 days" }],
-  "goldPages": [{ "document": "plain-multipage.pdf", "pages": [4] }],
+  "forbidden": [
+    { "ref": "supplier-review-calder.pdf#calder-peak-temp" },
+    { "text": "all inspections were passed" }
+  ],
+  "retrieval": { "mustInclude": ["..."], "atMostOneOf": [["a.pdf", "b.pdf"]] },
   "shouldRefuse": false
 }
 ```
+
+- **Gold pages are derived** from the referenced facts' manifest pages. The runner maps file
+  names to the documentIds it generated at ingestion.
+- **`ref` may be a list:** the same fact in several documents (duplicate copies), where any one
+  is a valid source.
+- **`accept`** lists extra spellings for a text fact that a correct answer may use instead (e.g.
+  `£800` for `PENALTY £800`).
+- **`forbidden`** takes a manifest `ref` (a value from the wrong document) or literal `text`.
+- **`retrieval`** (optional) checks which documents appear in the final chunk set (M4).
+- **`queryPrompt`** comes from `defaults` unless an item overrides it (summary and chronology
+  items override it to ask for sections or one event per line).
+- **`minFactRecall`** (optional) turns fact recall into a threshold for long answers, where a
+  good summary may leave out a detail. Without it, every expected fact is required.
+- **`citations.perSection`** (optional) requires at least one citation under every section
+  heading, the DD-43838 failure mode.
+- **Manifest pages list every page where the value appears** (in any common date format, after
+  normalisation), not only where it was planted, since a repeated mention is an equally valid
+  source. Bare numbers keep only their planted page.
+- **Avoid bare numbers as expected facts** (e.g. a count of "3"): they match almost any answer.
 
 - **Typed facts, not hand-written regexes.** Each `type` (date, number, duration, money, text)
   has one shared normaliser that accepts the usual formats. ragEval's regex date patterns
@@ -113,8 +143,6 @@ Item format (draft):
   Intelligence's text as returned. A corpus-wide clean-up isn't safe for every client (NFKC turns
   `m²` into `m2`; joining `4, 149` would merge real lists), and there is no evidence yet that the
   rewrites hurt retrieval or answers. See follow-up F1.
-- `goldPages` names documents by file name. The runner maps them to the documentIds it
-  generated at ingestion.
 
 ### D4. Measures (proposed)
 
@@ -122,13 +150,13 @@ Item format (draft):
 |---|---|---|---|---|
 | M1 | Ingestion | Reaches `INGESTION_SUCCESS` within the timeout | status endpoint | **Gate** |
 | M2 | Ingestion | Planted marker strings present in the chunks for their page | `documentChunks` across items | Report |
-| M3 | Retrieval | Gold-page recall in the final chunk set | `documentChunks` vs `goldPages` | **Gate** (threshold) |
+| M3 | Retrieval | Gold-page recall in the final chunk set | `documentChunks` vs gold pages | **Gate** (threshold) |
 | M4 | Retrieval | Duplicate passages collapsed; superset copy kept | `documentChunks` | **Gate** |
 | M5 | Retrieval | No chunk outside the metadata filter | `documentChunks` | **Gate** (zero tolerance) |
 | M6 | Answer | Fact recall | `llmResponse` vs `expectedFacts` | **Gate** (threshold) |
 | M7 | Answer | Forbidden content absent | `llmResponse` vs `forbidden` | **Gate** (zero tolerance) |
 | M8 | Answer | Refusal correctness (refuses when it should, answers when it can) | `llmResponse`, `shouldRefuse` | **Gate** |
-| M9 | Citations | Cited pages are gold pages (citation precision) | rendered citations vs `goldPages` | **Gate** (threshold) |
+| M9 | Citations | Cited pages are gold pages (citation precision) | rendered citations vs gold pages | **Gate** (threshold) |
 | M10 | Citations | Citation-degraded rate | `reason` | **Gate** (threshold) |
 | M11 | Groundedness | Scorer's groundedness score | answer-generation table | Report |
 | M12 | Groundedness | LLM-judged faithfulness to the chunks | judge model, nightly only | Report |

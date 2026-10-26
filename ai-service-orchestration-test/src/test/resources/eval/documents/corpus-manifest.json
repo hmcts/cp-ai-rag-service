@@ -29,14 +29,18 @@
           "type": "date",
           "value": "2025-04-17",
           "pages": [
-            3
+            3,
+            5,
+            7,
+            10
           ]
         },
         "finding-1-value": {
           "type": "money",
           "value": 1500.0,
           "pages": [
-            3
+            3,
+            5
           ]
         },
         "finding-1-clause": {
@@ -50,14 +54,18 @@
           "type": "date",
           "value": "2025-05-13",
           "pages": [
-            3
+            3,
+            5,
+            8,
+            9
           ]
         },
         "finding-4-value": {
           "type": "money",
           "value": 600.0,
           "pages": [
-            3
+            3,
+            5
           ]
         },
         "finding-4-clause": {
@@ -71,14 +79,16 @@
           "type": "date",
           "value": "2025-05-05",
           "pages": [
-            3
+            3,
+            5
           ]
         },
         "finding-6-value": {
           "type": "money",
           "value": 2049.0,
           "pages": [
-            3
+            3,
+            5
           ]
         },
         "finding-6-clause": {
@@ -113,7 +123,8 @@
           "type": "date",
           "value": "2025-04-18",
           "pages": [
-            5
+            5,
+            7
           ]
         },
         "calder-response-date": {
@@ -202,7 +213,7 @@
         },
         "calder-hist-3-date": {
           "type": "date",
-          "value": "17-07-04",
+          "value": "2017-07-04",
           "pages": [
             15
           ]
@@ -216,7 +227,7 @@
         },
         "calder-hist-6-date": {
           "type": "date",
-          "value": "21-05-12",
+          "value": "2021-05-12",
           "pages": [
             15
           ]
@@ -237,7 +248,7 @@
         },
         "calder-hist-8-date": {
           "type": "date",
-          "value": "23-08-07",
+          "value": "2023-08-07",
           "pages": [
             16
           ]
@@ -254,6 +265,28 @@
           "value": "2025-03-03",
           "pages": [
             17
+          ]
+        },
+        "calder-visit-date": {
+          "type": "date",
+          "value": "2025-04-22",
+          "pages": [
+            10
+          ]
+        },
+        "calder-sample-date": {
+          "type": "date",
+          "value": "2025-04-19",
+          "pages": [
+            5,
+            12
+          ]
+        },
+        "calder-hist-9-date": {
+          "type": "date",
+          "value": "2024-12-11",
+          "pages": [
+            16
           ]
         }
       }
@@ -285,14 +318,19 @@
           "type": "date",
           "value": "2025-04-02",
           "pages": [
-            3
+            3,
+            5,
+            7,
+            8,
+            9
           ]
         },
         "finding-1-value": {
           "type": "money",
           "value": 3250.0,
           "pages": [
-            3
+            3,
+            5
           ]
         },
         "finding-1-clause": {
@@ -306,7 +344,9 @@
           "type": "date",
           "value": "2025-04-28",
           "pages": [
-            3
+            3,
+            5,
+            8
           ]
         },
         "finding-2-clause": {
@@ -334,27 +374,32 @@
           "type": "text",
           "value": "7.8°C",
           "pages": [
-            5
+            5,
+            7
           ]
         },
         "pemberton-complaint-date": {
           "type": "date",
           "value": "2025-04-03",
           "pages": [
-            5
+            5,
+            7,
+            11
           ]
         },
         "pemberton-response-date": {
           "type": "date",
           "value": "2025-05-16",
           "pages": [
-            5
+            5,
+            8
           ]
         },
         "pemberton-total-loss": {
           "type": "money",
           "value": 3250.0,
           "pages": [
+            3,
             5
           ]
         },
@@ -430,7 +475,7 @@
         },
         "pemberton-hist-3-date": {
           "type": "date",
-          "value": "22-10-19",
+          "value": "2022-10-19",
           "pages": [
             14
           ]
@@ -458,6 +503,13 @@
           "pages": [
             1
           ]
+        },
+        "note-excursion-cause": {
+          "type": "text",
+          "value": "damaged trailer seal",
+          "pages": [
+            1
+          ]
         }
       }
     },
@@ -472,6 +524,13 @@
         "note-probe-calibration": {
           "type": "date",
           "value": "2025-02-03",
+          "pages": [
+            1
+          ]
+        },
+        "note-excursion-cause": {
+          "type": "text",
+          "value": "damaged trailer seal",
           "pages": [
             1
           ]
@@ -517,6 +576,13 @@
         "note-return-to-service": {
           "type": "date",
           "value": "2025-05-01",
+          "pages": [
+            1
+          ]
+        },
+        "note-excursion-cause": {
+          "type": "text",
+          "value": "damaged trailer seal",
           "pages": [
             1
           ]
@@ -610,7 +676,7 @@
           "pages": [
             4
           ]
-        },  
+        },
         "handbook-record-retention": {
           "type": "text",
           "value": "seven years",
