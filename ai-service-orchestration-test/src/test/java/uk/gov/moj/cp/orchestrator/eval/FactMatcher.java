@@ -19,17 +19,20 @@ final class FactMatcher {
 
     private static final Pattern SPACED_THOUSANDS = Pattern.compile("(\\d),\\s+(\\d{3})(?!\\d)");
     private static final Pattern WHITESPACE = Pattern.compile("\\s+");
+    /** Hyphen and dash variants models emit (non-breaking hyphen, en/em dash, minus) read as {@code -}. */
+    private static final Pattern DASHES = Pattern.compile("[\\u2010-\\u2015\\u2212]");
 
     private FactMatcher() {
     }
 
     /**
-     * Unicode NFKC ({@code ℃} → {@code °C}), lower case, markdown bold removed, the space Document
+     * Unicode NFKC ({@code ℃} → {@code °C}), lower case, markdown bold removed, dashes unified, the space Document
      * Intelligence inserts after a thousands comma ({@code 4, 149}) removed, whitespace collapsed.
      * Only a three-digit group is joined, so {@code April 7, 2025} keeps its space.
      */
     static String normalise(final String text) {
         String s = Normalizer.normalize(text, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT).replace("*", "");
+        s = DASHES.matcher(s).replaceAll("-");
         s = SPACED_THOUSANDS.matcher(s).replaceAll("$1,$2");
         return WHITESPACE.matcher(s).replaceAll(" ").strip();
     }

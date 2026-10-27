@@ -65,6 +65,7 @@ class FactMatcherTest {
     void normalises() {
         assertEquals("peak 9.4°c, total £4,149 here", FactMatcher.normalise("Peak **9.4℃**,\n total £4, 149   here"));
         assertEquals("april 7, 2025", FactMatcher.normalise("April 7, 2025"));
+        assertEquals("two-month - three-month", FactMatcher.normalise("two\u2011month \u2013 three\u2010month"));
         assertTrue(FactMatcher.found("peak of 9.4℃", new CorpusFact(FactType.TEXT, "9.4°C", List.of(5)), List.of()));
     }
 }
