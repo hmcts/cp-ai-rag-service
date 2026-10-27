@@ -145,7 +145,7 @@
     },
     {
       "id": "history-001",
-      "behaviour": "Fixed-width two-column history: each outcome must stay with its own entry",
+      "behaviour": "Fixed-width two-column history: each outcome must stay with its own entry (entry 3's penalty is suspended, not a suspension from work)",
       "tier": [
         "full"
       ],
@@ -190,7 +190,10 @@
             "suspension for 2 months",
             "suspension from chilled goods work for two months",
             "suspension from chilled work for two months",
-            "suspended for two months"
+            "suspended for two months",
+            "suspended from chilled work for two months",
+            "suspended from chilled goods work for two months",
+            "suspension 2 months"
           ]
         }
       ],
@@ -200,6 +203,30 @@
         },
         {
           "text": "3-month suspension"
+        },
+        {
+          "text": "suspension for three months"
+        },
+        {
+          "text": "suspension for 3 months"
+        },
+        {
+          "text": "suspension from chilled goods for three months"
+        },
+        {
+          "text": "suspension from chilled goods work for three months"
+        },
+        {
+          "text": "suspension from chilled work for three months"
+        },
+        {
+          "text": "suspended from chilled work for three months"
+        },
+        {
+          "text": "suspended from chilled goods work for three months"
+        },
+        {
+          "text": "three months' suspension"
         }
       ],
       "shouldRefuse": false
