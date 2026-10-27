@@ -181,12 +181,22 @@
         {
           "ref": "supplier-review-calder.pdf#calder-hist-8-outcome",
           "accept": [
-            "suspension from chilled work",
-            "suspended from chilled work"
+            "two-month suspension",
+            "2-month suspension",
+            "suspension of two months",
+            "suspended from chilled work for 2 months",
+            "suspension from chilled work"
           ]
         }
       ],
-      "forbidden": [],
+      "forbidden": [
+        {
+          "text": "three-month suspension"
+        },
+        {
+          "text": "3-month suspension"
+        }
+      ],
       "shouldRefuse": false
     },
     {

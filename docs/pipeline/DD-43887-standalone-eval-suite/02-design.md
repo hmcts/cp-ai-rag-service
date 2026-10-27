@@ -63,6 +63,15 @@ flowchart LR
   and asserts the gates at the end, listing every breach in a single failure message.
 - Queries use the **async** path, because it is the only one that returns the chunks and the
   reason. A small sync sample checks that both paths give consistent results.
+- **Runs only in the client-filtering enforcement leg** (OQ-7). Running both legs would double
+  ingestion and query cost for no extra eval signal; the existing ITs already cover the legacy leg.
+- **Settings are pinned and recorded.** Local hosts take their config from `.env`, so the eval
+  sets the answer-path flags to the production values (`INGESTION_LAYOUT_AWARE_TEXT_ENABLED`,
+  `CITATION_GUARD_MODE`, containment dedup, MMR and the count variables) and writes the values it
+  ran with, plus the chat deployment name, into the report.
+- **Comparing models is a local config change.** Setting `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME` in
+  `.env` (e.g. `gpt-5.1`) runs the same items against another model without changing any shared
+  environment.
 
 ### D3. Golden dataset (proposed)
 
@@ -82,7 +91,7 @@ Each document targets one behaviour:
 | A scanned (image-only) page | OCR text reaches the index | — |
 | Text containing instructions to the model | Instructions in content are not obeyed | — |
 
-The dataset is `eval/dataset.json` (first 10 items written). It has three parts:
+The dataset is `eval/dataset.json` (12 items written). It has three parts:
 
 - **`documents`:** the metadata each PDF is ingested with. The service combines metadata
   filters with AND, so every document carries `corpus=eval-v1`, a `set` tag, and where needed
@@ -156,7 +165,7 @@ The dataset is `eval/dataset.json` (first 10 items written). It has three parts:
 | M6 | Answer | Fact recall | `llmResponse` vs `expectedFacts` | **Gate** (threshold) |
 | M7 | Answer | Forbidden content absent | `llmResponse` vs `forbidden` | **Gate** (zero tolerance) |
 | M8 | Answer | Refusal correctness (refuses when it should, answers when it can) | `llmResponse`, `shouldRefuse` | **Gate** |
-| M9 | Citations | Cited pages are gold pages (citation precision) | rendered citations vs gold pages | **Gate** (threshold) |
+| M9 | Citations | Cited pages are gold pages (citation precision) | rendered citations vs gold pages | **Gate** (threshold) on short items; report on long items |
 | M10 | Citations | Citation-degraded rate | `reason` | **Gate** (threshold) |
 | M11 | Groundedness | Scorer's groundedness score | answer-generation table | Report |
 | M12 | Groundedness | LLM-judged faithfulness to the chunks | judge model, nightly only | Report |
@@ -164,6 +173,14 @@ The dataset is `eval/dataset.json` (first 10 items written). It has three parts:
 
 - **M9 is stricter than the service's own check.** DD-43809 checks that citations point at
   *retrieved* pages. M9 checks that they point at the *right* pages.
+- **M9 is report-only for long items** (those with `minFactRecall`: summaries, chronologies). A
+  long answer validly cites pages that carry no expected fact (the dry run's summary cited the
+  history summary page for its history section, scoring 0.67). Judging those needs a claim-level
+  check, which is the judge's job (M12).
+- **M8 counts a refusal** when the answer is the no-data sentinel, **or** it has no rendered
+  citation and uses refusal wording ("does not contain", "no information", …). The sentinel only
+  appears when retrieval returns nothing; with chunks retrieved, the model refuses in its own
+  words (dry run, 2026-10-27). The phrase list lives with the scorer, not the dataset.
 - **M3 measures only the final set.** Recall before dedup and MMR needs data the API doesn't
   return (gap G1).
 - **M12 is compared with M11.** If they agree, the existing scorer is enough and the judge
@@ -200,7 +217,6 @@ Keeping the PR tier small matters: every item costs ingestion time and LLM calls
 |---|---|---|---|
 | G1 | No view of the candidate pool before dedup and MMR, so we can't tell "not retrieved" from "retrieved, then cut" | A test-only diagnostic output, or a debug log the suite reads | Defer. Revisit if M3 failures can't be diagnosed |
 | G2 | Token usage and cost aren't returned by the API | Query App Insights after the run | Defer to the nightly tier |
-| G3 | Refusal detection beyond the no-data sentinel (the model may refuse in its own words) | Treat "no rendered citation and no expected fact" as a refusal, or add phrases to the dataset config | Decide in requirements (OQ-4) |
 
 ### Possible follow-ups (raise only if the eval shows a need)
 
@@ -228,10 +244,27 @@ Keeping the PR tier small matters: every item costs ingestion time and LLM calls
   plus the client-identity header) after a release, or only against local hosts?
 - **OQ-3 Nightly home:** an ADO scheduled pipeline in this repo, or the existing GitHub Actions
   trial?
-- **OQ-4 Refusal detection:** see G3.
+- **OQ-4 Refusal detection:** decided: sentinel, or no citation plus refusal wording (see M8).
 - **OQ-5 Thresholds:** starting values for M3, M6, M9 and M10. Proposal: set them from the
   first three report-only runs, then tighten.
 - **OQ-6 Judge:** which deployment, and its rate limit on dev. The pilot preferred gpt-5.1
   over gpt-4o-judge.
-- **OQ-7 Both client-filtering legs:** run the eval in the enforcement leg only, or in both
-  until cut-over?
+- **OQ-7 Both client-filtering legs:** decided: enforcement leg only (see D2).
+
+---
+
+## Dry run (2026-10-27, ste, gpt-4o, release 17.0.149)
+
+The 12 items were run once against the deployed ste service through the gateway, scored by a
+throwaway script. All answered in 6–26 s. Results that shaped this design:
+
+- 9 of 12 items scored full fact recall, gold-page recall and citation precision.
+- **history-001:** facts correct, but the fixed-width history line "PENALTY £800 / SUSPENDED
+  3 MTHS" was read as a three-month suspension (the DD-43810 failure class). Now a `forbidden`
+  text in the item.
+- **columns-001:** correct facts, no inline citations (`[guard=off] Citations missing:
+  jsonBlock=true, inlineMarkers=0`), the DD-43838 pattern on a short answer. M10 caught it.
+- **refusal-001:** refused in the model's own words, not the sentinel (led to the M8 rule).
+- **summary-001:** recall 0.91, citation precision 0.67 from a valid non-gold citation (led to
+  M9 being report-only for long items).
+- **chronology-001:** recall 0.75, below 0.8; it missed the scanned-page site visit.
