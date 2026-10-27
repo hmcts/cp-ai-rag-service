@@ -229,7 +229,10 @@ Keeping the PR tier small matters: every item costs ingestion time and LLM calls
 ## Rollout
 
 1. **Framework and first slice:** dataset loader, runner, report, M1, M3, M6–M10 on about 10
-   items. Report-only.
+   items. Report-only. *Built:* `RagEvalIT` in the `ai-rag-eval` profile, scorer and report under
+   `uk.gov.moj.cp.orchestrator.eval` with offline unit tests. The profile pins the prd tuning
+   values; note prd runs with `INGESTION_LAYOUT_AWARE_TEXT_ENABLED` unset (off) while ste has it
+   on, so local results can differ from the ste dry run on the fixed-width history items.
 2. **Gates on PR:** add the baseline and the known-issues register; switch the smoke tier to gate.
 3. **Nightly tier:** full set, N=3, the LLM judge (M12) and its comparison with M11.
 4. **Gaps:** G1 and G2 only if the earlier phases show they are needed.

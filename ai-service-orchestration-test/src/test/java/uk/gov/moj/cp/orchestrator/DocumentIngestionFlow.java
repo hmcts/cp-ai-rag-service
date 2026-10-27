@@ -22,7 +22,7 @@ import io.restassured.specification.RequestSpecification;
  * steps serve both the single-client happy path and the multi-client isolation checks without
  * duplicating the plumbing.
  */
-final class DocumentIngestionFlow {
+public final class DocumentIngestionFlow {
 
     /** Ingestion (Document Intelligence → chunk → embed → index) needs more headroom than the default poll timeout. */
     private static final Duration INGESTION_TIMEOUT = Duration.ofMinutes(3);
@@ -31,7 +31,7 @@ final class DocumentIngestionFlow {
     }
 
     /** Initiates an upload against the metadata-check host and returns the contract-validated SAS location. */
-    static FileStorageLocationReturnedSuccessfully initiateUpload(final RequestSpecification metadataCheckSpec,
+    public static FileStorageLocationReturnedSuccessfully initiateUpload(final RequestSpecification metadataCheckSpec,
                                                                   final DocumentUploadRequest documentUploadRequest) {
         final Response response = postRequest(
                 metadataCheckSpec.body(documentUploadRequest).contentType("application/json"),
@@ -42,8 +42,8 @@ final class DocumentIngestionFlow {
     }
 
     /** Polls the status host until the given document reference reports INGESTION_SUCCESS. */
-    static void awaitIngestionSuccess(final RequestSpecification statusCheckSpec,
-                                      final String documentReference) throws TimeoutException {
+    public static void awaitIngestionSuccess(final RequestSpecification statusCheckSpec,
+                                             final String documentReference) throws TimeoutException {
         final Response response = pollForResponse(
                 statusCheckSpec.contentType("application/json"),
                 RestOperation.GET,

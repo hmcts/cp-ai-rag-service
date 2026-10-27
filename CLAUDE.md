@@ -26,6 +26,10 @@ mvn verify
 ./ai-service-orchestration-test/run-integration-test.sh
 # (equivalent to: mvn verify -P ai-rag-integration-test — with the .env exported first)
 
+# Run the standalone eval (DD-43887) instead: same local hosts and .env, report-only,
+# writes ai-service-orchestration-test/target/eval/eval-report.json
+MAVEN_PROFILE=ai-rag-eval MAVEN_EXTRA_ARGS="-Deval.tier=smoke" ./ai-service-orchestration-test/run-integration-test.sh
+
 # Build and package the Azure Functions
 mvn clean package -DskipTests
 
