@@ -47,9 +47,9 @@ class EvalReportTest {
     @DisplayName("Runs are grouped per item in dataset order, with counts and means over the runs")
     void summarisesItems() {
         final EvalReport report = report(List.of(
-                new ItemRun("ocr-001", 1, "t1", 4.0, score("ocr-001", 1.0, true, List.of(), false, 1.0, 10)),
-                new ItemRun("plain-001", 1, "t2", null, score("plain-001", 1.0, true, List.of(), false, 1.0, 20)),
-                new ItemRun("plain-001", 2, "t3", 5.0, score("plain-001", 0.5, false, List.of(), true, 0.5, 30))));
+                new ItemRun("ocr-001", 1, "t1", 4.0, score("ocr-001", 1.0, true, List.of(), false, 1.0, 10), "answer"),
+                new ItemRun("plain-001", 1, "t2", null, score("plain-001", 1.0, true, List.of(), false, 1.0, 20), "answer"),
+                new ItemRun("plain-001", 2, "t3", 5.0, score("plain-001", 0.5, false, List.of(), true, 0.5, 30), "answer")));
 
         assertEquals(List.of("plain-001", "ocr-001"), report.items().stream().map(EvalReport.ItemResult::id).toList());
         final EvalReport.ItemSummary plain = report.items().get(0).summary();
@@ -66,9 +66,9 @@ class EvalReportTest {
     @DisplayName("The overall summary reports means, the degraded rate and latency percentiles")
     void summarisesRun() {
         final EvalReport report = report(List.of(
-                new ItemRun("ocr-001", 1, "t1", null, score("ocr-001", 1.0, true, List.of(), false, null, 10)),
-                new ItemRun("plain-001", 1, "t2", null, score("plain-001", 0.5, false, List.of(), true, 1.0, 20)),
-                new ItemRun("refusal-001", 1, "t3", null, score("refusal-001", null, true, List.of(), false, null, 30))));
+                new ItemRun("ocr-001", 1, "t1", null, score("ocr-001", 1.0, true, List.of(), false, null, 10), "answer"),
+                new ItemRun("plain-001", 1, "t2", null, score("plain-001", 0.5, false, List.of(), true, 1.0, 20), "answer"),
+                new ItemRun("refusal-001", 1, "t3", null, score("refusal-001", null, true, List.of(), false, null, 30), "answer")));
 
         final EvalReport.Summary summary = report.summary();
         assertEquals(3, summary.runs());
@@ -85,7 +85,7 @@ class EvalReportTest {
     @DisplayName("The report is written as JSON with settings, ingestion and items")
     void writesJson(@TempDir final Path dir) throws Exception {
         final Path file = dir.resolve("eval/eval-report.json");
-        report(List.of(new ItemRun("plain-001", 1, "t1", null, score("plain-001", 1.0, true, List.of(), false, 1.0, 5)))).write(file);
+        report(List.of(new ItemRun("plain-001", 1, "t1", null, score("plain-001", 1.0, true, List.of(), false, 1.0, 5), "answer"))).write(file);
 
         final JsonNode json = new ObjectMapper().readTree(Files.readString(file));
         assertEquals("eval-v1", json.path("datasetVersion").asText());

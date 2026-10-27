@@ -34,8 +34,11 @@ public record EvalReport(String datasetVersion,
     public record DocumentIngestion(String file, String documentId, String status, double seconds) {
     }
 
-    /** One run of one item; {@code groundedness} is the scorer's score (M11), null if none was recorded. */
-    public record ItemRun(String itemId, int run, String transactionId, Double groundedness, ItemScore score) {
+    /**
+     * One run of one item; {@code groundedness} is the scorer's score (M11), null if none was
+     * recorded. The answer is kept as rendered, so a miss can be diagnosed from the report alone.
+     */
+    public record ItemRun(String itemId, int run, String transactionId, Double groundedness, ItemScore score, String answer) {
     }
 
     public record ItemResult(String id, String behaviour, List<ItemRun> runs, ItemSummary summary) {

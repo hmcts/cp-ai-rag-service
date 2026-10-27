@@ -175,8 +175,10 @@ class RagEvalIT extends FunctionTestBase {
 
         AnswerResult result;
         try {
-            final Response response = pollForResponse(spec(ANSWER_RETRIEVAL_FUNCTION), RestOperation.GET,
-                    "/answer-user-query-async-status/" + transactionId + "?withChunkedEntries=true",
+            // The query parameter goes on the spec, not in the path: RestAssured re-adds a path
+            // query string on every poll of the same spec, and a repeated parameter reads as false.
+            final Response response = pollForResponse(spec(ANSWER_RETRIEVAL_FUNCTION).queryParam("withChunkedEntries", true),
+                    RestOperation.GET, "/answer-user-query-async-status/" + transactionId,
                     r -> r.getStatusCode() == 200
                             && !AnswerGenerationStatus.ANSWER_GENERATION_PENDING.toString().equals(r.jsonPath().getString("status")),
                     ANSWER_TIMEOUT, RestPoller.LLM_POLL_INTERVAL);
@@ -194,7 +196,7 @@ class RagEvalIT extends FunctionTestBase {
                 ? awaitGroundedness(transactionId) : null;
         LOGGER.info("Eval: {} run {} -> {} in {}s, recall={}, clean={}", item.id(), run, score.status(),
                 score.elapsedSeconds(), score.factRecall(), EvalReport.isClean(score));
-        return new ItemRun(item.id(), run, transactionId, groundedness, score);
+        return new ItemRun(item.id(), run, transactionId, groundedness, score, result.llmResponse());
     }
 
     private static List<RetrievedChunk> chunks(final List<DocumentChunk> chunks) {
