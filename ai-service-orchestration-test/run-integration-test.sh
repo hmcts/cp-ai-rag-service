@@ -21,6 +21,8 @@
 # in the legacy no-client mode, until the production cut-over decommissions the legacy leg.
 # Run a single leg while iterating by appending -Dit.legacy.skip=true or -Dit.enforcement.skip=true
 # to MAVEN_EXTRA_ARGS (or run mvn -P ai-rag-integration-test directly with the flag).
+# The profile also runs an azure-SDK happy-path leg and the report-only eval smoke tier
+# (DD-43887); skip them with -Dit.azurehappypath.skip=true / -Dit.evalsmoke.skip=true.
 #
 set -euo pipefail
 

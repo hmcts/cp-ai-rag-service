@@ -204,7 +204,7 @@ the PR build is the release gate, and the only place a gate can stop a release.
 
 | When | Pipeline | Runs | Gates |
 |---|---|---|---|
-| **PR** | `context-verify` (already runs ITs against dev Azure) | `smoke` items, N=1 | Deterministic measures, zero-tolerance ones strictly |
+| **PR** | `context-verify` (already runs ITs against dev Azure) | `smoke` items, N=1 | Report-only now (the `eval-smoke` execution in `ai-rag-integration-test`, summary in the build log); deterministic measures, zero-tolerance ones strictly, from phase 2 |
 | **Nightly / on demand** | Scheduled run (where to be decided, OQ-3) | `full` items, N=3, plus the LLM judge | Report-only; trends against the baseline |
 
 Keeping the PR tier small matters: every item costs ingestion time and LLM calls on every PR.
