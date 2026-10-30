@@ -84,7 +84,7 @@ Multi-module Maven project with five Azure Functions, one shared library, and on
 | `ai-document-answer-retrieval-function` | Queue-triggered; embeds query, retrieves chunks via AI Search, generates LLM answer summary |
 | `ai-document-answer-scoring-function` | Evaluates response groundedness, publishes scores to Azure Monitor |
 | `ai-document-status-check-function` | HTTP-triggered; exposes GET endpoints to retrieve document ingestion status from Table Storage |
-| `ai-service-orchestration-test` | Integration tests (REST Assured + Testcontainers + Awaitility) — test-only module |
+| `ai-service-orchestration-test` | Integration tests (REST Assured + Testcontainers + Awaitility). `src/main` holds the eval library (`uk.gov.moj.cp.orchestrator.eval`: dataset, scorer, report, gate; JDK + Jackson only); `src/test` holds its unit tests, `RagEvalIT` and the other `*IT` suites, plus the eval dataset and corpus |
 | `ai-document-system-prompt-harness-eval` | Offline, on-demand evaluation harness for the answer-retrieval system prompt (runs the embed→search→generate→cite pipeline across prompts × LLMs × queries, reports citation/verbosity/coverage metrics). Not deployed; config from a local `.env` via `run-harness.sh`. |
 
 ## API Contract

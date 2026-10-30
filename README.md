@@ -22,7 +22,7 @@ This mono-repo contains five independent Azure Functions, a shared library, and 
 | Module | Purpose |
 |--------|---------|
 | `ai-document-shared-artefacts` | Shared utilities, models (including OpenAPI-generated), entity classes, and Azure service clients |
-| `ai-service-orchestration-test` | Integration tests using REST Assured, Testcontainers, and Awaitility |
+| `ai-service-orchestration-test` | Integration tests using REST Assured, Testcontainers, and Awaitility, plus the eval library (`src/main`: dataset, scorer, report, gate) that `RagEvalIT` runs |
 
 ## Architecture & Data Flow
 
