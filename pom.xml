@@ -37,7 +37,7 @@
         <mockito-junit-jupiter.version>5.24.0</mockito-junit-jupiter.version>
         <assertj-core.version>3.27.7</assertj-core.version>
         <langchain4j.version>1.22.0</langchain4j.version>
-        <jackson.version>2.15.2</jackson.version>
+        <jackson.version>2.22.4</jackson.version>
         <opentelemetry-sdk.version>1.67.0</opentelemetry-sdk.version>
         <api-cp-ai-rag.version>0.0.15</api-cp-ai-rag.version>
         <hibernate-validator.version>9.1.5.Final</hibernate-validator.version>
@@ -132,6 +132,13 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
