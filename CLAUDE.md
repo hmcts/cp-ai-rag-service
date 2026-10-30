@@ -30,6 +30,14 @@ mvn verify
 # (add -Deval.gate=true for the PR gate, DD-43901), writes ai-service-orchestration-test/target/eval/eval-report.json
 MAVEN_PROFILE=ai-rag-eval MAVEN_EXTRA_ARGS="-Deval.tier=smoke" ./ai-service-orchestration-test/run-integration-test.sh
 
+# Integration legs and eval options (detail: README "Integration Tests and the Eval"):
+# - ai-rag-integration-test runs four failsafe executions, each in its own JVM; per-execution env vars override .env:
+#   enforcement-on, legacy (remove at the DD-42722 cut-over), azure-rollback-happy-path (remove at DD-43424 Stage 4)
+#   and eval-smoke (gated). Skip with -Dit.{enforcement,legacy,azurehappypath,evalsmoke}.skip=true.
+# - Eval runs pin the retrieval/layout/token settings to the prd app-setting values (eval.* pom properties);
+#   override one with -Deval.<VAR>=... . Select items with -Deval.tier / -Deval.items / -Deval.runs.
+# - Without a profile only offline unit tests run, so a plain `mvn verify` makes no Azure calls.
+
 # Build and package the Azure Functions
 mvn clean package -DskipTests
 

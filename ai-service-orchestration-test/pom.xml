@@ -16,8 +16,6 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <!-- Eval (DD-43887) tuning pins: the prd app-setting values, shared by the eval-smoke
-             execution (PR builds) and the ai-rag-eval profile. Override with -Deval.<VAR>=... -->
         <eval.INGESTION_LAYOUT_AWARE_TEXT_ENABLED>false</eval.INGESTION_LAYOUT_AWARE_TEXT_ENABLED>
         <eval.SEARCH_NEAREST_NEIGHBOURS_COUNT>80</eval.SEARCH_NEAREST_NEIGHBOURS_COUNT>
         <eval.SEARCH_TOP_RESULTS_COUNT>60</eval.SEARCH_TOP_RESULTS_COUNT>
@@ -76,9 +74,6 @@
     </dependencies>
 
     <profiles>
-        <!-- Integration tests (*IT classes) run on failsafe, and only when this profile is
-             active. Surefire runs only the env-only unit tests (ProviderEnvTest — no Azure
-             calls), so a plain `mvn verify` stays offline; failsafe goals bind only below. -->
         <profile>
             <id>ai-rag-integration-test</id>
             <activation>
@@ -95,15 +90,6 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-failsafe-plugin</artifactId>
-                        <!-- Four sequential legs, each a fresh forked JVM with its own harness and
-                             per-run Azure resources. The env vars below override anything inherited
-                             from .env, so the legs are deterministic under Maven. The first two run
-                             the full suite on the openai (default) SDK leg across both client-filtering
-                             modes; the third is a happy-path-only run on the azure SDK rollback leg
-                             (DD-43423) so both provider legs are exercised on every pipeline run;
-                             the fourth is the eval smoke tier (DD-43887).
-                             Skip a leg locally with -Dit.enforcement.skip=true / -Dit.legacy.skip=true
-                             / -Dit.azurehappypath.skip=true / -Dit.evalsmoke.skip=true. -->
                         <executions>
                             <execution>
                                 <id>enforcement-on</id>
@@ -125,8 +111,6 @@
                                     <summaryFile>${project.build.directory}/failsafe-reports/enforcement-on/failsafe-summary.xml</summaryFile>
                                 </configuration>
                             </execution>
-                            <!-- The pre-cut-over production flow: no client identity anywhere.
-                                 Delete this execution at cut-over to decommission the legacy leg. -->
                             <execution>
                                 <id>legacy-flag-off</id>
                                 <goals>
@@ -148,9 +132,6 @@
                                     <summaryFile>${project.build.directory}/failsafe-reports/legacy-flag-off/failsafe-summary.xml</summaryFile>
                                 </configuration>
                             </execution>
-                            <!-- The azure SDK rollback leg (config-only rollback until the Stage 4
-                                 removal, DD-43424): happy-path end-to-end only, proving the rollback
-                                 lever stays green on every run. Delete this execution at Stage 4. -->
                             <execution>
                                 <id>azure-rollback-happy-path</id>
                                 <goals>
@@ -171,9 +152,6 @@
                                     <summaryFile>${project.build.directory}/failsafe-reports/azure-rollback-happy-path/failsafe-summary.xml</summaryFile>
                                 </configuration>
                             </execution>
-                            <!-- The eval smoke tier (DD-43887): RagEvalIT on the smoke items, one run.
-                                 Its own harness, so the tuning pins do not leak into the legs above.
-                                 The summary table is in the build log. -->
                             <execution>
                                 <id>eval-smoke</id>
                                 <goals>
@@ -217,12 +195,6 @@
             </build>
         </profile>
 
-        <!-- The standalone eval (DD-43887): RagEvalIT only, report-only, written to target/eval/.
-             Runs in the client-filtering enforcement mode only. The tuning variables are pinned to
-             the production values (prd app settings) so results reflect what production runs;
-             override one with -Deval.<VAR>=... (e.g. -Deval.SEARCH_MMR_FINAL_COUNT=15). The chat model
-             comes from AZURE_OPENAI_CHAT_DEPLOYMENT_NAME in .env, so comparing models is a local
-             change. Select with -Deval.tier=smoke|full, -Deval.items=id1,id2, -Deval.runs=N. -->
         <profile>
             <id>ai-rag-eval</id>
             <activation>
