@@ -9,6 +9,7 @@ import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_INGESTION_FUNC
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_METADATA_CHECK_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_STATUS_CHECK_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.extension.ProviderEnv.providerEnvEntries;
+import static uk.gov.moj.cp.orchestrator.extension.ServiceTuningEnv.tuningEnvEntries;
 import static uk.gov.moj.cp.orchestrator.util.BlobUtil.deleteContainer;
 import static uk.gov.moj.cp.orchestrator.util.BlobUtil.ensureContainerExists;
 import static uk.gov.moj.cp.orchestrator.util.IndexUtil.createIndexFromSchema;
@@ -392,6 +393,9 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
         // Provider keys must NOT also appear in the Map.ofEntries block above — putAll would
         // silently override the earlier value rather than fail loudly.
         envVarMap.putAll(providerEnvEntries());
+        // Tuning variables (retrieval stages, layout-aware text, token budget) only when the leg
+        // sets them; unset ones leave the hosts on their code defaults. Same no-overlap rule.
+        envVarMap.putAll(tuningEnvEntries());
 
         return Map.copyOf(envVarMap);
     }

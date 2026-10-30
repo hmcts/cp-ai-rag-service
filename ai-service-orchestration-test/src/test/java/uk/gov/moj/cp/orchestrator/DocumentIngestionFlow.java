@@ -11,6 +11,7 @@ import uk.gov.hmcts.cp.openapi.model.FileStorageLocationReturnedSuccessfully;
 import uk.gov.moj.cp.orchestrator.util.RestOperation;
 
 import java.time.Duration;
+import java.util.Set;
 import java.util.concurrent.TimeoutException;
 
 import io.restassured.response.Response;
@@ -22,16 +23,19 @@ import io.restassured.specification.RequestSpecification;
  * steps serve both the single-client happy path and the multi-client isolation checks without
  * duplicating the plumbing.
  */
-final class DocumentIngestionFlow {
+public final class DocumentIngestionFlow {
 
     /** Ingestion (Document Intelligence → chunk → embed → index) needs more headroom than the default poll timeout. */
     private static final Duration INGESTION_TIMEOUT = Duration.ofMinutes(3);
+
+    private static final Set<String> TERMINAL_INGESTION_STATUSES =
+            Set.of("INGESTION_SUCCESS", "INGESTION_FAILED", "FILE_SIZE_OVER_LIMIT");
 
     private DocumentIngestionFlow() {
     }
 
     /** Initiates an upload against the metadata-check host and returns the contract-validated SAS location. */
-    static FileStorageLocationReturnedSuccessfully initiateUpload(final RequestSpecification metadataCheckSpec,
+    public static FileStorageLocationReturnedSuccessfully initiateUpload(final RequestSpecification metadataCheckSpec,
                                                                   final DocumentUploadRequest documentUploadRequest) {
         final Response response = postRequest(
                 metadataCheckSpec.body(documentUploadRequest).contentType("application/json"),
@@ -42,8 +46,8 @@ final class DocumentIngestionFlow {
     }
 
     /** Polls the status host until the given document reference reports INGESTION_SUCCESS. */
-    static void awaitIngestionSuccess(final RequestSpecification statusCheckSpec,
-                                      final String documentReference) throws TimeoutException {
+    public static void awaitIngestionSuccess(final RequestSpecification statusCheckSpec,
+                                             final String documentReference) throws TimeoutException {
         final Response response = pollForResponse(
                 statusCheckSpec.contentType("application/json"),
                 RestOperation.GET,
@@ -52,5 +56,21 @@ final class DocumentIngestionFlow {
                 INGESTION_TIMEOUT);
         assertNotNull(response);
         assertMatchesContract(response, DocumentIngestionStatusReturnedSuccessfully.class);
+    }
+
+    /**
+     * Polls the status host until the given document reference reaches a terminal ingestion status
+     * and returns it, so a failed ingestion is reported at once instead of after the full timeout.
+     */
+    public static String awaitIngestionOutcome(final RequestSpecification statusCheckSpec,
+                                               final String documentReference) throws TimeoutException {
+        final Response response = pollForResponse(
+                statusCheckSpec.contentType("application/json"),
+                RestOperation.GET,
+                "/document-upload/" + documentReference,
+                r -> r.getStatusCode() == 200 && TERMINAL_INGESTION_STATUSES.contains(r.jsonPath().getString("status")),
+                INGESTION_TIMEOUT);
+        assertNotNull(response);
+        return String.valueOf(assertMatchesContract(response, DocumentIngestionStatusReturnedSuccessfully.class).getStatus());
     }
 }

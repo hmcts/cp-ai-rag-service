@@ -11,11 +11,18 @@
 #   Usage (from anywhere):
 #     ./run-integration-test.sh                 # package the function apps, then run the tests
 #     SKIP_BUILD=true ./run-integration-test.sh # reuse already-packaged function apps
+#     MAVEN_PROFILE=ai-rag-eval ./run-integration-test.sh   # the standalone eval (RagEvalIT) instead
+#
+# The eval (DD-43887) writes target/eval/eval-report.json and only fails if the corpus does not
+# ingest. Select items with MAVEN_EXTRA_ARGS, e.g. "-Deval.tier=smoke", "-Deval.items=plain-001"
+# or "-Deval.runs=3"; set AZURE_OPENAI_CHAT_DEPLOYMENT_NAME in .env to evaluate another model.
 #
 # The suite runs twice (two failsafe executions): once with client filtering enforced and once
 # in the legacy no-client mode, until the production cut-over decommissions the legacy leg.
 # Run a single leg while iterating by appending -Dit.legacy.skip=true or -Dit.enforcement.skip=true
 # to MAVEN_EXTRA_ARGS (or run mvn -P ai-rag-integration-test directly with the flag).
+# The profile also runs an azure-SDK happy-path leg and the report-only eval smoke tier
+# (DD-43887); skip them with -Dit.azurehappypath.skip=true / -Dit.evalsmoke.skip=true.
 #
 set -euo pipefail
 
@@ -76,4 +83,4 @@ if [[ "${SKIP_BUILD:-false}" != "true" ]]; then
 fi
 
 # shellcheck disable=SC2086
-mvn verify -P ai-rag-integration-test -pl "${MODULE}" ${MAVEN_EXTRA_ARGS:-}
+mvn verify -P "${MAVEN_PROFILE:-ai-rag-integration-test}" -pl "${MODULE}" ${MAVEN_EXTRA_ARGS:-}

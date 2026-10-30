@@ -16,6 +16,20 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Eval (DD-43887) tuning pins: the prd app-setting values, shared by the eval-smoke
+             execution (PR builds) and the ai-rag-eval profile. Override with -Deval.<VAR>=... -->
+        <eval.INGESTION_LAYOUT_AWARE_TEXT_ENABLED>false</eval.INGESTION_LAYOUT_AWARE_TEXT_ENABLED>
+        <eval.SEARCH_NEAREST_NEIGHBOURS_COUNT>80</eval.SEARCH_NEAREST_NEIGHBOURS_COUNT>
+        <eval.SEARCH_TOP_RESULTS_COUNT>60</eval.SEARCH_TOP_RESULTS_COUNT>
+        <eval.SEARCH_RESULTS_ENABLE_CONTAINMENT_DEDUP>true</eval.SEARCH_RESULTS_ENABLE_CONTAINMENT_DEDUP>
+        <eval.SEARCH_CONTAINMENT_SHINGLE_SIZE>3</eval.SEARCH_CONTAINMENT_SHINGLE_SIZE>
+        <eval.SEARCH_CONTAINMENT_THRESHOLD>0.95</eval.SEARCH_CONTAINMENT_THRESHOLD>
+        <eval.SEARCH_RESULTS_ENABLE_DEDUPLICATION>false</eval.SEARCH_RESULTS_ENABLE_DEDUPLICATION>
+        <eval.SEARCH_RESULTS_ENABLE_MMR>true</eval.SEARCH_RESULTS_ENABLE_MMR>
+        <eval.SEARCH_MMR_LAMBDA>0.8</eval.SEARCH_MMR_LAMBDA>
+        <eval.SEARCH_MMR_FINAL_COUNT>30</eval.SEARCH_MMR_FINAL_COUNT>
+        <eval.LLM_MODEL_RESPONSE_MAX_TOKENS>4000</eval.LLM_MODEL_RESPONSE_MAX_TOKENS>
+        <eval.LLM_REASONING_EFFORT>none</eval.LLM_REASONING_EFFORT>
     </properties>
 
     <dependencies>
@@ -73,20 +87,22 @@
                 <it.enforcement.skip>false</it.enforcement.skip>
                 <it.legacy.skip>false</it.legacy.skip>
                 <it.azurehappypath.skip>false</it.azurehappypath.skip>
+                <it.evalsmoke.skip>false</it.evalsmoke.skip>
             </properties>
             <build>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-failsafe-plugin</artifactId>
-                        <!-- Three sequential legs, each a fresh forked JVM with its own harness and
+                        <!-- Four sequential legs, each a fresh forked JVM with its own harness and
                              per-run Azure resources. The env vars below override anything inherited
                              from .env, so the legs are deterministic under Maven. The first two run
                              the full suite on the openai (default) SDK leg across both client-filtering
                              modes; the third is a happy-path-only run on the azure SDK rollback leg
-                             (DD-43423) so both provider legs are exercised on every pipeline run.
+                             (DD-43423) so both provider legs are exercised on every pipeline run;
+                             the fourth is the report-only eval smoke tier (DD-43887).
                              Skip a leg locally with -Dit.enforcement.skip=true / -Dit.legacy.skip=true
-                             / -Dit.azurehappypath.skip=true. -->
+                             / -Dit.azurehappypath.skip=true / -Dit.evalsmoke.skip=true. -->
                         <executions>
                             <execution>
                                 <id>enforcement-on</id>
@@ -101,6 +117,9 @@
                                         <LLM_CHAT_SERVICE_PROVIDER>openai</LLM_CHAT_SERVICE_PROVIDER>
                                         <EMBEDDING_SERVICE_PROVIDER>openai</EMBEDDING_SERVICE_PROVIDER>
                                     </environmentVariables>
+                                    <excludes>
+                                        <exclude>**/eval/**</exclude>
+                                    </excludes>
                                     <reportsDirectory>${project.build.directory}/failsafe-reports/enforcement-on</reportsDirectory>
                                     <summaryFile>${project.build.directory}/failsafe-reports/enforcement-on/failsafe-summary.xml</summaryFile>
                                 </configuration>
@@ -122,6 +141,7 @@
                                     </environmentVariables>
                                     <excludes>
                                         <exclude>**/ClientIsolationIT.java</exclude>
+                                        <exclude>**/eval/**</exclude>
                                     </excludes>
                                     <reportsDirectory>${project.build.directory}/failsafe-reports/legacy-flag-off</reportsDirectory>
                                     <summaryFile>${project.build.directory}/failsafe-reports/legacy-flag-off/failsafe-summary.xml</summaryFile>
@@ -148,6 +168,100 @@
                                     </includes>
                                     <reportsDirectory>${project.build.directory}/failsafe-reports/azure-rollback-happy-path</reportsDirectory>
                                     <summaryFile>${project.build.directory}/failsafe-reports/azure-rollback-happy-path/failsafe-summary.xml</summaryFile>
+                                </configuration>
+                            </execution>
+                            <!-- The eval smoke tier (DD-43887): RagEvalIT on the smoke items, one run,
+                                 report-only (it fails only if the corpus does not ingest). Its own
+                                 harness, so the tuning pins do not leak into the legs above. The
+                                 summary table is in the build log. -->
+                            <execution>
+                                <id>eval-smoke</id>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                                <configuration>
+                                    <skip>${it.evalsmoke.skip}</skip>
+                                    <environmentVariables>
+                                        <CLIENT_FILTERING_ENABLED>true</CLIENT_FILTERING_ENABLED>
+                                        <LLM_CHAT_SERVICE_PROVIDER>openai</LLM_CHAT_SERVICE_PROVIDER>
+                                        <EMBEDDING_SERVICE_PROVIDER>openai</EMBEDDING_SERVICE_PROVIDER>
+                                        <INGESTION_LAYOUT_AWARE_TEXT_ENABLED>${eval.INGESTION_LAYOUT_AWARE_TEXT_ENABLED}</INGESTION_LAYOUT_AWARE_TEXT_ENABLED>
+                                        <SEARCH_NEAREST_NEIGHBOURS_COUNT>${eval.SEARCH_NEAREST_NEIGHBOURS_COUNT}</SEARCH_NEAREST_NEIGHBOURS_COUNT>
+                                        <SEARCH_TOP_RESULTS_COUNT>${eval.SEARCH_TOP_RESULTS_COUNT}</SEARCH_TOP_RESULTS_COUNT>
+                                        <SEARCH_RESULTS_ENABLE_CONTAINMENT_DEDUP>${eval.SEARCH_RESULTS_ENABLE_CONTAINMENT_DEDUP}</SEARCH_RESULTS_ENABLE_CONTAINMENT_DEDUP>
+                                        <SEARCH_CONTAINMENT_SHINGLE_SIZE>${eval.SEARCH_CONTAINMENT_SHINGLE_SIZE}</SEARCH_CONTAINMENT_SHINGLE_SIZE>
+                                        <SEARCH_CONTAINMENT_THRESHOLD>${eval.SEARCH_CONTAINMENT_THRESHOLD}</SEARCH_CONTAINMENT_THRESHOLD>
+                                        <SEARCH_RESULTS_ENABLE_DEDUPLICATION>${eval.SEARCH_RESULTS_ENABLE_DEDUPLICATION}</SEARCH_RESULTS_ENABLE_DEDUPLICATION>
+                                        <SEARCH_RESULTS_ENABLE_MMR>${eval.SEARCH_RESULTS_ENABLE_MMR}</SEARCH_RESULTS_ENABLE_MMR>
+                                        <SEARCH_MMR_LAMBDA>${eval.SEARCH_MMR_LAMBDA}</SEARCH_MMR_LAMBDA>
+                                        <SEARCH_MMR_FINAL_COUNT>${eval.SEARCH_MMR_FINAL_COUNT}</SEARCH_MMR_FINAL_COUNT>
+                                        <LLM_MODEL_RESPONSE_MAX_TOKENS>${eval.LLM_MODEL_RESPONSE_MAX_TOKENS}</LLM_MODEL_RESPONSE_MAX_TOKENS>
+                                        <LLM_REASONING_EFFORT>${eval.LLM_REASONING_EFFORT}</LLM_REASONING_EFFORT>
+                                    </environmentVariables>
+                                    <systemPropertyVariables>
+                                        <eval.tier>smoke</eval.tier>
+                                        <eval.runs>1</eval.runs>
+                                    </systemPropertyVariables>
+                                    <includes>
+                                        <include>**/eval/RagEvalIT.java</include>
+                                    </includes>
+                                    <reportsDirectory>${project.build.directory}/failsafe-reports/eval-smoke</reportsDirectory>
+                                    <summaryFile>${project.build.directory}/failsafe-reports/eval-smoke/failsafe-summary.xml</summaryFile>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- The standalone eval (DD-43887): RagEvalIT only, report-only, written to target/eval/.
+             Runs in the client-filtering enforcement mode only. The tuning variables are pinned to
+             the production values (prd app settings) so results reflect what production runs;
+             override one with -Deval.<VAR>=... (e.g. -Deval.SEARCH_MMR_FINAL_COUNT=15). The chat model
+             comes from AZURE_OPENAI_CHAT_DEPLOYMENT_NAME in .env, so comparing models is a local
+             change. Select with -Deval.tier=smoke|full, -Deval.items=id1,id2, -Deval.runs=N. -->
+        <profile>
+            <id>ai-rag-eval</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>eval</id>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                                <configuration>
+                                    <environmentVariables>
+                                        <CLIENT_FILTERING_ENABLED>true</CLIENT_FILTERING_ENABLED>
+                                        <LLM_CHAT_SERVICE_PROVIDER>openai</LLM_CHAT_SERVICE_PROVIDER>
+                                        <EMBEDDING_SERVICE_PROVIDER>openai</EMBEDDING_SERVICE_PROVIDER>
+                                        <INGESTION_LAYOUT_AWARE_TEXT_ENABLED>${eval.INGESTION_LAYOUT_AWARE_TEXT_ENABLED}</INGESTION_LAYOUT_AWARE_TEXT_ENABLED>
+                                        <SEARCH_NEAREST_NEIGHBOURS_COUNT>${eval.SEARCH_NEAREST_NEIGHBOURS_COUNT}</SEARCH_NEAREST_NEIGHBOURS_COUNT>
+                                        <SEARCH_TOP_RESULTS_COUNT>${eval.SEARCH_TOP_RESULTS_COUNT}</SEARCH_TOP_RESULTS_COUNT>
+                                        <SEARCH_RESULTS_ENABLE_CONTAINMENT_DEDUP>${eval.SEARCH_RESULTS_ENABLE_CONTAINMENT_DEDUP}</SEARCH_RESULTS_ENABLE_CONTAINMENT_DEDUP>
+                                        <SEARCH_CONTAINMENT_SHINGLE_SIZE>${eval.SEARCH_CONTAINMENT_SHINGLE_SIZE}</SEARCH_CONTAINMENT_SHINGLE_SIZE>
+                                        <SEARCH_CONTAINMENT_THRESHOLD>${eval.SEARCH_CONTAINMENT_THRESHOLD}</SEARCH_CONTAINMENT_THRESHOLD>
+                                        <SEARCH_RESULTS_ENABLE_DEDUPLICATION>${eval.SEARCH_RESULTS_ENABLE_DEDUPLICATION}</SEARCH_RESULTS_ENABLE_DEDUPLICATION>
+                                        <SEARCH_RESULTS_ENABLE_MMR>${eval.SEARCH_RESULTS_ENABLE_MMR}</SEARCH_RESULTS_ENABLE_MMR>
+                                        <SEARCH_MMR_LAMBDA>${eval.SEARCH_MMR_LAMBDA}</SEARCH_MMR_LAMBDA>
+                                        <SEARCH_MMR_FINAL_COUNT>${eval.SEARCH_MMR_FINAL_COUNT}</SEARCH_MMR_FINAL_COUNT>
+                                        <LLM_MODEL_RESPONSE_MAX_TOKENS>${eval.LLM_MODEL_RESPONSE_MAX_TOKENS}</LLM_MODEL_RESPONSE_MAX_TOKENS>
+                                        <LLM_REASONING_EFFORT>${eval.LLM_REASONING_EFFORT}</LLM_REASONING_EFFORT>
+                                    </environmentVariables>
+                                    <includes>
+                                        <include>**/eval/RagEvalIT.java</include>
+                                    </includes>
+                                    <reportsDirectory>${project.build.directory}/failsafe-reports/eval</reportsDirectory>
+                                    <summaryFile>${project.build.directory}/failsafe-reports/eval/failsafe-summary.xml</summaryFile>
                                 </configuration>
                             </execution>
                         </executions>
