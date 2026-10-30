@@ -28,6 +28,8 @@ public record EvalReport(String datasetVersion,
                          List<ItemResult> items,
                          Summary summary) {
 
+    private static final String ANSWER_GENERATED = "ANSWER_GENERATED";
+
     private static final ObjectMapper MAPPER = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
     /** M1: one corpus document's ingestion outcome. */
@@ -37,8 +39,11 @@ public record EvalReport(String datasetVersion,
     /**
      * One run of one item; {@code groundedness} is the scorer's score (M11), null if none was
      * recorded. The answer is kept as rendered, so a miss can be diagnosed from the report alone.
+     * {@code error} is set when the run itself failed (a request, contract or scoring error), so one
+     * failed query is recorded instead of losing the whole report.
      */
-    public record ItemRun(String itemId, int run, String transactionId, Double groundedness, ItemScore score, String answer) {
+    public record ItemRun(String itemId, int run, String transactionId, Double groundedness, ItemScore score, String answer,
+                          String error) {
     }
 
     public record ItemResult(String id, String behaviour, List<ItemRun> runs, ItemSummary summary) {
@@ -51,6 +56,7 @@ public record EvalReport(String datasetVersion,
                               int forbiddenHitRuns,
                               int refusalErrors,
                               int citationDegradedRuns,
+                              int errorRuns,
                               Double meanFactRecall,
                               Double meanCitationPrecision,
                               Double meanGroundedness) {
@@ -59,6 +65,7 @@ public record EvalReport(String datasetVersion,
     public record Summary(int items,
                           int runs,
                           int cleanRuns,
+                          int errorRuns,
                           boolean allDocumentsIngested,
                           Double meanFactRecall,
                           Double meanGoldPageRecall,
@@ -82,6 +89,7 @@ public record EvalReport(String datasetVersion,
                 items.size(),
                 runs.size(),
                 count(scores, EvalReport::isClean),
+                (int) runs.stream().filter(r -> r.error() != null).count(),
                 ingestion.stream().allMatch(d -> "INGESTION_SUCCESS".equals(d.status())),
                 mean(scores.stream().map(ItemScore::factRecall).toList()),
                 mean(scores.stream().map(ItemScore::goldPageRecall).toList()),
@@ -94,12 +102,13 @@ public record EvalReport(String datasetVersion,
     }
 
     /**
-     * Every applicable measure passes: fact recall meets the item threshold, no forbidden content,
+     * The answer was generated and every applicable measure passes: fact recall meets the item threshold, no forbidden content,
      * refusal correct, retrieval checks hold, nothing outside the filter, not citation-degraded and
      * every section cited. Citation precision is left out until it has a threshold (OQ-5).
      */
     static boolean isClean(final ItemScore s) {
-        return !Boolean.FALSE.equals(s.factRecallPass())
+        return ANSWER_GENERATED.equals(s.status())
+                && !Boolean.FALSE.equals(s.factRecallPass())
                 && s.forbiddenHits().isEmpty()
                 && s.refusalCorrect()
                 && !Boolean.FALSE.equals(s.retrievalOk())
@@ -126,6 +135,7 @@ public record EvalReport(String datasetVersion,
                 count(scores, s -> !s.forbiddenHits().isEmpty()),
                 count(scores, s -> !s.refusalCorrect()),
                 count(scores, ItemScore::citationDegraded),
+                (int) runs.stream().filter(r -> r.error() != null).count(),
                 mean(scores.stream().map(ItemScore::factRecall).toList()),
                 mean(scores.stream().map(ItemScore::citationPrecision).toList()),
                 mean(runs.stream().map(ItemRun::groundedness).toList()));

@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -83,6 +84,9 @@ class RagEvalIT extends FunctionTestBase {
     private static final Duration ANSWER_TIMEOUT = Duration.ofMinutes(10);
     private static final Duration GROUNDEDNESS_TIMEOUT = Duration.ofMinutes(3);
     private static final Path REPORT_DIRECTORY = Path.of("target", "eval");
+    private static final String INGESTION_SUCCESS = "INGESTION_SUCCESS";
+    private static final String UPLOAD_FAILED = "UPLOAD_FAILED";
+    private static final String ERROR = "ERROR";
 
     @Test
     @DisplayName("Eval: ingest the golden corpus, run the dataset items, write the report")
@@ -93,10 +97,28 @@ class RagEvalIT extends FunctionTestBase {
         LOGGER.info("Eval: {} item(s) x {} run(s): {}", items.size(), runs, items.stream().map(EvalItem::id).toList());
 
         final List<DocumentIngestion> ingestion = ingestCorpus(dataset);
+        final List<ItemRun> itemRuns = new ArrayList<>();
+        if (ingestion.stream().allMatch(d -> INGESTION_SUCCESS.equals(d.status()))) {
+            itemRuns.addAll(runItems(dataset, ingestion, items, runs));
+        } else {
+            // M1 fails the run anyway, and answers over a partial corpus would only mislead.
+            LOGGER.error("Eval: the corpus did not fully ingest, skipping the queries: {}", ingestion);
+        }
+
+        final EvalReport report = EvalReport.build(dataset, settings(runs), ingestion, itemRuns);
+        final Path file = REPORT_DIRECTORY.resolve("eval-report.json");
+        report.write(file);
+        report.write(REPORT_DIRECTORY.resolve("eval-report-" + Instant.now().toString().replace(":", "") + ".json"));
+        logSummary(report, file);
+
+        assertTrue(report.summary().allDocumentsIngested(), "M1: every corpus document must reach INGESTION_SUCCESS: " + ingestion);
+    }
+
+    private List<ItemRun> runItems(final EvalDataset dataset, final List<DocumentIngestion> ingestion,
+                                   final List<EvalItem> items, final int runs) throws InterruptedException, ExecutionException {
         final Map<String, String> fileByDocumentId = ingestion.stream()
                 .collect(Collectors.toMap(DocumentIngestion::documentId, DocumentIngestion::file));
         final ItemScorer scorer = new ItemScorer(dataset, fileByDocumentId);
-
         final List<ItemRun> itemRuns = new ArrayList<>();
         final ExecutorService pool = Executors.newFixedThreadPool(Integer.getInteger("eval.parallelism", 4));
         try {
@@ -113,14 +135,7 @@ class RagEvalIT extends FunctionTestBase {
         } finally {
             pool.shutdownNow();
         }
-
-        final EvalReport report = EvalReport.build(dataset, settings(runs), ingestion, itemRuns);
-        final Path file = REPORT_DIRECTORY.resolve("eval-report.json");
-        report.write(file);
-        report.write(REPORT_DIRECTORY.resolve("eval-report-" + Instant.now().toString().replace(":", "") + ".json"));
-        logSummary(report, file);
-
-        assertTrue(report.summary().allDocumentsIngested(), "M1: every corpus document must reach INGESTION_SUCCESS: " + ingestion);
+        return itemRuns;
     }
 
     private static List<EvalItem> selectItems(final EvalDataset dataset) {
@@ -132,8 +147,12 @@ class RagEvalIT extends FunctionTestBase {
         return dataset.items().stream().filter(i -> i.tiers().contains(tier)).toList();
     }
 
-    /** M1: uploads every corpus document with its dataset metadata, then waits for each to ingest. */
-    private static List<DocumentIngestion> ingestCorpus(final EvalDataset dataset) throws IOException {
+    /**
+     * M1: uploads every corpus document with its dataset metadata, then waits for each to reach a
+     * terminal ingestion status. A document that fails to upload is recorded as UPLOAD_FAILED and
+     * not waited on, so the report is still written.
+     */
+    private static List<DocumentIngestion> ingestCorpus(final EvalDataset dataset) {
         final Instant started = Instant.now();
         final Map<String, String> referenceByFile = new LinkedHashMap<>();
         for (final DocumentSpec document : dataset.documents()) {
@@ -141,20 +160,30 @@ class RagEvalIT extends FunctionTestBase {
                     .documentId(randomUUID().toString())
                     .documentName(document.file());
             document.metadata().forEach(m -> request.addMetadataFilterItem(new MetadataFilter(m.key(), m.value())));
-            final FileStorageLocationReturnedSuccessfully location =
-                    DocumentIngestionFlow.initiateUpload(spec(DOCUMENT_METADATA_CHECK_FUNCTION), request);
-            BlobUtil.uploadBytes(location.getStorageUrl(), Files.readAllBytes(dataset.documentPath(document.file())));
-            referenceByFile.put(document.file(), location.getDocumentReference());
+            try {
+                final FileStorageLocationReturnedSuccessfully location =
+                        DocumentIngestionFlow.initiateUpload(spec(DOCUMENT_METADATA_CHECK_FUNCTION), request);
+                BlobUtil.uploadBytes(location.getStorageUrl(), Files.readAllBytes(dataset.documentPath(document.file())));
+                referenceByFile.put(document.file(), location.getDocumentReference());
+            } catch (final IOException | RuntimeException | AssertionError e) {
+                LOGGER.error("Eval: {} did not upload: {}", document.file(), e.toString());
+                referenceByFile.put(document.file(), null);
+            }
         }
 
         final List<DocumentIngestion> outcomes = new ArrayList<>();
         referenceByFile.forEach((file, reference) -> {
-            String status = "INGESTION_SUCCESS";
-            try {
-                DocumentIngestionFlow.awaitIngestionSuccess(spec(DOCUMENT_STATUS_CHECK_FUNCTION), reference);
-            } catch (final TimeoutException | AssertionError e) {
-                LOGGER.error("Eval: {} did not ingest: {}", file, e.getMessage());
-                status = "NOT_INGESTED";
+            String status = UPLOAD_FAILED;
+            if (reference != null) {
+                try {
+                    status = DocumentIngestionFlow.awaitIngestionOutcome(spec(DOCUMENT_STATUS_CHECK_FUNCTION), reference);
+                } catch (final TimeoutException | RuntimeException | AssertionError e) {
+                    LOGGER.error("Eval: {} did not ingest: {}", file, e.getMessage());
+                    status = "NOT_INGESTED";
+                }
+            }
+            if (!INGESTION_SUCCESS.equals(status)) {
+                LOGGER.error("Eval: {} ended as {}", file, status);
             }
             outcomes.add(new DocumentIngestion(file, reference, status,
                     Duration.between(started, Instant.now()).toMillis() / 1000.0));
@@ -162,18 +191,41 @@ class RagEvalIT extends FunctionTestBase {
         return outcomes;
     }
 
+    /**
+     * Runs one item once. Any failure inside the run (a rejected request, a contract mismatch, a
+     * scoring error) is recorded on the run as an error, so one failed query does not lose the report.
+     */
     private ItemRun runItem(final ItemScorer scorer, final EvalItem item, final int run) {
         final Instant started = Instant.now();
+        String transactionId = null;
+        try {
+            transactionId = submitQuery(item);
+            final AnswerResult result = awaitAnswer(item, run, transactionId, started);
+            final ItemScore score = scorer.score(item, result);
+            final Double groundedness = AnswerGenerationStatus.ANSWER_GENERATED.toString().equals(result.status())
+                    ? awaitGroundedness(transactionId) : null;
+            LOGGER.info("Eval: {} run {} -> {} in {}s, recall={}, clean={}", item.id(), run, score.status(),
+                    score.elapsedSeconds(), score.factRecall(), EvalReport.isClean(score));
+            return new ItemRun(item.id(), run, transactionId, groundedness, score, result.llmResponse(), null);
+        } catch (final RuntimeException | AssertionError e) {
+            LOGGER.error("Eval: {} run {} failed: {}", item.id(), run, e.toString());
+            final AnswerResult failed = new AnswerResult(ERROR, null, null, List.of(),
+                    Duration.between(started, Instant.now()).toMillis() / 1000.0);
+            return new ItemRun(item.id(), run, transactionId, null, scorer.score(item, failed), null, e.toString());
+        }
+    }
+
+    private static String submitQuery(final EvalItem item) {
         final AnswerUserQueryRequest request = new AnswerUserQueryRequest()
                 .userQuery(item.query())
                 .queryPrompt(item.queryPrompt())
                 .metadataFilter(item.metadataFilter().stream().map(m -> new MetadataFilter(m.key(), m.value())).toList());
-
         final Response accepted = postRequest(spec(ANSWER_RETRIEVAL_FUNCTION).body(request).contentType("application/json"),
                 "/answer-user-query-async", r -> r.getStatusCode() == 202);
-        final String transactionId = assertMatchesContract(accepted, UserQueryAnswerRequestAccepted.class).getTransactionId();
+        return assertMatchesContract(accepted, UserQueryAnswerRequestAccepted.class).getTransactionId();
+    }
 
-        AnswerResult result;
+    private static AnswerResult awaitAnswer(final EvalItem item, final int run, final String transactionId, final Instant started) {
         try {
             // The query parameter goes on the spec, not in the path: RestAssured re-adds a path
             // query string on every poll of the same spec, and a repeated parameter reads as false.
@@ -184,19 +236,12 @@ class RagEvalIT extends FunctionTestBase {
                     ANSWER_TIMEOUT, RestPoller.LLM_POLL_INTERVAL);
             final UserQueryAnswerReturnedSuccessfullyAsynchronously answer =
                     assertMatchesContract(response, UserQueryAnswerReturnedSuccessfullyAsynchronously.class);
-            result = new AnswerResult(String.valueOf(answer.getStatus()), answer.getLlmResponse(), answer.getReason(),
+            return new AnswerResult(String.valueOf(answer.getStatus()), answer.getLlmResponse(), answer.getReason(),
                     chunks(answer.getDocumentChunks()), Duration.between(started, Instant.now()).toMillis() / 1000.0);
         } catch (final TimeoutException e) {
             LOGGER.error("Eval: {} run {} timed out: {}", item.id(), run, e.getMessage());
-            result = new AnswerResult("TIMEOUT", null, null, List.of(), ANSWER_TIMEOUT.toSeconds());
+            return new AnswerResult("TIMEOUT", null, null, List.of(), ANSWER_TIMEOUT.toSeconds());
         }
-
-        final ItemScore score = scorer.score(item, result);
-        final Double groundedness = AnswerGenerationStatus.ANSWER_GENERATED.toString().equals(result.status())
-                ? awaitGroundedness(transactionId) : null;
-        LOGGER.info("Eval: {} run {} -> {} in {}s, recall={}, clean={}", item.id(), run, score.status(),
-                score.elapsedSeconds(), score.factRecall(), EvalReport.isClean(score));
-        return new ItemRun(item.id(), run, transactionId, groundedness, score, result.llmResponse());
     }
 
     private static List<RetrievedChunk> chunks(final List<DocumentChunk> chunks) {
@@ -264,6 +309,9 @@ class RagEvalIT extends FunctionTestBase {
             final EvalReport.ItemSummary s = item.summary();
             final Set<String> notes = new TreeSet<>();
             item.runs().forEach(r -> {
+                if (r.error() != null) {
+                    notes.add("error");
+                }
                 notes.addAll(r.score().missingFacts().stream().map(m -> "missing:" + m).toList());
                 notes.addAll(r.score().forbiddenHits().stream().map(f -> "forbidden:" + f).toList());
                 if (!r.score().refusalCorrect()) {
