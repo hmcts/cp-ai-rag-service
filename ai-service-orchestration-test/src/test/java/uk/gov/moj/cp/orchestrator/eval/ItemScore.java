@@ -18,6 +18,7 @@ import java.util.List;
  * @param citationPrecision      M9: share of cited pages that are gold pages
  * @param citationPrecisionGated false for long-answer items, where M9 is report-only
  * @param citationDegraded       M10: the service recorded a citation guard reason
+ * @param retrievedPages         the final chunks as {@code file#page}, in the order the service returned them
  */
 public record ItemScore(String id,
                         String status,
@@ -40,5 +41,6 @@ public record ItemScore(String id,
                         boolean citationDegraded,
                         String reason,
                         int chunks,
-                        int answerChars) {
+                        int answerChars,
+                        List<String> retrievedPages) {
 }

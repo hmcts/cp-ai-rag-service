@@ -18,15 +18,16 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 
 /**
  * The output of one eval run (design D2): the settings it ran with, how ingestion went, every run
- * of every item with its measures, and summaries. Phase 1 is report-only, so nothing here gates;
- * thresholds come later from these reports (OQ-5).
+ * of every item with its measures, summaries and, when the gate is on, the gate decision
+ * ({@link EvalGate}, null when the run is report-only).
  */
 public record EvalReport(String datasetVersion,
                          String generatedAt,
                          Map<String, String> settings,
                          List<DocumentIngestion> ingestion,
                          List<ItemResult> items,
-                         Summary summary) {
+                         Summary summary,
+                         EvalGate.Result gate) {
 
     private static final String ANSWER_GENERATED = "ANSWER_GENERATED";
 
@@ -98,7 +99,11 @@ public record EvalReport(String datasetVersion,
                 percentile(scores, ItemScore::elapsedSeconds, 0.50),
                 percentile(scores, ItemScore::elapsedSeconds, 0.95));
         return new EvalReport(dataset.version(), Instant.now().toString(), Map.copyOf(settings), List.copyOf(ingestion),
-                List.copyOf(items), summary);
+                List.copyOf(items), summary, null);
+    }
+
+    EvalReport withGate(final EvalGate.Result result) {
+        return new EvalReport(datasetVersion, generatedAt, settings, ingestion, items, summary, result);
     }
 
     /**

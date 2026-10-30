@@ -204,7 +204,7 @@ the PR build is the release gate, and the only place a gate can stop a release.
 
 | When | Pipeline | Runs | Gates |
 |---|---|---|---|
-| **PR** | `context-verify` (already runs ITs against dev Azure) | `smoke` items, N=1 | Report-only now (the `eval-smoke` execution in `ai-rag-integration-test`, summary in the build log); deterministic measures, zero-tolerance ones strictly, from phase 2 |
+| **PR** | `context-verify` (already runs ITs against the ste resources, the same as the local `.env`) | `smoke` items, N=1 | Gated since DD-43901 (the `eval-smoke` execution in `ai-rag-integration-test`): deterministic measures, 2-of-3 re-run on failure, known issues excluded. See `docs/pipeline/DD-43901-eval-gate/baseline.md` |
 | **Nightly / on demand** | Scheduled run (where to be decided, OQ-3) | `full` items, N=3, plus the LLM judge | Report-only; trends against the baseline |
 
 Keeping the PR tier small matters: every item costs ingestion time and LLM calls on every PR.
@@ -233,7 +233,9 @@ Keeping the PR tier small matters: every item costs ingestion time and LLM calls
    `uk.gov.moj.cp.orchestrator.eval` with offline unit tests. The profile pins the prd tuning
    values; note prd runs with `INGESTION_LAYOUT_AWARE_TEXT_ENABLED` unset (off) while ste has it
    on, so local results can differ from the ste dry run on the fixed-width history items.
-2. **Gates on PR:** add the baseline and the known-issues register; switch the smoke tier to gate.
+2. **Gates on PR (DD-43901, done):** baseline from N=10 smoke runs, the known-issues register
+   (`eval/known-issues.json`), `EvalGate` with the 2-of-3 rule, the `eval.gate` switch (on in
+   the PR leg), and retrieved page order in the report.
 3. **Nightly tier:** full set, N=3, the LLM judge (M12) and its comparison with M11.
 4. **Gaps:** G1 and G2 only if the earlier phases show they are needed.
 
@@ -250,7 +252,7 @@ Keeping the PR tier small matters: every item costs ingestion time and LLM calls
 - **OQ-4 Refusal detection:** decided: sentinel, or no citation plus refusal wording (see M8).
 - **OQ-5 Thresholds:** starting values for M3, M6, M9 and M10. Proposal: set them from the
   first three report-only runs, then tighten.
-- **OQ-6 Judge:** which deployment, and its rate limit on dev. The pilot preferred gpt-5.1
+- **OQ-6 Judge:** which deployment, and its rate limit on ste. The pilot preferred gpt-5.1
   over gpt-4o-judge.
 - **OQ-7 Both client-filtering legs:** decided: enforcement leg only (see D2).
 

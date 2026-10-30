@@ -30,6 +30,10 @@
         <eval.SEARCH_MMR_FINAL_COUNT>30</eval.SEARCH_MMR_FINAL_COUNT>
         <eval.LLM_MODEL_RESPONSE_MAX_TOKENS>4000</eval.LLM_MODEL_RESPONSE_MAX_TOKENS>
         <eval.LLM_REASONING_EFFORT>none</eval.LLM_REASONING_EFFORT>
+        <!-- DD-43901: the eval-smoke execution gates PR builds on answer quality. -Deval.gate=false
+             makes it report-only again. The ai-rag-eval profile does not read this property, so
+             local eval runs stay report-only unless -Deval.gate=true is passed. -->
+        <eval.gate>true</eval.gate>
     </properties>
 
     <dependencies>
@@ -100,7 +104,7 @@
                              the full suite on the openai (default) SDK leg across both client-filtering
                              modes; the third is a happy-path-only run on the azure SDK rollback leg
                              (DD-43423) so both provider legs are exercised on every pipeline run;
-                             the fourth is the report-only eval smoke tier (DD-43887).
+                             the fourth is the eval smoke tier (DD-43887), gated by eval.gate (DD-43901).
                              Skip a leg locally with -Dit.enforcement.skip=true / -Dit.legacy.skip=true
                              / -Dit.azurehappypath.skip=true / -Dit.evalsmoke.skip=true. -->
                         <executions>
@@ -170,10 +174,12 @@
                                     <summaryFile>${project.build.directory}/failsafe-reports/azure-rollback-happy-path/failsafe-summary.xml</summaryFile>
                                 </configuration>
                             </execution>
-                            <!-- The eval smoke tier (DD-43887): RagEvalIT on the smoke items, one run,
-                                 report-only (it fails only if the corpus does not ingest). Its own
-                                 harness, so the tuning pins do not leak into the legs above. The
-                                 summary table is in the build log. -->
+                            <!-- The eval smoke tier (DD-43887): RagEvalIT on the smoke items, one run.
+                                 It fails if the corpus does not ingest and, with eval.gate on (the
+                                 default), if an item fails the gate 2-of-3 (DD-43901); known issues
+                                 are in eval/known-issues.json. Its own harness, so the tuning pins
+                                 do not leak into the legs above. The summary table and any gate
+                                 failures are in the build log. -->
                             <execution>
                                 <id>eval-smoke</id>
                                 <goals>
@@ -202,6 +208,7 @@
                                     <systemPropertyVariables>
                                         <eval.tier>smoke</eval.tier>
                                         <eval.runs>1</eval.runs>
+                                        <eval.gate>${eval.gate}</eval.gate>
                                     </systemPropertyVariables>
                                     <includes>
                                         <include>**/eval/RagEvalIT.java</include>
@@ -216,7 +223,8 @@
             </build>
         </profile>
 
-        <!-- The standalone eval (DD-43887): RagEvalIT only, report-only, written to target/eval/.
+        <!-- The standalone eval (DD-43887): RagEvalIT only, written to target/eval/. Report-only
+             unless -Deval.gate=true is passed (the PR gate, DD-43901).
              Runs in the client-filtering enforcement mode only. The tuning variables are pinned to
              the production values (prd app settings) so results reflect what production runs;
              override one with -Deval.<VAR>=... (e.g. -Deval.SEARCH_MMR_FINAL_COUNT=15). The chat model
