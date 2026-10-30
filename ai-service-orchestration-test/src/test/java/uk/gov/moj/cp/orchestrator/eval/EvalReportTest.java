@@ -32,7 +32,7 @@ class EvalReportTest {
                                    final List<String> forbidden, final boolean degraded, final Double precision,
                                    final double seconds) {
         return new ItemScore(id, status, seconds, recall, recallPass, List.of(), forbidden, false, true,
-                1.0, null, List.of(), 0, 1, precision, true, null, null, degraded, null, 3, 100);
+                1.0, null, List.of(), 0, 1, precision, true, null, null, degraded, null, 3, 100, List.of());
     }
 
     private static EvalReport report(final List<ItemRun> runs) {
