@@ -70,12 +70,15 @@ import org.slf4j.LoggerFactory;
  * {@code /document-upload}, runs every selected dataset item N times through the async query
  * path, scores each answer and writes {@code target/eval/eval-report.json}.
  *
- * <p>Phase 1 is report-only: the only assertion is M1 (every corpus document ingests). Answer
- * quality is in the report and the log, not in the test result.</p>
+ * <p>M1 (every corpus document ingests) always asserts. With {@code eval.gate=true} the answers
+ * are also gated (DD-43901, {@link EvalGate}): an item whose first run fails is re-run up to three
+ * runs, at least two of which must pass; checks in {@code eval/known-issues.json} are reported but
+ * not gated. Without it the run is report-only: answer quality is in the report and the log.</p>
  *
  * <p>Selection and size, as system properties: {@code eval.tier} ({@code full} by default, or
  * {@code smoke}), {@code eval.items} (comma-separated ids, overrides the tier), {@code eval.runs}
- * (default 1) and {@code eval.parallelism} (concurrent queries, default 4).</p>
+ * (default 1), {@code eval.parallelism} (concurrent queries, default 4) and {@code eval.gate}
+ * (default false; the PR leg turns it on).</p>
  */
 class RagEvalIT extends FunctionTestBase {
 
@@ -87,6 +90,7 @@ class RagEvalIT extends FunctionTestBase {
     private static final String INGESTION_SUCCESS = "INGESTION_SUCCESS";
     private static final String UPLOAD_FAILED = "UPLOAD_FAILED";
     private static final String ERROR = "ERROR";
+    private static final int LOGGED_ANSWER_CHARS = 600;
 
     @Test
     @DisplayName("Eval: ingest the golden corpus, run the dataset items, write the report")
@@ -94,40 +98,62 @@ class RagEvalIT extends FunctionTestBase {
         final EvalDataset dataset = EvalDataset.loadDefault();
         final List<EvalItem> items = selectItems(dataset);
         final int runs = Integer.getInteger("eval.runs", 1);
-        LOGGER.info("Eval: {} item(s) x {} run(s): {}", items.size(), runs, items.stream().map(EvalItem::id).toList());
+        final boolean gateEnabled = Boolean.getBoolean("eval.gate");
+        // Loaded before ingestion even when the gate is off, so a stale register entry fails fast.
+        final EvalGate gate = new EvalGate(KnownIssues.load(dataset));
+        LOGGER.info("Eval: {} item(s) x {} run(s), gate {}: {}", items.size(), runs, gateEnabled ? "on" : "off",
+                items.stream().map(EvalItem::id).toList());
 
         final List<DocumentIngestion> ingestion = ingestCorpus(dataset);
         final List<ItemRun> itemRuns = new ArrayList<>();
-        if (ingestion.stream().allMatch(d -> INGESTION_SUCCESS.equals(d.status()))) {
-            itemRuns.addAll(runItems(dataset, ingestion, items, runs));
+        final boolean ingested = ingestion.stream().allMatch(d -> INGESTION_SUCCESS.equals(d.status()));
+        if (ingested) {
+            final ItemScorer scorer = new ItemScorer(dataset, ingestion.stream()
+                    .collect(Collectors.toMap(DocumentIngestion::documentId, DocumentIngestion::file)));
+            final List<Map.Entry<EvalItem, Integer>> planned = new ArrayList<>();
+            for (int run = 1; run <= runs; run++) {
+                for (final EvalItem item : items) {
+                    planned.add(Map.entry(item, run));
+                }
+            }
+            itemRuns.addAll(execute(scorer, planned));
+            if (gateEnabled) {
+                itemRuns.addAll(execute(scorer, reruns(gate, items, itemRuns)));
+            }
         } else {
             // M1 fails the run anyway, and answers over a partial corpus would only mislead.
             LOGGER.error("Eval: the corpus did not fully ingest, skipping the queries: {}", ingestion);
         }
 
-        final EvalReport report = EvalReport.build(dataset, settings(runs), ingestion, itemRuns);
+        EvalReport report = EvalReport.build(dataset, settings(runs, gateEnabled), ingestion, itemRuns);
+        if (gateEnabled && ingested) {
+            report = report.withGate(gate.decide(items, itemRuns));
+        }
         final Path file = REPORT_DIRECTORY.resolve("eval-report.json");
         report.write(file);
         report.write(REPORT_DIRECTORY.resolve("eval-report-" + Instant.now().toString().replace(":", "") + ".json"));
         logSummary(report, file);
+        if (report.gate() != null) {
+            logGate(report.gate(), itemRuns);
+        }
 
         assertTrue(report.summary().allDocumentsIngested(), "M1: every corpus document must reach INGESTION_SUCCESS: " + ingestion);
+        if (report.gate() != null) {
+            assertTrue(report.gate().passed(), gateFailureMessage(report.gate(), file));
+        }
     }
 
-    private List<ItemRun> runItems(final EvalDataset dataset, final List<DocumentIngestion> ingestion,
-                                   final List<EvalItem> items, final int runs) throws InterruptedException, ExecutionException {
-        final Map<String, String> fileByDocumentId = ingestion.stream()
-                .collect(Collectors.toMap(DocumentIngestion::documentId, DocumentIngestion::file));
-        final ItemScorer scorer = new ItemScorer(dataset, fileByDocumentId);
+    private List<ItemRun> execute(final ItemScorer scorer, final List<Map.Entry<EvalItem, Integer>> planned)
+            throws InterruptedException, ExecutionException {
         final List<ItemRun> itemRuns = new ArrayList<>();
+        if (planned.isEmpty()) {
+            return itemRuns;
+        }
         final ExecutorService pool = Executors.newFixedThreadPool(Integer.getInteger("eval.parallelism", 4));
         try {
             final List<Future<ItemRun>> futures = new ArrayList<>();
-            for (int run = 1; run <= runs; run++) {
-                for (final EvalItem item : items) {
-                    final int runNumber = run;
-                    futures.add(pool.submit(() -> runItem(scorer, item, runNumber)));
-                }
+            for (final Map.Entry<EvalItem, Integer> run : planned) {
+                futures.add(pool.submit(() -> runItem(scorer, run.getKey(), run.getValue())));
             }
             for (final Future<ItemRun> future : futures) {
                 itemRuns.add(future.get());
@@ -136,6 +162,25 @@ class RagEvalIT extends FunctionTestBase {
             pool.shutdownNow();
         }
         return itemRuns;
+    }
+
+    /** The extra runs the 2-of-3 rule needs: for each item whose first run failed, up to {@link EvalGate#ATTEMPTS} runs. */
+    private static List<Map.Entry<EvalItem, Integer>> reruns(final EvalGate gate, final List<EvalItem> items,
+                                                             final List<ItemRun> itemRuns) {
+        final List<Map.Entry<EvalItem, Integer>> planned = new ArrayList<>();
+        for (final EvalItem item : items) {
+            final List<ItemRun> runs = itemRuns.stream().filter(r -> r.itemId().equals(item.id())).toList();
+            if (gate.needsRerun(item, runs)) {
+                final int last = runs.stream().mapToInt(ItemRun::run).max().orElse(0);
+                LOGGER.warn("Eval gate: {} failed its first run {}, re-running for the 2-of-{} decision", item.id(),
+                        gate.outcome(item, runs.stream().filter(r -> r.run() == 1).findFirst().orElse(runs.get(0))).failures(),
+                        EvalGate.ATTEMPTS);
+                for (int run = last + 1; run <= EvalGate.ATTEMPTS; run++) {
+                    planned.add(Map.entry(item, run));
+                }
+            }
+        }
+        return planned;
     }
 
     private static List<EvalItem> selectItems(final EvalDataset dataset) {
@@ -279,7 +324,7 @@ class RagEvalIT extends FunctionTestBase {
     }
 
     /** What this run used, so reports from different models or settings can be told apart. */
-    private static Map<String, String> settings(final int runs) {
+    private static Map<String, String> settings(final int runs, final boolean gateEnabled) {
         final Map<String, String> settings = new LinkedHashMap<>();
         settings.put("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", System.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"));
         settings.put("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME", System.getenv("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME"));
@@ -288,6 +333,7 @@ class RagEvalIT extends FunctionTestBase {
         settings.putAll(ServiceTuningEnv.tuningEnvEntries());
         settings.put("responseGenerationSystemPromptSha256", sha256("response-generation-system-prompt.txt"));
         settings.put("runs", String.valueOf(runs));
+        settings.put("gate", String.valueOf(gateEnabled));
         settings.put("items", System.getProperty("eval.items", ""));
         settings.put("tier", System.getProperty("eval.tier", "full"));
         return settings;
@@ -325,5 +371,56 @@ class RagEvalIT extends FunctionTestBase {
                     s.meanFactRecall(), s.meanCitationPrecision(), s.meanGroundedness(), s.citationDegradedRuns(), notes));
         }
         LOGGER.info("Eval summary ({}): {}{}", file.toAbsolutePath(), report.summary(), table);
+    }
+
+    /**
+     * The gate outcome in the build log: every failed item with each run's failures, answer, guard
+     * reason and retrieved pages, so a failure can be diagnosed without the report file; then the
+     * known issues and how often they showed.
+     */
+    private static void logGate(final EvalGate.Result result, final List<ItemRun> itemRuns) {
+        for (final EvalGate.ItemVerdict verdict : result.failedItems()) {
+            final StringBuilder block = new StringBuilder(String.format("%nEVAL GATE FAILED: %s (%d of %d runs passed, needs %d of %d)%n",
+                    verdict.itemId(), verdict.runs().stream().filter(EvalGate.RunOutcome::passed).count(), verdict.runs().size(),
+                    EvalGate.PASSES_NEEDED, EvalGate.ATTEMPTS));
+            for (final EvalGate.RunOutcome outcome : verdict.runs()) {
+                final ItemRun run = itemRuns.stream()
+                        .filter(r -> r.itemId().equals(verdict.itemId()) && r.run() == outcome.run()).findFirst().orElseThrow();
+                block.append(String.format("  run %d: %s%n", outcome.run(), outcome.passed() ? "passed" : outcome.failures()));
+                if (!outcome.passed()) {
+                    block.append(String.format("    transactionId: %s%n    retrieved: %s%n    reason: %s%n    answer: %s%n",
+                            run.transactionId(), run.score().retrievedPages(), run.score().reason(), abbreviate(run.answer())));
+                }
+            }
+            LOGGER.error("{}", block);
+        }
+        result.items().stream().filter(EvalGate.ItemVerdict::passed).filter(v -> v.runs().size() > 1)
+                .forEach(v -> LOGGER.warn("Eval gate: {} passed on re-run: {}", v.itemId(),
+                        v.runs().stream().map(o -> o.run() + "=" + (o.passed() ? "pass" : o.failures())).toList()));
+        for (final KnownIssues.KnownIssue issue : result.knownIssues()) {
+            final List<EvalGate.RunOutcome> runs = result.items().stream().filter(v -> v.itemId().equals(issue.item()))
+                    .flatMap(v -> v.runs().stream()).toList();
+            final long seen = runs.stream().filter(o -> o.knownIssuesSeen().contains(issue.check())).count();
+            LOGGER.info("Eval gate: known issue {} {} ({}) seen in {} of {} run(s), not gated{}", issue.item(), issue.check(),
+                    issue.jira(), seen, runs.size(), seen == 0 ? "; if it stays fixed, remove it from eval/known-issues.json" : "");
+        }
+        LOGGER.info("Eval gate: {} ({} of {} item(s) passed)", result.passed() ? "PASSED" : "FAILED",
+                result.items().stream().filter(EvalGate.ItemVerdict::passed).count(), result.items().size());
+    }
+
+    private static String gateFailureMessage(final EvalGate.Result result, final Path file) {
+        return "Eval gate failed for " + result.failedItems().stream()
+                .map(v -> v.itemId() + " " + v.runs().stream().filter(o -> !o.passed()).map(EvalGate.RunOutcome::failures).toList())
+                .collect(Collectors.joining("; "))
+                + ". See the EVAL GATE FAILED block in the log and " + file.toAbsolutePath()
+                + ". A known failure goes in eval/known-issues.json with its Jira; -Deval.gate=false makes the leg report-only.";
+    }
+
+    private static String abbreviate(final String answer) {
+        if (answer == null) {
+            return null;
+        }
+        final String flat = answer.replaceAll("\\s+", " ").strip();
+        return flat.length() <= LOGGED_ANSWER_CHARS ? flat : flat.substring(0, LOGGED_ANSWER_CHARS) + "…";
     }
 }

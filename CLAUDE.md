@@ -26,9 +26,17 @@ mvn verify
 ./ai-service-orchestration-test/run-integration-test.sh
 # (equivalent to: mvn verify -P ai-rag-integration-test — with the .env exported first)
 
-# Run the standalone eval (DD-43887) instead: same local hosts and .env, report-only,
-# writes ai-service-orchestration-test/target/eval/eval-report.json
+# Run the standalone eval (DD-43887) instead: same local hosts and .env, report-only
+# (add -Deval.gate=true for the PR gate, DD-43901), writes ai-service-orchestration-test/target/eval/eval-report.json
 MAVEN_PROFILE=ai-rag-eval MAVEN_EXTRA_ARGS="-Deval.tier=smoke" ./ai-service-orchestration-test/run-integration-test.sh
+
+# Integration legs and eval options (detail: README "Integration Tests and the Eval"):
+# - ai-rag-integration-test runs four failsafe executions, each in its own JVM; per-execution env vars override .env:
+#   enforcement-on, legacy (remove at the DD-42722 cut-over), azure-rollback-happy-path (remove at DD-43424 Stage 4)
+#   and eval-smoke (gated). Skip with -Dit.{enforcement,legacy,azurehappypath,evalsmoke}.skip=true.
+# - Eval runs pin the retrieval/layout/token settings to the prd app-setting values (eval.* pom properties);
+#   override one with -Deval.<VAR>=... . Select items with -Deval.tier / -Deval.items / -Deval.runs.
+# - Without a profile only offline unit tests run, so a plain `mvn verify` makes no Azure calls.
 
 # Build and package the Azure Functions
 mvn clean package -DskipTests
@@ -76,7 +84,7 @@ Multi-module Maven project with five Azure Functions, one shared library, and on
 | `ai-document-answer-retrieval-function` | Queue-triggered; embeds query, retrieves chunks via AI Search, generates LLM answer summary |
 | `ai-document-answer-scoring-function` | Evaluates response groundedness, publishes scores to Azure Monitor |
 | `ai-document-status-check-function` | HTTP-triggered; exposes GET endpoints to retrieve document ingestion status from Table Storage |
-| `ai-service-orchestration-test` | Integration tests (REST Assured + Testcontainers + Awaitility) — test-only module |
+| `ai-service-orchestration-test` | Integration tests (REST Assured + Testcontainers + Awaitility). `src/main` holds the eval library (`uk.gov.moj.cp.orchestrator.eval`: dataset, scorer, report, gate; JDK + Jackson only); `src/test` holds its unit tests, `RagEvalIT` and the other `*IT` suites, plus the eval dataset and corpus |
 | `ai-document-system-prompt-harness-eval` | Offline, on-demand evaluation harness for the answer-retrieval system prompt (runs the embed→search→generate→cite pipeline across prompts × LLMs × queries, reports citation/verbosity/coverage metrics). Not deployed; config from a local `.env` via `run-harness.sh`. |
 
 ## API Contract
@@ -197,7 +205,7 @@ Full write-up with the per-repo details: README.md "Build, Release & Deployment 
 Summary of the four Azure DevOps pipelines (none run from a local machine):
 
 1. **Build & release — this repo, `azure-pipelines.yaml`** (steps come from `cpp-azure-devops-templates`). SonarQube project key: `uk.gov.moj.cp.azure.ragservice:cp-ai-rag-service`.
-   - **PR** → `pipelines/context-verify.yaml`: `mvn verify sonar:sonar` **with `-P ai-rag-integration-test`** — the template logs in with the `airag-var` service principal, so the integration suite runs against real dev Azure on every PR (RBAC on the dev resources must be enabled for it to pass). The profile includes the report-only eval smoke tier (`eval-smoke` execution, DD-43887): it fails only if the eval corpus does not ingest, and its summary table is in the build log. Quality-gate status is posted to the PR.
+   - **PR** → `pipelines/context-verify.yaml`: `mvn verify sonar:sonar` **with `-P ai-rag-integration-test`** — the template logs in with the `airag-var` service principal, so the integration suite runs against the real **ste** Azure resources on every PR — the same ones the local `.env` points at. That service principal has RBAC on them permanently; RBAC is enabled on demand only for local runs. The profile includes the gated eval smoke tier (`eval-smoke` execution, DD-43887/DD-43901): it fails if the eval corpus does not ingest or if a smoke item fails the gate 2-of-3 (fact recall below the item threshold, forbidden content, wrong refusal, retrieval check, chunk outside the filter, citation-degraded, error or timeout). Checks in `ai-service-orchestration-test/src/test/resources/eval/known-issues.json` are reported but not gated; `-Deval.gate=false` makes the leg report-only. The summary table and an `EVAL GATE FAILED` block per failed item are in the build log; baseline in `docs/pipeline/DD-43901-eval-gate/baseline.md`. Quality-gate status is posted to the PR.
    - **Merge to `main`** → `pipelines/context-validation.yaml`: the release build. `jgitflow:release-start` → `mvn clean deploy -DskipTests` to Artifactory `repocentral` → Sonar → `jgitflow:release-finish` (merges `dev/release-<ver>` into `dev/release`, tags `v<ver>`, signs and deploys the release artefacts, bumps `main` to the next `-SNAPSHOT`). **Every merge to `main` cuts a release.** The Docker/AKS validation-stack steps are skipped for this repo; a follow-on job builds `ai-rag-migration:<ver>` from `ai-document-migration-tool/Dockerfile` into the nonlive ACR and promotes it to live.
    - **Artefact:** per function module, `maven-assembly-plugin` (`src/main/assembly/zip.xml`) zips the `azure-functions-maven-plugin` staging dir into `<module>-<version>.zip` at `verify`; it is uploaded under `uk/gov/moj/cp/azure/ragservice/<module>/<version>/` and is what the deployment pipeline fetches.
 2. **Function app infrastructure — `hmcts/cpp-terraform-functionapp-deployment`** ("CPP Azure FunctionApp Deployment"; params `platform`, `environment`, `functionapp` = tfvars name `ccm01-airag`). Manual plan → approval-gated apply (ADO environment `<platform>_apply`). Creates the resource group, subnets/NSG, runtime storage + content shares, the identity `mi-<env>-ccm01-airag`, App Insights, the five function apps + App Service plans, Event Grid, dashboard, alerts. Its `functionapp_package` is a one-off bootstrap deploy, not the release path.

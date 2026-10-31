@@ -22,7 +22,7 @@ This mono-repo contains five independent Azure Functions, a shared library, and 
 | Module | Purpose |
 |--------|---------|
 | `ai-document-shared-artefacts` | Shared utilities, models (including OpenAPI-generated), entity classes, and Azure service clients |
-| `ai-service-orchestration-test` | Integration tests using REST Assured, Testcontainers, and Awaitility |
+| `ai-service-orchestration-test` | Integration tests using REST Assured, Testcontainers, and Awaitility, plus the eval library (`src/main`: dataset, scorer, report, gate) that `RagEvalIT` runs |
 
 ## Architecture & Data Flow
 
@@ -147,6 +147,28 @@ mvn clean compile
 mvn test
 ```
 
+### Integration Tests and the Eval (`ai-service-orchestration-test`)
+
+Without a profile, only the module's offline unit tests run (on surefire), so a plain `mvn verify` makes no Azure calls. The `*IT` classes run on failsafe, only under one of two profiles. Both read the local `ai-service-orchestration-test/.env`, so copy `.env.sample`, fill it in and run `az login` first. Then run them through `./ai-service-orchestration-test/run-integration-test.sh`, which exports the `.env` and packages the function apps first (`SKIP_BUILD=true` reuses existing packages).
+
+**`ai-rag-integration-test`** (the default for the script, and the PR build). Four failsafe executions run one after another, each in a fresh forked JVM with its own harness and per-run Azure resources. Environment variables set per execution override anything inherited from `.env`, so every leg runs the same way under Maven.
+
+| Execution | What it runs | Skip with | Remove when |
+|---|---|---|---|
+| `enforcement-on` | Full suite, `openai` SDK, client filtering on | `-Dit.enforcement.skip=true` | — |
+| `legacy-flag-off` | Full suite, `openai` SDK, no client identity (the pre-cut-over production flow) | `-Dit.legacy.skip=true` | The multi-client cut-over (DD-42722) |
+| `azure-rollback-happy-path` | `OrchestrationIT` happy path on the `azure` SDK, so the config-only rollback stays green | `-Dit.azurehappypath.skip=true` | Stage 4 of the SDK migration (DD-43424) |
+| `eval-smoke` | `RagEvalIT` on the smoke items, one run, gated (DD-43901) | `-Dit.evalsmoke.skip=true`; `-Deval.gate=false` makes it report-only | — |
+
+**`ai-rag-eval`** runs `RagEvalIT` alone (DD-43887) and writes `ai-service-orchestration-test/target/eval/eval-report.json`. It is report-only unless `-Deval.gate=true` is passed, and runs with client filtering on only.
+- Select items with `-Deval.tier=smoke|full`, `-Deval.items=id1,id2` and `-Deval.runs=N`, passed in `MAVEN_EXTRA_ARGS`.
+- The chat model comes from `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME` in `.env`, so comparing models is a local change.
+- **Tuning pins:** both eval runs (`eval-smoke` and `ai-rag-eval`) pin the retrieval, layout and token settings to the prd app-setting values (`eval.*` properties in the module pom), so results reflect what production runs. Override one with `-Deval.<VAR>=…`, e.g. `-Deval.SEARCH_MMR_FINAL_COUNT=15`. The `eval-smoke` leg has its own harness, so the pins do not reach the other three legs.
+
+```bash
+MAVEN_PROFILE=ai-rag-eval MAVEN_EXTRA_ARGS="-Deval.tier=smoke" ./ai-service-orchestration-test/run-integration-test.sh
+```
+
 ### Package
 ```bash
 mvn clean package
@@ -201,7 +223,7 @@ steps live there.
 
 | Trigger | Template | What happens |
 |---|---|---|
-| Pull request | `pipelines/context-verify.yaml` | `mvn verify sonar:sonar` on an AKS agent, then the SonarQube quality-gate status is posted back to the PR. For this repo the template also activates `-P ai-rag-integration-test`, logs in with the `airag-var` service principal and exports the dev Azure endpoints, so the **integration suite runs against real dev Azure on every PR** (the suite in `ai-service-orchestration-test`, `-P ai-rag-integration-test`, skipped by default locally). |
+| Pull request | `pipelines/context-verify.yaml` | `mvn verify sonar:sonar` on an AKS agent, then the SonarQube quality-gate status is posted back to the PR. For this repo the template also activates `-P ai-rag-integration-test`, logs in with the `airag-var` service principal and exports the Azure endpoints, so the **integration suite runs against the real ste Azure resources on every PR** — the same ones the local `.env` uses (the suite in `ai-service-orchestration-test`, `-P ai-rag-integration-test`, skipped by default locally). The profile ends with the eval smoke tier, which gates the PR on answer quality (DD-43901; known issues in `ai-service-orchestration-test/src/test/resources/eval/known-issues.json`, `-Deval.gate=false` for report-only). |
 | Merge to `main` | `pipelines/context-validation.yaml` | The **release build**. `jgitflow:release-start` from the merge commit, `mvn clean deploy -DskipTests` to the internal Artifactory (`repocentral`), SonarQube, then `jgitflow:release-finish`: the `dev/release-<version>` branch is merged into `dev/release`, tagged `v<version>`, the release artefacts are signed and deployed, and `main` is bumped to the next `-SNAPSHOT`. **Every merge to `main` therefore cuts a release.** The Docker/AKS validation-stack steps in that template are skipped for this repo. A follow-on job builds the migration-tool image (`ai-rag-migration:<version>`, from `ai-document-migration-tool/Dockerfile`) into the nonlive ACR and promotes it to the live ACR. |
 
 **The artefact.** Each function module's `maven-assembly-plugin` (`src/main/assembly/zip.xml`)

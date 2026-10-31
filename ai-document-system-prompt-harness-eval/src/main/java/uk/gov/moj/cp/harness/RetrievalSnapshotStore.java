@@ -53,7 +53,7 @@ final class RetrievalSnapshotStore {
             }
 
             final Map<String, ChunkedEntry> chunksById = new LinkedHashMap<>();
-            root.get("chunks").fields().forEachRemaining(e ->
+            root.get("chunks").properties().forEach(e ->
                     chunksById.put(e.getKey(), MAPPER.convertValue(e.getValue(), ChunkedEntry.class)));
 
             final Map<String, List<ChunkedEntry>> byQueryAndDocument = new LinkedHashMap<>();
