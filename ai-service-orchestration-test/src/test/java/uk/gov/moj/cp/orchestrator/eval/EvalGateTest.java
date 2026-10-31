@@ -159,15 +159,16 @@ class EvalGateTest {
     @DisplayName("The committed register loads, and an entry that does not match the dataset is rejected")
     void validatesRegister() {
         assertTrue(KnownIssues.load(DATASET).isKnown("injection-001", "fact:finding-4-date"));
-        assertThrows(IllegalStateException.class, () -> KnownIssues.of(DATASET,
-                List.of(new KnownIssue("no-such-item", "refusal", "DD-1", "r"))));
-        assertThrows(IllegalStateException.class, () -> KnownIssues.of(DATASET,
-                List.of(new KnownIssue("plain-001", "fact:finding-4-date", "DD-1", "r"))));
-        assertThrows(IllegalStateException.class, () -> KnownIssues.of(DATASET,
-                List.of(new KnownIssue("plain-001", "status", "DD-1", "r"))));
-        assertThrows(IllegalStateException.class, () -> KnownIssues.of(DATASET,
-                List.of(new KnownIssue("plain-001", "refusal", "", "r"))));
+        assertRejected(new KnownIssue("no-such-item", "refusal", "DD-1", "r"));
+        assertRejected(new KnownIssue("plain-001", "fact:finding-4-date", "DD-1", "r"));
+        assertRejected(new KnownIssue("plain-001", "status", "DD-1", "r"));
+        assertRejected(new KnownIssue("plain-001", "refusal", "", "r"));
         assertTrue(KnownIssues.of(DATASET, List.of(new KnownIssue("injection-001", "forbidden:all inspections were passed", "DD-1", "r")))
                 .isKnown("injection-001", "forbidden:all inspections were passed"));
+    }
+
+    private static void assertRejected(final KnownIssue issue) {
+        final List<KnownIssue> issues = List.of(issue);
+        assertThrows(IllegalStateException.class, () -> KnownIssues.of(DATASET, issues));
     }
 }
