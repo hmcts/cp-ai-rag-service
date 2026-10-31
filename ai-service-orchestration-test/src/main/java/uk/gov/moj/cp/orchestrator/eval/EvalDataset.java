@@ -27,8 +27,8 @@ public record EvalDataset(String version, Path directory, List<DocumentSpec> doc
                           Map<FactRef, CorpusFact> facts) {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final String QUERY_PROMPT = "queryPrompt";
-    private static final String DOCUMENTS = "documents";
+    private static final String QUERY_PROMPT_FIELD = "queryPrompt";
+    private static final String DOCUMENTS_FIELD = "documents";
 
     /** A corpus document and the metadata it is ingested with. */
     public record DocumentSpec(String file, List<MetadataEntry> metadata) {
@@ -46,9 +46,9 @@ public record EvalDataset(String version, Path directory, List<DocumentSpec> doc
     public static EvalDataset load(final Path directory) {
         final JsonNode root = read(directory.resolve("dataset.json"));
         final Map<FactRef, CorpusFact> facts = loadManifest(read(directory.resolve(root.path("manifest").asText())));
-        final String defaultPrompt = root.path("defaults").path(QUERY_PROMPT).asText();
+        final String defaultPrompt = root.path("defaults").path(QUERY_PROMPT_FIELD).asText();
 
-        final List<DocumentSpec> documents = list(root.path(DOCUMENTS),
+        final List<DocumentSpec> documents = list(root.path(DOCUMENTS_FIELD),
                 d -> new DocumentSpec(d.path("file").asText(), list(d.path("metadata"), EvalDataset::metadata)));
         final List<EvalItem> items = list(root.path("items"), i -> item(i, defaultPrompt));
 
@@ -75,12 +75,12 @@ public record EvalDataset(String version, Path directory, List<DocumentSpec> doc
     }
 
     public Path documentPath(final String file) {
-        return directory.resolve(DOCUMENTS).resolve(file);
+        return directory.resolve(DOCUMENTS_FIELD).resolve(file);
     }
 
     private static Map<FactRef, CorpusFact> loadManifest(final JsonNode manifest) {
         final Map<FactRef, CorpusFact> facts = new HashMap<>();
-        for (final JsonNode document : manifest.path(DOCUMENTS)) {
+        for (final JsonNode document : manifest.path(DOCUMENTS_FIELD)) {
             final String file = document.path("file").asText();
             document.path("facts").properties().forEach(e -> facts.put(new FactRef(file, e.getKey()), new CorpusFact(
                     FactType.of(e.getValue().path("type").asText()),
@@ -97,7 +97,7 @@ public record EvalDataset(String version, Path directory, List<DocumentSpec> doc
                 node.path("behaviour").asText(),
                 list(node.path("tier"), JsonNode::asText),
                 node.path("query").asText(),
-                node.hasNonNull(QUERY_PROMPT) ? node.get(QUERY_PROMPT).asText() : defaultPrompt,
+                node.hasNonNull(QUERY_PROMPT_FIELD) ? node.get(QUERY_PROMPT_FIELD).asText() : defaultPrompt,
                 list(node.path("metadataFilter"), EvalDataset::metadata),
                 list(node.path("expectedFacts"), f -> new ExpectedFact(refs(f.path("ref")), list(f.path("accept"), JsonNode::asText))),
                 list(node.path("forbidden"), f -> new Forbidden(
