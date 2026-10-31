@@ -18,7 +18,7 @@ final class AnswerText {
 
     /** {@code ::(Source: [file], Pages <compressed>|<individual>|documentId=<uuid>)}, as {@code CitationProcessor} renders it. */
     private static final Pattern CITATION = Pattern.compile(
-            "::\\(Source: \\[(.*?)\\], Pages ([^|]*)\\|([^|]*)\\|documentId=([0-9a-fA-F-]+)\\)");
+            "::\\(Source: \\[([^\\]]{1,300})\\], Pages ([^|]{0,200})\\|([^|]{0,200})\\|documentId=([0-9a-fA-F-]{1,64})\\)");
     private static final Pattern NUMBER = Pattern.compile("\\d+");
     private static final Pattern BOLD_HEADING = Pattern.compile("\\*\\*[^*]+\\*\\*:?");
 

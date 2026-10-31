@@ -41,7 +41,7 @@ final class ItemScorer {
 
         final List<ExpectedFact> facts = item.expectedFacts();
         final List<String> missing = facts.stream().filter(f -> !stated(prose, f)).map(f -> f.refs().get(0).factId()).toList();
-        final Double factRecall = facts.isEmpty() ? null : ratio(facts.size() - missing.size(), facts.size());
+        final Double factRecall = facts.isEmpty() ? null : ratio((long) facts.size() - missing.size(), facts.size());
         final long factsWithGoldPage = facts.stream().filter(f -> pagesOf(f).stream().anyMatch(retrieved::contains)).count();
         final boolean refused = answer.isRefusal();
 
