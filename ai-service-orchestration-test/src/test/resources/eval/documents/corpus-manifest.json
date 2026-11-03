@@ -113,8 +113,8 @@
           ]
         },
         "calder-peak-temp": {
-          "type": "text",
-          "value": "9.4°C",
+          "type": "temperature",
+          "value": "9.4",
           "pages": [
             5
           ]
@@ -184,8 +184,8 @@
           ]
         },
         "calder-lab-core-temp": {
-          "type": "text",
-          "value": "9.1°C",
+          "type": "temperature",
+          "value": "9.1",
           "pages": [
             12
           ]
@@ -371,8 +371,8 @@
           ]
         },
         "pemberton-peak-temp": {
-          "type": "text",
-          "value": "7.8°C",
+          "type": "temperature",
+          "value": "7.8",
           "pages": [
             5,
             7
@@ -446,8 +446,8 @@
           ]
         },
         "pemberton-lab-core-temp": {
-          "type": "text",
-          "value": "7.6°C",
+          "type": "temperature",
+          "value": "7.6",
           "pages": [
             11
           ]
@@ -636,8 +636,8 @@
           ]
         },
         "handbook-chilled-limit": {
-          "type": "text",
-          "value": "5.0°C",
+          "type": "temperature",
+          "value": "5.0",
           "pages": [
             3
           ]
@@ -650,8 +650,8 @@
           ]
         },
         "handbook-frozen-limit": {
-          "type": "text",
-          "value": "-18.0°C",
+          "type": "temperature",
+          "value": "-18.0",
           "pages": [
             3
           ]

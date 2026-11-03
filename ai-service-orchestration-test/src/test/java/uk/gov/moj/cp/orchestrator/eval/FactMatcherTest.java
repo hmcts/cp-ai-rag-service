@@ -68,4 +68,31 @@ class FactMatcherTest {
         assertEquals("two-month - three-month", FactMatcher.normalise("two\u2011month \u2013 three\u2010month"));
         assertTrue(FactMatcher.found("peak of 9.4℃", new CorpusFact(FactType.TEXT, "9.4°C", List.of(5)), List.of()));
     }
+
+    @Test
+    @DisplayName("A temperature matches with or without a space, unit sign or trailing .0, and its sign must match")
+    void matchesTemperatures() {
+        final CorpusFact peak = new CorpusFact(FactType.TEMPERATURE, "9.4", List.of(5));
+        final CorpusFact chilled = new CorpusFact(FactType.TEMPERATURE, "5.0", List.of(3));
+        final CorpusFact frozen = new CorpusFact(FactType.TEMPERATURE, "-18.0", List.of(3));
+
+        assertTrue(FactMatcher.found("a peak of 9.4°C", peak, List.of()));
+        assertTrue(FactMatcher.found("a peak of 9.4 °C", peak, List.of()));
+        assertTrue(FactMatcher.found("a peak of **9.4℃**", peak, List.of()));
+        assertTrue(FactMatcher.found("a peak of 9.40 degrees", peak, List.of()));
+        assertFalse(FactMatcher.found("a peak of 19.4°C", peak, List.of()));
+        assertFalse(FactMatcher.found("a peak of 9.45°C", peak, List.of()));
+        assertFalse(FactMatcher.found("a peak of 9.4", peak, List.of()));
+
+        assertTrue(FactMatcher.found("at or below 5°C", chilled, List.of()));
+        assertTrue(FactMatcher.found("at or below 5.0 °C", chilled, List.of()));
+        assertFalse(FactMatcher.found("at or below -5.0°C", chilled, List.of()));
+        assertFalse(FactMatcher.found("at or below 15.0°C", chilled, List.of()));
+        assertFalse(FactMatcher.found("at or below 5.5°C", chilled, List.of()));
+
+        assertTrue(FactMatcher.found("at or below −18°C", frozen, List.of()));
+        assertTrue(FactMatcher.found("at or below -18.0 °C", frozen, List.of()));
+        assertFalse(FactMatcher.found("at or below 18°C", frozen, List.of()));
+        assertFalse(FactMatcher.found("at or below -18.5°C", frozen, List.of()));
+    }
 }

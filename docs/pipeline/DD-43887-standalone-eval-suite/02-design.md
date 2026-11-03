@@ -128,6 +128,13 @@ The dataset is `eval/dataset.json` (12 items written). It has three parts:
 - **`accept`** lists extra spellings for a text fact that a correct answer may use instead (e.g.
   `£800` for `PENALTY £800`).
 - **`forbidden`** takes a manifest `ref` (a value from the wrong document) or literal `text`.
+- **Fact types:** `date`, `money`, `number` and `temperature` (degrees Celsius) each have one
+  matcher that accepts the usual written forms; `text` is a plain substring after normalisation.
+- **Reference answers:** `eval/reference-answers.json` holds hand-written correct and wrong
+  answers per item. `ReferenceAnswersTest` scores them offline through the scorer and gate: each
+  correct answer must pass every gated check and each wrong one must fail exactly the checks
+  listed. Every item needs at least one of each, so a new item or a matcher change is proven
+  passable before it reaches a PR build.
 - **`retrieval`** (optional) checks which documents appear in the final chunk set (M4).
 - **`queryPrompt`** comes from `defaults` unless an item overrides it (summary and chronology
   items override it to ask for sections or one event per line).
