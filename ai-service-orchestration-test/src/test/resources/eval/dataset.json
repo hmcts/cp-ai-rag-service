@@ -357,7 +357,8 @@
             "damaged seal",
             "torn seal",
             "torn door seal",
-            "damaged door seal"
+            "damaged door seal",
+            "left-hand door seal"
           ]
         },
         {
@@ -400,7 +401,12 @@
           "ref": "cold-store-operating-handbook.pdf#handbook-frozen-limit"
         },
         {
-          "ref": "cold-store-operating-handbook.pdf#handbook-frozen-tolerance"
+          "ref": "cold-store-operating-handbook.pdf#handbook-frozen-tolerance",
+          "accept": [
+            "30 min",
+            "half an hour",
+            "thirty minutes"
+          ]
         }
       ],
       "forbidden": [],
@@ -413,7 +419,7 @@
         "smoke",
         "full"
       ],
-      "query": "Have any breaches been recorded against Calder Freight Services Ltd? Give the date of the most recent finding.",
+      "query": "Have any breaches been recorded against Calder Freight Services Ltd? Give the date of the most recent finding in its Notice of Findings.",
       "metadataFilter": [
         {
           "key": "corpus",

@@ -5,7 +5,8 @@
 # Configuration is read from a local .env file in this module directory: copy .env.sample
 # to .env and populate it. This script sources .env into the environment, because
 # FunctionTestBase reads its config via System.getenv and forwards it to each locally
-# started Function host. Authentication is DefaultAzureCredential, so `az login` first.
+# started Function host. A variable already set in the shell wins over .env, so a one-off
+# change needs no edit to .env, e.g. AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-5.1 ./run-integration-test.sh. Authentication is DefaultAzureCredential, so `az login` first.
 # Azure Functions Core Tools (`func`) must be on the PATH.
 #
 #   Usage (from anywhere):
@@ -16,7 +17,7 @@
 # The eval (DD-43887) writes target/eval/eval-report.json and, by default, only fails if the corpus
 # does not ingest. Select items with MAVEN_EXTRA_ARGS, e.g. "-Deval.tier=smoke", "-Deval.items=plain-001"
 # or "-Deval.runs=3"; add "-Deval.gate=true" to apply the PR gate (DD-43901); set
-# AZURE_OPENAI_CHAT_DEPLOYMENT_NAME in .env to evaluate another model.
+# AZURE_OPENAI_CHAT_DEPLOYMENT_NAME (in .env or the shell) to evaluate another model.
 #
 # The suite runs twice (two failsafe executions): once with client filtering enforced and once
 # in the legacy no-client mode, until the production cut-over decommissions the legacy leg.
@@ -43,11 +44,20 @@ if ! command -v func >/dev/null 2>&1; then
   exit 1
 fi
 
+# Keep any .env variable already set in the shell, so it overrides the .env value.
+PRESET_ENV=""
+for name in $(sed -nE 's/^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=.*/\2/p' "${ENV_FILE}"); do
+  if [[ -n "${!name+x}" ]]; then
+    PRESET_ENV+="export ${name}=$(printf '%q' "${!name}");"
+  fi
+done
+
 # Load .env into the environment (auto-export everything assigned while sourcing).
 set -a
 # shellcheck disable=SC1090
 source "${ENV_FILE}"
 set +a
+eval "${PRESET_ENV}"
 
 # Fail fast on unfilled placeholders rather than mid-run inside a function host.
 REQUIRED_VARS=(

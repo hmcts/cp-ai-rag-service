@@ -45,6 +45,7 @@ final class FactMatcher {
         return switch (fact.type()) {
             case DATE -> datePatterns(LocalDate.parse(fact.value())).stream().anyMatch(p -> p.matcher(text).find());
             case MONEY -> moneyPattern(new BigDecimal(fact.value())).matcher(text).find();
+            case TEMPERATURE -> temperaturePattern(new BigDecimal(fact.value())).matcher(text).find();
             case NUMBER -> Pattern.compile("(?<!\\d)" + Pattern.quote(normalise(fact.value())) + "(?!\\d)").matcher(text).find();
             case TEXT -> text.contains(normalise(fact.value()));
         };
@@ -68,6 +69,19 @@ final class FactMatcher {
         patterns.add(Pattern.compile("\\b" + names + " " + dayOfMonth + ",? ?" + year + "\\b"));
         patterns.add(Pattern.compile("\\b" + String.format("%d-%02d-%02d", date.getYear(), month, day) + "\\b"));
         return patterns;
+    }
+
+    /**
+     * {@code 9.4°C}, {@code 9.4 °C}, {@code 9.4℃} and {@code 9.4 degrees}; a whole value may drop its {@code .0}
+     * ({@code -18°C}). A sign must match, so {@code 5.0°C} is not found in {@code -5.0°C} or {@code 15.0°C}.
+     */
+    private static Pattern temperaturePattern(final BigDecimal degrees) {
+        final BigDecimal whole = degrees.setScale(0, RoundingMode.DOWN);
+        final String fraction = degrees.compareTo(whole) == 0
+                ? "(?:\\.0+)?"
+                : "\\." + degrees.subtract(whole).abs().stripTrailingZeros().toPlainString().substring(2) + "0*";
+        final String number = (degrees.signum() < 0 ? "-" : "(?<![-\\d.])") + whole.abs().toPlainString() + fraction;
+        return Pattern.compile(number + " ?(?:°c|degrees?\\b)");
     }
 
     /** {@code £4,149}, {@code £4149}, {@code £ 4,149} and {@code £4,149.00}, but not {@code £41,490}; a following comma is punctuation. */

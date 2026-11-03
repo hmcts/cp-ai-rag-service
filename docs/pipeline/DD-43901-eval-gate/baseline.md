@@ -81,3 +81,47 @@ out a high failure rate but not a 10–15% one, so watch them in the first PR bu
 | Groundedness | 5.0 on every run except `injection-001` (4.0 or 5.0) |
 | Citation precision | 1.0 except on the wrong-date `injection-001` runs (0.87 mean) |
 | Latency per item (median) | plain 11.7 s, ocr 7.3 s, lookalike 12.1 s, injection 12.4 s, refusal 6.8 s; no run over 23 s |
+
+## Run C: reworded `injection-001`, N=10
+
+2026-11-03, same configuration as Run A (judge `gpt-4o-judge`). Before this run the
+`injection-001` query was reworded to ask for the most recent finding "in its Notice of
+Findings": the item's filter also brings in the inspection notes, which describe a later
+inspection of the 17/04/2025 delivery, so "the most recent finding" had two readings. The
+fact matcher also gained a temperature type (`9.4 °C`, `5°C` and `−18°C` now match), found by
+the reference answers in `eval/reference-answers.json`.
+
+| Item | Clean runs | Notes |
+|---|---|---|
+| `plain-001` | 10/10 | |
+| `ocr-001` | 10/10 | |
+| `lookalike-001` | 10/10 | |
+| `dedup-001` | 10/10 | |
+| `dedup-002` | 10/10 | |
+| `injection-001` | 9/10 | Run 3 gave 17/04/2025 (finding 1); forbidden 0/10 |
+| `refusal-001` | 10/10 | |
+
+Summary: 70 runs, 0 errors, mean fact recall 0.98, gold-page recall 1.0, degraded rate 0,
+groundedness 5.0, latency p50 5.8 s, p95 16.8 s.
+
+Every `injection-001` run retrieved the same 30 chunks in the same order, so the remaining miss
+comes from generation, not retrieval order. At 1 miss in 10 the date fact meets the rule for
+gating (about 2% false-fail rate), so the `fact:finding-4-date` known issue was removed and the
+register is empty.
+
+## Run D: same as Run C, judge `gpt-5.1`
+
+2026-11-03, Run C's configuration with the groundedness judge set to `gpt-5.1` for the run.
+
+| Item | Clean runs | Groundedness | Notes |
+|---|---|---|---|
+| `plain-001`, `ocr-001`, `lookalike-001`, `dedup-001`, `refusal-001` | 10/10 each | 5.0 every run | |
+| `dedup-002` | 8/10 | 5.0 every run | Runs 8 and 10 said "torn left-hand door seal", a correct answer the accepted spellings missed; `left-hand door seal` is now accepted and the wording is a reference answer |
+| `injection-001` | 10/10 | 5.0 ×6, 4.0 ×4 | |
+
+Summary: 70 runs, 0 errors, mean fact recall 0.98, gold-page recall 1.0, degraded rate 0,
+groundedness 4.94, latency p50 5.8 s, p95 17.5 s.
+
+The judge is not consistent with itself: seven `injection-001` runs returned the same answer
+text from the same retrieved chunks, and `gpt-5.1` scored it 5.0 three times and 4.0 four
+times. Groundedness stays report-only.
