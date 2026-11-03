@@ -59,6 +59,7 @@ class ItemScorerTest {
         assertEquals(0, score.chunksOutsideFilter());
         assertTrue(score.refusalCorrect());
         assertEquals(2, score.chunks());
+        assertEquals(List.of("supplier-review-calder.pdf#5", "supplier-review-calder.pdf#7"), score.retrievedPages());
     }
 
     @Test

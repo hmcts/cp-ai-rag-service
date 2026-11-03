@@ -297,6 +297,7 @@
       "id": "dedup-001",
       "behaviour": "Duplicate copies collapse; the superset copy with extra facts survives",
       "tier": [
+        "smoke",
         "full"
       ],
       "query": "When was the replacement door seal fitted to the trailer, by which contractor, and under what job reference?",
@@ -335,6 +336,7 @@
       "id": "dedup-002",
       "behaviour": "A fact present in every duplicate copy: any copy is a valid source",
       "tier": [
+        "smoke",
         "full"
       ],
       "query": "According to the site inspection note, what caused the temperature excursion and when was the depot's probe last calibrated?",
