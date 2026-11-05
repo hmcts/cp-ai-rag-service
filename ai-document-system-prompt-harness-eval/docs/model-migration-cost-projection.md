@@ -53,8 +53,9 @@ reasoning/thinking tokens, no caching active. FX: £1 = $1.27 (as used in the in
 > Claude — UK-resident processing is currently available only on **AWS Bedrock** (`eu-west-2` in-region).
 > Token counts and Anthropic list rates are identical across the two platforms, so the measurements
 > transfer; a Bedrock in-region deployment would add AWS's ~10% regional-endpoint premium over global
-> routing and uses the AWS Converse/InvokeModel API shape rather than the Messages API used in this
-> evaluation (see §6, levers 1 and 5).
+> routing. Bedrock's InvokeModel endpoint accepts the same Anthropic Messages request body (the model ID
+> moves into the URL), so the harness reaches it through the Anthropic SDK's Bedrock backend with no
+> change to the request (see §6, levers 1 and 5).
 
 | | gpt-5.1 | Claude Sonnet 4.6 |
 |---|---|---|
@@ -183,9 +184,11 @@ recall risk on conviction screening; the Claude path buys that recall back at a 
    throughput headroom as well as cost.
 5. **Data residency.** The evaluation ran on Azure (Foundry), but Foundry routes Claude globally (its only
    data-zone option is US, at 1.1×) — **strict UK-resident processing for Claude exists today only via AWS
-   Bedrock eu-west-2 in-region** (Sonnet 4.6 / Opus 4.6), at a ~10% regional-endpoint premium and with the
-   AWS Converse/InvokeModel API shape rather than the native Messages API measured here. On the gpt-5.1
-   side there is no UK-resident processing option at all (EU Data Zone at best, from two regions). If UK
+   Bedrock eu-west-2 in-region** (Sonnet 4.6 / Opus 4.6), at a ~10% regional-endpoint premium, called via
+   InvokeModel with the same Anthropic Messages request body measured here. On the gpt-5.1 side there is
+   no UK-resident pay-per-token option (EU Data Zone at best, from two regions); UK-resident processing
+   exists only as regional reserved capacity (ProvisionedManaged in `uksouth`, 50-PTU minimum, about
+   $92,700 a month at the hourly list rate). If UK
    residency is a hard requirement, the Claude path implies a platform move to Bedrock, and the batch and
    caching levers above must be re-assessed on that platform (batches unavailable; caching supported with a
    1,024-token minimum).
