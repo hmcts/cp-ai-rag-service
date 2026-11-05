@@ -59,6 +59,11 @@
             <artifactId>anthropic-java-foundry</artifactId>
             <version>${anthropic-java.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.anthropic</groupId>
+            <artifactId>anthropic-java-bedrock</artifactId>
+            <version>${anthropic-java.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
