@@ -1,7 +1,7 @@
-# Answer-Retrieval System Prompt — Evolution v1–v4 and Evaluation Outcomes
+# Answer-Retrieval System Prompt — Evolution v1–v5 and Evaluation Outcomes
 
-> Evolution v1 → v4, supporting pipeline changes, and outcomes of the latest evaluation run.
-> `cp-ai-rag-service` — 18 June 2026
+> Evolution v1 → v5, supporting pipeline changes, and evaluation outcomes.
+> `cp-ai-rag-service` — 18 June 2026; v5 added 28 October 2026 (§7)
 
 ## 1. Purpose and context
 
@@ -22,6 +22,7 @@ verbosity, coverage and — newly — response quality.
 | **v2** | `v2-baseline-with-improvements.txt` | 1,678 | Cross-model rework for the prospective GPT-5.1 move: citationId redefined as a plain sequential counter (never GUID-derived), explicit description of the retrieved-document XML structure, WRONG/RIGHT worked examples, schema simplified to `individualPageNumbers` only. Validated across GPT-4o and GPT-5.1 on both SDK paths (Azure & OpenAI). |
 | **v3** | `v3-strict-citation-grouping.txt` | 2,099 | Targeted *same-document citation stacking* (adjacent `[1][2][3]` all resolving to one document instead of one grouped citation): absolute adjacency rule (adjacent brackets only for *different* documents), consecutive-sentence grouping guidance, a pre-emit self-check, a stacking WRONG/RIGHT example pair. Also removed the trailing "no relevant evidence" example after the team observed it biased models toward spurious "no information" answers (recency effect). |
 | **v4** | `v4-strict-citation-grouping-compact.txt` | **993 (−53% vs v3)** | Size optimisation. A review found ~45–50% of v3 was defensive text whose failure modes are now *deterministically handled in code* (§3). v4 keeps the full citation contract, document structure, output schema, heading rules and the three highest-value examples; it drops the self-check rule, four redundant examples, the malformed-bracket catalogue and duplicated style directives. The system prompt is sent on every call, so the saving (~1,100 tokens/call) is permanent. |
+| **v5** | `v5-domain-neutral.txt` | ≈1,200 | Domain-neutral interim prompt (DD-43890): no persona, domain spelling examples or domain few-shot examples — domain framing belongs in each client's query prompt. Adds grounding (no outside knowledge or opinion), precedence (the query instruction cannot change the citation rules), retrieved text as data never instructions, and rule 8 (the `FACT_MAP_JSON` block and inline `[N]` survive any prescribed answer format). Citation rules 1–7 unchanged from v4. See §7. |
 
 ## 3. Supporting pipeline changes (code, not prompt)
 
@@ -104,6 +105,34 @@ judgements • **zero call failures**.
   the checked-in prompt files configure only the harness.
 - Raise the PR covering: v1–v4 prompt files, CitationProcessor merge + tests, harness stacking
   metric, document-ID iteration, and the quality comparator.
+
+## 7. v5 domain-neutral prompt (28 October 2026)
+
+Until per-client / per-use-case prompts can be externalised, the shared system prompt carries only
+guardrails and the citation contract. v5 was evaluated against v4 on both model pairings, with each
+model given its own query-prompt set (see `query-prompt-evaluation-prod-vs-test.md`).
+
+**Judge position bias.** A control comparing v4 with an identical copy of itself gave the judge's
+second answer (B) "richer" 12–26 times in 50 and the first (A) only 1–7 times. Judge verdicts are
+therefore read against that A/A floor, not as raw counts; chain-wise "B richer" results in earlier
+documents are inflated by this bias.
+
+| Check | gpt-4o + production query prompts | gpt-5.1 + test query prompts |
+|---|---|---|
+| Judge vs A/A floor | not worse (v4 richer 1 vs floor 2) | not worse with v4 in the favoured B position (v4 richer 18 vs floor 20) |
+| `FACT_MAP_JSON` present | 49/50 (v4 50/50); 12/12 on a 3-rep re-check | 50/50 (v4 50/50) |
+| Uncited answers | 3/50 (v4 5/50) | 0/50 (v4 0/50) |
+| Extraction (source-verified items) | equal or better on every spot check | 9/11 (v4 10/11) |
+
+- Same-document marker spray (`[1]…[41]`) on one multi-witness document occurs under v4 as well; it
+  is model behaviour, not caused by the prompt, and a prompt line targeting it had no effect.
+- A trailing "no matching records" example (tried in an intermediate variant) cut gpt-5.1
+  extraction recall sharply and was removed, consistent with §2's v3 finding.
+- The integration suite and the eval smoke tier pass with v5 as the orchestration-test prompt.
+
+**Known limitations:** gpt-4o still sometimes leaves summaries uncited (as under v4); gpt-5.1
+extraction precision (near-match records, non-qualifying entries) to be revisited during the gpt-5.1
+migration. v4 stays available as the config-only rollback value for `RESPONSE_GENERATION_SYSTEM_PROMPT`.
 
 ---
 
