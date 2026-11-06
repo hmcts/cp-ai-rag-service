@@ -152,6 +152,9 @@ public final class TestHarness {
     /** Provider prefix in HARNESS_LLM_DEPLOYMENTS routing a model to {@link AnthropicChatService}. */
     private static final String PROVIDER_ANTHROPIC = "anthropic";
 
+    /** Provider prefix routing a model to {@link AnthropicChatService} on Amazon Bedrock (in-region). */
+    private static final String PROVIDER_BEDROCK = "bedrock";
+
     /** Provider prefix routing a model to {@link LocalOpenAiChatService} (LM Studio etc.). */
     private static final String PROVIDER_LOCAL = "local";
 
@@ -384,6 +387,10 @@ public final class TestHarness {
             // chat completions — served by the harness-local client. Endpoint comes from the
             // entry's @endpoint suffix, or the ANTHROPIC_FOUNDRY_* environment variables.
             chat = new AnthropicChatService(lc.deployment(), lc.endpoint());
+        } else if (PROVIDER_BEDROCK.equals(lc.provider())) {
+            // Claude on Amazon Bedrock: same Anthropic SDK, Bedrock backend (region + API key
+            // from AWS_BEARER_TOKEN_BEDROCK / HARNESS_BEDROCK_REGION).
+            chat = AnthropicChatService.forBedrock(lc.deployment());
         } else if (PROVIDER_LOCAL.equals(lc.provider())) {
             // Locally hosted OpenAI-compatible model (LM Studio / llama.cpp server).
             chat = new LocalOpenAiChatService(lc.deployment(), lc.endpoint());
@@ -455,6 +462,8 @@ public final class TestHarness {
      *       {@code AZURE_OPENAI_ENDPOINT}.</li>
      *   <li>{@code anthropic:} — the harness-local {@link AnthropicChatService}
      *       (Claude on Azure AI Foundry).</li>
+     *   <li>{@code bedrock:} — the same client on Amazon Bedrock, in-region (base model IDs
+     *       only, e.g. {@code bedrock:anthropic.claude-sonnet-4-6}; no {@code @endpoint}).</li>
      *   <li>{@code @https://...} — a per-model endpoint, overriding the provider's global env
      *       var, so models on different Azure resources share one matrix.</li>
      * </ul>
@@ -488,12 +497,17 @@ public final class TestHarness {
         } else {
             provider = entry.substring(0, sep).trim().toLowerCase(Locale.ROOT);
             deployment = entry.substring(sep + 1).trim();
-            if (!PROVIDER_ANTHROPIC.equals(provider) && !PROVIDER_LOCAL.equals(provider)) {
+            if (!PROVIDER_ANTHROPIC.equals(provider) && !PROVIDER_BEDROCK.equals(provider)
+                    && !PROVIDER_LOCAL.equals(provider)) {
                 throw new IllegalStateException("Unsupported provider prefix '" + provider
                         + "' in HARNESS_LLM_DEPLOYMENTS entry '" + entry
-                        + "' (supported: '" + PROVIDER_ANTHROPIC + ":', '" + PROVIDER_LOCAL
-                        + ":', or no prefix for the default path)");
+                        + "' (supported: '" + PROVIDER_ANTHROPIC + ":', '" + PROVIDER_BEDROCK + ":', '"
+                        + PROVIDER_LOCAL + ":', or no prefix for the default path)");
             }
+        }
+        if (PROVIDER_BEDROCK.equals(provider) && !endpoint.isEmpty()) {
+            throw new IllegalStateException("HARNESS_LLM_DEPLOYMENTS entry '" + rawEntry
+                    + "': the 'bedrock:' provider takes no @endpoint — the region comes from HARNESS_BEDROCK_REGION");
         }
         if (!endpoint.isEmpty()) {
             // Cloud entries must be https; the local provider is the one legitimate http case

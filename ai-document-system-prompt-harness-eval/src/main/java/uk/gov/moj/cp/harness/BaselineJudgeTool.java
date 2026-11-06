@@ -56,7 +56,10 @@ import org.slf4j.LoggerFactory;
  *       to use from each file; optional when the file contains a single model.</li>
  *   <li>{@code HARNESS_JUDGE_LLM} — the judge, as {@code [provider:]deployment[@endpoint]}
  *       (same syntax as HARNESS_LLM_DEPLOYMENTS), e.g.
- *       {@code local:gpt-oss-120b@http://localhost:1234/v1} or {@code gpt-5.1}.</li>
+ *       {@code local:gpt-oss-120b@http://localhost:1234/v1}, {@code bedrock:anthropic.claude-opus-5-5}
+ *       or {@code gpt-5.1}.</li>
+ *   <li>{@code HARNESS_RESULTS_DIR} — optional output directory for the judge file (default
+ *       {@code harness-results/}); give parallel judge runs separate directories.</li>
  *   <li>{@code HARNESS_JUDGE_COSINE} — {@code off} (default), or
  *       {@code local:<model>@<http-endpoint>} to compute the prose-cosine divergence flag with
  *       a local OpenAI-compatible embedding model (e.g. nomic via LM Studio). The space differs
@@ -225,11 +228,12 @@ public final class BaselineJudgeTool {
         final String deployment = sep <= 0 ? spec : spec.substring(sep + 1).trim();
         return switch (provider) {
             case "anthropic" -> new AnthropicChatService(deployment, endpoint);
+            case "bedrock" -> AnthropicChatService.forBedrock(deployment);
             case "local" -> new LocalOpenAiChatService(deployment, endpoint);
             case "" -> ChatServiceFactory.getInstance(
                     endpoint.isEmpty() ? requireEnv("AZURE_OPENAI_ENDPOINT") : endpoint, deployment);
             default -> throw new IllegalStateException("Unsupported judge provider '" + provider
-                    + "' in HARNESS_JUDGE_LLM (supported: anthropic:, local:, or no prefix)");
+                    + "' in HARNESS_JUDGE_LLM (supported: anthropic:, bedrock:, local:, or no prefix)");
         };
     }
 
@@ -446,7 +450,9 @@ public final class BaselineJudgeTool {
         out.put("meta", meta);
         out.put("rows", rows);
 
-        final Path dir = Files.isDirectory(Paths.get(MODULE_DIR_NAME))
+        final String dirOverride = env("HARNESS_RESULTS_DIR", "");
+        final Path dir = !dirOverride.isEmpty() ? Paths.get(dirOverride)
+                : Files.isDirectory(Paths.get(MODULE_DIR_NAME))
                 ? Paths.get(MODULE_DIR_NAME, RESULTS_DIR) : Paths.get(RESULTS_DIR);
         Files.createDirectories(dir);
         final Path file = dir.resolve("judge-"
