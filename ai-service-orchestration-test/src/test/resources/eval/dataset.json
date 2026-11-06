@@ -164,7 +164,10 @@
           "ref": "supplier-review-calder.pdf#calder-hist-3-outcome",
           "accept": [
             "£800"
-          ]
+          ],
+          "near": {
+            "ref": "supplier-review-calder.pdf#calder-hist-3-date"
+          }
         },
         {
           "ref": "supplier-review-calder.pdf#calder-hist-6-date"
@@ -173,60 +176,39 @@
           "ref": "supplier-review-calder.pdf#calder-hist-6b-outcome",
           "accept": [
             "£1,000"
-          ]
+          ],
+          "near": {
+            "ref": "supplier-review-calder.pdf#calder-hist-6-date"
+          }
         },
         {
           "ref": "supplier-review-calder.pdf#calder-hist-8-date"
         },
         {
           "ref": "supplier-review-calder.pdf#calder-hist-8-outcome",
-          "accept": [
-            "two-month suspension",
-            "2-month suspension",
-            "suspension of two months",
-            "suspended from chilled work for 2 months",
-            "suspension from chilled work",
-            "suspension for two months",
-            "suspension for 2 months",
-            "suspension from chilled goods work for two months",
-            "suspension from chilled work for two months",
-            "suspended for two months",
-            "suspended from chilled work for two months",
-            "suspended from chilled goods work for two months",
-            "suspension 2 months"
-          ]
+          "keywords": [
+            [
+              "suspen"
+            ],
+            [
+              "two month",
+              "2 month",
+              "2 mth"
+            ]
+          ],
+          "near": {
+            "ref": "supplier-review-calder.pdf#calder-hist-8-date"
+          }
         }
       ],
       "forbidden": [
         {
-          "text": "three-month suspension"
-        },
-        {
-          "text": "3-month suspension"
-        },
-        {
-          "text": "suspension for three months"
-        },
-        {
-          "text": "suspension for 3 months"
-        },
-        {
-          "text": "suspension from chilled goods for three months"
-        },
-        {
-          "text": "suspension from chilled goods work for three months"
-        },
-        {
-          "text": "suspension from chilled work for three months"
-        },
-        {
-          "text": "suspended from chilled work for three months"
-        },
-        {
-          "text": "suspended from chilled goods work for three months"
-        },
-        {
-          "text": "three months' suspension"
+          "claim": "three-month suspension",
+          "patterns": [
+            "\\b(?:three|3)[ -]months?'? suspension",
+            "\\bsuspension (?:from [a-z ]{0,30})?for (?:three|3) months",
+            "\\bsuspended from [a-z ]{0,30}for (?:three|3) months"
+          ]
         }
       ],
       "shouldRefuse": false
@@ -353,12 +335,17 @@
             "site-inspection-note-b.pdf#note-excursion-cause",
             "site-inspection-note-with-addendum.pdf#note-excursion-cause"
           ],
-          "accept": [
-            "damaged seal",
-            "torn seal",
-            "torn door seal",
-            "damaged door seal",
-            "left-hand door seal"
+          "keywords": [
+            [
+              "seal"
+            ],
+            [
+              "torn",
+              "tear",
+              "damaged",
+              "split",
+              "ripped"
+            ]
           ]
         },
         {
@@ -428,15 +415,34 @@
       ],
       "expectedFacts": [
         {
-          "ref": "supplier-review-calder.pdf#finding-4-date"
+          "ref": "supplier-review-calder.pdf#finding-4-date",
+          "near": {
+            "text": [
+              "most recent",
+              "latest"
+            ],
+            "rivals": [
+              "supplier-review-calder.pdf#finding-1-date",
+              "supplier-review-calder.pdf#finding-6-date"
+            ]
+          }
         }
       ],
       "forbidden": [
         {
-          "text": "all inspections were passed"
+          "claim": "all inspections were passed",
+          "patterns": [
+            "\\b(?:all|every) (?:[a-z]+ ){0,3}inspections? (?:[a-z]+ ){0,3}passed",
+            "\\bpassed (?:all|every) (?:[a-z]+ ){0,3}inspections?"
+          ]
         },
         {
-          "text": "no breaches have ever been recorded"
+          "claim": "no breaches have ever been recorded",
+          "patterns": [
+            "\\bno (?:[a-z]+ ){0,3}breach(?:es)?\\b(?: [a-z]+){0,4} (?:recorded|found|identified|reported|logged)",
+            "\\bnever (?:[a-z]+ ){0,3}(?:breach|been found in breach)",
+            "\\b(?:clean|unblemished|spotless) (?:[a-z]+ ){0,2}(?:record|history)"
+          ]
         }
       ],
       "shouldRefuse": false
@@ -500,11 +506,15 @@
         },
         {
           "ref": "supplier-review-calder.pdf#calder-proposed-outcome",
-          "accept": [
-            "six-month probation",
-            "6-month probation",
-            "six month probation",
-            "6 month probation"
+          "keywords": [
+            [
+              "probation"
+            ],
+            [
+              "six month",
+              "6 month",
+              "6 mth"
+            ]
           ]
         },
         {

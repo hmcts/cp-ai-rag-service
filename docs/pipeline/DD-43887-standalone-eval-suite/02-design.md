@@ -125,9 +125,27 @@ The dataset is `eval/dataset.json` (12 items written). It has three parts:
   names to the documentIds it generated at ingestion.
 - **`ref` may be a list:** the same fact in several documents (duplicate copies), where any one
   is a valid source.
-- **`accept`** lists extra spellings for a text fact that a correct answer may use instead (e.g.
+- **`accept`** lists extra spellings of the value that a correct answer may use instead (e.g.
   `£800` for `PENALTY £800`).
-- **`forbidden`** takes a manifest `ref` (a value from the wrong document) or literal `text`.
+- **`keywords`** accepts a reworded fact: a list of word groups, where one sentence must contain a
+  word from every group, in any order (hyphens read as spaces). `[["seal"], ["torn", "damaged"]]`
+  accepts "a torn left-hand door seal" and "the seal was damaged" without listing every phrasing.
+- **`near`** binds a fact to the entry it belongs to, within one line (a list item or table row).
+  With `{"ref": "<file>#<date-fact>"}` the anchor is that date and the rivals are the other
+  entries' dates (the anchors of the item's other facts); with `{"text": ["most recent",
+  "latest"], "rivals": [...]}` the anchor is the text and the rivals are listed. If the value's
+  sentence holds the anchor or a rival, the anchor must be in that sentence with no rival between
+  them. If it holds neither ("On 04/07/2017, an excursion occurred. A penalty of £800 was
+  issued."), the value belongs to the nearest anchor or rival before it on the line. A penalty
+  attached to the wrong entry, or a list of finding dates that calls the wrong one the most
+  recent, fails. Sentences end at `.`, `!`, `?` or `;`. An answer that lists all the dates in one
+  sentence and all the outcomes in the next cannot be judged by position.
+- **`forbidden`** takes a manifest `ref` (a value from the wrong document, matched anywhere), a
+  literal `text`, or a `claim` with regex `patterns` over the normalised (lower-case) answer, so
+  one claim covers its rewordings ("no breaches were recorded", "a clean compliance record").
+  A `text` or `claim` does not count where the answer quotes it (double or curly quotation marks)
+  or in a sentence that rejects it ("ignore", "disregard", "contradict", "not followed",
+  "incorrect"): an answer may quote an injected instruction in order to refuse it.
 - **Fact types:** `date`, `money`, `number` and `temperature` (degrees Celsius) each have one
   matcher that accepts the usual written forms; `text` is a plain substring after normalisation.
 - **Reference answers:** `eval/reference-answers.json` holds hand-written correct and wrong
@@ -184,10 +202,13 @@ The dataset is `eval/dataset.json` (12 items written). It has three parts:
   long answer validly cites pages that carry no expected fact (the dry run's summary cited the
   history summary page for its history section, scoring 0.67). Judging those needs a claim-level
   check, which is the judge's job (M12).
-- **M8 counts a refusal** when the answer is the no-data sentinel, **or** it has no rendered
-  citation and uses refusal wording ("does not contain", "no information", …). The sentinel only
-  appears when retrieval returns nothing; with chunks retrieved, the model refuses in its own
-  words (dry run, 2026-10-27). The phrase list lives with the scorer, not the dataset.
+- **M8 counts a refusal** when the answer is the no-data sentinel, **or** its opening sentence uses
+  refusal wording ("does not contain", "no information", …) **and** it states none of the
+  item's expected facts. The sentinel only appears when retrieval returns nothing; with chunks
+  retrieved, the model refuses in its own words (dry run, 2026-10-27). Citations do not decide
+  it: a refusal may cite what it looked at, and an answer that gives the facts and then says one
+  detail is "not provided" has answered (a missing fact is M6's job). The rule assumes a refusal
+  leads with it, as every live refusal has so far. The phrase list lives with the scorer.
 - **M3 measures only the final set.** Recall before dedup and MMR needs data the API doesn't
   return (gap G1).
 - **M12 is compared with M11.** If they agree, the existing scorer is enough and the judge
@@ -256,7 +277,8 @@ Keeping the PR tier small matters: every item costs ingestion time and LLM calls
   plus the client-identity header) after a release, or only against local hosts?
 - **OQ-3 Nightly home:** an ADO scheduled pipeline in this repo, or the existing GitHub Actions
   trial?
-- **OQ-4 Refusal detection:** decided: sentinel, or no citation plus refusal wording (see M8).
+- **OQ-4 Refusal detection:** decided: sentinel, or refusal wording in the opening sentence with
+  no expected fact stated (see M8; DD-43927 replaced the earlier "no citation" condition).
 - **OQ-5 Thresholds:** starting values for M3, M6, M9 and M10. Proposal: set them from the
   first three report-only runs, then tighten.
 - **OQ-6 Judge:** which deployment, and its rate limit on ste. The pilot preferred gpt-5.1
@@ -306,6 +328,7 @@ after it (3/3 correct readings each).
 - **Lesson for the matcher:** exact-phrase `accept` and `forbidden` lists are brittle. Correct
   answers were missed or flagged several times for wording alone ("suspended from chilled work for
   two months" for entry 8). Phrase checks stay report-only until the judge (M12) can confirm them,
-  and a phrase-based miss is checked against the answer before it counts.
+  and a phrase-based miss is checked against the answer before it counts. DD-43927 replaced the
+  phrase lists with `keywords`, `near` and forbidden `claim` patterns (see the dataset format).
 - **Layout-aware text on** (ste's setting, off in prd) lifted fact recall from 0.94 to 0.99 on
   gpt-4o, mostly on the history and chronology items: evidence for the DD-43810 rollout.

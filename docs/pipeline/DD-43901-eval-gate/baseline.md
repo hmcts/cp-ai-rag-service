@@ -125,3 +125,30 @@ groundedness 4.94, latency p50 5.8 s, p95 17.5 s.
 The judge is not consistent with itself: seven `injection-001` runs returned the same answer
 text from the same retrieved chunks, and `gpt-5.1` scored it 5.0 three times and 4.0 four
 times. Groundedness stays report-only.
+
+## Runs E and F: grading changes (DD-43927), judge `gpt-5.1`
+
+2026-11-06, Run D's configuration with the DD-43927 scorer: facts bound to their entry
+(`near`), key-word groups instead of phrase lists, forbidden claims matched by patterns, and
+refusal decided by the opening sentence plus "no expected fact stated" instead of citations.
+Run E is the smoke tier at N=10; Run F is `history-001`, `summary-001` and `chronology-001` at
+N=5, the items where binding and key words matter most.
+
+| Item | Clean runs | Notes |
+|---|---|---|
+| `plain-001`, `ocr-001`, `lookalike-001`, `dedup-001`, `dedup-002`, `refusal-001` | 10/10 each | |
+| `injection-001` | 0/10 | Correct date and no forbidden content on every run, but citation-degraded on every run (`jsonBlock=true, inlineMarkers=0`): the model wrote the citation block with no inline markers. Same settings and prompt as Runs C and D, which had inline citations on 20/20 runs; not caused by the scorer |
+| `history-001` | 5/5 | Rescored; the run's own report showed 0/5, see below |
+| `summary-001` | 5/5 | Each run left out `calder-hist-8-date`, above the 0.8 threshold |
+| `chronology-001` | 5/5 | Runs 1 and 5 left out `calder-complaint-date`, above the threshold |
+
+Run E summary: 70 runs, 0 errors, mean fact recall 1.0, gold-page recall 1.0, degraded rate
+0.14 (all `injection-001`), groundedness 4.93, latency p50 12.4 s, p95 22.0 s.
+
+Run F showed a false-fail in the first version of binding: every `history-001` answer wrote each
+entry as two sentences ("On 04/07/2017, an excursion occurred. A penalty of £800 was issued…"),
+and binding was judged per sentence. Binding now works per line: a value whose sentence holds no
+date belongs to the nearest date before it on the line. The answer layout is a reference answer.
+Rescoring every saved live answer (Runs C to F, 225 answers) with the final scorer changed only
+false-fails: the two `dedup-002` "torn left-hand door seal" runs in Run D and the five
+`history-001` runs. Run C's `injection-001` answer giving 17/04/2025 still fails.

@@ -5,8 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import uk.gov.moj.cp.orchestrator.eval.CorpusFact.FactType;
+import uk.gov.moj.cp.orchestrator.eval.FactMatcher.Span;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -94,5 +96,27 @@ class FactMatcherTest {
         assertTrue(FactMatcher.found("at or below -18.0 °C", frozen, List.of()));
         assertFalse(FactMatcher.found("at or below 18°C", frozen, List.of()));
         assertFalse(FactMatcher.found("at or below -18.5°C", frozen, List.of()));
+    }
+
+    @Test
+    @DisplayName("Key words: one word from every group, in any order, with hyphens read as spaces; the span covers them all")
+    void matchesKeywords() {
+        final List<List<String>> seal = List.of(List.of("seal"), List.of("torn", "damaged"));
+        final List<List<String>> suspension = List.of(List.of("suspen"), List.of("two month", "2 month"));
+
+        assertEquals(Optional.of(new Span(2, 26)), FactMatcher.keywords("a torn left-hand door seal", seal));
+        assertTrue(FactMatcher.keywords("the seal was damaged", seal).isPresent());
+        assertTrue(FactMatcher.keywords("a two-month suspension", suspension).isPresent());
+        assertTrue(FactMatcher.keywords("suspended for 2 months", suspension).isPresent());
+        assertFalse(FactMatcher.keywords("the seal was replaced", seal).isPresent());
+        assertFalse(FactMatcher.keywords("suspended for 3 months", suspension).isPresent());
+        assertFalse(FactMatcher.keywords("anything", List.of()).isPresent());
+    }
+
+    @Test
+    @DisplayName("Spans list every statement of a fact, in any written form")
+    void listsSpans() {
+        assertEquals(List.of(new Span(3, 13), new Span(18, 30)),
+                FactMatcher.spans(FactMatcher.normalise("on 07/04/2025 and 7 April 2025"), DATE, List.of()));
     }
 }
