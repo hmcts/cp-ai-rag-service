@@ -8,6 +8,13 @@
 >
 > `cp-ai-rag-service` — harness module `ai-document-system-prompt-harness-eval`.
 
+> **Update (28 October 2026): the quality verdict below is superseded.** The gpt-5.1 judge favours
+> whichever answer it sees second, and Claude was always second. An order-balanced re-run (§10),
+> judged by both Sonnet and gpt-5.1 in both orders, does **not** support "Claude is richer": both
+> judges lean slightly to gpt-5.1. The judge-free findings (§4 citation discipline and length, §8
+> cost) replicate and still stand. §2, §3, §6, §7 and §9's quality statements should be read
+> through §10.
+
 ---
 
 ## 1. Run configuration (baseline)
@@ -50,6 +57,8 @@ network reset — 49/50; here it is a clean 50/50).
 ---
 
 ## 2. Headline — quality (judge verdicts, 50 paired rows)
+
+> Superseded by §10: these are single-order verdicts with Claude always in the favoured second position.
 
 A = `gpt-5.1`, B = `claude-sonnet-4-6`. Each answer judged against its own (identical) instruction.
 
@@ -146,6 +155,10 @@ retrieval + 100 generation + 50 judge calls) ≈ **25 min**.
 - **Judge self-preference:** verdicts come from a **gpt-5.1** judge, so any model-family bias favours
   gpt-5.1. That bias runs *against* the observed result — so the Claude-favourable majority is, if
   anything, **understated**, not inflated.
+- **Correction (§10):** this reasoning missed a larger bias. The judge favours the *second* answer
+  regardless of model, and Claude was always second, so the Claude-favourable majority was inflated.
+  In the order-balanced re-run, no self-preference was visible either: the Sonnet judge did not
+  favour Claude.
 
 ---
 
@@ -222,6 +235,9 @@ Caveats and the main lever:
 
 ## 9. Conclusions & next steps
 
+> The quality conclusions in this section are superseded by §10. Citation discipline, length-cap
+> adherence and cost still stand.
+
 This definitive run **confirms the draft rather than revising it**: **Claude Sonnet 4.6 produces richer
 substantive summaries with materially better citation discipline and length-cap adherence, at a ~1.9×
 per-call latency premium**; **gpt-5.1 keeps the edge on witness coverage** and follows literal-sentinel
@@ -245,3 +261,100 @@ Recommended follow-ups:
 gpt-5.1 model-axis judge pairs, over 5 documents, 1 repetition, v4 system prompt,
 `user-queries-model-test.json`, `CITATION_GUARD_MODE=off`. Metrics are aggregates over the 5 documents;
 judge verdicts are counts over the 50 pairs. Cosine is a divergence flag, not a quality score.*
+
+---
+
+## 10. Order-balanced re-run (28 October 2026)
+
+### Why
+
+An A/A control in the domain-neutral system-prompt work (an identical prompt compared with
+itself) showed the gpt-5.1 judge calling the second answer "richer" 12–26 times in 50 and the
+first only 1–7 times. Every verdict above had Claude second, so the headline could be position
+bias. This re-run repeats the comparison and judges every pair in both orders.
+
+### Configuration
+
+Same as §1 (v4 prompt, `user-queries-model-test.json`, 5 documents, guard off, kNN 80 / pool
+60 / MMR-final 30, λ 0.8), with these differences:
+
+- **Two generation batches (G1, G2)**, each 50 answers per model, in-run judge off. G2 is a
+  second, independent set of answers to the same questions, so that each model can be compared
+  with itself to measure the noise floor.
+- **Offline judging** with `BaselineJudgeTool` (`judge-baseline.sh`), every comparison run
+  twice with the answers swapped:
+
+| Comparison | Judge | Purpose |
+|---|---|---|
+| gpt-5.1 vs Claude, G1 and G2 | Sonnet 4.6 | head-to-head (about 90 pairs) |
+| gpt-5.1 G1 vs gpt-5.1 G2; Claude G1 vs Claude G2 | Sonnet 4.6 | noise floor |
+| gpt-5.1 vs Claude, G1 | gpt-5.1 | second judge from a different model family |
+
+A pair counts as a win only when the judge picks the same model in both orders. A pick that
+follows the position rather than the answer ("flip") counts as a tie.
+
+### Results
+
+Order-consistent verdicts:
+
+| Judge | Batch | gpt-5.1 richer | Claude richer | Tie | Lean (one order only) | Flip |
+|---|---|---|---|---|---|---|
+| Sonnet | G1 (43 pairs) | **12** | 7 | 15 | gpt 4 · Claude 1 | 4 |
+| Sonnet | G2 (46 pairs) | **7** | 5 | 20 | gpt 6 · Claude 1 | 7 |
+| gpt-5.1 | G1 (50 pairs) | **11** | 2 | 18 | gpt 3 · Claude 6 | 10 |
+
+Noise floor (Sonnet judge, same model across batches): gpt-5.1 G1 vs G2 gave 5 vs 4
+order-consistent wins and 7 flips in 50 pairs. The Claude self-comparison was cut to 21 pairs by
+transient network errors.
+
+Position bias, as raw single-order picks:
+
+| Judge | First answer picked | Second answer picked |
+|---|---|---|
+| Sonnet | 15–21 | 30 |
+| gpt-5.1 | 13 | 42 |
+
+By query type (both judges and batches pooled, order-consistent wins):
+
+| Query type | Result |
+|---|---|
+| Per-person evidence summary | gpt-5.1 (13 of 15) |
+| Chronology | gpt-5.1 (7 of 15, 5 flips) |
+| Evidence summary | lean gpt-5.1 (5 vs 1) |
+| Fixed-list extraction (four queries) | almost all ties |
+| Case-facts and record summaries | no clear winner (mostly flips and ties) |
+
+Judge-free metrics, both batches (Claude G2 has 46 answers after 4 network failures):
+
+| | gpt-5.1 (G1 / G2) | claude-sonnet-4-6 (G1 / G2) |
+|---|---|---|
+| `<FACT_MAP_JSON>` present | 50 / 50 | 50 / 46 |
+| Same-document stacked runs per answer | 3.9 / 3.3 | **0.5 / 0.4** |
+| Prose words per answer | 458 / 443 | **297 / 293** |
+| Uncited substantive answers | 0 / 0 | 0 / 0 |
+| Mean latency | 15.6 s / 14.4 s | 16.2 s / 16.5 s |
+| Cost per 50 answers | $1.33 / $1.31 | $2.70 / $2.48 |
+
+### Findings
+
+1. **"Claude is richer" is not supported.** Counting only order-consistent verdicts, both judges
+   lean to gpt-5.1, by a margin close to the noise floor. The original 21:8 was position bias.
+2. **Both judges favour the second answer.** gpt-5.1 is the more biased judge (42 vs 13 raw
+   picks, 20% of pairs flip); Sonnet flips 9–15%. Sonnet is the better judge for this task.
+3. **No self-preference was visible:** the Sonnet judge did not favour Claude.
+4. **gpt-5.1's edge is per-person evidence summaries and chronologies,** consistent with §3. Its
+   modest lead is partly length: "richer" rewards saying more, and gpt-5.1 writes about 50% more.
+5. **Claude's citation discipline and length-cap adherence replicate** (§4), as does its higher
+   cost (about 2× per answer here). Its latency gap is smaller than in §5 (similar mean latency).
+
+### Method change for future comparisons
+
+- Judge every pair in both orders and count only order-consistent verdicts; report the flip rate.
+- Include a same-model control (two batches) to show the noise floor.
+- Use two judges from different model families and trust only what they agree on.
+- Prefer reference-based checks (expected facts, as in the eval suite) or per-answer rubric scores
+  over pairwise "richer", which rewards length.
+
+*Re-run artefacts (git-ignored, local): generation files `harness-run-20261028-104222.json` (G1) and
+`harness-run-20261028-110302.json` (G2); judge files `judge-20261028-110916.json` to
+`judge-20261028-114958.json`. About 200 generation calls and 500 judge calls.*
