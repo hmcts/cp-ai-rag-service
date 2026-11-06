@@ -1,6 +1,9 @@
 package uk.gov.moj.cp.orchestrator.eval;
 
+import uk.gov.moj.cp.orchestrator.eval.FactMatcher.Span;
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -24,11 +27,14 @@ final class AnswerText {
 
     /**
      * With chunks retrieved the model refuses in its own words, not with the sentinel (dry run,
-     * 2026-10-27). An uncited answer using one of these phrases counts as a refusal.
+     * 2026-10-27). An answer whose opening sentence uses one of these phrases says the information is missing.
      */
     private static final List<String> REFUSAL_PHRASES = List.of("no information", "does not contain", "do not contain",
             "not contain any", "not available", "unable to find", "could not find", "cannot find", "not mentioned",
-            "not provided", "no details", "not specified", "no mention", "not include");
+            "not provided", "no details", "not specified", "no mention", "not include", "do not state", "does not state",
+            "do not specify", "does not specify", "no record of");
+    /** The space after a sentence or clause ending in {@code .}, {@code !}, {@code ?} or {@code ;}, in normalised text. */
+    private static final Pattern SENTENCE_BREAK = Pattern.compile("(?<=[.!?;]) ");
 
     private static final int MAX_HEADING_LENGTH = 60;
 
@@ -67,12 +73,42 @@ final class AnswerText {
         return CITATION.matcher(raw).replaceAll(" ");
     }
 
-    boolean isRefusal() {
-        if (raw.strip().equals(NO_DATA_SENTINEL)) {
-            return true;
+    boolean isNoDataSentinel() {
+        return raw.strip().equals(NO_DATA_SENTINEL);
+    }
+
+    /**
+     * The opening sentence says the information is not there. Citations do not decide it: a refusal may
+     * cite what it looked at, and a correct answer may be uncited. The scorer also requires that no
+     * expected fact is stated, so an answer that gives the facts and then says one detail is missing is
+     * not a refusal.
+     */
+    boolean opensWithRefusal() {
+        final List<String> segments = segments();
+        return !segments.isEmpty() && REFUSAL_PHRASES.stream().anyMatch(segments.get(0)::contains);
+    }
+
+    /** The prose split into lines (a list item or table row each), normalised, blank ones dropped. */
+    List<String> lines() {
+        return Arrays.stream(prose().split("\n")).map(FactMatcher::normalise).filter(s -> !s.isEmpty()).toList();
+    }
+
+    /** Where each sentence of a normalised line sits (a {@code ;} also ends one). */
+    static List<Span> sentences(final String line) {
+        final List<Span> sentences = new ArrayList<>();
+        int start = 0;
+        final Matcher m = SENTENCE_BREAK.matcher(line);
+        while (m.find()) {
+            sentences.add(new Span(start, m.start()));
+            start = m.end();
         }
-        final String prose = FactMatcher.normalise(prose());
-        return citations.isEmpty() && REFUSAL_PHRASES.stream().anyMatch(prose::contains);
+        sentences.add(new Span(start, line.length()));
+        return sentences;
+    }
+
+    /** The prose split into lines and then sentences, normalised. Key words and forbidden claims are judged within one segment. */
+    List<String> segments() {
+        return lines().stream().flatMap(l -> sentences(l).stream().map(s -> l.substring(s.start(), s.end()))).toList();
     }
 
     /** Splits on heading lines: markdown {@code #}, a bold-only line, or a short line ending with a colon. */

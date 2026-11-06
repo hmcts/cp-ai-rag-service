@@ -74,8 +74,43 @@ class EvalDatasetTest {
     }
 
     @Test
-    @DisplayName("A reference to a missing fact fails at load time")
+    @DisplayName("Anchors, key words and forbidden claims are loaded")
+    void loadsBindingAndClaims() {
+        final EvalItem.ExpectedFact outcome = DATASET.item("history-001").expectedFacts().get(5);
+        final EvalItem.ExpectedFact latest = DATASET.item("injection-001").expectedFacts().get(0);
+
+        assertEquals("calder-hist-8-date", outcome.near().ref().factId());
+        assertEquals(List.of("suspen"), outcome.keywords().get(0));
+        assertEquals(List.of("most recent", "latest"), latest.near().text());
+        assertEquals(2, latest.near().rivals().size());
+        assertEquals(List.of("all inspections were passed", "no breaches have ever been recorded"),
+                DATASET.item("injection-001").forbidden().stream().map(EvalItem.Forbidden::label).toList());
+    }
+
+    @Test
+    @DisplayName("A reference to a missing fact fails at load time, including an anchor or a rival")
     void rejectsUnknownFact(@TempDir final Path dir) throws Exception {
+        for (final String fact : List.of("{\"ref\":\"a.pdf#missing\"}", "{\"ref\":\"a.pdf#x\",\"near\":{\"ref\":\"a.pdf#missing\"}}",
+                "{\"ref\":\"a.pdf#x\",\"near\":{\"text\":[\"t\"],\"rivals\":[\"a.pdf#missing\"]}}")) {
+            final IllegalStateException e = assertThrows(IllegalStateException.class, () -> EvalDataset.load(dataset(dir, fact, "")));
+            assertTrue(e.getMessage().contains("a.pdf#missing"), fact);
+        }
+    }
+
+    @Test
+    @DisplayName("A malformed anchor, key-word group or forbidden entry fails at load time")
+    void rejectsMalformedEntries(@TempDir final Path dir) throws Exception {
+        for (final String[] entry : new String[][] {
+                {"{\"ref\":\"a.pdf#x\",\"near\":{\"ref\":\"a.pdf#x\",\"text\":[\"t\"]}}", ""},
+                {"{\"ref\":\"a.pdf#x\",\"near\":{}}", ""},
+                {"{\"ref\":\"a.pdf#x\",\"keywords\":[[]]}", ""},
+                {"{\"ref\":\"a.pdf#x\"}", "{\"claim\":\"c\",\"patterns\":[]}"},
+                {"{\"ref\":\"a.pdf#x\"}", "{\"claim\":\"c\",\"patterns\":[\"(\"]}"}}) {
+            assertThrows(RuntimeException.class, () -> EvalDataset.load(dataset(dir, entry[0], entry[1])), entry[0] + entry[1]);
+        }
+    }
+
+    private static Path dataset(final Path dir, final String expectedFact, final String forbidden) throws Exception {
         Files.createDirectories(dir.resolve("documents"));
         Files.writeString(dir.resolve("documents/m.json"),
                 "{\"documents\":[{\"file\":\"a.pdf\",\"facts\":{\"x\":{\"type\":\"text\",\"value\":\"v\",\"pages\":[1]}}}]}");
@@ -83,10 +118,8 @@ class EvalDatasetTest {
                 {"version":"t","manifest":"documents/m.json","defaults":{"queryPrompt":"p"},
                  "documents":[{"file":"a.pdf","metadata":[{"key":"k","value":"v"}]}],
                  "items":[{"id":"i","query":"q","metadataFilter":[{"key":"k","value":"v"}],
-                           "expectedFacts":[{"ref":"a.pdf#missing"}],"forbidden":[],"shouldRefuse":false}]}
-                """);
-
-        final IllegalStateException e = assertThrows(IllegalStateException.class, () -> EvalDataset.load(dir));
-        assertTrue(e.getMessage().contains("a.pdf#missing"));
+                           "expectedFacts":[%s],"forbidden":[%s],"shouldRefuse":false}]}
+                """.formatted(expectedFact, forbidden));
+        return dir;
     }
 }

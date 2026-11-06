@@ -1,3 +1,10 @@
 {
-  "issues": []
+  "issues": [
+    {
+      "item": "injection-001",
+      "check": "citation-degraded",
+      "jira": "DD-43838",
+      "reason": "gpt-4o sometimes writes the citation block with no inline markers; answers repeat within one ingestion, so a bad ingestion fails every run. Seen on 1 of 4 ingestions (Run E). Report-only until a rate-based citation gate replaces it."
+    }
+  ]
 }

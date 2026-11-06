@@ -3,6 +3,7 @@ package uk.gov.moj.cp.orchestrator.eval;
 import uk.gov.moj.cp.orchestrator.eval.CorpusFact.FactType;
 import uk.gov.moj.cp.orchestrator.eval.EvalItem.ExpectedFact;
 import uk.gov.moj.cp.orchestrator.eval.EvalItem.Forbidden;
+import uk.gov.moj.cp.orchestrator.eval.EvalItem.Near;
 import uk.gov.moj.cp.orchestrator.eval.EvalItem.RetrievalCheck;
 
 import java.io.IOException;
@@ -14,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,6 +31,7 @@ public record EvalDataset(String version, Path directory, List<DocumentSpec> doc
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String QUERY_PROMPT_FIELD = "queryPrompt";
     private static final String DOCUMENTS_FIELD = "documents";
+    private static final String TEXT_FIELD = "text";
 
     /** A corpus document and the metadata it is ingested with. */
     public record DocumentSpec(String file, List<MetadataEntry> metadata) {
@@ -54,7 +57,7 @@ public record EvalDataset(String version, Path directory, List<DocumentSpec> doc
 
         final List<String> unresolved = new ArrayList<>();
         for (final EvalItem item : items) {
-            item.expectedFacts().forEach(f -> f.refs().stream().filter(r -> !facts.containsKey(r))
+            item.expectedFacts().forEach(f -> referencedBy(f).stream().filter(r -> !facts.containsKey(r))
                     .forEach(r -> unresolved.add(item.id() + ": " + r)));
             item.forbidden().stream().map(Forbidden::ref).filter(r -> r != null && !facts.containsKey(r))
                     .forEach(r -> unresolved.add(item.id() + ": " + r));
@@ -99,16 +102,57 @@ public record EvalDataset(String version, Path directory, List<DocumentSpec> doc
                 node.path("query").asText(),
                 node.hasNonNull(QUERY_PROMPT_FIELD) ? node.get(QUERY_PROMPT_FIELD).asText() : defaultPrompt,
                 list(node.path("metadataFilter"), EvalDataset::metadata),
-                list(node.path("expectedFacts"), f -> new ExpectedFact(refs(f.path("ref")), list(f.path("accept"), JsonNode::asText))),
-                list(node.path("forbidden"), f -> new Forbidden(
-                        f.hasNonNull("ref") ? FactRef.parse(f.get("ref").asText()) : null,
-                        f.hasNonNull("text") ? f.get("text").asText() : null)),
+                list(node.path("expectedFacts"), EvalDataset::expectedFact),
+                list(node.path("forbidden"), EvalDataset::forbidden),
                 retrieval.isMissingNode() ? null : new RetrievalCheck(
                         list(retrieval.path("mustInclude"), JsonNode::asText),
                         list(retrieval.path("atMostOneOf"), g -> list(g, JsonNode::asText))),
                 node.path("shouldRefuse").asBoolean(),
                 node.path("minFactRecall").asDouble(1.0),
                 node.path("citations").path("perSection").asBoolean());
+    }
+
+    private static ExpectedFact expectedFact(final JsonNode node) {
+        final List<List<String>> keywords = list(node.path("keywords"), g -> list(g, JsonNode::asText));
+        if (keywords.stream().anyMatch(List::isEmpty)) {
+            throw new IllegalStateException("A keywords group is empty: " + node);
+        }
+        final JsonNode near = node.path("near");
+        if (!near.isMissingNode() && near.hasNonNull("ref") == near.has(TEXT_FIELD)) {
+            throw new IllegalStateException("near needs exactly one of ref or text: " + node);
+        }
+        return new ExpectedFact(refs(node.path("ref")), list(node.path("accept"), JsonNode::asText), keywords,
+                near.isMissingNode() ? null : new Near(
+                        near.hasNonNull("ref") ? FactRef.parse(near.get("ref").asText()) : null,
+                        list(near.path(TEXT_FIELD), JsonNode::asText),
+                        list(near.path("rivals"), r -> FactRef.parse(r.asText()))));
+    }
+
+    /** {@code ref} (a manifest fact), {@code text} (a literal phrase) or {@code claim} with {@code patterns} (regexes). */
+    private static Forbidden forbidden(final JsonNode node) {
+        if (node.hasNonNull("ref")) {
+            return new Forbidden(FactRef.parse(node.get("ref").asText()), null, List.of());
+        }
+        if (node.hasNonNull(TEXT_FIELD)) {
+            return new Forbidden(null, node.get(TEXT_FIELD).asText(), List.of(FactMatcher.literal(node.get(TEXT_FIELD).asText())));
+        }
+        final List<Pattern> patterns = list(node.path("patterns"), p -> Pattern.compile(p.asText()));
+        if (!node.hasNonNull("claim") || patterns.isEmpty()) {
+            throw new IllegalStateException("A forbidden entry needs ref, text, or claim with patterns: " + node);
+        }
+        return new Forbidden(null, node.get("claim").asText(), patterns);
+    }
+
+    /** Every manifest fact an expected fact points at: its refs, its anchor and the anchor's rivals. */
+    private static List<FactRef> referencedBy(final ExpectedFact fact) {
+        final List<FactRef> refs = new ArrayList<>(fact.refs());
+        if (fact.near() != null) {
+            if (fact.near().ref() != null) {
+                refs.add(fact.near().ref());
+            }
+            refs.addAll(fact.near().rivals());
+        }
+        return refs;
     }
 
     private static List<FactRef> refs(final JsonNode ref) {
