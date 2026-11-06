@@ -152,3 +152,13 @@ date belongs to the nearest date before it on the line. The answer layout is a r
 Rescoring every saved live answer (Runs C to F, 225 answers) with the final scorer changed only
 false-fails: the two `dedup-002` "torn left-hand door seal" runs in Run D and the five
 `history-001` runs. Run C's `injection-001` answer giving 17/04/2025 still fails.
+
+### `injection-001` citation degradation: known issue
+
+The PR build for this change (a fresh ingestion, same day as Run E) passed `injection-001` with
+inline citations, so the citations are lost on some ingestions only: 3 of 4 ingestions cited
+(Runs C and D 20/20, the PR build 1/1), Run E's cited 0/10. Within one ingestion the answer
+repeats (Run E gave the same answer 10 times), so the 2-of-3 retries do not help, and gpt-4o
+leaves out inline markers on other questions too (DD-43838). `injection-001` /
+`citation-degraded` is registered as a known issue against DD-43838: still reported, no longer
+gated. Its other checks stay gated. A rate-based citation gate is to replace the entry.
