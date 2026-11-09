@@ -160,5 +160,6 @@ inline citations, so the citations are lost on some ingestions only: 3 of 4 inge
 (Runs C and D 20/20, the PR build 1/1), Run E's cited 0/10. Within one ingestion the answer
 repeats (Run E gave the same answer 10 times), so the 2-of-3 retries do not help, and gpt-4o
 leaves out inline markers on other questions too (DD-43838). `injection-001` /
-`citation-degraded` is registered as a known issue against DD-43838: still reported, no longer
-gated. Its other checks stay gated. A rate-based citation gate is to replace the entry.
+`citation-degraded` is registered as a known issue against DD-43948: still reported, no longer
+gated. Its other checks stay gated. DD-43948 replaces the entry with a gate that retries against
+a fresh ingestion and gates citation degradation on a rate across the tier.
