@@ -63,6 +63,15 @@ final class EvalGate {
             return new RunOutcome(run.run(), List.copyOf(failures), List.of());
         }
 
+        checkFactRecall(item, s, failures, known);
+        checkAnswer(item, s, failures, known);
+        checkRetrievalAndCitations(item, s, failures, known);
+        checkLayout(item, s, failures, known);
+        return new RunOutcome(run.run(), List.copyOf(failures), List.copyOf(known));
+    }
+
+    /** Fact recall over the facts not registered as known issues, against the item's threshold. */
+    private void checkFactRecall(final EvalItem item, final ItemScore s, final List<String> failures, final List<String> known) {
         final List<String> knownFacts = item.expectedFacts().stream().map(f -> f.refs().get(0).factId())
                 .filter(id -> knownIssues.isKnown(item.id(), "fact:" + id)).toList();
         final List<String> gatedMissing = s.missingFacts().stream().filter(id -> !knownFacts.contains(id)).toList();
@@ -71,12 +80,20 @@ final class EvalGate {
         if (gatedFacts > 0 && (double) (gatedFacts - gatedMissing.size()) / gatedFacts < item.minFactRecall()) {
             failures.add("fact-recall: missing " + gatedMissing + " (threshold " + item.minFactRecall() + ")");
         }
+    }
 
+    /** Forbidden content and refusal: what the answer text says. */
+    private void checkAnswer(final EvalItem item, final ItemScore s, final List<String> failures, final List<String> known) {
         s.forbiddenHits().forEach(label -> check(item, "forbidden:" + label, "forbidden: " + label, failures, known));
         if (!s.refusalCorrect()) {
             check(item, "refusal", "refusal: " + (s.refused() ? "refused an answerable query" : "answered instead of refusing"),
                     failures, known);
         }
+    }
+
+    /** The retrieval check, chunks outside the filter and the citation guard: what the service did around the answer. */
+    private void checkRetrievalAndCitations(final EvalItem item, final ItemScore s, final List<String> failures,
+                                            final List<String> known) {
         if (Boolean.FALSE.equals(s.retrievalOk())) {
             final List<String> missing = item.retrieval().mustInclude().stream()
                     .filter(m -> m.contains("#") ? !s.retrievedPages().contains(m) : !s.retrievedDocuments().contains(m)).toList();
@@ -89,6 +106,10 @@ final class EvalGate {
         if (s.citationDegraded()) {
             check(item, "citation-degraded", s.reason(), "citation-degraded: " + s.reason(), failures, known);
         }
+    }
+
+    /** Dates in order and a citation in every section: how the answer is laid out. */
+    private void checkLayout(final EvalItem item, final ItemScore s, final List<String> failures, final List<String> known) {
         if (s.outOfOrder() != null && !s.outOfOrder().isEmpty()) {
             check(item, "order", "order: " + s.outOfOrder() + " before an earlier date", failures, known);
         }
@@ -96,7 +117,6 @@ final class EvalGate {
             check(item, "sections-uncited", "sections-uncited: " + s.sectionsWithoutCitation() + " of " + s.sections(),
                     failures, known);
         }
-        return new RunOutcome(run.run(), List.copyOf(failures), List.copyOf(known));
     }
 
     /** True when the item's first run failed and fewer than {@link #ATTEMPTS} runs exist. */

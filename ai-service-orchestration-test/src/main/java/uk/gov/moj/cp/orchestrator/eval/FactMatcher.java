@@ -23,6 +23,8 @@ final class FactMatcher {
     private static final Pattern WHITESPACE = Pattern.compile("\\s+");
     /** Hyphen and dash variants models emit (non-breaking hyphen, en/em dash, minus) read as {@code -}. */
     private static final Pattern DASHES = Pattern.compile("[\\u2010-\\u2015\\u2212]");
+    /** Between the parts of a numeric date: {@code /}, {@code .} or {@code -}. */
+    private static final String DATE_SEPARATOR = "[/.\\-]";
 
     private FactMatcher() {
     }
@@ -113,11 +115,11 @@ final class FactMatcher {
         final String year = "(?:" + date.getYear() + "|'?" + String.format("%02d", date.getYear() % 100) + ")";
 
         final List<Pattern> patterns = new ArrayList<>();
-        patterns.add(Pattern.compile("\\b0?" + day + "[/.\\-]0?" + month + "[/.\\-]" + year + "\\b"));
+        patterns.add(Pattern.compile("\\b0?" + day + DATE_SEPARATOR + "0?" + month + DATE_SEPARATOR + year + "\\b"));
         patterns.add(Pattern.compile("\\b" + dayOfMonth + " (?:of )?" + names + ",? ?" + year + "\\b"));
         patterns.add(Pattern.compile("\\b" + names + " " + dayOfMonth + ",? ?" + year + "\\b"));
-        patterns.add(Pattern.compile("\\b0?" + day + "[/.\\-]" + names + "[/.\\-]" + year + "\\b"));
-        patterns.add(Pattern.compile("\\b" + date.getYear() + "([/.\\-])0?" + month + "\\1" + "0?" + day + "\\b"));
+        patterns.add(Pattern.compile("\\b0?" + day + DATE_SEPARATOR + names + DATE_SEPARATOR + year + "\\b"));
+        patterns.add(Pattern.compile("\\b" + date.getYear() + "(" + DATE_SEPARATOR + ")0?" + month + "\\1" + "0?" + day + "\\b"));
         return patterns;
     }
 

@@ -83,23 +83,7 @@ public record KnownIssues(List<KnownIssue> issues, LocalDate today) {
 
     static KnownIssues of(final EvalDataset dataset, final List<KnownIssue> issues, final LocalDate today) {
         final List<String> invalid = new ArrayList<>();
-        for (final KnownIssue issue : issues) {
-            final String name = issue.item() + " " + issue.check();
-            if (issue.jira().isBlank() || issue.reason().isBlank() || issue.expiryDate() == null) {
-                invalid.add(name + ": needs a jira, a reason and an expires date (yyyy-mm-dd)");
-            }
-            if (issue.reasonContains() != null && !CITATION_DEGRADED.equals(issue.check())) {
-                invalid.add(name + ": reasonContains applies only to citation-degraded");
-            }
-            final EvalItem item = dataset.items().stream().filter(i -> i.id().equals(issue.item())).findFirst().orElse(null);
-            if (item == null) {
-                invalid.add(issue.item() + ": no such dataset item");
-            } else if (!checkExists(item, issue.check())) {
-                invalid.add(name + ": not a check of this item");
-            } else if (REFUSAL.equals(issue.check()) && item.shouldRefuse()) {
-                invalid.add(name + ": would leave a should-refuse item with no refusal check");
-            }
-        }
+        issues.forEach(issue -> invalid.addAll(problems(dataset, issue)));
         dataset.items().forEach(item -> {
             final long knownFacts = issues.stream()
                     .filter(i -> i.item().equals(item.id()) && i.check().startsWith(FACT_PREFIX)
@@ -113,6 +97,27 @@ public record KnownIssues(List<KnownIssue> issues, LocalDate today) {
             throw new IllegalStateException("Invalid known-issues entries: " + invalid);
         }
         return new KnownIssues(List.copyOf(issues), today);
+    }
+
+    /** What is wrong with one entry on its own: missing fields, an unknown item or check, or an exemption that would ungate it. */
+    private static List<String> problems(final EvalDataset dataset, final KnownIssue issue) {
+        final List<String> invalid = new ArrayList<>();
+        final String name = issue.item() + " " + issue.check();
+        if (issue.jira().isBlank() || issue.reason().isBlank() || issue.expiryDate() == null) {
+            invalid.add(name + ": needs a jira, a reason and an expires date (yyyy-mm-dd)");
+        }
+        if (issue.reasonContains() != null && !CITATION_DEGRADED.equals(issue.check())) {
+            invalid.add(name + ": reasonContains applies only to citation-degraded");
+        }
+        final EvalItem item = dataset.items().stream().filter(i -> i.id().equals(issue.item())).findFirst().orElse(null);
+        if (item == null) {
+            invalid.add(issue.item() + ": no such dataset item");
+        } else if (!checkExists(item, issue.check())) {
+            invalid.add(name + ": not a check of this item");
+        } else if (REFUSAL.equals(issue.check()) && item.shouldRefuse()) {
+            invalid.add(name + ": would leave a should-refuse item with no refusal check");
+        }
+        return invalid;
     }
 
     /** The check is exempt for this item today, for any guard reason. */
