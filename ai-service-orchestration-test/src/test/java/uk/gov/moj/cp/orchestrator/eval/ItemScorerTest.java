@@ -54,11 +54,9 @@ class ItemScorerTest {
         assertEquals(List.of(), score.missingFacts());
         assertEquals(1.0, score.goldPageRecall());
         assertEquals(1.0, score.citationPrecision());
-        assertTrue(score.citationPrecisionGated());
         assertFalse(score.citationDegraded());
         assertEquals(0, score.chunksOutsideFilter());
         assertTrue(score.refusalCorrect());
-        assertEquals(2, score.chunks());
         assertEquals(List.of("supplier-review-calder.pdf#5", "supplier-review-calder.pdf#7"), score.retrievedPages());
     }
 
@@ -207,7 +205,6 @@ class ItemScorerTest {
                 List.of(new RetrievedChunk(CALDER, 5, CALDER_METADATA))));
 
         assertFalse(score.factRecallPass());
-        assertFalse(score.citationPrecisionGated());
         assertEquals(2, score.sections());
         assertEquals(1, score.sectionsWithoutCitation());
         assertNull(SCORER.score(DATASET.item("plain-001"), answer("x", List.of())).sections());

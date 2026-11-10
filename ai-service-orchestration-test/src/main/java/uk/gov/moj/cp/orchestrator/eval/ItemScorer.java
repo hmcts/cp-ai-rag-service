@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.IntPredicate;
+import java.util.stream.IntStream;
 import java.util.regex.Pattern;
 
 /**
@@ -92,7 +93,7 @@ final class ItemScorer {
                 result.status(),
                 result.elapsedSeconds(),
                 factRecall,
-                factRecall == null ? null : factRecall >= item.minFactRecall(),
+                facts.isEmpty() ? null : (double) (facts.size() - missing.size()) / facts.size() >= item.minFactRecall(),
                 missing,
                 item.forbidden().stream().filter(f -> present(f, text, segments)).map(Forbidden::label).toList(),
                 refused,
@@ -101,15 +102,11 @@ final class ItemScorer {
                 item.retrieval() == null ? null : retrievalOk(item.retrieval(), retrieved),
                 retrieved.stream().map(Page::file).distinct().sorted().toList(),
                 (int) chunks.stream().filter(c -> !c.metadata().containsAll(item.metadataFilter())).count(),
-                cited.size(),
                 cited.isEmpty() || gold.isEmpty() ? null : ratio(cited.stream().filter(gold::contains).count(), cited.size()),
-                !item.isLongAnswer(),
                 sections == null ? null : sections.size(),
                 sections == null ? null : (int) sections.stream().filter(s -> !AnswerText.hasCitation(s)).count(),
                 result.reason() != null && !result.reason().isBlank(),
                 result.reason(),
-                chunks.size(),
-                answer.raw().length(),
                 chunks.stream().map(c -> fileOf(c.documentId()) + "#" + c.pageNumber()).toList(),
                 item.chronological() ? outOfOrder(item, lines, contexts, answer.headingLines()) : null);
     }
@@ -194,12 +191,7 @@ final class ItemScorer {
     private boolean stated(final EvalItem item, final ExpectedFact fact, final String text, final List<String> segments,
                            final List<String> lines, final List<AnswerText.LineContext> contexts) {
         if (fact.near() != null) {
-            for (int i = 0; i < lines.size(); i++) {
-                if (bound(item, fact, lines.get(i)) || boundInContext(item, fact, contexts.get(i))) {
-                    return true;
-                }
-            }
-            return false;
+            return IntStream.range(0, lines.size()).anyMatch(i -> statedOn(item, fact, lines.get(i), contexts.get(i)));
         }
         return !valueSpans(fact, text).isEmpty()
                 || segments.stream().anyMatch(s -> FactMatcher.keywords(s, fact.keywords()).isPresent());

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,16 +54,28 @@ public record KnownIssues(List<KnownIssue> issues, LocalDate today) {
             }
         }
 
+        /** Expired the day after {@code expires}; an entry with no valid date counts as expired, so its check stays gated. */
         boolean expiredOn(final LocalDate day) {
-            return day.isAfter(expiryDate());
+            final LocalDate expiry = expiryDate();
+            return expiry == null || day.isAfter(expiry);
         }
+    }
+
+    /** Today in UTC, so an entry expires at the same moment on a laptop and on a build agent. */
+    static LocalDate utcToday() {
+        return LocalDate.now(ZoneOffset.UTC);
+    }
+
+    /** No known issues: every check gated. */
+    static KnownIssues none() {
+        return new KnownIssues(List.of(), utcToday());
     }
 
     /** Loads the register next to the dataset; no file means no known issues. */
     public static KnownIssues load(final EvalDataset dataset) {
         final Path file = dataset.directory().resolve("known-issues.json");
         if (!file.toFile().exists()) {
-            return new KnownIssues(List.of(), LocalDate.now());
+            return new KnownIssues(List.of(), utcToday());
         }
         final JsonNode root;
         try {
@@ -74,11 +87,11 @@ public record KnownIssues(List<KnownIssue> issues, LocalDate today) {
         root.path("issues").forEach(i -> issues.add(new KnownIssue(i.path("item").asText(), i.path("check").asText(),
                 i.path("jira").asText(), i.path("reason").asText(), i.path("expires").asText(),
                 i.hasNonNull("reasonContains") ? i.get("reasonContains").asText() : null)));
-        return of(dataset, issues, LocalDate.now());
+        return of(dataset, issues, utcToday());
     }
 
     static KnownIssues of(final EvalDataset dataset, final List<KnownIssue> issues) {
-        return of(dataset, issues, LocalDate.now());
+        return of(dataset, issues, utcToday());
     }
 
     static KnownIssues of(final EvalDataset dataset, final List<KnownIssue> issues, final LocalDate today) {

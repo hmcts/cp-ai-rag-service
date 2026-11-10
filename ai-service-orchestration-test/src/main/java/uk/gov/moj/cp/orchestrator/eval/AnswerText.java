@@ -3,7 +3,6 @@ package uk.gov.moj.cp.orchestrator.eval;
 import uk.gov.moj.cp.orchestrator.eval.FactMatcher.Span;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -43,20 +42,31 @@ final class AnswerText {
     private static final int MAX_HEADING_LENGTH = 60;
 
     private final String raw;
+    private final String prose;
     private final List<Citation> citations;
+    private final List<Line> lines;
 
-    record Citation(String fileName, Set<Integer> pages, String documentId) {
+    record Citation(Set<Integer> pages, String documentId) {
+    }
+
+    /**
+     * One non-blank line of the prose: normalised, whether it is a heading, and the lines above it it may
+     * take an anchor from ({@link #lineContexts()}).
+     */
+    private record Line(String text, boolean heading, LineContext context) {
     }
 
     private AnswerText(final String raw) {
         this.raw = raw;
+        this.prose = CITATION.matcher(raw).replaceAll(" ");
+        this.lines = parseLines(prose);
         final List<Citation> found = new ArrayList<>();
         final Matcher m = CITATION.matcher(raw);
         while (m.find()) {
             final String individual = m.group(3).isBlank() ? m.group(2) : m.group(3);
             final Set<Integer> pages = new LinkedHashSet<>();
             NUMBER.matcher(individual).results().forEach(r -> pages.add(Integer.parseInt(r.group())));
-            found.add(new Citation(m.group(1), Set.copyOf(pages), m.group(4)));
+            found.add(new Citation(Set.copyOf(pages), m.group(4)));
         }
         this.citations = List.copyOf(found);
     }
@@ -65,16 +75,12 @@ final class AnswerText {
         return new AnswerText(answer == null ? "" : answer);
     }
 
-    String raw() {
-        return raw;
-    }
-
     List<Citation> citations() {
         return citations;
     }
 
     String prose() {
-        return CITATION.matcher(raw).replaceAll(" ");
+        return prose;
     }
 
     boolean isNoDataSentinel() {
@@ -89,8 +95,7 @@ final class AnswerText {
      * item is caught by the item's forbidden patterns, not here.
      */
     boolean opensWithRefusal() {
-        return Arrays.stream(prose().split("\n")).filter(l -> !l.isBlank() && !isHeading(l))
-                .map(FactMatcher::normalise)
+        return lines.stream().filter(l -> !l.heading()).map(Line::text)
                 .flatMap(l -> sentences(l).stream().map(s -> l.substring(s.start(), s.end())))
                 .limit(REFUSAL_SENTENCES)
                 .anyMatch(s -> REFUSAL.matcher(s).find());
@@ -104,12 +109,12 @@ final class AnswerText {
 
     /** The prose split into lines (a list item or table row each), normalised, blank ones dropped. */
     List<String> lines() {
-        return Arrays.stream(prose().split("\n")).map(FactMatcher::normalise).filter(s -> !s.isEmpty()).toList();
+        return lines.stream().map(Line::text).toList();
     }
 
     /** For each line of {@link #lines()}, whether it is a heading line. */
     List<Boolean> headingLines() {
-        return Arrays.stream(prose().split("\n")).filter(l -> !FactMatcher.normalise(l).isEmpty()).map(AnswerText::isHeading).toList();
+        return lines.stream().map(Line::heading).toList();
     }
 
     /** A line in the context of the lines above it that it may take an anchor from. */
@@ -126,27 +131,35 @@ final class AnswerText {
      * the line above, which lends its anchor but not its values (a date above must not take this line's event).
      */
     List<LineContext> lineContexts() {
-        final List<LineContext> contexts = new ArrayList<>();
+        return lines.stream().map(Line::context).toList();
+    }
+
+    /** Splits the prose into its non-blank lines once, so every per-line view stays index-aligned. */
+    private static List<Line> parseLines(final String prose) {
+        final List<Line> parsed = new ArrayList<>();
         List<String> block = null;
         String previous = null;
-        for (final String line : prose().split("\n")) {
+        for (final String line : prose.split("\n")) {
             final String normalised = FactMatcher.normalise(line);
             if (normalised.isEmpty()) {
                 previous = null;
                 continue;
             }
-            if (isHeading(line)) {
+            final boolean heading = isHeading(line);
+            final LineContext context;
+            if (heading) {
                 block = new ArrayList<>(List.of(normalised));
-                contexts.add(null);
+                context = null;
             } else if (block != null) {
                 block.add(normalised);
-                contexts.add(context(block, true));
+                context = context(block, true);
             } else {
-                contexts.add(previous == null ? null : context(List.of(previous, normalised), false));
+                context = previous == null ? null : context(List.of(previous, normalised), false);
             }
+            parsed.add(new Line(normalised, heading, context));
             previous = normalised;
         }
-        return contexts;
+        return List.copyOf(parsed);
     }
 
     private static LineContext context(final List<String> lines, final boolean heading) {

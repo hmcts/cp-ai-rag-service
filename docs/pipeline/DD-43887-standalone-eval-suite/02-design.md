@@ -170,7 +170,7 @@ The dataset is `eval/dataset.json` (12 items written). It has three parts:
   A rejection elsewhere in the sentence does not exempt the claim. The 5-word window sits between a
   correct reference answer (4 words) and an asserted claim (6 words), and both are reference
   answers, so a change to it shows.
-- **Fact types:** `date`, `money`, `number` and `temperature` (degrees Celsius) each have one
+- **Fact types:** `date`, `money` and `temperature` (degrees Celsius) each have one
   matcher that accepts the usual written forms; `text` is a plain substring after normalisation.
 - **Reference answers:** `eval/reference-answers.json` holds hand-written correct and wrong
   answers per item. `ReferenceAnswersTest` scores them offline through the scorer and gate: each
@@ -186,10 +186,10 @@ The dataset is `eval/dataset.json` (12 items written). It has three parts:
   heading, the DD-43838 failure mode.
 - **Manifest pages list every page where the value appears** (in any common date format, after
   normalisation), not only where it was planted, since a repeated mention is an equally valid
-  source. Bare numbers keep only their planted page.
-- **Avoid bare numbers as expected facts** (e.g. a count of "3"): they match almost any answer.
+  source.
+- **There is no bare-number fact type** (e.g. a count of "3"): it would match almost any answer.
 
-- **Typed facts, not hand-written regexes.** Each `type` (date, number, duration, money, text)
+- **Typed facts, not hand-written regexes.** Each `type` (date, money, temperature, text)
   has one shared normaliser that accepts the usual formats. ragEval's regex date patterns
   missed `April 21, 2024`; typed normalisers fix that class of bug once, for every item.
 - **Normalise both sides before matching.** The matcher normalises the answer (and chunk text)

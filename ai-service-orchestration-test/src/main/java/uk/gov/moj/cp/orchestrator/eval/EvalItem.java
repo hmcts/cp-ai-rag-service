@@ -25,11 +25,6 @@ public record EvalItem(String id,
                        boolean citationsPerSection,
                        boolean chronological) {
 
-    /** An item with a recall threshold below 1.0 expects a long answer (summary, chronology). */
-    public boolean isLongAnswer() {
-        return minFactRecall < 1.0;
-    }
-
     /**
      * A fact the answer must contain. Several refs are alternatives (the same fact in duplicate
      * copies); {@code accept} lists extra spellings of the value a correct answer may use, and

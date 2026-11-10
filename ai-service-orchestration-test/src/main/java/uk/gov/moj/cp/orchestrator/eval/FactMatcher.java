@@ -45,10 +45,6 @@ final class FactMatcher {
     record Span(int start, int end) {
     }
 
-    static boolean found(final String answer, final CorpusFact fact, final List<String> accept) {
-        return !spans(normalise(answer), fact, accept).isEmpty();
-    }
-
     /** Every place a normalised text states the fact, in one of its written forms or an accepted spelling. */
     static List<Span> spans(final String normalised, final CorpusFact fact, final List<String> accept) {
         final List<Pattern> patterns = new ArrayList<>(valuePatterns(fact));
@@ -101,7 +97,6 @@ final class FactMatcher {
             case DATE -> datePatterns(LocalDate.parse(fact.value()));
             case MONEY -> List.of(moneyPattern(new BigDecimal(fact.value())));
             case TEMPERATURE -> List.of(temperaturePattern(new BigDecimal(fact.value())));
-            case NUMBER -> List.of(Pattern.compile("(?<!\\d)" + Pattern.quote(normalise(fact.value())) + "(?!\\d)"));
             case TEXT -> List.of(literal(fact.value()));
         };
     }

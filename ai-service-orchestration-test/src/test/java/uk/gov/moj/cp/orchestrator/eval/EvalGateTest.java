@@ -34,8 +34,8 @@ class EvalGateTest {
                                    final List<String> forbidden, final boolean refusalCorrect, final Boolean retrievalOk,
                                    final int outsideFilter, final boolean degraded) {
         return new ItemScore(id, status, 10, recall, recall == null ? null : recall >= 1.0, missing, forbidden, !refusalCorrect,
-                refusalCorrect, 1.0, retrievalOk, List.of(), outsideFilter, 1, 1.0, true, null, null, degraded,
-                degraded ? "[guard=off] Citations missing" : null, 3, 100, List.of("a.pdf#1"), null);
+                refusalCorrect, 1.0, retrievalOk, List.of(), outsideFilter, 1.0, null, null, degraded,
+                degraded ? "[guard=off] Citations missing" : null, List.of("a.pdf#1"), null);
     }
 
     private static ItemRun run(final String id, final int run, final ItemScore score) {
@@ -67,6 +67,28 @@ class EvalGateTest {
                 run("plain-001", 1, score("plain-001", "ANSWER_GENERATED", 1.0, List.of(), List.of(), true, null, 2, false))).failures());
         assertEquals(List.of("citation-degraded: [guard=off] Citations missing"), GATE.outcome(plain,
                 run("plain-001", 1, score("plain-001", "ANSWER_GENERATED", 1.0, List.of(), List.of(), true, null, 0, true))).failures());
+
+        final ItemScore clean = score("summary-001", "ANSWER_GENERATED", 1.0, List.of(), List.of(), true, null, 0, false);
+        final ItemScore uncited = new ItemScore(clean.id(), clean.status(), clean.elapsedSeconds(), clean.factRecall(),
+                clean.factRecallPass(), clean.missingFacts(), clean.forbiddenHits(), clean.refused(), clean.refusalCorrect(),
+                clean.goldPageRecall(), clean.retrievalOk(), clean.retrievedDocuments(), clean.chunksOutsideFilter(),
+                clean.citationPrecision(), 5, 1, false, null, clean.retrievedPages(), List.of("calder-panel-date"));
+        assertEquals(List.of("order: [calder-panel-date] before an earlier date", "sections-uncited: 1 of 5"),
+                GATE.outcome(DATASET.item("summary-001"), run("summary-001", 1, uncited)).failures());
+    }
+
+    @Test
+    @DisplayName("Re-runs are planned only for items whose first run failed, up to three runs")
+    void plansReruns() {
+        final List<EvalItem> items = List.of(DATASET.item("plain-001"), DATASET.item("ocr-001"));
+
+        assertEquals(List.of(Map.entry(DATASET.item("ocr-001"), 2), Map.entry(DATASET.item("ocr-001"), 3)),
+                GATE.plannedReruns(items, List.of(clean("plain-001", 1), missing("ocr-001", 1, "ocr-fact"))));
+        assertEquals(List.of(Map.entry(DATASET.item("ocr-001"), 3)),
+                GATE.plannedReruns(items, List.of(clean("plain-001", 1), missing("ocr-001", 1, "ocr-fact"), clean("ocr-001", 2))));
+        assertEquals(List.of(), GATE.plannedReruns(items, List.of(clean("plain-001", 1), missing("ocr-001", 1, "ocr-fact"),
+                clean("ocr-001", 2), clean("ocr-001", 3))));
+        assertEquals(List.of(), GATE.plannedReruns(items, List.of(clean("plain-001", 1), clean("ocr-001", 1))));
     }
 
     @Test

@@ -11,7 +11,7 @@ import java.util.Locale;
 public record CorpusFact(FactType type, String value, List<Integer> pages) {
 
     public enum FactType {
-        DATE, MONEY, NUMBER, TEMPERATURE, TEXT;
+        DATE, MONEY, TEMPERATURE, TEXT;
 
         static FactType of(final String name) {
             return valueOf(name.toUpperCase(Locale.ROOT));

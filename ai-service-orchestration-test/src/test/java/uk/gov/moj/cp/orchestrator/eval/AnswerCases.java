@@ -23,7 +23,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * Reads an answers file ({@code reference-answers.json}, {@code live-answers.json}) and scores each answer
  * through the eval's scorer and gate with no known issues applied. Both files share one format: per item,
  * {@code pass} answers that must pass every gated check and {@code fail} answers that must fail exactly the
- * checks listed, with optional {@code retrieved} chunks, guard {@code reason} and {@code status}.
+ * checks listed, with optional {@code retrieved} chunks and guard {@code reason}.
+ *
+ * <p>Gold pages here are the pages of each expected fact's <em>first</em> reference, plus pages the item's
+ * retrieval check requires, unlike {@link ItemScorer}'s gold pages (every reference): a duplicate-copy fact
+ * lists several copies, and assuming all were retrieved would break the item's at-most-one-copy check.</p>
  */
 final class AnswerCases {
 
@@ -46,8 +50,7 @@ final class AnswerCases {
         NOT_RECORDED
     }
 
-    record Case(String itemId, String kind, String label, String answer, List<String> retrieved, String reason, String status,
-                List<String> failures) {
+    record Case(String itemId, String label, String answer, List<String> retrieved, String reason, List<String> failures) {
     }
 
     private AnswerCases() {
@@ -65,12 +68,10 @@ final class AnswerCases {
         final List<Case> cases = new ArrayList<>();
         items(file).properties().forEach(item -> item.getValue().path(kind).forEach(node -> cases.add(new Case(
                 item.getKey(),
-                kind,
                 node.path("label").asText(),
                 node.path("answer").asText(),
                 node.has("retrieved") ? strings(node.path("retrieved")) : null,
                 node.hasNonNull("reason") ? node.get("reason").asText() : null,
-                node.path("status").asText("ANSWER_GENERATED"),
                 strings(node.path("failures"))))));
         return cases;
     }
@@ -85,7 +86,7 @@ final class AnswerCases {
             return new RetrievedChunk(ID_BY_FILE.getOrDefault(file, file), Integer.parseInt(p.substring(p.indexOf('#') + 1)),
                     METADATA_BY_FILE.get(file));
         }).toList();
-        final ItemScore score = SCORER.score(item, new AnswerResult(c.status(), render(c.answer()), c.reason(), chunks, 10.0));
+        final ItemScore score = SCORER.score(item, new AnswerResult(AnswerResult.ANSWER_GENERATED, render(c.answer()), c.reason(), chunks, 10.0));
         return GATE.outcome(item, new ItemRun(item.id(), 1, "t1", null, score, c.answer(), null)).failures().stream()
                 .map(f -> f.substring(0, f.indexOf(':')))
                 .filter(check -> !(notRecorded && RETRIEVAL.equals(check)))
@@ -97,6 +98,9 @@ final class AnswerCases {
         final Matcher m = CITE.matcher(answer);
         final StringBuilder out = new StringBuilder();
         while (m.find()) {
+            if (!ID_BY_FILE.containsKey(m.group(1))) {
+                throw new IllegalArgumentException("{cite:...} names a file that is not in the corpus: " + m.group(1));
+            }
             m.appendReplacement(out, Matcher.quoteReplacement("::(Source: [" + m.group(1) + "], Pages " + m.group(2) + "|" + m.group(2)
                     + "|documentId=" + ID_BY_FILE.get(m.group(1)) + ")"));
         }

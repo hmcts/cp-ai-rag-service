@@ -198,20 +198,6 @@
             12
           ]
         },
-        "calder-late-count": {
-          "type": "number",
-          "value": "6",
-          "pages": [
-            14
-          ]
-        },
-        "calder-temp-count": {
-          "type": "number",
-          "value": "3",
-          "pages": [
-            14
-          ]
-        },
         "calder-hist-3-date": {
           "type": "date",
           "value": "2017-07-04",
@@ -458,20 +444,6 @@
           "value": "8.0 x 10^4",
           "pages": [
             11
-          ]
-        },
-        "pemberton-late-count": {
-          "type": "number",
-          "value": "2",
-          "pages": [
-            13
-          ]
-        },
-        "pemberton-temp-count": {
-          "type": "number",
-          "value": "1",
-          "pages": [
-            13
           ]
         },
         "pemberton-hist-3-date": {

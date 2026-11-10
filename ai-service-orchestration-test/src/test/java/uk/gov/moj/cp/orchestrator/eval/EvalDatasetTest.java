@@ -35,6 +35,8 @@ class EvalDatasetTest {
             assertFalse(item.queryPrompt().isBlank(), item.id());
             assertFalse(item.metadataFilter().isEmpty(), item.id());
             assertTrue(item.shouldRefuse() == item.expectedFacts().isEmpty(), item.id() + ": refusal items have no facts");
+            assertTrue(item.tiers().contains("full"), item.id() + ": every item is in the full tier, or it never runs in a full run");
+            assertTrue(item.tiers().stream().allMatch(t -> t.equals("smoke") || t.equals("full")), item.id() + ": unknown tier " + item.tiers());
         }
     }
 

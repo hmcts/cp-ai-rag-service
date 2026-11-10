@@ -11,6 +11,9 @@ import java.util.List;
 public record AnswerResult(String status, String llmResponse, String reason, List<RetrievedChunk> chunks,
                            double elapsedSeconds) {
 
+    /** The answer status of a generated answer; any other status (failed, error, timeout) is a run that produced no answer. */
+    public static final String ANSWER_GENERATED = "ANSWER_GENERATED";
+
     /** A chunk sent to the model, identified by document and page, with the metadata it was indexed with. */
     public record RetrievedChunk(String documentId, int pageNumber, List<MetadataEntry> metadata) {
     }

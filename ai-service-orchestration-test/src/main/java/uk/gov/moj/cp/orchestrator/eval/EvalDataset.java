@@ -65,7 +65,7 @@ public record EvalDataset(String version, Path directory, List<DocumentSpec> doc
         if (!unresolved.isEmpty()) {
             throw new IllegalStateException("Dataset references facts missing from the manifest: " + unresolved);
         }
-        return new EvalDataset(root.path("version").asText(), directory, documents, items, facts);
+        return new EvalDataset(root.path("version").asText(), directory, documents, items, Map.copyOf(facts));
     }
 
     public CorpusFact fact(final FactRef ref) {

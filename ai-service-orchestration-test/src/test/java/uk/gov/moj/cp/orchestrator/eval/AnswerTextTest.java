@@ -18,12 +18,12 @@ class AnswerTextTest {
     private static final String DOC = "a6216640-2750-46b8-9d0a-098e3111f744";
 
     @Test
-    @DisplayName("Rendered citations are parsed into file name, pages and documentId, and stripped from the prose")
+    @DisplayName("Rendered citations are parsed into pages and documentId, and stripped from the prose")
     void parsesCitations() {
         final AnswerText answer = AnswerText.of("Peak 9.4℃ ::(Source: [review.pdf], Pages 5-7|5,6,7|documentId=" + DOC
                 + "). Serial TL-1 ::(Source: [review.pdf], Pages 9|9|documentId=" + DOC + ").");
 
-        assertEquals(List.of(new Citation("review.pdf", Set.of(5, 6, 7), DOC), new Citation("review.pdf", Set.of(9), DOC)),
+        assertEquals(List.of(new Citation(Set.of(5, 6, 7), DOC), new Citation(Set.of(9), DOC)),
                 answer.citations());
         assertFalse(answer.prose().contains("Source"));
         assertTrue(answer.prose().contains("Serial TL-1"));

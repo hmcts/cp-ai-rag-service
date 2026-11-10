@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -25,7 +26,6 @@ final class EvalGate {
     static final int ATTEMPTS = 3;
     static final int PASSES_NEEDED = 2;
 
-    private static final String ANSWER_GENERATED = "ANSWER_GENERATED";
 
     private final KnownIssues knownIssues;
 
@@ -58,7 +58,7 @@ final class EvalGate {
         final ItemScore s = run.score();
         final List<String> failures = new ArrayList<>();
         final List<String> known = new ArrayList<>();
-        if (!ANSWER_GENERATED.equals(s.status())) {
+        if (!AnswerResult.ANSWER_GENERATED.equals(s.status())) {
             failures.add("status: " + s.status() + (run.error() == null ? "" : " (" + run.error() + ")"));
             return new RunOutcome(run.run(), List.copyOf(failures), List.of());
         }
@@ -117,6 +117,24 @@ final class EvalGate {
             check(item, "sections-uncited", "sections-uncited: " + s.sectionsWithoutCitation() + " of " + s.sections(),
                     failures, known);
         }
+    }
+
+    /**
+     * The extra runs the 2-of-3 rule needs: for each item whose first run failed, the run numbers after its last
+     * run, up to {@link #ATTEMPTS}. With {@code eval.runs} of three or more there is nothing to add.
+     */
+    List<Map.Entry<EvalItem, Integer>> plannedReruns(final List<EvalItem> items, final List<ItemRun> runs) {
+        final List<Map.Entry<EvalItem, Integer>> planned = new ArrayList<>();
+        for (final EvalItem item : items) {
+            final List<ItemRun> itemRuns = runs.stream().filter(r -> r.itemId().equals(item.id())).toList();
+            if (needsRerun(item, itemRuns)) {
+                final int last = itemRuns.stream().mapToInt(ItemRun::run).max().orElse(0);
+                for (int run = last + 1; run <= ATTEMPTS; run++) {
+                    planned.add(Map.entry(item, run));
+                }
+            }
+        }
+        return planned;
     }
 
     /** True when the item's first run failed and fewer than {@link #ATTEMPTS} runs exist. */
