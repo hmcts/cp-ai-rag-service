@@ -115,10 +115,14 @@ class ReferenceAnswersTest {
 
     private static List<String> goldPages(final String itemId) {
         final Set<String> pages = new LinkedHashSet<>();
-        DATASET.item(itemId).expectedFacts().forEach(f -> {
+        final EvalItem item = DATASET.item(itemId);
+        item.expectedFacts().forEach(f -> {
             final FactRef ref = f.refs().get(0);
             DATASET.fact(ref).pages().forEach(p -> pages.add(ref.file() + "#" + p));
         });
+        if (item.retrieval() != null) {
+            item.retrieval().mustInclude().stream().filter(m -> m.contains("#")).forEach(pages::add);
+        }
         return List.copyOf(pages);
     }
 

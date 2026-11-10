@@ -6,12 +6,16 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -34,8 +38,22 @@ class EvalDatasetTest {
         }
     }
 
+    private static int manifestPages(final String file) {
+        try {
+            for (final JsonNode document : new ObjectMapper().readTree(DATASET.directory().resolve("documents/corpus-manifest.json").toFile())
+                    .path("documents")) {
+                if (document.path("file").asText().equals(file)) {
+                    return document.path("pages").asInt();
+                }
+            }
+            return 0;
+        } catch (final IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     @Test
-    @DisplayName("Every referenced fact exists in the manifest, and every referenced file is a corpus document with a PDF")
+    @DisplayName("Every referenced fact exists in the manifest, and every referenced file (or file#page) is a corpus document with a PDF")
     void referencesResolve() {
         final Set<String> files = new HashSet<>();
         DATASET.documents().forEach(d -> files.add(d.file()));
@@ -43,7 +61,10 @@ class EvalDatasetTest {
             item.expectedFacts().forEach(f -> f.refs().forEach(r -> assertNotNull(DATASET.fact(r), item.id() + " " + r)));
             item.forbidden().stream().filter(f -> f.ref() != null).forEach(f -> assertNotNull(DATASET.fact(f.ref()), item.id()));
             if (item.retrieval() != null) {
-                item.retrieval().mustInclude().forEach(f -> assertTrue(files.contains(f), item.id() + " " + f));
+                item.retrieval().mustInclude().forEach(f -> assertTrue(f.contains("#")
+                        ? files.contains(f.substring(0, f.indexOf('#')))
+                                && Integer.parseInt(f.substring(f.indexOf('#') + 1)) <= manifestPages(f.substring(0, f.indexOf('#')))
+                        : files.contains(f), item.id() + " " + f));
                 item.retrieval().atMostOneOf().forEach(g -> assertTrue(files.containsAll(g), item.id() + " " + g));
             }
         }
