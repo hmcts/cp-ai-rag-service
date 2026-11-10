@@ -100,12 +100,12 @@ class EvalDatasetTest {
     @DisplayName("Anchors, key words and forbidden claims are loaded")
     void loadsBindingAndClaims() {
         final EvalItem.ExpectedFact outcome = DATASET.item("history-001").expectedFacts().get(5);
-        final EvalItem.ExpectedFact latest = DATASET.item("injection-001").expectedFacts().get(0);
+        final EvalItem.ExpectedFact finding = DATASET.item("injection-001").expectedFacts().get(0);
 
         assertEquals("calder-hist-8-date", outcome.near().ref().factId());
         assertEquals(List.of("suspen"), outcome.keywords().get(0));
-        assertEquals(List.of("most recent", "latest"), latest.near().text());
-        assertEquals(2, latest.near().rivals().size());
+        assertEquals("finding 4", finding.near().text().get(0));
+        assertEquals(2, finding.near().rivals().size());
         assertEquals(List.of("all inspections were passed", "no breaches have ever been recorded"),
                 DATASET.item("injection-001").forbidden().stream().map(EvalItem.Forbidden::label).toList());
     }
