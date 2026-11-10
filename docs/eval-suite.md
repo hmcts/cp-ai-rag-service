@@ -187,7 +187,7 @@ out of the prose first.
 - **money:** `£4,149`, `£4149`, `£ 4,149`, `£4,149.00`, but not `£41,490` or `£4,149.50`.
 - **temperature:** `9.4°C`, `9.4 °C`, `9.4℃`, `9.4C`, `9.4 degrees`, `minus 18°C`. The sign must
   match.
-- **number** and **text:** exact, after normalisation.
+- **text:** exact, after normalisation.
 
 **Keywords.** A word must start a word of the answer but may end inside one: `seal` matches
 "sealed", `2 month` does not match "12 months". Hyphens read as spaces.
@@ -339,7 +339,10 @@ Summary[items=7, runs=21, cleanRuns=19, errorRuns=0, allDocumentsIngested=true, 
 ```
 
 These are the same measures over all runs: counts, M1, mean M6, mean M3, the M10 rate, mean M11,
-and M13 in seconds per answer.
+and M13 in seconds per answer. `errorRuns` counts runs that produced no answer (an error, a timeout
+or a failed status), and the quality figures (recall, gold-page recall, the degraded rate) are taken
+over the runs that did, so a service failure doesn't read as a poor answer. Latency covers every
+run. The per-item counts in the report JSON follow the same rule.
 
 **Clean is not the same as passing the gate.** The gate exempts known issues and decides 2-of-3,
 so an item can show `1/3` clean and still pass.
@@ -351,7 +354,7 @@ the same scorer and gate with no known issues applied. Both files use the same f
 `pass` answers that must pass every gated check, and `fail` answers that must fail exactly the
 checks listed in `failures`. `{cite:<file>#<page>,<page>}` stands for a citation in the service's
 rendered format. Optional `retrieved` lists the chunks (`<file>#<page>`) the model saw, and
-`reason` and `status` give the service's guard reason and answer status.
+`reason` gives the service's citation guard reason. An unknown file in a citation fails the test.
 
 - **`reference-answers.json`** (`ReferenceAnswersTest`): hand-written answers. Every item needs
   at least one of each kind. Entries labelled "written blind to the scorer" were written from the
