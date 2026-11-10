@@ -407,6 +407,9 @@ class RagEvalIT extends FunctionTestBase {
             LOGGER.info("Eval gate: known issue {} {} ({}) seen in {} of {} run(s), not gated{}", issue.item(), issue.check(),
                     issue.jira(), seen, runs.size(), seen == 0 ? "; if it stays fixed, remove it from eval/known-issues.json" : "");
         }
+        result.expiredKnownIssues().forEach(issue -> LOGGER.warn(
+                "Eval gate: known issue {} {} ({}) EXPIRED on {} and is gated again; fix it, or extend expires in eval/known-issues.json",
+                issue.item(), issue.check(), issue.jira(), issue.expires()));
         LOGGER.info("Eval gate: {} ({} of {} item(s) passed)", result.passed() ? "PASSED" : "FAILED",
                 result.items().stream().filter(EvalGate.ItemVerdict::passed).count(), result.items().size());
     }

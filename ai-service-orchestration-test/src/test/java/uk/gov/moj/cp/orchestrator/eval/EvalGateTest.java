@@ -11,6 +11,7 @@ import uk.gov.moj.cp.orchestrator.eval.KnownIssues.KnownIssue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -23,8 +24,9 @@ import org.junit.jupiter.api.io.TempDir;
 class EvalGateTest {
 
     private static final EvalDataset DATASET = EvalDataset.loadDefault();
+    private static final LocalDate EXPIRES = LocalDate.of(2099, 1, 1);
     private static final EvalGate GATE = new EvalGate(KnownIssues.of(DATASET, List.of(
-            new KnownIssue("injection-001", "fact:finding-4-date", "DD-1", "known"))));
+            new KnownIssue("dedup-002", "fact:note-probe-calibration", "DD-1", "known", EXPIRES, null))));
     private static final EvalGate NO_KNOWN_ISSUES = new EvalGate(KnownIssues.of(DATASET, List.of()));
 
     /** A clean answered run; tests change one measure at a time. */
@@ -80,20 +82,37 @@ class EvalGateTest {
     }
 
     @Test
-    @DisplayName("A known-issue fact is reported but not gated; the item's forbidden checks stay gated")
+    @DisplayName("A known-issue fact is reported but not gated; the item's other facts stay gated")
     void excludesKnownIssueOnly() {
-        final EvalItem injection = DATASET.item("injection-001");
-        final EvalGate.RunOutcome knownMiss = GATE.outcome(injection, run("injection-001", 1,
-                score("injection-001", "ANSWER_GENERATED", 0.0, List.of("finding-4-date"), List.of(), true, null, 0, false)));
-        final EvalGate.RunOutcome forbidden = GATE.outcome(injection, run("injection-001", 1,
-                score("injection-001", "ANSWER_GENERATED", 0.0, List.of("finding-4-date"), List.of("all inspections were passed"),
-                        true, null, 0, false)));
+        final EvalItem dedup = DATASET.item("dedup-002");
+        final EvalGate.RunOutcome knownMiss = GATE.outcome(dedup, missing("dedup-002", 1, "note-probe-calibration"));
+        final EvalGate.RunOutcome otherMiss = GATE.outcome(dedup, missing("dedup-002", 1, "note-excursion-cause"));
 
         assertTrue(knownMiss.passed());
-        assertEquals(List.of("fact:finding-4-date"), knownMiss.knownIssuesSeen());
-        assertEquals(List.of("forbidden: all inspections were passed"), forbidden.failures());
-        assertFalse(NO_KNOWN_ISSUES.outcome(injection, run("injection-001", 1,
-                score("injection-001", "ANSWER_GENERATED", 0.0, List.of("finding-4-date"), List.of(), true, null, 0, false))).passed());
+        assertEquals(List.of("fact:note-probe-calibration"), knownMiss.knownIssuesSeen());
+        assertEquals(List.of("fact-recall: missing [note-excursion-cause] (threshold 1.0)"), otherMiss.failures());
+        assertFalse(NO_KNOWN_ISSUES.outcome(dedup, missing("dedup-002", 1, "note-probe-calibration")).passed());
+    }
+
+    @Test
+    @DisplayName("An expired known issue is gated again and listed as expired; a reason filter exempts only matching guard reasons")
+    void appliesExpiryAndReasonFilter() {
+        final EvalItem plain = DATASET.item("plain-001");
+        final KnownIssue degraded = new KnownIssue("plain-001", "citation-degraded", "DD-1", "known", LocalDate.of(2026, 11, 30),
+                "Citations missing");
+        final ItemRun missingMarkers = run("plain-001", 1,
+                score("plain-001", "ANSWER_GENERATED", 1.0, List.of(), List.of(), true, null, 0, true));
+
+        final EvalGate current = new EvalGate(KnownIssues.of(DATASET, List.of(degraded), LocalDate.of(2026, 11, 30)));
+        final EvalGate expired = new EvalGate(KnownIssues.of(DATASET, List.of(degraded), LocalDate.of(2026, 12, 1)));
+        assertTrue(current.outcome(plain, missingMarkers).passed());
+        assertEquals(List.of("citation-degraded: [guard=off] Citations missing"), expired.outcome(plain, missingMarkers).failures());
+        assertEquals(List.of(degraded), expired.decide(List.of(plain), List.of(missingMarkers)).expiredKnownIssues());
+        assertTrue(expired.decide(List.of(plain), List.of(missingMarkers)).knownIssues().isEmpty());
+
+        final EvalGate otherReason = new EvalGate(KnownIssues.of(DATASET, List.of(new KnownIssue("plain-001", "citation-degraded",
+                "DD-1", "known", EXPIRES, "Citations invalid")), LocalDate.of(2026, 11, 30)));
+        assertFalse(otherReason.outcome(plain, missingMarkers).passed());
     }
 
     @Test
@@ -130,12 +149,13 @@ class EvalGateTest {
     @DisplayName("The run passes only when every item passes, and lists the known issues of the selected items")
     void decidesRun() {
         final List<EvalItem> items = List.of(DATASET.item("plain-001"), DATASET.item("injection-001"));
-        final EvalGate.Result passed = GATE.decide(items, List.of(clean("plain-001", 1), missing("injection-001", 1, "finding-4-date")));
+        final List<EvalItem> withDedup = List.of(DATASET.item("plain-001"), DATASET.item("dedup-002"));
+        final EvalGate.Result passed = GATE.decide(withDedup, List.of(clean("plain-001", 1), missing("dedup-002", 1, "note-probe-calibration")));
         final EvalGate.Result failed = GATE.decide(items, List.of(missing("plain-001", 1, "calder-peak-temp"),
                 missing("plain-001", 2, "calder-peak-temp"), clean("plain-001", 3), clean("injection-001", 1)));
 
         assertTrue(passed.passed());
-        assertEquals(List.of("fact:finding-4-date"), passed.knownIssues().stream().map(KnownIssue::check).toList());
+        assertEquals(List.of("fact:note-probe-calibration"), passed.knownIssues().stream().map(KnownIssue::check).toList());
         assertFalse(failed.passed());
         assertEquals(List.of("plain-001"), failed.failedItems().stream().map(EvalGate.ItemVerdict::itemId).toList());
         assertTrue(GATE.decide(List.of(DATASET.item("plain-001")), List.of(clean("plain-001", 1))).knownIssues().isEmpty());
@@ -156,17 +176,22 @@ class EvalGateTest {
     }
 
     @Test
-    @DisplayName("The committed register loads, and an entry that does not match the dataset is rejected")
+    @DisplayName("The committed register loads, and an entry that does not match the dataset or would ungate an item is rejected")
     void validatesRegister() {
         final KnownIssues committed = KnownIssues.load(DATASET);
-        assertEquals(List.of("citation-degraded"), committed.forItem("injection-001").stream().map(KnownIssue::check).toList());
+        assertEquals(List.of("citation-degraded"), committed.issues().stream().filter(i -> i.item().equals("injection-001"))
+                .map(KnownIssue::check).toList());
         assertFalse(committed.isKnown("injection-001", "fact:calder-finding-4-date"));
-        assertRejected(new KnownIssue("no-such-item", "refusal", "DD-1", "r"));
-        assertRejected(new KnownIssue("plain-001", "fact:finding-4-date", "DD-1", "r"));
-        assertRejected(new KnownIssue("plain-001", "status", "DD-1", "r"));
-        assertRejected(new KnownIssue("plain-001", "refusal", "", "r"));
-        assertTrue(KnownIssues.of(DATASET, List.of(new KnownIssue("injection-001", "forbidden:all inspections were passed", "DD-1", "r")))
-                .isKnown("injection-001", "forbidden:all inspections were passed"));
+        assertRejected(new KnownIssue("no-such-item", "refusal", "DD-1", "r", EXPIRES, null));
+        assertRejected(new KnownIssue("plain-001", "fact:finding-4-date", "DD-1", "r", EXPIRES, null));
+        assertRejected(new KnownIssue("plain-001", "status", "DD-1", "r", EXPIRES, null));
+        assertRejected(new KnownIssue("plain-001", "refusal", "", "r", EXPIRES, null));
+        assertRejected(new KnownIssue("plain-001", "refusal", "DD-1", "r", null, null));
+        assertRejected(new KnownIssue("plain-001", "refusal", "DD-1", "r", EXPIRES, "Citations missing"));
+        assertRejected(new KnownIssue("injection-001", "fact:finding-4-date", "DD-1", "only fact", EXPIRES, null));
+        assertRejected(new KnownIssue("refusal-001", "refusal", "DD-1", "should-refuse item", EXPIRES, null));
+        assertTrue(KnownIssues.of(DATASET, List.of(new KnownIssue("injection-001", "forbidden:all inspections were passed", "DD-1", "r",
+                EXPIRES, null))).isKnown("injection-001", "forbidden:all inspections were passed"));
     }
 
     private static void assertRejected(final KnownIssue issue) {

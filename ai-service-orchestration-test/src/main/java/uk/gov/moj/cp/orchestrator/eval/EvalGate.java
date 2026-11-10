@@ -12,7 +12,7 @@ import java.util.Set;
  * The PR gate (DD-43901) over the deterministic measures. A run fails the gate when the answer was
  * not generated (error, timeout, failed), fact recall over the gated facts is below the item
  * threshold, forbidden content appears, the refusal is wrong, a retrieval check fails, a chunk is
- * outside the filter, the answer is citation-degraded, or a section is uncited. A check in the
+ * outside the filter, the answer is citation-degraded, a section is uncited, or dates are out of order. A check in the
  * known-issues register is reported but not gated. Citation precision, gold-page recall,
  * groundedness and latency stay report-only.
  *
@@ -45,8 +45,9 @@ final class EvalGate {
     record ItemVerdict(String itemId, boolean passed, List<RunOutcome> runs) {
     }
 
-    /** The gate decision for the whole eval run, written into the report. */
-    record Result(boolean passed, List<ItemVerdict> items, List<KnownIssues.KnownIssue> knownIssues) {
+    /** The gate decision for the whole eval run, written into the report, with the known issues in force and those expired. */
+    record Result(boolean passed, List<ItemVerdict> items, List<KnownIssues.KnownIssue> knownIssues,
+                  List<KnownIssues.KnownIssue> expiredKnownIssues) {
 
         List<ItemVerdict> failedItems() {
             return items.stream().filter(i -> !i.passed()).toList();
@@ -83,7 +84,7 @@ final class EvalGate {
             check(item, "outside-filter", "outside-filter: " + s.chunksOutsideFilter() + " chunk(s)", failures, known);
         }
         if (s.citationDegraded()) {
-            check(item, "citation-degraded", "citation-degraded: " + s.reason(), failures, known);
+            check(item, "citation-degraded", s.reason(), "citation-degraded: " + s.reason(), failures, known);
         }
         if (s.outOfOrder() != null && !s.outOfOrder().isEmpty()) {
             check(item, "order", "order: " + s.outOfOrder() + " before an earlier date", failures, known);
@@ -117,13 +118,22 @@ final class EvalGate {
         final List<ItemVerdict> verdicts = items.stream()
                 .map(i -> verdict(i, runs.stream().filter(r -> r.itemId().equals(i.id())).toList())).toList();
         final Set<KnownIssues.KnownIssue> relevant = new LinkedHashSet<>();
-        items.forEach(i -> relevant.addAll(knownIssues.forItem(i.id())));
-        return new Result(verdicts.stream().allMatch(ItemVerdict::passed), verdicts, List.copyOf(relevant));
+        final Set<KnownIssues.KnownIssue> expired = new LinkedHashSet<>();
+        items.forEach(i -> {
+            relevant.addAll(knownIssues.forItem(i.id()));
+            expired.addAll(knownIssues.expiredFor(i.id()));
+        });
+        return new Result(verdicts.stream().allMatch(ItemVerdict::passed), verdicts, List.copyOf(relevant), List.copyOf(expired));
     }
 
     private void check(final EvalItem item, final String check, final String failure,
                        final List<String> failures, final List<String> known) {
-        if (knownIssues.isKnown(item.id(), check)) {
+        check(item, check, null, failure, failures, known);
+    }
+
+    private void check(final EvalItem item, final String check, final String reason, final String failure,
+                       final List<String> failures, final List<String> known) {
+        if (knownIssues.isKnown(item.id(), check, reason)) {
             known.add(check);
         } else {
             failures.add(failure);
