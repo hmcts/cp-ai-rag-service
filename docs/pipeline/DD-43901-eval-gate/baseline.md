@@ -14,18 +14,23 @@ A run fails when any of these holds. Each is a check name used by the known-issu
 | `fact:<factId>` / fact recall | Recall over the gated facts is below the item's `minFactRecall` (1.0 unless set) |
 | `forbidden:<label>` | Forbidden content appears in the answer |
 | `refusal` | Refused an answerable query, or answered one that should be refused |
-| `retrieval` | The item's document-level retrieval check fails (dedup items) |
+| `retrieval` | The item's retrieval check fails: a required document or page (`file#page`) is missing, or more than one of a duplicate group is present |
 | `outside-filter` | A chunk does not satisfy the item's metadata filter |
 | `citation-degraded` | The service recorded a citation guard reason |
 | `sections-uncited` | A section without a citation, on items that require one per section |
+| `order` | Date facts stated out of order, on items that ask for earliest first (`chronology-001`) |
 
 **Report-only:** citation precision, gold-page recall, groundedness (M11) and latency.
 
 **Decision per item (2-of-3):** a passing first run decides. If the first run fails, the item is
 re-run up to three runs, and at least two must pass. With `eval.runs` of three or more, the
 first three runs decide without re-runs. A clean PR is falsely failed only when the first run
-fails and so does at least one re-run, so a check that fails 1 run in 10 false-fails about 2% of
-PRs and one that fails 4 in 10 about 26%.
+fails and so does at least one re-run. If every run were independent, a check that fails 1 run
+in 10 would false-fail about 2% of PRs and one that fails 4 in 10 about 26%. Runs are not
+independent: all three use the same upload, and answers on one upload are correlated (Run E,
+and three PR builds where `injection-001` passed 1 run of 3 each). For a failure tied to the
+upload, the per-PR false-fail rate is close to the share of uploads it happens on, not the
+figures above (DD-43948).
 
 **Rule for adding an item or check:** 0–1 failures in 10 runs → gate; 2 or more → fix it, keep it
 out of the smoke tier, or register it as a known issue with a Jira; any error or timeout →
@@ -163,3 +168,14 @@ leaves out inline markers on other questions too (DD-43838). `injection-001` /
 `citation-degraded` is registered as a known issue against DD-43948: still reported, no longer
 gated. Its other checks stay gated. DD-43948 replaces the entry with a gate that retries against
 a fresh ingestion and gates citation degradation on a rate across the tier.
+
+## DD-43964: dataset and scoring fixes, rescored
+
+The 225 saved live answers from Runs C to F are now committed (`eval/live-answers.json`), and
+`LiveAnswersRegressionTest` checks each one's gate outcome, with no known issues applied, against
+`eval/live-answers-expected.json`. The verdicts were pinned before any DD-43964 change, and they
+match this page: 11 failing runs (Run C's `injection-001` 17/04/2025 answer and Run E's ten
+`injection-001` citation-degraded answers), the rest clean. Runs C and D kept answer text only, so
+their retrieval check is not scored. After every DD-43964 change, no saved live answer changed
+verdict. The changes fix false passes the live answers never hit, and false fails on layouts they
+never used. Those are covered by reference answers, including 41 written blind to the scorer.
