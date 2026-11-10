@@ -56,6 +56,7 @@ each question through the async API and fetches the answer, the chunks the model
 citation guard reason.
 
 **Prerequisites** (local runs):
+- Azure Functions Core Tools (`func`) on the path; the script stops without it
 - `ai-service-orchestration-test/.env` filled in from `.env.sample`
 - `az login`, with the non-live subscription as the default
 - RBAC on the ste resources enabled for your account (on demand). The PR build's service
@@ -76,17 +77,23 @@ MAVEN_PROFILE=ai-rag-eval MAVEN_EXTRA_ARGS="-Deval.items=history-001,chronology-
 
 | Option | Meaning |
 |---|---|
-| `-Deval.tier=smoke\|full` | The items of a tier (`full` is every item) |
+| `-Deval.tier=smoke\|full` | The items of a tier (`full` is every item, and the default when neither this nor `eval.items` is given) |
 | `-Deval.items=id1,id2` | Chosen items instead of a tier |
 | `-Deval.runs=N` | Runs per item (default 1) |
+| `-Deval.parallelism=N` | Questions in flight at once (default 4) |
 | `-Deval.gate=true\|false` | Apply the PR gate and fail the build on it (off by default in `ai-rag-eval`, on in the PR leg) |
 | `-Deval.<VAR>=…` | Override one pinned service setting, e.g. `-Deval.SEARCH_MMR_FINAL_COUNT=15` |
 | `SKIP_BUILD=true` | Reuse the packaged function apps instead of rebuilding |
 
 **Settings are pinned.** Both eval runs set the retrieval, layout and token settings to the
-production app-setting values (`eval.*` properties in the module pom): kNN 80, pool 60, MMR λ 0.8
-down to 30 chunks, containment dedup on, layout-aware text off, max tokens 4000. The client
-filtering leg is the enforcement one only. The chat model is `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME`
+production app-setting values (`eval.*` properties in the module pom):
+- kNN 80, pool 60, MMR λ 0.8 down to 30 chunks
+- containment dedup on (shingle size 3, threshold 0.95), semantic dedup off
+- layout-aware text off
+- max tokens 4000, reasoning effort `none` (it only applies to reasoning models such as gpt-5.1)
+- the `openai` SDK for chat and embeddings
+
+Runs use the client-filtering enforcement leg only. The chat model is `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME`
 and the groundedness judge `AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME`. A variable set in the shell
 wins over `.env`, so trying another model is a one-off local change. The report records every
 setting a run used.
@@ -95,10 +102,11 @@ setting a run used.
 tier once per item, with the gate on. Skip it with `-Dit.evalsmoke.skip=true`; `-Deval.gate=false`
 makes it report-only.
 
-**Output:** the log has a summary table, the gate decision and an `EVAL GATE FAILED` block per
-failed item, with each run's failures, answer, guard reason and retrieved pages. The full report
-is `ai-service-orchestration-test/target/eval/eval-report.json`, with every run, its settings and
-the gate decision.
+**Output:** the log has a summary table and, when the gate is on, the gate decision and an
+`EVAL GATE FAILED` block per failed item, with each run's failures, answer, guard reason and
+retrieved pages. The full report is `ai-service-orchestration-test/target/eval/eval-report.json`
+(plus a timestamped copy beside it), with every run, its settings and the gate decision. M1 is
+always asserted: even a report-only run fails if a corpus document does not ingest.
 
 ## Corpus and dataset
 
@@ -155,7 +163,7 @@ metadata filters, so an item picks its scope with one filter.
 | `expectedFacts` | Facts the answer must state, by manifest reference `"<file>#<fact-id>"`. A list of references means "any of these copies" |
 | `expectedFacts[].accept` | Extra spellings a correct answer may use (`£800` for `PENALTY £800`) |
 | `expectedFacts[].keywords` | A reworded fact: word groups, one word from each group in one sentence |
-| `expectedFacts[].near` | Binds the fact to its anchor: a manifest fact (an entry's date) or texts ("most recent"), with `rivals` (facts) and `rivalText` (texts) that must not sit between them |
+| `expectedFacts[].near` | Binds the fact to its anchor: a manifest fact (an entry's date, `ref`) or texts ("most recent", `text`). Rivals, which must not sit between value and anchor, are the listed `rivals` (facts) and `rivalText` (texts) plus the `ref` anchors of the item's other facts, so in a list of dated entries each value must sit with its own date |
 | `minFactRecall` | For long answers, the share of facts required (default 1.0) |
 | `forbidden` | Content that fails the answer: a manifest `ref` (a value from the wrong document), a literal `text`, or a `claim` with regex `patterns` |
 | `retrieval` | `mustInclude` documents or pages (`file#page`) in the final chunks; `atMostOneOf` groups of duplicates |
@@ -216,7 +224,8 @@ caught by the item's `forbidden` patterns, not by refusal detection.
 
 **Order** (`chronological` items). The date facts, taken earliest first, must first be stated in
 that order. A fact's statement is the first non-heading line where it is bound to its event and
-no other date fact is. A lead-in that names the first and last dates therefore doesn't count.
+no other date fact is, so a lead-in that names the first and last dates doesn't count. If every
+line that states a fact also states another date fact, its first such line counts.
 
 **Sections** (`citations.perSection`). The answer splits at heading lines. Text before the first
 heading is not a section, and an answer without headings is one section.
@@ -280,11 +289,14 @@ the per-PR false-fail rate is close to the share of uploads it happens on. DD-43
 how the gate handles this.
 
 **Known issues (`known-issues.json`).** A known issue names one item and one check, with a Jira, a
-reason and an `expires` date.
-- It is reported but not gated through its expiry date, and gated again from the next day. The
-  run log flags it as expired; the build does not fail on the date itself.
+reason and an `expires` date (`yyyy-mm-dd`), all required. The check is one of `fact:<factId>`,
+`forbidden:<label>`, `refusal`, `retrieval`, `outside-filter`, `citation-degraded`,
+`sections-uncited` or `order`. A `fact:` entry takes that fact out of the item's recall, so the
+other facts are judged on their own.
+- It is reported but not gated through its expiry date, and gated again from the next day. A
+  gated run logs it as expired; the build does not fail on the date itself.
 - A `citation-degraded` entry may set `reasonContains`, so that only matching guard reasons are
-  exempt.
+  exempt. `reasonContains` on any other check is rejected.
 - The register is rejected at load, before anything is ingested, if an entry names an unknown
   item or check, or would ungate an item: its only or every expected fact, or the refusal check of
   a should-refuse item.
@@ -308,7 +320,7 @@ refusal-001       3/3    null    null     5.0     0 []
 
 | Column | Meaning |
 |---|---|
-| `clean` | Runs where every check passed, report-only ones included, with no known issue exempted, out of runs made |
+| `clean` | Runs where every gated check passed, with no known issue exempted, out of runs made. Report-only measures do not affect it |
 | `recall` | Mean fact recall (M6) over the runs, 0–1 |
 | `precis` | Mean citation precision (M9), 0–1 |
 | `ground` | Mean groundedness (M11), 1–5 |
@@ -329,8 +341,8 @@ Summary[items=7, runs=21, cleanRuns=19, errorRuns=0, allDocumentsIngested=true, 
 These are the same measures over all runs: counts, M1, mean M6, mean M3, the M10 rate, mean M11,
 and M13 in seconds per answer.
 
-**Clean is not the same as passing the gate.** The gate ignores report-only measures, exempts
-known issues and decides 2-of-3, so an item can show `1/3` clean and still pass.
+**Clean is not the same as passing the gate.** The gate exempts known issues and decides 2-of-3,
+so an item can show `1/3` clean and still pass.
 
 ## Offline safety net
 
