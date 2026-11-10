@@ -3,7 +3,7 @@ package uk.gov.moj.cp.orchestrator.eval;
 import java.util.List;
 
 /**
- * The measures for one item in one run (design D4). Measures that do not apply to the item are
+ * The measures for one item in one run (docs/eval-suite.md, "Metrics"). Measures that do not apply to the item are
  * null: fact and gold-page measures on a should-refuse item, citation precision without
  * citations, section counts unless the item asks for a citation in every section, retrieval
  * checks unless the item defines them.
