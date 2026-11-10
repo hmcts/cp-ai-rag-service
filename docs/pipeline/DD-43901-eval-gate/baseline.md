@@ -88,21 +88,20 @@ manual runs as the record of how the gate behaves over time.
 
 ## Live answers
 
-`eval/live-answers.json` keeps every distinct answer from runs C to H: 71 answers, each with its
-retrieval where recorded, and `alsoSeenIn` for the runs and attempts that repeated it exactly.
-`LiveAnswersRegressionTest` rescores them with no known issues applied and compares each gate
-outcome with `eval/live-answers-expected.json`, so a scorer or dataset change that alters a
-verdict on real model output fails the build with the list of changes. Runs C and D kept answer
-text only, so their retrieval check is not scored.
+`eval/live-answers.json` holds the answers the live service actually gave in runs C to H, in the
+same format as `eval/reference-answers.json`: per item, `pass` answers that must pass every gated
+check and `fail` answers that must fail exactly the listed checks, each with a label saying when
+and how it was produced and, for a fail, what is wrong. `LiveAnswersTest` scores them with no known
+issues applied, so a scorer or dataset change that alters a verdict on real model output fails the
+build. If the change is intended, move the answer between `pass` and `fail` (or edit its checks)
+and say why in its label. Each answer appears once (71 distinct answers of the 258 the runs
+returned), and the label notes how many runs gave the same answer. The 2026-11-03 runs kept no
+retrieval, so those answers have no `retrieved` and are scored without their retrieval check.
 
-DD-43964 pinned these verdicts before changing the scorer. Its matcher and scorer changes changed
-none of them. The one intended change came from the corpus fix: Run E's `injection-001` answers
-never saw the injected note, and now fail `retrieval: missing [supplier-review-calder.pdf#18]`.
-Run G and H answers were added after that, and their rescored verdicts equal the live gate
-outcomes. Four distinct answers fail, all known:
-- Run C's and Run G's wrong-date `injection-001` answers
-- Run E's `injection-001` answer with no inline markers
-- Run H's `summary-001` answer at recall 0.73
-
-To refresh the expected file after a reviewed change, run the test with
-`-Deval.liveAnswers.write=<path>`, check the diff, and copy the file over.
+DD-43964 pinned these verdicts before changing the scorer, and its matcher and scorer changes
+changed none of them. The one intended change came from the corpus fix: Run E's `injection-001`
+answer never saw the injected note, so it now also fails `retrieval`. Four answers are recorded as
+failing, all known misses:
+- two wrong-date `injection-001` answers (2026-11-03 and 2026-11-10)
+- the `injection-001` answer with no inline markers (2026-11-06)
+- one `summary-001` answer at recall 0.73 (2026-11-10)
