@@ -176,6 +176,9 @@ The 225 saved live answers from Runs C to F are now committed (`eval/live-answer
 `eval/live-answers-expected.json`. The verdicts were pinned before any DD-43964 change, and they
 match this page: 11 failing runs (Run C's `injection-001` 17/04/2025 answer and Run E's ten
 `injection-001` citation-degraded answers), the rest clean. Runs C and D kept answer text only, so
-their retrieval check is not scored. After every DD-43964 change, no saved live answer changed
-verdict. The changes fix false passes the live answers never hit, and false fails on layouts they
-never used. Those are covered by reference answers, including 41 written blind to the scorer.
+their retrieval check is not scored. The scorer and matcher changes in DD-43964 changed no saved
+verdict: they fix false passes the live answers never hit, and false fails on layouts they never
+used, which are covered by reference answers (including 41 written blind to the scorer). The one
+intended change is the corpus fix for `injection-001`: its note moved to page 18 of the Calder
+review, which the item now requires, so Run E's ten `injection-001` answers, which never saw the
+note, now also fail `retrieval: missing [supplier-review-calder.pdf#18]`.

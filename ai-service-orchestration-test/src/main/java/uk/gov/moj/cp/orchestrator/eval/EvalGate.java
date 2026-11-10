@@ -78,7 +78,10 @@ final class EvalGate {
                     failures, known);
         }
         if (Boolean.FALSE.equals(s.retrievalOk())) {
-            check(item, "retrieval", "retrieval: documents " + s.retrievedDocuments(), failures, known);
+            final List<String> missing = item.retrieval().mustInclude().stream()
+                    .filter(m -> m.contains("#") ? !s.retrievedPages().contains(m) : !s.retrievedDocuments().contains(m)).toList();
+            check(item, "retrieval", "retrieval: " + (missing.isEmpty() ? "" : "missing " + missing + ", ")
+                    + "documents " + s.retrievedDocuments(), failures, known);
         }
         if (s.chunksOutsideFilter() > 0) {
             check(item, "outside-filter", "outside-filter: " + s.chunksOutsideFilter() + " chunk(s)", failures, known);

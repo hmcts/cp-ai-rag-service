@@ -39,13 +39,22 @@ public record KnownIssues(List<KnownIssue> issues, LocalDate today) {
             List.of(REFUSAL, "retrieval", "outside-filter", CITATION_DEGRADED, "sections-uncited", "order");
 
     /**
-     * @param expires        the last day the entry exempts its check
+     * @param expires        the last day the entry exempts its check, {@code yyyy-mm-dd} (kept as text so the report needs no date module)
      * @param reasonContains optional, {@code citation-degraded} only: the exemption covers only a guard reason containing this text
      */
-    public record KnownIssue(String item, String check, String jira, String reason, LocalDate expires, String reasonContains) {
+    public record KnownIssue(String item, String check, String jira, String reason, String expires, String reasonContains) {
+
+        /** The expiry date, or null when {@code expires} is missing or not a {@code yyyy-mm-dd} date. */
+        LocalDate expiryDate() {
+            try {
+                return expires == null || expires.isBlank() ? null : LocalDate.parse(expires);
+            } catch (final DateTimeParseException e) {
+                return null;
+            }
+        }
 
         boolean expiredOn(final LocalDate day) {
-            return day.isAfter(expires);
+            return day.isAfter(expiryDate());
         }
     }
 
@@ -63,7 +72,7 @@ public record KnownIssues(List<KnownIssue> issues, LocalDate today) {
         }
         final List<KnownIssue> issues = new ArrayList<>();
         root.path("issues").forEach(i -> issues.add(new KnownIssue(i.path("item").asText(), i.path("check").asText(),
-                i.path("jira").asText(), i.path("reason").asText(), date(i.path("expires").asText()),
+                i.path("jira").asText(), i.path("reason").asText(), i.path("expires").asText(),
                 i.hasNonNull("reasonContains") ? i.get("reasonContains").asText() : null)));
         return of(dataset, issues, LocalDate.now());
     }
@@ -76,7 +85,7 @@ public record KnownIssues(List<KnownIssue> issues, LocalDate today) {
         final List<String> invalid = new ArrayList<>();
         for (final KnownIssue issue : issues) {
             final String name = issue.item() + " " + issue.check();
-            if (issue.jira().isBlank() || issue.reason().isBlank() || issue.expires() == null) {
+            if (issue.jira().isBlank() || issue.reason().isBlank() || issue.expiryDate() == null) {
                 invalid.add(name + ": needs a jira, a reason and an expires date (yyyy-mm-dd)");
             }
             if (issue.reasonContains() != null && !CITATION_DEGRADED.equals(issue.check())) {
@@ -93,7 +102,9 @@ public record KnownIssues(List<KnownIssue> issues, LocalDate today) {
         }
         dataset.items().forEach(item -> {
             final long knownFacts = issues.stream()
-                    .filter(i -> i.item().equals(item.id()) && i.check().startsWith(FACT_PREFIX)).count();
+                    .filter(i -> i.item().equals(item.id()) && i.check().startsWith(FACT_PREFIX)
+                            && (i.expiryDate() == null || !i.expiredOn(today)))
+                    .map(KnownIssue::check).distinct().count();
             if (knownFacts > 0 && knownFacts >= item.expectedFacts().size()) {
                 invalid.add(item.id() + ": known issues would leave no expected fact gated");
             }
@@ -127,14 +138,6 @@ public record KnownIssues(List<KnownIssue> issues, LocalDate today) {
 
     private List<KnownIssue> active(final String itemId) {
         return issues.stream().filter(i -> i.item().equals(itemId) && !i.expiredOn(today)).toList();
-    }
-
-    private static LocalDate date(final String text) {
-        try {
-            return text.isBlank() ? null : LocalDate.parse(text);
-        } catch (final DateTimeParseException e) {
-            return null;
-        }
     }
 
     private static boolean checkExists(final EvalItem item, final String check) {

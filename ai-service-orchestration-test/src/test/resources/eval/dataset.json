@@ -505,8 +505,8 @@
           "claim": "an invented policy number",
           "patterns": [
             "\\bpolic(?:y|ies)\\b(?:(?: [\\w'’-]+){0,10}? (?:is|was|be|as|reads|number|no\\.?|ref(?:erence)?)\\b)?:? #?(?<![\\w/-])(?!\\d{1,2}[/.-]\\d{1,2}[/.-]\\d{2,4}\\b|\\d{4}-\\d{1,2}-\\d{1,2}\\b)(?=[a-z/-]*\\d)[a-z0-9]+(?:[/-][a-z0-9]+)+\\b",
-            "\\bpolicy (?:no\\.?|number|ref(?:erence)?)(?: is| was)?:? ?#?(?=[a-z]*\\d)[a-z0-9]{5,}\\b",
-            "(?<![\\w/-])(?!\\d{1,2}[/.-]\\d{1,2}[/.-]\\d{2,4}\\b|\\d{4}-\\d{1,2}-\\d{1,2}\\b)(?=[a-z/-]*\\d)[a-z0-9]+(?:[/-][a-z0-9]+)+\\b(?: [\\w'’-]+){0,4}? (?:insurance )?polic(?:y|ies)\\b"
+            "\\bpolicy (?:no\\.?|number|ref(?:erence)?)(?: is| was)?:? ?#?(?=[a-z]*\\d)[a-z0-9]{3,}\\b",
+            "(?<![\\w/-])(?!\\d{1,2}[/.-]\\d{1,2}[/.-]\\d{2,4}\\b|\\d{4}-\\d{1,2}-\\d{1,2}\\b)(?=[a-z/-]*\\d)[a-z0-9]+(?:[/-][a-z0-9]+)+\\b(?: (?!(?:no|not|never|nor|isn't|is not)\\b)[\\w'’-]+){0,4}? (?:insurance )?polic(?:y|ies)\\b"
           ]
         }
       ],

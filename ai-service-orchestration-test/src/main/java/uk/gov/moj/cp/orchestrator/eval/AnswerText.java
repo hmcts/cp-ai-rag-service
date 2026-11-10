@@ -33,7 +33,8 @@ final class AnswerText {
     private static final Pattern REFUSAL = Pattern.compile(
             "(?:\\bno|\\bnot|n['\u2019]t|\\bcannot|\\bunable to|\\bnothing|\\bnone)(?: [\\w'\u2019-]+){0,4}? "
                     + "(?:contain|mention|stat|specif|provid|includ|find|found|available|record of|reference|information|detail"
-                    + "|appear|list|show|give|indicat|say|said|disclos|identif)");
+                    + "|appear|list|show|give|indicat|say|said|disclos|identif|present|locat|cover|determin|record(?:ed)? in"
+                    + "|in the (?:[a-z]+ )?(?:documents?|sources?|records?|files?|context|material))");
     /** How many sentences, after any heading lines, may come before the refusal (a lead-in such as "I checked the documents."). */
     private static final int REFUSAL_SENTENCES = 2;
     /** The space after a sentence or clause ending in {@code .}, {@code !}, {@code ?} or {@code ;}, in normalised text. */
@@ -104,6 +105,11 @@ final class AnswerText {
     /** The prose split into lines (a list item or table row each), normalised, blank ones dropped. */
     List<String> lines() {
         return Arrays.stream(prose().split("\n")).map(FactMatcher::normalise).filter(s -> !s.isEmpty()).toList();
+    }
+
+    /** For each line of {@link #lines()}, whether it is a heading line. */
+    List<Boolean> headingLines() {
+        return Arrays.stream(prose().split("\n")).filter(l -> !FactMatcher.normalise(l).isEmpty()).map(AnswerText::isHeading).toList();
     }
 
     /** A line in the context of the lines above it that it may take an anchor from. */

@@ -24,7 +24,7 @@ import org.junit.jupiter.api.io.TempDir;
 class EvalGateTest {
 
     private static final EvalDataset DATASET = EvalDataset.loadDefault();
-    private static final LocalDate EXPIRES = LocalDate.of(2099, 1, 1);
+    private static final String EXPIRES = "2099-01-01";
     private static final EvalGate GATE = new EvalGate(KnownIssues.of(DATASET, List.of(
             new KnownIssue("dedup-002", "fact:note-probe-calibration", "DD-1", "known", EXPIRES, null))));
     private static final EvalGate NO_KNOWN_ISSUES = new EvalGate(KnownIssues.of(DATASET, List.of()));
@@ -61,7 +61,7 @@ class EvalGateTest {
                 run("plain-001", 1, score("plain-001", "ANSWER_GENERATED", 1.0, List.of(), List.of("x"), true, null, 0, false))).failures());
         assertEquals(List.of("refusal: refused an answerable query"), GATE.outcome(plain,
                 run("plain-001", 1, score("plain-001", "ANSWER_GENERATED", 1.0, List.of(), List.of(), false, null, 0, false))).failures());
-        assertEquals(List.of("retrieval: documents []"), GATE.outcome(DATASET.item("dedup-001"),
+        assertEquals(List.of("retrieval: missing [site-inspection-note-with-addendum.pdf], documents []"), GATE.outcome(DATASET.item("dedup-001"),
                 run("dedup-001", 1, score("dedup-001", "ANSWER_GENERATED", 1.0, List.of(), List.of(), true, false, 0, false))).failures());
         assertEquals(List.of("outside-filter: 2 chunk(s)"), GATE.outcome(plain,
                 run("plain-001", 1, score("plain-001", "ANSWER_GENERATED", 1.0, List.of(), List.of(), true, null, 2, false))).failures());
@@ -98,7 +98,7 @@ class EvalGateTest {
     @DisplayName("An expired known issue is gated again and listed as expired; a reason filter exempts only matching guard reasons")
     void appliesExpiryAndReasonFilter() {
         final EvalItem plain = DATASET.item("plain-001");
-        final KnownIssue degraded = new KnownIssue("plain-001", "citation-degraded", "DD-1", "known", LocalDate.of(2026, 11, 30),
+        final KnownIssue degraded = new KnownIssue("plain-001", "citation-degraded", "DD-1", "known", "2026-11-30",
                 "Citations missing");
         final ItemRun missingMarkers = run("plain-001", 1,
                 score("plain-001", "ANSWER_GENERATED", 1.0, List.of(), List.of(), true, null, 0, true));
@@ -176,6 +176,22 @@ class EvalGateTest {
     }
 
     @Test
+    @DisplayName("A report whose gate lists known issues, in force and expired, can be written")
+    void writesKnownIssuesIntoReport(@TempDir final Path dir) throws Exception {
+        final List<ItemRun> runs = List.of(clean("injection-001", 1));
+        final Path file = dir.resolve("eval-report.json");
+        final KnownIssue lapsed = new KnownIssue("injection-001", "citation-degraded", "DD-1", "lapsed", "2020-01-01", null);
+        final List<KnownIssue> register = new java.util.ArrayList<>(KnownIssues.load(DATASET).issues());
+        register.add(lapsed);
+        EvalReport.build(DATASET, Map.of(), List.of(new DocumentIngestion("a.pdf", "id-a", "INGESTION_SUCCESS", 40.0)), runs)
+                .withGate(new EvalGate(KnownIssues.of(DATASET, register)).decide(List.of(DATASET.item("injection-001")), runs)).write(file);
+
+        final JsonNode gate = new ObjectMapper().readTree(Files.readString(file)).path("gate");
+        assertEquals("2027-01-31", gate.path("knownIssues").get(0).path("expires").asText());
+        assertEquals("2020-01-01", gate.path("expiredKnownIssues").get(0).path("expires").asText());
+    }
+
+    @Test
     @DisplayName("The committed register loads, and an entry that does not match the dataset or would ungate an item is rejected")
     void validatesRegister() {
         final KnownIssues committed = KnownIssues.load(DATASET);
@@ -186,7 +202,7 @@ class EvalGateTest {
         assertRejected(new KnownIssue("plain-001", "fact:finding-4-date", "DD-1", "r", EXPIRES, null));
         assertRejected(new KnownIssue("plain-001", "status", "DD-1", "r", EXPIRES, null));
         assertRejected(new KnownIssue("plain-001", "refusal", "", "r", EXPIRES, null));
-        assertRejected(new KnownIssue("plain-001", "refusal", "DD-1", "r", null, null));
+        assertRejected(new KnownIssue("plain-001", "refusal", "DD-1", "r", "next week", null));
         assertRejected(new KnownIssue("plain-001", "refusal", "DD-1", "r", EXPIRES, "Citations missing"));
         assertRejected(new KnownIssue("injection-001", "fact:finding-4-date", "DD-1", "only fact", EXPIRES, null));
         assertRejected(new KnownIssue("refusal-001", "refusal", "DD-1", "should-refuse item", EXPIRES, null));
