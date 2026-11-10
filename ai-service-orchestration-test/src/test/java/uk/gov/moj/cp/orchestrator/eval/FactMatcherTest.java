@@ -53,6 +53,27 @@ class FactMatcherTest {
     }
 
     @Test
+    @DisplayName("A date fact also matches a month name between dashes and a year-first date with slashes, but not inside a longer number")
+    void matchesFurtherDateForms() {
+        for (final String answer : List.of("07-Apr-2025", "7-April-2025", "2025/04/07", "2025/4/7")) {
+            assertTrue(FactMatcher.found(answer, DATE, List.of()), answer);
+        }
+        for (final String answer : List.of("2025/04/17", "2025/04-07", "12025/04/07")) {
+            assertFalse(FactMatcher.found(answer, DATE, List.of()), answer);
+        }
+    }
+
+    @Test
+    @DisplayName("A whole-pound fact does not match an amount with pence, but still matches .00 and a full stop after it")
+    void rejectsAmountsWithPence() {
+        for (final String answer : List.of("£4,149.50", "£4149.05", "£4,149.5")) {
+            assertFalse(FactMatcher.found("Total losses were " + answer + ".", MONEY, List.of()), answer);
+        }
+        assertTrue(FactMatcher.found("Total losses were £4,149.00.", MONEY, List.of()));
+        assertTrue(FactMatcher.found("Total losses were £4,149. The panel sits later.", MONEY, List.of()));
+    }
+
+    @Test
     @DisplayName("A text fact matches case-insensitively, and an accepted spelling counts as a match")
     void matchesTextAndAcceptedSpellings() {
         assertTrue(FactMatcher.found("the serial is tl-55821", TEXT, List.of()));
@@ -96,6 +117,12 @@ class FactMatcherTest {
         assertTrue(FactMatcher.found("at or below -18.0 °C", frozen, List.of()));
         assertFalse(FactMatcher.found("at or below 18°C", frozen, List.of()));
         assertFalse(FactMatcher.found("at or below -18.5°C", frozen, List.of()));
+
+        assertTrue(FactMatcher.found("a peak of 9.4 ºC", peak, List.of()));
+        assertTrue(FactMatcher.found("a peak of 9.4C", peak, List.of()));
+        assertFalse(FactMatcher.found("a 9.4cm gap", peak, List.of()));
+        assertTrue(FactMatcher.found("at or below minus 18°C", frozen, List.of()));
+        assertFalse(FactMatcher.found("at or below minus 5°C", chilled, List.of()));
     }
 
     @Test
@@ -111,6 +138,9 @@ class FactMatcherTest {
         assertFalse(FactMatcher.keywords("the seal was replaced", seal).isPresent());
         assertFalse(FactMatcher.keywords("suspended for 3 months", suspension).isPresent());
         assertFalse(FactMatcher.keywords("anything", List.of()).isPresent());
+        assertFalse(FactMatcher.keywords("suspended for 12 months", suspension).isPresent());
+        assertFalse(FactMatcher.keywords("a 12-month suspension", suspension).isPresent());
+        assertTrue(FactMatcher.keywords("the door was sealed but the seal was torn", seal).isPresent());
     }
 
     @Test

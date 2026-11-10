@@ -28,12 +28,12 @@ final class FactMatcher {
     }
 
     /**
-     * Unicode NFKC ({@code ℃} → {@code °C}), lower case, markdown bold removed, dashes unified, the space Document
+     * Unicode NFKC ({@code ℃} → {@code °C}; the ordinal sign {@code º} models use as a degree sign is read as {@code °}), lower case, markdown bold removed, dashes unified, the space Document
      * Intelligence inserts after a thousands comma ({@code 4, 149}) removed, whitespace collapsed.
      * Only a three-digit group is joined, so {@code April 7, 2025} keeps its space.
      */
     static String normalise(final String text) {
-        String s = Normalizer.normalize(text, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT).replace("*", "");
+        String s = Normalizer.normalize(text.replace('\u00ba', '\u00b0'), Normalizer.Form.NFKC).toLowerCase(Locale.ROOT).replace("*", "");
         s = DASHES.matcher(s).replaceAll("-");
         s = SPACED_THOUSANDS.matcher(s).replaceAll("$1,$2");
         return WHITESPACE.matcher(s).replaceAll(" ").strip();
@@ -66,9 +66,10 @@ final class FactMatcher {
     }
 
     /**
-     * Key-word groups: every group must have one of its words in the text, in any order. Hyphens read as
-     * spaces on both sides, so {@code two month} also matches {@code two-month}. The span runs from the
-     * first matched word to the last.
+     * Key-word groups: every group must have one of its words in the text, in any order. A word must start
+     * a word in the text, but may end inside one ({@code seal} matches {@code sealed}, {@code 2 month} does not
+     * match {@code 12 months}). Hyphens read as spaces on both sides, so {@code two month} also matches
+     * {@code two-month}. The span runs from the first matched word to the last.
      */
     static Optional<Span> keywords(final String normalised, final List<List<String>> groups) {
         if (groups.isEmpty()) {
@@ -80,8 +81,9 @@ final class FactMatcher {
         for (final List<String> group : groups) {
             final Optional<Span> word = group.stream()
                     .map(w -> normalise(w).replace('-', ' '))
-                    .filter(w -> !w.isEmpty() && text.contains(w))
-                    .map(w -> new Span(text.indexOf(w), text.indexOf(w) + w.length()))
+                    .filter(w -> !w.isEmpty())
+                    .flatMap(w -> Pattern.compile("(?<![\\p{L}\\p{N}])" + Pattern.quote(w)).matcher(text).results()
+                            .map(r -> new Span(r.start(), r.end())).limit(1))
                     .min(Comparator.comparingInt(Span::start));
             if (word.isEmpty()) {
                 return Optional.empty();
@@ -114,24 +116,29 @@ final class FactMatcher {
         patterns.add(Pattern.compile("\\b0?" + day + "[/.\\-]0?" + month + "[/.\\-]" + year + "\\b"));
         patterns.add(Pattern.compile("\\b" + dayOfMonth + " (?:of )?" + names + ",? ?" + year + "\\b"));
         patterns.add(Pattern.compile("\\b" + names + " " + dayOfMonth + ",? ?" + year + "\\b"));
-        patterns.add(Pattern.compile("\\b" + String.format("%d-%02d-%02d", date.getYear(), month, day) + "\\b"));
+        patterns.add(Pattern.compile("\\b0?" + day + "[/.\\-]" + names + "[/.\\-]" + year + "\\b"));
+        patterns.add(Pattern.compile("\\b" + date.getYear() + "([/.\\-])0?" + month + "\\1" + "0?" + day + "\\b"));
         return patterns;
     }
 
     /**
-     * {@code 9.4°C}, {@code 9.4 °C}, {@code 9.4℃} and {@code 9.4 degrees}; a whole value may drop its {@code .0}
-     * ({@code -18°C}). A sign must match, so {@code 5.0°C} is not found in {@code -5.0°C} or {@code 15.0°C}.
+     * {@code 9.4°C}, {@code 9.4 °C}, {@code 9.4℃}, {@code 9.4C} and {@code 9.4 degrees}; a whole value may drop its
+     * {@code .0} ({@code -18°C}), and a negative one may be written {@code minus 18°C}. A sign must match, so
+     * {@code 5.0°C} is not found in {@code -5.0°C}, {@code minus 5.0°C} or {@code 15.0°C}.
      */
     private static Pattern temperaturePattern(final BigDecimal degrees) {
         final BigDecimal whole = degrees.setScale(0, RoundingMode.DOWN);
         final String fraction = degrees.compareTo(whole) == 0
                 ? "(?:\\.0+)?"
                 : "\\." + degrees.subtract(whole).abs().stripTrailingZeros().toPlainString().substring(2) + "0*";
-        final String number = (degrees.signum() < 0 ? "-" : "(?<![-\\d.])") + whole.abs().toPlainString() + fraction;
-        return Pattern.compile(number + " ?(?:°c|degrees?\\b)");
+        final String number = (degrees.signum() < 0 ? "(?:-|\\bminus )" : "(?<![-\\d.])(?<!minus )") + whole.abs().toPlainString() + fraction;
+        return Pattern.compile(number + "(?: ?°c| ?degrees?\\b|c\\b)");
     }
 
-    /** {@code £4,149}, {@code £4149}, {@code £ 4,149} and {@code £4,149.00}, but not {@code £41,490}; a following comma is punctuation. */
+    /**
+     * {@code £4,149}, {@code £4149}, {@code £ 4,149} and {@code £4,149.00}, but not {@code £41,490} or {@code £4,149.50};
+     * a following comma or full stop is punctuation.
+     */
     private static Pattern moneyPattern(final BigDecimal amount) {
         final BigDecimal whole = amount.setScale(0, RoundingMode.DOWN);
         final String grouped = String.format(Locale.UK, "%,d", whole.longValueExact()).replace(",", ",?");
@@ -139,6 +146,6 @@ final class FactMatcher {
         final String pence = hasPence
                 ? "\\." + amount.subtract(whole).movePointRight(2).setScale(0, RoundingMode.HALF_UP).toPlainString()
                 : "(?:\\.00)?";
-        return Pattern.compile("£ ?" + grouped + pence + "(?!\\d|,\\d)");
+        return Pattern.compile("£ ?" + grouped + pence + "(?!\\d|,\\d|\\.\\d)");
     }
 }
