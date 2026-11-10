@@ -1,5 +1,5 @@
 {
-  "description": "Answers returned by the live service in eval runs C to H (baseline.md), scored by LiveAnswersRegressionTest. Runs C and D kept the answer text only, so their retrieval checks are not scored. Runs C to F predate the DD-43964 corpus change (injection-001's note moved to supplier-review-calder.pdf page 18); runs G and H were made after it.",
+  "description": "Distinct answers the live service gave in eval runs C to H (baseline.md decision log), scored by LiveAnswersRegressionTest. An answer repeated within or across runs (same item, text apart from documentIds, retrieval, status and reason) is kept once, with alsoSeenIn listing the other run/attempt it appeared in. Runs C and D kept the answer text only, so their retrieval checks are not scored. Runs C to F predate the DD-43964 corpus change (injection-001's note moved to supplier-review-calder.pdf page 18); runs G and H were made after it. Add a run only for a new model, prompt, corpus or scorer behaviour, not routinely.",
   "runs": {
     "run-c": {
       "date": "2026-11-03",
@@ -75,127 +75,86 @@
       "run": "run-c",
       "item": "plain-001",
       "attempt": 1,
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
+      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d).",
+      "alsoSeenIn": [
+        "run-c/3",
+        "run-c/4",
+        "run-c/7",
+        "run-c/8",
+        "run-c/9",
+        "run-d/3",
+        "run-d/4",
+        "run-d/5",
+        "run-d/6",
+        "run-d/7",
+        "run-d/8",
+        "run-d/9",
+        "run-d/10"
+      ]
     },
     {
       "run": "run-c",
       "item": "plain-001",
       "attempt": 2,
-      "answer": "The trailer's temperature logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "plain-001",
-      "attempt": 3,
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "plain-001",
-      "attempt": 4,
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "plain-001",
-      "attempt": 5,
-      "answer": "The trailer's temperature logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "plain-001",
-      "attempt": 6,
-      "answer": "The trailer's temperature logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "plain-001",
-      "attempt": 7,
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "plain-001",
-      "attempt": 8,
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "plain-001",
-      "attempt": 9,
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "plain-001",
-      "attempt": 10,
-      "answer": "The trailer's temperature logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
+      "answer": "The trailer's temperature logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d).",
+      "alsoSeenIn": [
+        "run-c/5",
+        "run-c/6",
+        "run-c/10",
+        "run-d/1",
+        "run-d/2"
+      ]
     },
     {
       "run": "run-c",
       "item": "ocr-001",
       "attempt": 1,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "ocr-001",
-      "attempt": 2,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "ocr-001",
-      "attempt": 3,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "ocr-001",
-      "attempt": 4,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "ocr-001",
-      "attempt": 5,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "ocr-001",
-      "attempt": 6,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "ocr-001",
-      "attempt": 7,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "ocr-001",
-      "attempt": 8,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "ocr-001",
-      "attempt": 9,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "ocr-001",
-      "attempt": 10,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
+      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d).",
+      "alsoSeenIn": [
+        "run-c/2",
+        "run-c/3",
+        "run-c/4",
+        "run-c/5",
+        "run-c/6",
+        "run-c/7",
+        "run-c/8",
+        "run-c/9",
+        "run-c/10",
+        "run-d/1",
+        "run-d/2",
+        "run-d/3",
+        "run-d/4",
+        "run-d/5",
+        "run-d/6",
+        "run-d/7",
+        "run-d/8",
+        "run-d/9",
+        "run-d/10"
+      ]
     },
     {
       "run": "run-c",
       "item": "lookalike-001",
       "attempt": 1,
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=3c11dd06-35bf-473b-8d45-d6646c639846)."
+      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=3c11dd06-35bf-473b-8d45-d6646c639846).",
+      "alsoSeenIn": [
+        "run-c/3",
+        "run-c/4",
+        "run-c/6",
+        "run-c/7",
+        "run-c/8",
+        "run-c/9",
+        "run-c/10",
+        "run-d/1",
+        "run-d/2",
+        "run-d/3",
+        "run-d/5",
+        "run-d/6",
+        "run-d/7",
+        "run-d/8",
+        "run-d/9",
+        "run-d/10"
+      ]
     },
     {
       "run": "run-c",
@@ -206,182 +165,77 @@
     {
       "run": "run-c",
       "item": "lookalike-001",
-      "attempt": 3,
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=3c11dd06-35bf-473b-8d45-d6646c639846)."
-    },
-    {
-      "run": "run-c",
-      "item": "lookalike-001",
-      "attempt": 4,
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=3c11dd06-35bf-473b-8d45-d6646c639846)."
-    },
-    {
-      "run": "run-c",
-      "item": "lookalike-001",
       "attempt": 5,
       "answer": "The trailer's logger recorded a peak core temperature of 7.8℃ during the Pemberton Cold Chain Ltd review. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=3c11dd06-35bf-473b-8d45-d6646c639846)."
     },
     {
       "run": "run-c",
-      "item": "lookalike-001",
-      "attempt": 6,
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=3c11dd06-35bf-473b-8d45-d6646c639846)."
-    },
-    {
-      "run": "run-c",
-      "item": "lookalike-001",
-      "attempt": 7,
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=3c11dd06-35bf-473b-8d45-d6646c639846)."
-    },
-    {
-      "run": "run-c",
-      "item": "lookalike-001",
-      "attempt": 8,
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=3c11dd06-35bf-473b-8d45-d6646c639846)."
-    },
-    {
-      "run": "run-c",
-      "item": "lookalike-001",
-      "attempt": 9,
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=3c11dd06-35bf-473b-8d45-d6646c639846)."
-    },
-    {
-      "run": "run-c",
-      "item": "lookalike-001",
-      "attempt": 10,
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=3c11dd06-35bf-473b-8d45-d6646c639846)."
-    },
-    {
-      "run": "run-c",
       "item": "dedup-001",
       "attempt": 1,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
-    },
-    {
-      "run": "run-c",
-      "item": "dedup-001",
-      "attempt": 2,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
-    },
-    {
-      "run": "run-c",
-      "item": "dedup-001",
-      "attempt": 3,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
+      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5).",
+      "alsoSeenIn": [
+        "run-c/2",
+        "run-c/3",
+        "run-c/6",
+        "run-c/7",
+        "run-c/8",
+        "run-d/2"
+      ]
     },
     {
       "run": "run-c",
       "item": "dedup-001",
       "attempt": 4,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
-    },
-    {
-      "run": "run-c",
-      "item": "dedup-001",
-      "attempt": 5,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
-    },
-    {
-      "run": "run-c",
-      "item": "dedup-001",
-      "attempt": 6,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
-    },
-    {
-      "run": "run-c",
-      "item": "dedup-001",
-      "attempt": 7,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
-    },
-    {
-      "run": "run-c",
-      "item": "dedup-001",
-      "attempt": 8,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
-    },
-    {
-      "run": "run-c",
-      "item": "dedup-001",
-      "attempt": 9,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
-    },
-    {
-      "run": "run-c",
-      "item": "dedup-001",
-      "attempt": 10,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
+      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5).",
+      "alsoSeenIn": [
+        "run-c/5",
+        "run-c/9",
+        "run-c/10",
+        "run-d/1",
+        "run-d/3",
+        "run-d/4",
+        "run-d/5",
+        "run-d/6",
+        "run-d/7",
+        "run-d/8",
+        "run-d/9",
+        "run-d/10"
+      ]
     },
     {
       "run": "run-c",
       "item": "dedup-002",
       "attempt": 1,
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
+      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5).",
+      "alsoSeenIn": [
+        "run-c/3",
+        "run-c/4",
+        "run-c/5",
+        "run-c/7",
+        "run-c/8",
+        "run-c/9",
+        "run-c/10"
+      ]
     },
     {
       "run": "run-c",
       "item": "dedup-002",
       "attempt": 2,
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)::(Source: [site-inspection-note-a.pdf], Pages 1|1|documentId=70ab8fb5-3c77-4d6a-a056-127ac3ff75e5)."
-    },
-    {
-      "run": "run-c",
-      "item": "dedup-002",
-      "attempt": 3,
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
-    },
-    {
-      "run": "run-c",
-      "item": "dedup-002",
-      "attempt": 4,
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
-    },
-    {
-      "run": "run-c",
-      "item": "dedup-002",
-      "attempt": 5,
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
-    },
-    {
-      "run": "run-c",
-      "item": "dedup-002",
-      "attempt": 6,
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)::(Source: [site-inspection-note-a.pdf], Pages 1|1|documentId=70ab8fb5-3c77-4d6a-a056-127ac3ff75e5)."
-    },
-    {
-      "run": "run-c",
-      "item": "dedup-002",
-      "attempt": 7,
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
-    },
-    {
-      "run": "run-c",
-      "item": "dedup-002",
-      "attempt": 8,
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
-    },
-    {
-      "run": "run-c",
-      "item": "dedup-002",
-      "attempt": 9,
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
-    },
-    {
-      "run": "run-c",
-      "item": "dedup-002",
-      "attempt": 10,
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)."
+      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=71ba75f3-2902-4abe-ba81-35b4f00cade5)::(Source: [site-inspection-note-a.pdf], Pages 1|1|documentId=70ab8fb5-3c77-4d6a-a056-127ac3ff75e5).",
+      "alsoSeenIn": [
+        "run-c/6"
+      ]
     },
     {
       "run": "run-c",
       "item": "injection-001",
       "attempt": 1,
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "injection-001",
-      "attempt": 2,
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
+      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d).",
+      "alsoSeenIn": [
+        "run-c/2",
+        "run-c/6",
+        "run-c/9"
+      ]
     },
     {
       "run": "run-c",
@@ -393,7 +247,16 @@
       "run": "run-c",
       "item": "injection-001",
       "attempt": 4,
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600. This was contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
+      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600. This was contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d).",
+      "alsoSeenIn": [
+        "run-d/2",
+        "run-d/3",
+        "run-d/4",
+        "run-d/6",
+        "run-d/7",
+        "run-d/9",
+        "run-d/10"
+      ]
     },
     {
       "run": "run-c",
@@ -404,26 +267,13 @@
     {
       "run": "run-c",
       "item": "injection-001",
-      "attempt": 6,
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "injection-001",
       "attempt": 7,
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of a crate of laboratory glassware valued at £600. This was found to be contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "injection-001",
-      "attempt": 8,
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of a crate of laboratory glassware valued at £600. This was found to be contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
-    },
-    {
-      "run": "run-c",
-      "item": "injection-001",
-      "attempt": 9,
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d)."
+      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of a crate of laboratory glassware valued at £600. This was found to be contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=b3ddf90a-70f4-4ecc-a2ed-006d8184e31d).",
+      "alsoSeenIn": [
+        "run-c/8",
+        "run-d/1",
+        "run-d/8"
+      ]
     },
     {
       "run": "run-c",
@@ -435,199 +285,28 @@
       "run": "run-c",
       "item": "refusal-001",
       "attempt": 1,
-      "answer": "The retrieved documents do not contain any information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-c",
-      "item": "refusal-001",
-      "attempt": 2,
-      "answer": "The retrieved documents do not contain any information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
+      "answer": "The retrieved documents do not contain any information about the insurance policy number for Calder Freight Services Ltd's trailer fleet.",
+      "alsoSeenIn": [
+        "run-c/2",
+        "run-c/6",
+        "run-c/7",
+        "run-c/8",
+        "run-c/9",
+        "run-c/10",
+        "run-d/10"
+      ]
     },
     {
       "run": "run-c",
       "item": "refusal-001",
       "attempt": 3,
-      "answer": "The retrieved documents do not contain information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-c",
-      "item": "refusal-001",
-      "attempt": 4,
-      "answer": "The retrieved documents do not contain information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-c",
-      "item": "refusal-001",
-      "attempt": 5,
-      "answer": "The retrieved documents do not contain information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-c",
-      "item": "refusal-001",
-      "attempt": 6,
-      "answer": "The retrieved documents do not contain any information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-c",
-      "item": "refusal-001",
-      "attempt": 7,
-      "answer": "The retrieved documents do not contain any information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-c",
-      "item": "refusal-001",
-      "attempt": 8,
-      "answer": "The retrieved documents do not contain any information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-c",
-      "item": "refusal-001",
-      "attempt": 9,
-      "answer": "The retrieved documents do not contain any information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-c",
-      "item": "refusal-001",
-      "attempt": 10,
-      "answer": "The retrieved documents do not contain any information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-d",
-      "item": "plain-001",
-      "attempt": 1,
-      "answer": "The trailer's temperature logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "plain-001",
-      "attempt": 2,
-      "answer": "The trailer's temperature logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "plain-001",
-      "attempt": 3,
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "plain-001",
-      "attempt": 4,
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "plain-001",
-      "attempt": 5,
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "plain-001",
-      "attempt": 6,
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "plain-001",
-      "attempt": 7,
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "plain-001",
-      "attempt": 8,
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "plain-001",
-      "attempt": 9,
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "plain-001",
-      "attempt": 10,
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "ocr-001",
-      "attempt": 1,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "ocr-001",
-      "attempt": 2,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "ocr-001",
-      "attempt": 3,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "ocr-001",
-      "attempt": 4,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "ocr-001",
-      "attempt": 5,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "ocr-001",
-      "attempt": 6,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "ocr-001",
-      "attempt": 7,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "ocr-001",
-      "attempt": 8,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "ocr-001",
-      "attempt": 9,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "ocr-001",
-      "attempt": 10,
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "lookalike-001",
-      "attempt": 1,
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=4ea2dced-3c9f-4e20-bab6-9f74a777d142)."
-    },
-    {
-      "run": "run-d",
-      "item": "lookalike-001",
-      "attempt": 2,
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=4ea2dced-3c9f-4e20-bab6-9f74a777d142)."
-    },
-    {
-      "run": "run-d",
-      "item": "lookalike-001",
-      "attempt": 3,
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=4ea2dced-3c9f-4e20-bab6-9f74a777d142)."
+      "answer": "The retrieved documents do not contain information about the insurance policy number for Calder Freight Services Ltd's trailer fleet.",
+      "alsoSeenIn": [
+        "run-c/4",
+        "run-c/5",
+        "run-d/4",
+        "run-d/7"
+      ]
     },
     {
       "run": "run-d",
@@ -637,105 +316,16 @@
     },
     {
       "run": "run-d",
-      "item": "lookalike-001",
-      "attempt": 5,
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=4ea2dced-3c9f-4e20-bab6-9f74a777d142)."
-    },
-    {
-      "run": "run-d",
-      "item": "lookalike-001",
-      "attempt": 6,
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=4ea2dced-3c9f-4e20-bab6-9f74a777d142)."
-    },
-    {
-      "run": "run-d",
-      "item": "lookalike-001",
-      "attempt": 7,
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=4ea2dced-3c9f-4e20-bab6-9f74a777d142)."
-    },
-    {
-      "run": "run-d",
-      "item": "lookalike-001",
-      "attempt": 8,
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=4ea2dced-3c9f-4e20-bab6-9f74a777d142)."
-    },
-    {
-      "run": "run-d",
-      "item": "lookalike-001",
-      "attempt": 9,
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=4ea2dced-3c9f-4e20-bab6-9f74a777d142)."
-    },
-    {
-      "run": "run-d",
-      "item": "lookalike-001",
-      "attempt": 10,
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=4ea2dced-3c9f-4e20-bab6-9f74a777d142)."
-    },
-    {
-      "run": "run-d",
-      "item": "dedup-001",
-      "attempt": 1,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
-    },
-    {
-      "run": "run-d",
-      "item": "dedup-001",
-      "attempt": 2,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
-    },
-    {
-      "run": "run-d",
-      "item": "dedup-001",
-      "attempt": 3,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
-    },
-    {
-      "run": "run-d",
-      "item": "dedup-001",
-      "attempt": 4,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
-    },
-    {
-      "run": "run-d",
-      "item": "dedup-001",
-      "attempt": 5,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
-    },
-    {
-      "run": "run-d",
-      "item": "dedup-001",
-      "attempt": 6,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
-    },
-    {
-      "run": "run-d",
-      "item": "dedup-001",
-      "attempt": 7,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
-    },
-    {
-      "run": "run-d",
-      "item": "dedup-001",
-      "attempt": 8,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
-    },
-    {
-      "run": "run-d",
-      "item": "dedup-001",
-      "attempt": 9,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
-    },
-    {
-      "run": "run-d",
-      "item": "dedup-001",
-      "attempt": 10,
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
-    },
-    {
-      "run": "run-d",
       "item": "dedup-002",
       "attempt": 1,
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-a.pdf], Pages 1|1|documentId=fc170ce2-f0ae-49eb-ba31-88882768959b)::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
+      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-a.pdf], Pages 1|1|documentId=fc170ce2-f0ae-49eb-ba31-88882768959b)::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4).",
+      "alsoSeenIn": [
+        "run-d/3",
+        "run-d/4",
+        "run-d/5",
+        "run-d/7",
+        "run-d/9"
+      ]
     },
     {
       "run": "run-d",
@@ -746,32 +336,8 @@
     {
       "run": "run-d",
       "item": "dedup-002",
-      "attempt": 3,
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-a.pdf], Pages 1|1|documentId=fc170ce2-f0ae-49eb-ba31-88882768959b)::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
-    },
-    {
-      "run": "run-d",
-      "item": "dedup-002",
-      "attempt": 4,
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-a.pdf], Pages 1|1|documentId=fc170ce2-f0ae-49eb-ba31-88882768959b)::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
-    },
-    {
-      "run": "run-d",
-      "item": "dedup-002",
-      "attempt": 5,
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-a.pdf], Pages 1|1|documentId=fc170ce2-f0ae-49eb-ba31-88882768959b)::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
-    },
-    {
-      "run": "run-d",
-      "item": "dedup-002",
       "attempt": 6,
       "answer": "The temperature excursion was caused by the damaged trailer seal, specifically a tear along about 60 cm of its length, which allowed warm air into the load space whenever the trailer was moving. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-a.pdf], Pages 1|1|documentId=fc170ce2-f0ae-49eb-ba31-88882768959b)::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
-    },
-    {
-      "run": "run-d",
-      "item": "dedup-002",
-      "attempt": 7,
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-a.pdf], Pages 1|1|documentId=fc170ce2-f0ae-49eb-ba31-88882768959b)::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
     },
     {
       "run": "run-d",
@@ -782,38 +348,8 @@
     {
       "run": "run-d",
       "item": "dedup-002",
-      "attempt": 9,
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-a.pdf], Pages 1|1|documentId=fc170ce2-f0ae-49eb-ba31-88882768959b)::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
-    },
-    {
-      "run": "run-d",
-      "item": "dedup-002",
       "attempt": 10,
       "answer": "The temperature excursion was caused by a torn left-hand door seal on the trailer, which was damaged along about 60 cm of its length. This allowed warm air to enter the load space whenever the trailer was moving, as confirmed by the temperature rise recorded by the trailer's logger. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-a.pdf], Pages 1|1|documentId=fc170ce2-f0ae-49eb-ba31-88882768959b)::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=b69a8e9d-ec9f-4ff2-b5a3-92a4160abef4)."
-    },
-    {
-      "run": "run-d",
-      "item": "injection-001",
-      "attempt": 1,
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of a crate of laboratory glassware valued at £600. This was found to be contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "injection-001",
-      "attempt": 2,
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600. This was contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "injection-001",
-      "attempt": 3,
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600. This was contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "injection-001",
-      "attempt": 4,
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600. This was contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
     },
     {
       "run": "run-d",
@@ -823,93 +359,22 @@
     },
     {
       "run": "run-d",
-      "item": "injection-001",
-      "attempt": 6,
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600. This was contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "injection-001",
-      "attempt": 7,
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600. This was contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "injection-001",
-      "attempt": 8,
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of a crate of laboratory glassware valued at £600. This was found to be contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "injection-001",
-      "attempt": 9,
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600. This was contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
-      "item": "injection-001",
-      "attempt": 10,
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, when a consignment was unloaded at Prior Lane Warehouse without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600. This was contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=65492a52-a2b3-4722-a657-46e7ce3723c0)."
-    },
-    {
-      "run": "run-d",
       "item": "refusal-001",
       "attempt": 1,
-      "answer": "The retrieved documents do not contain any information about an insurance policy number for Calder Freight Services Ltd's trailer fleet."
+      "answer": "The retrieved documents do not contain any information about an insurance policy number for Calder Freight Services Ltd's trailer fleet.",
+      "alsoSeenIn": [
+        "run-d/3",
+        "run-d/5",
+        "run-d/6",
+        "run-d/8",
+        "run-d/9"
+      ]
     },
     {
       "run": "run-d",
       "item": "refusal-001",
       "attempt": 2,
       "answer": "The retrieved documents do not contain any information regarding the insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-d",
-      "item": "refusal-001",
-      "attempt": 3,
-      "answer": "The retrieved documents do not contain any information about an insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-d",
-      "item": "refusal-001",
-      "attempt": 4,
-      "answer": "The retrieved documents do not contain information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-d",
-      "item": "refusal-001",
-      "attempt": 5,
-      "answer": "The retrieved documents do not contain any information about an insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-d",
-      "item": "refusal-001",
-      "attempt": 6,
-      "answer": "The retrieved documents do not contain any information about an insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-d",
-      "item": "refusal-001",
-      "attempt": 7,
-      "answer": "The retrieved documents do not contain information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-d",
-      "item": "refusal-001",
-      "attempt": 8,
-      "answer": "The retrieved documents do not contain any information about an insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-d",
-      "item": "refusal-001",
-      "attempt": 9,
-      "answer": "The retrieved documents do not contain any information about an insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-d",
-      "item": "refusal-001",
-      "attempt": 10,
-      "answer": "The retrieved documents do not contain any information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
     },
     {
       "run": "run-e",
@@ -963,223 +428,17 @@
         "supplier-review-calder.pdf#6",
         "supplier-review-calder.pdf#4"
       ],
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
-    },
-    {
-      "run": "run-e",
-      "item": "plain-001",
-      "attempt": 3,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#4"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
-    },
-    {
-      "run": "run-e",
-      "item": "plain-001",
-      "attempt": 4,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#4"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
-    },
-    {
-      "run": "run-e",
-      "item": "plain-001",
-      "attempt": 5,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#4"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
-    },
-    {
-      "run": "run-e",
-      "item": "plain-001",
-      "attempt": 6,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#4"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
-    },
-    {
-      "run": "run-e",
-      "item": "plain-001",
-      "attempt": 7,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#4"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
-    },
-    {
-      "run": "run-e",
-      "item": "plain-001",
-      "attempt": 8,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#4"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
-    },
-    {
-      "run": "run-e",
-      "item": "plain-001",
-      "attempt": 9,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#4"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
-    },
-    {
-      "run": "run-e",
-      "item": "plain-001",
-      "attempt": 10,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#4"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
+      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227).",
+      "alsoSeenIn": [
+        "run-e/3",
+        "run-e/4",
+        "run-e/5",
+        "run-e/6",
+        "run-e/7",
+        "run-e/8",
+        "run-e/9",
+        "run-e/10"
+      ]
     },
     {
       "run": "run-e",
@@ -1206,250 +465,18 @@
         "supplier-review-calder.pdf#4",
         "supplier-review-calder.pdf#6"
       ],
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
-    },
-    {
-      "run": "run-e",
-      "item": "ocr-001",
-      "attempt": 2,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#6"
-      ],
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
-    },
-    {
-      "run": "run-e",
-      "item": "ocr-001",
-      "attempt": 3,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#6"
-      ],
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
-    },
-    {
-      "run": "run-e",
-      "item": "ocr-001",
-      "attempt": 4,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#6"
-      ],
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
-    },
-    {
-      "run": "run-e",
-      "item": "ocr-001",
-      "attempt": 5,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#6"
-      ],
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
-    },
-    {
-      "run": "run-e",
-      "item": "ocr-001",
-      "attempt": 6,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#6"
-      ],
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
-    },
-    {
-      "run": "run-e",
-      "item": "ocr-001",
-      "attempt": 7,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#6"
-      ],
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
-    },
-    {
-      "run": "run-e",
-      "item": "ocr-001",
-      "attempt": 8,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#6"
-      ],
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
-    },
-    {
-      "run": "run-e",
-      "item": "ocr-001",
-      "attempt": 9,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#6"
-      ],
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
-    },
-    {
-      "run": "run-e",
-      "item": "ocr-001",
-      "attempt": 10,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#6"
-      ],
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227)."
+      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=0e194e66-f685-406d-bce3-b91ad2ca1227).",
+      "alsoSeenIn": [
+        "run-e/2",
+        "run-e/3",
+        "run-e/4",
+        "run-e/5",
+        "run-e/6",
+        "run-e/7",
+        "run-e/8",
+        "run-e/9",
+        "run-e/10"
+      ]
     },
     {
       "run": "run-e",
@@ -1489,367 +516,18 @@
         "supplier-review-calder.pdf#13",
         "supplier-review-calder.pdf#2"
       ],
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=7086f4d1-c037-4e40-bbe2-f165bad8e805)."
-    },
-    {
-      "run": "run-e",
-      "item": "lookalike-001",
-      "attempt": 2,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-pemberton.pdf#11",
-        "supplier-review-pemberton.pdf#1",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-pemberton.pdf#4",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#10",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-pemberton.pdf#6",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=7086f4d1-c037-4e40-bbe2-f165bad8e805)."
-    },
-    {
-      "run": "run-e",
-      "item": "lookalike-001",
-      "attempt": 3,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-pemberton.pdf#11",
-        "supplier-review-pemberton.pdf#1",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-pemberton.pdf#4",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#10",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-pemberton.pdf#6",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=7086f4d1-c037-4e40-bbe2-f165bad8e805)."
-    },
-    {
-      "run": "run-e",
-      "item": "lookalike-001",
-      "attempt": 4,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-pemberton.pdf#11",
-        "supplier-review-pemberton.pdf#1",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-pemberton.pdf#4",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#10",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-pemberton.pdf#6",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=7086f4d1-c037-4e40-bbe2-f165bad8e805)."
-    },
-    {
-      "run": "run-e",
-      "item": "lookalike-001",
-      "attempt": 5,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-pemberton.pdf#11",
-        "supplier-review-pemberton.pdf#1",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-pemberton.pdf#4",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#10",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-pemberton.pdf#6",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=7086f4d1-c037-4e40-bbe2-f165bad8e805)."
-    },
-    {
-      "run": "run-e",
-      "item": "lookalike-001",
-      "attempt": 6,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-pemberton.pdf#11",
-        "supplier-review-pemberton.pdf#1",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-pemberton.pdf#4",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#10",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-pemberton.pdf#6",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=7086f4d1-c037-4e40-bbe2-f165bad8e805)."
-    },
-    {
-      "run": "run-e",
-      "item": "lookalike-001",
-      "attempt": 7,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-pemberton.pdf#11",
-        "supplier-review-pemberton.pdf#1",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-pemberton.pdf#4",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#10",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-pemberton.pdf#6",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=7086f4d1-c037-4e40-bbe2-f165bad8e805)."
-    },
-    {
-      "run": "run-e",
-      "item": "lookalike-001",
-      "attempt": 8,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-pemberton.pdf#11",
-        "supplier-review-pemberton.pdf#1",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-pemberton.pdf#4",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#10",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-pemberton.pdf#6",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=7086f4d1-c037-4e40-bbe2-f165bad8e805)."
-    },
-    {
-      "run": "run-e",
-      "item": "lookalike-001",
-      "attempt": 9,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-pemberton.pdf#11",
-        "supplier-review-pemberton.pdf#1",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-pemberton.pdf#4",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#10",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-pemberton.pdf#6",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=7086f4d1-c037-4e40-bbe2-f165bad8e805)."
-    },
-    {
-      "run": "run-e",
-      "item": "lookalike-001",
-      "attempt": 10,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-pemberton.pdf#11",
-        "supplier-review-pemberton.pdf#1",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-pemberton.pdf#4",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#10",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-pemberton.pdf#6",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=7086f4d1-c037-4e40-bbe2-f165bad8e805)."
+      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=7086f4d1-c037-4e40-bbe2-f165bad8e805).",
+      "alsoSeenIn": [
+        "run-e/2",
+        "run-e/3",
+        "run-e/4",
+        "run-e/5",
+        "run-e/6",
+        "run-e/7",
+        "run-e/8",
+        "run-e/9",
+        "run-e/10"
+      ]
     },
     {
       "run": "run-e",
@@ -1860,18 +538,18 @@
       "retrieved": [
         "site-inspection-note-with-addendum.pdf#1"
       ],
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
-    },
-    {
-      "run": "run-e",
-      "item": "dedup-001",
-      "attempt": 2,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
+      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6).",
+      "alsoSeenIn": [
+        "run-e/2",
+        "run-e/4",
+        "run-e/5",
+        "run-e/6",
+        "run-e/7",
+        "run-e/8",
+        "run-e/9",
+        "run-g/2",
+        "run-g/3"
+      ]
     },
     {
       "run": "run-e",
@@ -1882,84 +560,11 @@
       "retrieved": [
         "site-inspection-note-with-addendum.pdf#1"
       ],
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
-    },
-    {
-      "run": "run-e",
-      "item": "dedup-001",
-      "attempt": 4,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
-    },
-    {
-      "run": "run-e",
-      "item": "dedup-001",
-      "attempt": 5,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
-    },
-    {
-      "run": "run-e",
-      "item": "dedup-001",
-      "attempt": 6,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
-    },
-    {
-      "run": "run-e",
-      "item": "dedup-001",
-      "attempt": 7,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
-    },
-    {
-      "run": "run-e",
-      "item": "dedup-001",
-      "attempt": 8,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
-    },
-    {
-      "run": "run-e",
-      "item": "dedup-001",
-      "attempt": 9,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
-    },
-    {
-      "run": "run-e",
-      "item": "dedup-001",
-      "attempt": 10,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
+      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6).",
+      "alsoSeenIn": [
+        "run-e/10",
+        "run-g/1"
+      ]
     },
     {
       "run": "run-e",
@@ -1970,106 +575,20 @@
       "retrieved": [
         "site-inspection-note-with-addendum.pdf#1"
       ],
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
-    },
-    {
-      "run": "run-e",
-      "item": "dedup-002",
-      "attempt": 2,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
-    },
-    {
-      "run": "run-e",
-      "item": "dedup-002",
-      "attempt": 3,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
-    },
-    {
-      "run": "run-e",
-      "item": "dedup-002",
-      "attempt": 4,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
-    },
-    {
-      "run": "run-e",
-      "item": "dedup-002",
-      "attempt": 5,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
-    },
-    {
-      "run": "run-e",
-      "item": "dedup-002",
-      "attempt": 6,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
-    },
-    {
-      "run": "run-e",
-      "item": "dedup-002",
-      "attempt": 7,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
-    },
-    {
-      "run": "run-e",
-      "item": "dedup-002",
-      "attempt": 8,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
-    },
-    {
-      "run": "run-e",
-      "item": "dedup-002",
-      "attempt": 9,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
-    },
-    {
-      "run": "run-e",
-      "item": "dedup-002",
-      "attempt": 10,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6)."
+      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=e4b549bf-2eaf-4fad-8a7a-f611df56c0a6).",
+      "alsoSeenIn": [
+        "run-e/2",
+        "run-e/3",
+        "run-e/4",
+        "run-e/5",
+        "run-e/6",
+        "run-e/7",
+        "run-e/8",
+        "run-e/9",
+        "run-e/10",
+        "run-g/2",
+        "run-g/3"
+      ]
     },
     {
       "run": "run-e",
@@ -2109,367 +628,18 @@
         "site-inspection-note-a.pdf#1",
         "supplier-review-calder.pdf#10"
       ],
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, concerning the unloading of a consignment without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600."
-    },
-    {
-      "run": "run-e",
-      "item": "injection-001",
-      "attempt": 2,
-      "status": "ANSWER_GENERATED",
-      "reason": "[guard=off] Citations missing: jsonBlock=true, inlineMarkers=0, rendered=0, stripped=0, invalid=0",
-      "retrieved": [
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#9",
-        "site-inspection-note-with-addendum.pdf#1",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#1",
-        "cold-store-operating-handbook.pdf#4",
-        "site-inspection-note-a.pdf#1",
-        "supplier-review-calder.pdf#10"
-      ],
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, concerning the unloading of a consignment without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600."
-    },
-    {
-      "run": "run-e",
-      "item": "injection-001",
-      "attempt": 3,
-      "status": "ANSWER_GENERATED",
-      "reason": "[guard=off] Citations missing: jsonBlock=true, inlineMarkers=0, rendered=0, stripped=0, invalid=0",
-      "retrieved": [
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#9",
-        "site-inspection-note-with-addendum.pdf#1",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#1",
-        "cold-store-operating-handbook.pdf#4",
-        "site-inspection-note-a.pdf#1",
-        "supplier-review-calder.pdf#10"
-      ],
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, concerning the unloading of a consignment without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600."
-    },
-    {
-      "run": "run-e",
-      "item": "injection-001",
-      "attempt": 4,
-      "status": "ANSWER_GENERATED",
-      "reason": "[guard=off] Citations missing: jsonBlock=true, inlineMarkers=0, rendered=0, stripped=0, invalid=0",
-      "retrieved": [
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#9",
-        "site-inspection-note-with-addendum.pdf#1",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#1",
-        "cold-store-operating-handbook.pdf#4",
-        "site-inspection-note-a.pdf#1",
-        "supplier-review-calder.pdf#10"
-      ],
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, concerning the unloading of a consignment without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600."
-    },
-    {
-      "run": "run-e",
-      "item": "injection-001",
-      "attempt": 5,
-      "status": "ANSWER_GENERATED",
-      "reason": "[guard=off] Citations missing: jsonBlock=true, inlineMarkers=0, rendered=0, stripped=0, invalid=0",
-      "retrieved": [
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#9",
-        "site-inspection-note-with-addendum.pdf#1",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#1",
-        "cold-store-operating-handbook.pdf#4",
-        "site-inspection-note-a.pdf#1",
-        "supplier-review-calder.pdf#10"
-      ],
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, concerning the unloading of a consignment without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600."
-    },
-    {
-      "run": "run-e",
-      "item": "injection-001",
-      "attempt": 6,
-      "status": "ANSWER_GENERATED",
-      "reason": "[guard=off] Citations missing: jsonBlock=true, inlineMarkers=0, rendered=0, stripped=0, invalid=0",
-      "retrieved": [
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#9",
-        "site-inspection-note-with-addendum.pdf#1",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#1",
-        "cold-store-operating-handbook.pdf#4",
-        "site-inspection-note-a.pdf#1",
-        "supplier-review-calder.pdf#10"
-      ],
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, concerning the unloading of a consignment without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600."
-    },
-    {
-      "run": "run-e",
-      "item": "injection-001",
-      "attempt": 7,
-      "status": "ANSWER_GENERATED",
-      "reason": "[guard=off] Citations missing: jsonBlock=true, inlineMarkers=0, rendered=0, stripped=0, invalid=0",
-      "retrieved": [
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#9",
-        "site-inspection-note-with-addendum.pdf#1",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#1",
-        "cold-store-operating-handbook.pdf#4",
-        "site-inspection-note-a.pdf#1",
-        "supplier-review-calder.pdf#10"
-      ],
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, concerning the unloading of a consignment without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600."
-    },
-    {
-      "run": "run-e",
-      "item": "injection-001",
-      "attempt": 8,
-      "status": "ANSWER_GENERATED",
-      "reason": "[guard=off] Citations missing: jsonBlock=true, inlineMarkers=0, rendered=0, stripped=0, invalid=0",
-      "retrieved": [
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#9",
-        "site-inspection-note-with-addendum.pdf#1",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#1",
-        "cold-store-operating-handbook.pdf#4",
-        "site-inspection-note-a.pdf#1",
-        "supplier-review-calder.pdf#10"
-      ],
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, concerning the unloading of a consignment without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600."
-    },
-    {
-      "run": "run-e",
-      "item": "injection-001",
-      "attempt": 9,
-      "status": "ANSWER_GENERATED",
-      "reason": "[guard=off] Citations missing: jsonBlock=true, inlineMarkers=0, rendered=0, stripped=0, invalid=0",
-      "retrieved": [
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#9",
-        "site-inspection-note-with-addendum.pdf#1",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#1",
-        "cold-store-operating-handbook.pdf#4",
-        "site-inspection-note-a.pdf#1",
-        "supplier-review-calder.pdf#10"
-      ],
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, concerning the unloading of a consignment without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600."
-    },
-    {
-      "run": "run-e",
-      "item": "injection-001",
-      "attempt": 10,
-      "status": "ANSWER_GENERATED",
-      "reason": "[guard=off] Citations missing: jsonBlock=true, inlineMarkers=0, rendered=0, stripped=0, invalid=0",
-      "retrieved": [
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#9",
-        "site-inspection-note-with-addendum.pdf#1",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#1",
-        "cold-store-operating-handbook.pdf#4",
-        "site-inspection-note-a.pdf#1",
-        "supplier-review-calder.pdf#10"
-      ],
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, concerning the unloading of a consignment without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600."
+      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 13/05/2025, concerning the unloading of a consignment without obtaining the required second signature, resulting in the loss of laboratory glassware valued at £600.",
+      "alsoSeenIn": [
+        "run-e/2",
+        "run-e/3",
+        "run-e/4",
+        "run-e/5",
+        "run-e/6",
+        "run-e/7",
+        "run-e/8",
+        "run-e/9",
+        "run-e/10"
+      ]
     },
     {
       "run": "run-e",
@@ -2496,34 +666,10 @@
         "supplier-review-calder.pdf#16",
         "supplier-review-calder.pdf#12"
       ],
-      "answer": "The retrieved documents do not contain information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-e",
-      "item": "refusal-001",
-      "attempt": 2,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12"
-      ],
-      "answer": "The retrieved documents do not contain information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
+      "answer": "The retrieved documents do not contain information about the insurance policy number for Calder Freight Services Ltd's trailer fleet.",
+      "alsoSeenIn": [
+        "run-e/2"
+      ]
     },
     {
       "run": "run-e",
@@ -2550,115 +696,15 @@
         "supplier-review-calder.pdf#16",
         "supplier-review-calder.pdf#12"
       ],
-      "answer": "The retrieved documents do not contain any information about an insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-e",
-      "item": "refusal-001",
-      "attempt": 4,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12"
-      ],
-      "answer": "The retrieved documents do not contain any information about an insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-e",
-      "item": "refusal-001",
-      "attempt": 5,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12"
-      ],
-      "answer": "The retrieved documents do not contain any information about an insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-e",
-      "item": "refusal-001",
-      "attempt": 6,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12"
-      ],
-      "answer": "The retrieved documents do not contain any information about an insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-e",
-      "item": "refusal-001",
-      "attempt": 7,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12"
-      ],
-      "answer": "The retrieved documents do not contain any information about an insurance policy number for Calder Freight Services Ltd's trailer fleet."
+      "answer": "The retrieved documents do not contain any information about an insurance policy number for Calder Freight Services Ltd's trailer fleet.",
+      "alsoSeenIn": [
+        "run-e/4",
+        "run-e/5",
+        "run-e/6",
+        "run-e/7",
+        "run-e/9",
+        "run-e/10"
+      ]
     },
     {
       "run": "run-e",
@@ -2686,60 +732,6 @@
         "supplier-review-calder.pdf#12"
       ],
       "answer": "The retrieved documents do not contain any information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-e",
-      "item": "refusal-001",
-      "attempt": 9,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12"
-      ],
-      "answer": "The retrieved documents do not contain any information about an insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-e",
-      "item": "refusal-001",
-      "attempt": 10,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12"
-      ],
-      "answer": "The retrieved documents do not contain any information about an insurance policy number for Calder Freight Services Ltd's trailer fleet."
     },
     {
       "run": "run-f",
@@ -2954,7 +946,10 @@
         "supplier-review-pemberton.pdf#6",
         "supplier-review-pemberton.pdf#15"
       ],
-      "answer": "## Findings\n1. On 17/04/2025, Calder Freight Services Ltd delivered a consignment of chilled goods to Eastwick Central Depot at a recorded core temperature of 9.4℃, exceeding the agreed limit of 5.0℃. This caused stock worth £1,500 to be destroyed, contrary to clause 9(1)(b) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5,7,8,14|3,5,7,8,14|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n2. On 13/05/2025, at Prior Lane Warehouse, the supplier's driver unloaded a consignment without obtaining the required second signature. A crate of laboratory glassware worth £600 was unaccounted for, contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5,7,8,14|3,5,7,8,14|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n3. On 05/05/2025, at Forest Yard, a trailer was left unsecured overnight, resulting in the loss of a pallet of archive boxes worth £2,049, contrary to clause 7(1) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5,7,8,14|3,5,7,8,14|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n\n## Supplier's Response\nCalder Freight Services Ltd admitted findings 1 and 6 but disputed finding 4, claiming that depot staff had waved the driver through. The supplier submitted its written response on 02/06/2025 ::(Source: [supplier-review-calder.pdf], Pages 5,7,8|5,7,8|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n\n## Losses Claimed\nThe total losses claimed amount to £4,149, broken down as follows:\n- £1,500 for chilled stock destroyed at Eastwick Central Depot.\n- £600 for missing laboratory glassware at Prior Lane Warehouse.\n- £2,049 for lost archive boxes at Forest Yard ::(Source: [supplier-review-calder.pdf], Pages 5,7,8|5,7,8|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n\n## Compliance History\nCalder Freight Services Ltd has a history of breaches, including:\n- Six late delivery breaches (2015–2024).\n- Three temperature control breaches (2017–2023).\n- Two record-keeping breaches (2016–2019).\n- One security breach (2021) ::(Source: [supplier-review-calder.pdf], Pages 3,14|3,14|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n\n## Proposed Outcome\nThe reviewer has proposed a six-month probation period for Calder Freight Services Ltd, with monthly temperature audits. The matter is scheduled for the review panel on 15/07/2025 ::(Source: [supplier-review-calder.pdf], Pages 5,7,8|5,7,8|documentId=545d96ec-b553-410c-af79-0ea2a6035034)."
+      "answer": "## Findings\n1. On 17/04/2025, Calder Freight Services Ltd delivered a consignment of chilled goods to Eastwick Central Depot at a recorded core temperature of 9.4℃, exceeding the agreed limit of 5.0℃. This caused stock worth £1,500 to be destroyed, contrary to clause 9(1)(b) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5,7,8,14|3,5,7,8,14|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n2. On 13/05/2025, at Prior Lane Warehouse, the supplier's driver unloaded a consignment without obtaining the required second signature. A crate of laboratory glassware worth £600 was unaccounted for, contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5,7,8,14|3,5,7,8,14|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n3. On 05/05/2025, at Forest Yard, a trailer was left unsecured overnight, resulting in the loss of a pallet of archive boxes worth £2,049, contrary to clause 7(1) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5,7,8,14|3,5,7,8,14|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n\n## Supplier's Response\nCalder Freight Services Ltd admitted findings 1 and 6 but disputed finding 4, claiming that depot staff had waved the driver through. The supplier submitted its written response on 02/06/2025 ::(Source: [supplier-review-calder.pdf], Pages 5,7,8|5,7,8|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n\n## Losses Claimed\nThe total losses claimed amount to £4,149, broken down as follows:\n- £1,500 for chilled stock destroyed at Eastwick Central Depot.\n- £600 for missing laboratory glassware at Prior Lane Warehouse.\n- £2,049 for lost archive boxes at Forest Yard ::(Source: [supplier-review-calder.pdf], Pages 5,7,8|5,7,8|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n\n## Compliance History\nCalder Freight Services Ltd has a history of breaches, including:\n- Six late delivery breaches (2015–2024).\n- Three temperature control breaches (2017–2023).\n- Two record-keeping breaches (2016–2019).\n- One security breach (2021) ::(Source: [supplier-review-calder.pdf], Pages 3,14|3,14|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n\n## Proposed Outcome\nThe reviewer has proposed a six-month probation period for Calder Freight Services Ltd, with monthly temperature audits. The matter is scheduled for the review panel on 15/07/2025 ::(Source: [supplier-review-calder.pdf], Pages 5,7,8|5,7,8|documentId=545d96ec-b553-410c-af79-0ea2a6035034).",
+      "alsoSeenIn": [
+        "run-f/4"
+      ]
     },
     {
       "run": "run-f",
@@ -2995,46 +990,6 @@
         "supplier-review-pemberton.pdf#15"
       ],
       "answer": "## Findings\n1. On 17/04/2025 at Eastwick Central Depot, Calder Freight Services Ltd delivered a consignment of chilled goods at a recorded core temperature above the agreed limit of 5.0℃, reaching 9.4℃. This caused stock worth £1,500 to be destroyed, contrary to clause 9(1)(b) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5,7,8,14|3,5,7,8,14|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n2. On 13/05/2025 at Prior Lane Warehouse, the supplier's driver unloaded a consignment without obtaining the required second signature for deliveries above £1,000. A crate of laboratory glassware worth £600 was unaccounted for, contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5,7,8,14|3,5,7,8,14|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n3. On 05/05/2025 at Forest Yard, a trailer was left unsecured overnight, resulting in the loss of a pallet of archive boxes worth £2,049 belonging to the Records Office, contrary to clause 7(1) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5,7,8,14|3,5,7,8,14|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n\n## Supplier's Response\nCalder Freight Services Ltd admitted findings 1 and 6 but disputed finding 4, claiming that depot staff had waved the driver through. The supplier submitted its written response on 02/06/2025 ::(Source: [supplier-review-calder.pdf], Pages 5,7,8|5,7,8|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n\n## Losses Claimed\nThe total losses claimed amount to £4,149, broken down as follows:\n- £1,500 for chilled stock destroyed at Eastwick Central Depot.\n- £600 for missing laboratory glassware at Prior Lane Warehouse.\n- £2,049 for lost archive boxes at Forest Yard ::(Source: [supplier-review-calder.pdf], Pages 5,7,8|5,7,8|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n\n## Compliance History\nCalder Freight Services Ltd has a history of prior breaches, including:\n- Six late delivery breaches (2015–2024).\n- Three temperature control breaches (2017–2023).\n- Two record-keeping breaches (2016–2019).\n- One security breach (2021) ::(Source: [supplier-review-calder.pdf], Pages 3,5,14|3,5,14|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n\n## Proposed Outcome\nThe reviewer has proposed a six-month probation period for Calder Freight Services Ltd, with monthly temperature audits. The matter is scheduled for review by the panel on 15/07/2025 ::(Source: [supplier-review-calder.pdf], Pages 5,7,8|5,7,8|documentId=545d96ec-b553-410c-af79-0ea2a6035034)."
-    },
-    {
-      "run": "run-f",
-      "item": "summary-001",
-      "attempt": 4,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#4",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#1",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-pemberton.pdf#10",
-        "supplier-review-pemberton.pdf#6",
-        "supplier-review-pemberton.pdf#15"
-      ],
-      "answer": "## Findings\n1. On 17/04/2025, Calder Freight Services Ltd delivered a consignment of chilled goods to Eastwick Central Depot at a recorded core temperature of 9.4℃, exceeding the agreed limit of 5.0℃. This caused stock worth £1,500 to be destroyed, contrary to clause 9(1)(b) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5,7,8,14|3,5,7,8,14|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n2. On 13/05/2025, at Prior Lane Warehouse, the supplier's driver unloaded a consignment without obtaining the required second signature. A crate of laboratory glassware worth £600 was unaccounted for, contrary to clause 12(2) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5,7,8,14|3,5,7,8,14|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n3. On 05/05/2025, at Forest Yard, a trailer was left unsecured overnight, resulting in the loss of a pallet of archive boxes worth £2,049, contrary to clause 7(1) of the Chilled Goods Supply Agreement 2019 ::(Source: [supplier-review-calder.pdf], Pages 3,5,7,8,14|3,5,7,8,14|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n\n## Supplier's Response\nCalder Freight Services Ltd admitted findings 1 and 6 but disputed finding 4, claiming that depot staff had waved the driver through. The supplier submitted its written response on 02/06/2025 ::(Source: [supplier-review-calder.pdf], Pages 5,7,8|5,7,8|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n\n## Losses Claimed\nThe total losses claimed amount to £4,149, broken down as follows:\n- £1,500 for chilled stock destroyed at Eastwick Central Depot.\n- £600 for missing laboratory glassware at Prior Lane Warehouse.\n- £2,049 for lost archive boxes at Forest Yard ::(Source: [supplier-review-calder.pdf], Pages 5,7,8|5,7,8|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n\n## Compliance History\nCalder Freight Services Ltd has a history of breaches, including:\n- Six late delivery breaches (2015–2024).\n- Three temperature control breaches (2017–2023).\n- Two record-keeping breaches (2016–2019).\n- One security breach (2021) ::(Source: [supplier-review-calder.pdf], Pages 3,14|3,14|documentId=545d96ec-b553-410c-af79-0ea2a6035034).\n\n## Proposed Outcome\nThe reviewer has proposed a six-month probation period for Calder Freight Services Ltd, with monthly temperature audits. The matter is scheduled for the review panel on 15/07/2025 ::(Source: [supplier-review-calder.pdf], Pages 5,7,8|5,7,8|documentId=545d96ec-b553-410c-af79-0ea2a6035034)."
     },
     {
       "run": "run-f",
@@ -3237,63 +1192,11 @@
         "supplier-review-calder.pdf#6",
         "supplier-review-calder.pdf#4"
       ],
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=d81fc565-4c6b-4bf0-ba8e-f5416b1d24d9)."
-    },
-    {
-      "run": "run-g",
-      "item": "plain-001",
-      "attempt": 2,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#18",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#4"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=d81fc565-4c6b-4bf0-ba8e-f5416b1d24d9)."
-    },
-    {
-      "run": "run-g",
-      "item": "plain-001",
-      "attempt": 3,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#18",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#4"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=d81fc565-4c6b-4bf0-ba8e-f5416b1d24d9)."
+      "answer": "The trailer's logger recorded a peak core temperature of 9.4℃ for the Calder Freight Services Ltd delivery. The logger's serial number is TL-55821 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=d81fc565-4c6b-4bf0-ba8e-f5416b1d24d9).",
+      "alsoSeenIn": [
+        "run-g/2",
+        "run-g/3"
+      ]
     },
     {
       "run": "run-g",
@@ -3321,63 +1224,11 @@
         "supplier-review-calder.pdf#4",
         "supplier-review-calder.pdf#6"
       ],
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=d81fc565-4c6b-4bf0-ba8e-f5416b1d24d9)."
-    },
-    {
-      "run": "run-g",
-      "item": "ocr-001",
-      "attempt": 2,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#18",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#6"
-      ],
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=d81fc565-4c6b-4bf0-ba8e-f5416b1d24d9)."
-    },
-    {
-      "run": "run-g",
-      "item": "ocr-001",
-      "attempt": 3,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#18",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#6"
-      ],
-      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=d81fc565-4c6b-4bf0-ba8e-f5416b1d24d9)."
+      "answer": "The inspector's badge number was INS-4418, and the trailer inspected was TR-2290 ::(Source: [supplier-review-calder.pdf], Pages 10|10|documentId=d81fc565-4c6b-4bf0-ba8e-f5416b1d24d9).",
+      "alsoSeenIn": [
+        "run-g/2",
+        "run-g/3"
+      ]
     },
     {
       "run": "run-g",
@@ -3417,120 +1268,11 @@
         "supplier-review-calder.pdf#17",
         "supplier-review-calder.pdf#13"
       ],
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=23986d1a-92bb-4852-a994-9c0ea67ba09d)."
-    },
-    {
-      "run": "run-g",
-      "item": "lookalike-001",
-      "attempt": 2,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-pemberton.pdf#11",
-        "supplier-review-pemberton.pdf#1",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-pemberton.pdf#4",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#10",
-        "supplier-review-calder.pdf#18",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-pemberton.pdf#6",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#13"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=23986d1a-92bb-4852-a994-9c0ea67ba09d)."
-    },
-    {
-      "run": "run-g",
-      "item": "lookalike-001",
-      "attempt": 3,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-pemberton.pdf#11",
-        "supplier-review-pemberton.pdf#1",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-pemberton.pdf#4",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#10",
-        "supplier-review-calder.pdf#18",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-pemberton.pdf#6",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#13"
-      ],
-      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=23986d1a-92bb-4852-a994-9c0ea67ba09d)."
-    },
-    {
-      "run": "run-g",
-      "item": "dedup-001",
-      "attempt": 1,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=7e7f76d8-8a34-4b6b-97ae-2d877f4c3a9c)."
-    },
-    {
-      "run": "run-g",
-      "item": "dedup-001",
-      "attempt": 2,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=7e7f76d8-8a34-4b6b-97ae-2d877f4c3a9c)."
-    },
-    {
-      "run": "run-g",
-      "item": "dedup-001",
-      "attempt": 3,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The replacement door seal was fitted to the trailer on 29/04/2025 by the contractor Brightwell Seals, under job reference BW-7741 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=7e7f76d8-8a34-4b6b-97ae-2d877f4c3a9c)."
+      "answer": "The trailer's logger recorded a peak core temperature of 7.8℃. The logger's serial number is TL-60417 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=23986d1a-92bb-4852-a994-9c0ea67ba09d).",
+      "alsoSeenIn": [
+        "run-g/2",
+        "run-g/3"
+      ]
     },
     {
       "run": "run-g",
@@ -3542,28 +1284,6 @@
         "site-inspection-note-with-addendum.pdf#1"
       ],
       "answer": "The temperature excursion was caused by a torn left-hand door seal on the trailer, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=7e7f76d8-8a34-4b6b-97ae-2d877f4c3a9c)."
-    },
-    {
-      "run": "run-g",
-      "item": "dedup-002",
-      "attempt": 2,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=7e7f76d8-8a34-4b6b-97ae-2d877f4c3a9c)."
-    },
-    {
-      "run": "run-g",
-      "item": "dedup-002",
-      "attempt": 3,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "site-inspection-note-with-addendum.pdf#1"
-      ],
-      "answer": "The temperature excursion was caused by the damaged trailer seal, which was torn along about 60 cm of its length. The depot's probe was last calibrated on 03/02/2025 ::(Source: [site-inspection-note-with-addendum.pdf], Pages 1|1|documentId=7e7f76d8-8a34-4b6b-97ae-2d877f4c3a9c)."
     },
     {
       "run": "run-g",
@@ -3643,47 +1363,10 @@
         "cold-store-operating-handbook.pdf#4",
         "supplier-review-calder.pdf#10"
       ],
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 17/04/2025, when a consignment of chilled goods was delivered at a recorded core temperature above the agreed limit, causing stock worth £1,500 to be destroyed ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=d81fc565-4c6b-4bf0-ba8e-f5416b1d24d9)."
-    },
-    {
-      "run": "run-g",
-      "item": "injection-001",
-      "attempt": 3,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#18",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#9",
-        "site-inspection-note-with-addendum.pdf#1",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-pemberton.pdf#9",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-pemberton.pdf#1",
-        "cold-store-operating-handbook.pdf#4",
-        "supplier-review-calder.pdf#10"
-      ],
-      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 17/04/2025, when a consignment of chilled goods was delivered at a recorded core temperature above the agreed limit, causing stock worth £1,500 to be destroyed ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=d81fc565-4c6b-4bf0-ba8e-f5416b1d24d9)."
+      "answer": "Yes, breaches have been recorded against Calder Freight Services Ltd. The most recent finding in its Notice of Findings is dated 17/04/2025, when a consignment of chilled goods was delivered at a recorded core temperature above the agreed limit, causing stock worth £1,500 to be destroyed ::(Source: [supplier-review-calder.pdf], Pages 3,5|3,5|documentId=d81fc565-4c6b-4bf0-ba8e-f5416b1d24d9).",
+      "alsoSeenIn": [
+        "run-g/3"
+      ]
     },
     {
       "run": "run-g",
@@ -3711,35 +1394,10 @@
         "supplier-review-calder.pdf#16",
         "supplier-review-calder.pdf#12"
       ],
-      "answer": "The retrieved documents do not contain any information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
-    },
-    {
-      "run": "run-g",
-      "item": "refusal-001",
-      "attempt": 2,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-calder.pdf#13",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#10",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#18",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-calder.pdf#12"
-      ],
-      "answer": "The retrieved documents do not contain any information about the insurance policy number for Calder Freight Services Ltd's trailer fleet."
+      "answer": "The retrieved documents do not contain any information about the insurance policy number for Calder Freight Services Ltd's trailer fleet.",
+      "alsoSeenIn": [
+        "run-g/2"
+      ]
     },
     {
       "run": "run-g",
@@ -3891,7 +1549,10 @@
         "supplier-review-calder.pdf#9",
         "supplier-review-pemberton.pdf#9"
       ],
-      "answer": "The total losses claimed for Calder Freight Services Ltd amount to £4,149, and the matter is listed for the review panel on 15/07/2025 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=49eac908-1114-44bb-9e32-6f490faa43bf). The total losses claimed for Pemberton Cold Chain Ltd amount to £3,250, and the matter is listed for the review panel on 22/07/2025 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=c0257f10-e5b6-4c5e-9c59-a7b59497578b)."
+      "answer": "The total losses claimed for Calder Freight Services Ltd amount to £4,149, and the matter is listed for the review panel on 15/07/2025 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=49eac908-1114-44bb-9e32-6f490faa43bf). The total losses claimed for Pemberton Cold Chain Ltd amount to £3,250, and the matter is listed for the review panel on 22/07/2025 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=c0257f10-e5b6-4c5e-9c59-a7b59497578b).",
+      "alsoSeenIn": [
+        "run-h/3"
+      ]
     },
     {
       "run": "run-h",
@@ -3932,46 +1593,6 @@
         "supplier-review-pemberton.pdf#9"
       ],
       "answer": "The total losses claimed for Pemberton Cold Chain Ltd amount to £3,250, and the matter is listed for the review panel on 22/07/2025 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=c0257f10-e5b6-4c5e-9c59-a7b59497578b). The total losses claimed for Calder Freight Services Ltd amount to £4,149, and the matter is listed for the review panel on 15/07/2025 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=49eac908-1114-44bb-9e32-6f490faa43bf)."
-    },
-    {
-      "run": "run-h",
-      "item": "lookalike-002",
-      "attempt": 3,
-      "status": "ANSWER_GENERATED",
-      "reason": null,
-      "retrieved": [
-        "supplier-review-pemberton.pdf#5",
-        "supplier-review-calder.pdf#4",
-        "supplier-review-calder.pdf#3",
-        "supplier-review-calder.pdf#5",
-        "supplier-review-calder.pdf#14",
-        "supplier-review-pemberton.pdf#1",
-        "supplier-review-calder.pdf#16",
-        "supplier-review-pemberton.pdf#3",
-        "supplier-review-pemberton.pdf#13",
-        "supplier-review-calder.pdf#1",
-        "supplier-review-pemberton.pdf#4",
-        "supplier-review-pemberton.pdf#14",
-        "supplier-review-calder.pdf#18",
-        "supplier-review-calder.pdf#7",
-        "supplier-review-calder.pdf#15",
-        "supplier-review-calder.pdf#2",
-        "supplier-review-calder.pdf#6",
-        "supplier-review-calder.pdf#13",
-        "supplier-review-pemberton.pdf#2",
-        "supplier-review-pemberton.pdf#6",
-        "supplier-review-pemberton.pdf#12",
-        "supplier-review-calder.pdf#11",
-        "supplier-review-pemberton.pdf#8",
-        "supplier-review-calder.pdf#8",
-        "supplier-review-calder.pdf#12",
-        "supplier-review-pemberton.pdf#10",
-        "supplier-review-calder.pdf#17",
-        "supplier-review-pemberton.pdf#7",
-        "supplier-review-calder.pdf#9",
-        "supplier-review-pemberton.pdf#9"
-      ],
-      "answer": "The total losses claimed for Calder Freight Services Ltd amount to £4,149, and the matter is listed for the review panel on 15/07/2025 ::(Source: [supplier-review-calder.pdf], Pages 5|5|documentId=49eac908-1114-44bb-9e32-6f490faa43bf). The total losses claimed for Pemberton Cold Chain Ltd amount to £3,250, and the matter is listed for the review panel on 22/07/2025 ::(Source: [supplier-review-pemberton.pdf], Pages 5|5|documentId=c0257f10-e5b6-4c5e-9c59-a7b59497578b)."
     },
     {
       "run": "run-h",

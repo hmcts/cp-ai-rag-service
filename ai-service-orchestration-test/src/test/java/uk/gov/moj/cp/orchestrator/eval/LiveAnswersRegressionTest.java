@@ -25,7 +25,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Rescores every answer the live service gave in the saved eval runs ({@code live-answers.json})
+ * Rescores every distinct answer the live service gave in the saved eval runs ({@code live-answers.json})
  * and compares each gate outcome, with no known issues applied, with the committed verdict in
  * {@code live-answers-expected.json}. A scorer or dataset change that alters any verdict fails
  * here with the full list of changes, so each one can be reviewed against the real answer.
