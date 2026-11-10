@@ -27,12 +27,15 @@ final class AnswerText {
 
     /**
      * With chunks retrieved the model refuses in its own words, not with the sentinel (dry run,
-     * 2026-10-27). An answer whose opening sentence uses one of these phrases says the information is missing.
+     * 2026-10-27): a negation followed within a few words by a word saying the information is missing
+     * ("do not contain", "don't mention", "was not found", "no reference to", "unable to find").
      */
-    private static final List<String> REFUSAL_PHRASES = List.of("no information", "does not contain", "do not contain",
-            "not contain any", "not available", "unable to find", "could not find", "cannot find", "not mentioned",
-            "not provided", "no details", "not specified", "no mention", "not include", "do not state", "does not state",
-            "do not specify", "does not specify", "no record of");
+    private static final Pattern REFUSAL = Pattern.compile(
+            "(?:\\bno|\\bnot|n['\u2019]t|\\bcannot|\\bunable to|\\bnothing|\\bnone)(?: [\\w'\u2019-]+){0,4}? "
+                    + "(?:contain|mention|stat|specif|provid|includ|find|found|available|record of|reference|information|detail"
+                    + "|appear|list|show|give|indicat|say|said|disclos|identif)");
+    /** How many sentences, after any heading lines, may come before the refusal (a lead-in such as "I checked the documents."). */
+    private static final int REFUSAL_SENTENCES = 2;
     /** The space after a sentence or clause ending in {@code .}, {@code !}, {@code ?} or {@code ;}, in normalised text. */
     private static final Pattern SENTENCE_BREAK = Pattern.compile("(?<=[.!?;]) ");
 
@@ -78,14 +81,24 @@ final class AnswerText {
     }
 
     /**
-     * The opening sentence says the information is not there. Citations do not decide it: a refusal may
-     * cite what it looked at, and a correct answer may be uncited. The scorer also requires that no
-     * expected fact is stated, so an answer that gives the facts and then says one detail is missing is
-     * not a refusal.
+     * One of the first two sentences after any heading lines says the information is not there.
+     * Citations do not decide it: a refusal may cite what it looked at, and a correct answer may be
+     * uncited. The scorer also requires that no expected fact is stated, so an answer that gives the
+     * facts and then says one detail is missing is not a refusal; an invented answer on a should-refuse
+     * item is caught by the item's forbidden patterns, not here.
      */
     boolean opensWithRefusal() {
-        final List<String> segments = segments();
-        return !segments.isEmpty() && REFUSAL_PHRASES.stream().anyMatch(segments.get(0)::contains);
+        return Arrays.stream(prose().split("\n")).filter(l -> !l.isBlank() && !isHeading(l))
+                .map(FactMatcher::normalise)
+                .flatMap(l -> sentences(l).stream().map(s -> l.substring(s.start(), s.end())))
+                .limit(REFUSAL_SENTENCES)
+                .anyMatch(s -> REFUSAL.matcher(s).find());
+    }
+
+    /** A markdown {@code #} heading, a bold-only line, or a short line ending with a colon. */
+    static boolean isHeading(final String line) {
+        final String s = line.strip();
+        return s.startsWith("#") || BOLD_HEADING.matcher(s).matches() || (s.endsWith(":") && s.length() < MAX_HEADING_LENGTH);
     }
 
     /** The prose split into lines (a list item or table row each), normalised, blank ones dropped. */
@@ -116,9 +129,7 @@ final class AnswerText {
         final List<String> sections = new ArrayList<>();
         final List<String> current = new ArrayList<>();
         for (final String line : raw.split("\n", -1)) {
-            final String s = line.strip();
-            final boolean heading = s.startsWith("#") || BOLD_HEADING.matcher(s).matches()
-                    || (s.endsWith(":") && s.length() < MAX_HEADING_LENGTH);
+            final boolean heading = isHeading(line);
             if (heading && !current.isEmpty()) {
                 sections.add(String.join("\n", current));
                 current.clear();

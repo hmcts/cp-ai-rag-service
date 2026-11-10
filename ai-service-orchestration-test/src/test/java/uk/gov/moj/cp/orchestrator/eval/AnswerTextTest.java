@@ -45,13 +45,18 @@ class AnswerTextTest {
     }
 
     @Test
-    @DisplayName("The no-data sentinel is recognised, and refusal wording counts only in the opening sentence, cited or not")
+    @DisplayName("The no-data sentinel is recognised, and refusal wording counts in the first two sentences after any heading lines, cited or not")
     void detectsRefusalWording() {
         assertTrue(AnswerText.of("No data available matching the query.").isNoDataSentinel());
         assertFalse(AnswerText.of("The peak was 9.4°C. No data available matching the query.").isNoDataSentinel());
         assertTrue(AnswerText.of("The retrieved documents do not contain information about an insurance policy.").opensWithRefusal());
         assertTrue(AnswerText.of("The policy is not mentioned ::(Source: [r.pdf], Pages 3|3|documentId=" + DOC + ").").opensWithRefusal());
-        assertFalse(AnswerText.of("The peak temperature was 9.4°C. The time of the peak is not provided.").opensWithRefusal());
+        assertTrue(AnswerText.of("The documents don’t mention a policy.").opensWithRefusal());
+        assertTrue(AnswerText.of("A policy number was not found in the documents.").opensWithRefusal());
+        assertTrue(AnswerText.of("**Answer**\nThere is no reference to a policy.").opensWithRefusal());
+        assertTrue(AnswerText.of("I checked the review. It does not state a policy number.").opensWithRefusal());
+        assertFalse(AnswerText.of("The peak was 9.4°C. It was logged at 14:20. The time of the alarm is not provided.").opensWithRefusal());
+        assertFalse(AnswerText.of("No breaches have ever been recorded against the supplier.").opensWithRefusal());
         assertFalse(AnswerText.of("").opensWithRefusal());
     }
 
