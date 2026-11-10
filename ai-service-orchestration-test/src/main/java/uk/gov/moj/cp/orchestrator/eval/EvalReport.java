@@ -108,8 +108,8 @@ public record EvalReport(String datasetVersion,
 
     /**
      * The answer was generated and every applicable measure passes: fact recall meets the item threshold, no forbidden content,
-     * refusal correct, retrieval checks hold, nothing outside the filter, not citation-degraded and
-     * every section cited. Citation precision is left out until it has a threshold (OQ-5).
+     * refusal correct, retrieval checks hold, nothing outside the filter, not citation-degraded,
+     * every section cited and dates in order. Citation precision is left out until it has a threshold (OQ-5).
      */
     static boolean isClean(final ItemScore s) {
         return ANSWER_GENERATED.equals(s.status())
@@ -119,7 +119,8 @@ public record EvalReport(String datasetVersion,
                 && !Boolean.FALSE.equals(s.retrievalOk())
                 && s.chunksOutsideFilter() == 0
                 && !s.citationDegraded()
-                && (s.sectionsWithoutCitation() == null || s.sectionsWithoutCitation() == 0);
+                && (s.sectionsWithoutCitation() == null || s.sectionsWithoutCitation() == 0)
+                && (s.outOfOrder() == null || s.outOfOrder().isEmpty());
     }
 
     void write(final Path file) {

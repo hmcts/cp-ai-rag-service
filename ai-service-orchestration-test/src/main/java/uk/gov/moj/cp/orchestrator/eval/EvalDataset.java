@@ -109,7 +109,8 @@ public record EvalDataset(String version, Path directory, List<DocumentSpec> doc
                         list(retrieval.path("atMostOneOf"), g -> list(g, JsonNode::asText))),
                 node.path("shouldRefuse").asBoolean(),
                 node.path("minFactRecall").asDouble(1.0),
-                node.path("citations").path("perSection").asBoolean());
+                node.path("citations").path("perSection").asBoolean(),
+                node.path("chronological").asBoolean());
     }
 
     private static ExpectedFact expectedFact(final JsonNode node) {
@@ -125,7 +126,8 @@ public record EvalDataset(String version, Path directory, List<DocumentSpec> doc
                 near.isMissingNode() ? null : new Near(
                         near.hasNonNull("ref") ? FactRef.parse(near.get("ref").asText()) : null,
                         list(near.path(TEXT_FIELD), JsonNode::asText),
-                        list(near.path("rivals"), r -> FactRef.parse(r.asText()))));
+                        list(near.path("rivals"), r -> FactRef.parse(r.asText())),
+                        list(near.path("rivalText"), JsonNode::asText)));
     }
 
     /** {@code ref} (a manifest fact), {@code text} (a literal phrase) or {@code claim} with {@code patterns} (regexes). */

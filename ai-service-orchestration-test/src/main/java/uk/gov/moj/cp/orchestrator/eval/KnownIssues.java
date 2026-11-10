@@ -16,15 +16,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * entry (renamed item, removed fact) fails before any document is ingested.
  *
  * <p>Checks that can be registered: {@code fact:<factId>}, {@code forbidden:<label>},
- * {@code refusal}, {@code retrieval}, {@code outside-filter}, {@code citation-degraded} and
- * {@code sections-uncited}. An error or timeout can never be a known issue.</p>
+ * {@code refusal}, {@code retrieval}, {@code outside-filter}, {@code citation-degraded},
+ * {@code sections-uncited} and {@code order}. An error or timeout can never be a known issue.</p>
  */
 public record KnownIssues(List<KnownIssue> issues) {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private static final List<String> PLAIN_CHECKS =
-            List.of("refusal", "retrieval", "outside-filter", "citation-degraded", "sections-uncited");
+            List.of("refusal", "retrieval", "outside-filter", "citation-degraded", "sections-uncited", "order");
 
     public record KnownIssue(String item, String check, String jira, String reason) {
     }

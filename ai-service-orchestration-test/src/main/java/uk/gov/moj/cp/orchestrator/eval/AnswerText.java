@@ -106,6 +106,48 @@ final class AnswerText {
         return Arrays.stream(prose().split("\n")).map(FactMatcher::normalise).filter(s -> !s.isEmpty()).toList();
     }
 
+    /** A line in the context of the lines above it that it may take an anchor from. */
+    record LineContext(String text, int headEnd, int lineStart, boolean underHeading) {
+    }
+
+    /**
+     * For each line of {@link #lines()}, the lines above it that it may take an anchor from, joined with
+     * {@code ; } and normalised: under a heading, the heading and every line of its block up to and
+     * including this one ("Most recent finding:" carries to the list under it, with the block's earlier
+     * lines still in place as rivals); otherwise the line just above it in the same paragraph (a date line
+     * followed by its outcome line). Null for a heading line and for a paragraph's first line.
+     * {@code lineStart} is where this line starts; {@code headEnd} is where the heading ends, or 0 for
+     * the line above, which lends its anchor but not its values (a date above must not take this line's event).
+     */
+    List<LineContext> lineContexts() {
+        final List<LineContext> contexts = new ArrayList<>();
+        List<String> block = null;
+        String previous = null;
+        for (final String line : prose().split("\n")) {
+            final String normalised = FactMatcher.normalise(line);
+            if (normalised.isEmpty()) {
+                previous = null;
+                continue;
+            }
+            if (isHeading(line)) {
+                block = new ArrayList<>(List.of(normalised));
+                contexts.add(null);
+            } else if (block != null) {
+                block.add(normalised);
+                contexts.add(context(block, true));
+            } else {
+                contexts.add(previous == null ? null : context(List.of(previous, normalised), false));
+            }
+            previous = normalised;
+        }
+        return contexts;
+    }
+
+    private static LineContext context(final List<String> lines, final boolean heading) {
+        final String text = String.join("; ", lines);
+        return new LineContext(text, heading ? lines.get(0).length() : 0, text.length() - lines.get(lines.size() - 1).length(), heading);
+    }
+
     /** Where each sentence of a normalised line sits (a {@code ;} also ends one). */
     static List<Span> sentences(final String line) {
         final List<Span> sentences = new ArrayList<>();
@@ -124,13 +166,20 @@ final class AnswerText {
         return lines().stream().flatMap(l -> sentences(l).stream().map(s -> l.substring(s.start(), s.end()))).toList();
     }
 
-    /** Splits on heading lines: markdown {@code #}, a bold-only line, or a short line ending with a colon. */
+    /**
+     * Splits on heading lines: markdown {@code #}, a bold-only line, or a short line ending with a colon.
+     * Text before the first heading (an intro line) is not a section; an answer with no heading is one section.
+     */
     List<String> sections() {
         final List<String> sections = new ArrayList<>();
         final List<String> current = new ArrayList<>();
+        boolean headed = false;
         for (final String line : raw.split("\n", -1)) {
             final boolean heading = isHeading(line);
-            if (heading && !current.isEmpty()) {
+            if (heading && !headed) {
+                current.clear();
+                headed = true;
+            } else if (heading && !current.isEmpty()) {
                 sections.add(String.join("\n", current));
                 current.clear();
             }

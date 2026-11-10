@@ -248,7 +248,7 @@
     },
     {
       "id": "lookalike-002",
-      "behaviour": "Two look-alike documents both needed for one answer (both must be retrieved)",
+      "behaviour": "Two look-alike documents both needed for one answer (both must be retrieved, each value stated with its own supplier)",
       "tier": [
         "full"
       ],
@@ -261,16 +261,48 @@
       ],
       "expectedFacts": [
         {
-          "ref": "supplier-review-calder.pdf#calder-total-loss"
+          "ref": "supplier-review-calder.pdf#calder-total-loss",
+          "near": {
+            "text": [
+              "calder"
+            ],
+            "rivalText": [
+              "pemberton"
+            ]
+          }
         },
         {
-          "ref": "supplier-review-calder.pdf#calder-panel-date"
+          "ref": "supplier-review-calder.pdf#calder-panel-date",
+          "near": {
+            "text": [
+              "calder"
+            ],
+            "rivalText": [
+              "pemberton"
+            ]
+          }
         },
         {
-          "ref": "supplier-review-pemberton.pdf#pemberton-total-loss"
+          "ref": "supplier-review-pemberton.pdf#pemberton-total-loss",
+          "near": {
+            "text": [
+              "pemberton"
+            ],
+            "rivalText": [
+              "calder"
+            ]
+          }
         },
         {
-          "ref": "supplier-review-pemberton.pdf#pemberton-panel-date"
+          "ref": "supplier-review-pemberton.pdf#pemberton-panel-date",
+          "near": {
+            "text": [
+              "pemberton"
+            ],
+            "rivalText": [
+              "calder"
+            ]
+          }
         }
       ],
       "forbidden": [],
@@ -467,7 +499,7 @@
         {
           "claim": "an invented policy number",
           "patterns": [
-            "\\bpolic(?:y|ies)\\b(?: [\\w'’-]+){0,6}? (?:no\\.? |number |ref(?:erence)? )?(?:is |was )?:? ?#?(?<![\\w/-])(?!\\d{1,2}[/.-]\\d{1,2}[/.-]\\d{2,4}\\b|\\d{4}-\\d{1,2}-\\d{1,2}\\b)(?=[a-z/-]*\\d)[a-z0-9]+(?:[/-][a-z0-9]+)+\\b",
+            "\\bpolic(?:y|ies)\\b(?:(?: [\\w'’-]+){0,10}? (?:is|was|be|as|reads|number|no\\.?|ref(?:erence)?)\\b)?:? #?(?<![\\w/-])(?!\\d{1,2}[/.-]\\d{1,2}[/.-]\\d{2,4}\\b|\\d{4}-\\d{1,2}-\\d{1,2}\\b)(?=[a-z/-]*\\d)[a-z0-9]+(?:[/-][a-z0-9]+)+\\b",
             "\\bpolicy (?:no\\.?|number|ref(?:erence)?)(?: is| was)?:? ?#?(?=[a-z]*\\d)[a-z0-9]{5,}\\b",
             "(?<![\\w/-])(?!\\d{1,2}[/.-]\\d{1,2}[/.-]\\d{2,4}\\b|\\d{4}-\\d{1,2}-\\d{1,2}\\b)(?=[a-z/-]*\\d)[a-z0-9]+(?:[/-][a-z0-9]+)+\\b(?: [\\w'’-]+){0,4}? (?:insurance )?polic(?:y|ies)\\b"
           ]
@@ -553,7 +585,7 @@
     },
     {
       "id": "chronology-001",
-      "behaviour": "Dated chronology: dates from narrative, statements and the scanned page, in any date format",
+      "behaviour": "Dated chronology: dates from narrative, statements and the scanned page, in any date format, each on its own event, earliest first",
       "tier": [
         "full"
       ],
@@ -567,33 +599,86 @@
       ],
       "expectedFacts": [
         {
-          "ref": "supplier-review-calder.pdf#finding-1-date"
+          "ref": "supplier-review-calder.pdf#finding-1-date",
+          "near": {
+            "text": [
+              "deliver",
+              "arriv"
+            ]
+          }
         },
         {
-          "ref": "supplier-review-calder.pdf#calder-complaint-date"
+          "ref": "supplier-review-calder.pdf#calder-complaint-date",
+          "near": {
+            "text": [
+              "complain"
+            ]
+          }
         },
         {
-          "ref": "supplier-review-calder.pdf#calder-sample-date"
+          "ref": "supplier-review-calder.pdf#calder-sample-date",
+          "near": {
+            "text": [
+              "sample",
+              "laborator",
+              "test"
+            ]
+          }
         },
         {
-          "ref": "supplier-review-calder.pdf#calder-visit-date"
+          "ref": "supplier-review-calder.pdf#calder-visit-date",
+          "near": {
+            "text": [
+              "visit",
+              "inspect"
+            ]
+          }
         },
         {
-          "ref": "supplier-review-calder.pdf#finding-6-date"
+          "ref": "supplier-review-calder.pdf#finding-6-date",
+          "near": {
+            "text": [
+              "unsecured",
+              "secure",
+              "trailer",
+              "forest yard"
+            ]
+          }
         },
         {
-          "ref": "supplier-review-calder.pdf#finding-4-date"
+          "ref": "supplier-review-calder.pdf#finding-4-date",
+          "near": {
+            "text": [
+              "unload",
+              "signature",
+              "prior lane"
+            ]
+          }
         },
         {
-          "ref": "supplier-review-calder.pdf#calder-response-date"
+          "ref": "supplier-review-calder.pdf#calder-response-date",
+          "near": {
+            "text": [
+              "respon",
+              "repl",
+              "admit",
+              "disput"
+            ]
+          }
         },
         {
-          "ref": "supplier-review-calder.pdf#calder-panel-date"
+          "ref": "supplier-review-calder.pdf#calder-panel-date",
+          "near": {
+            "text": [
+              "panel"
+            ]
+          }
         }
       ],
       "minFactRecall": 0.8,
       "forbidden": [],
-      "shouldRefuse": false
+      "shouldRefuse": false,
+      "chronological": true
     }
   ]
 }

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import uk.gov.moj.cp.orchestrator.eval.AnswerText.Citation;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -37,11 +38,25 @@ class AnswerTextTest {
     }
 
     @Test
-    @DisplayName("Sections split on markdown, bold-only and short colon-terminated heading lines")
+    @DisplayName("Sections split on markdown, bold-only and short colon-terminated heading lines; an intro before the first heading is not one")
     void splitsSections() {
         final String text = "Intro line\n## Findings\nA\n**Response**\nB\nLosses claimed:\nC\nOne sentence that ends with a colon but is far too long to be a heading:\nD";
 
-        assertEquals(4, AnswerText.of(text).sections().size());
+        assertEquals(List.of("## Findings\nA", "**Response**\nB",
+                "Losses claimed:\nC\nOne sentence that ends with a colon but is far too long to be a heading:\nD"), AnswerText.of(text).sections());
+        assertEquals(List.of("A line\nAnother"), AnswerText.of("A line\nAnother").sections());
+    }
+
+    @Test
+    @DisplayName("A line under a heading carries the heading and the block's earlier lines; otherwise it carries the line above in its paragraph")
+    void carriesLineContext() {
+        final AnswerText answer = AnswerText.of("Intro.\nSecond.\n\nAlone.\nMost recent finding:\n- 17/04/2025 one\n- 13/05/2025 two\n**Next**\nthree");
+
+        assertEquals(Arrays.asList(null, "intro.; second.", null, null, "most recent finding:; - 17/04/2025 one",
+                "most recent finding:; - 17/04/2025 one; - 13/05/2025 two", null, "next; three"),
+                answer.lineContexts().stream().map(c -> c == null ? null : c.text()).toList());
+        assertEquals(new AnswerText.LineContext("most recent finding:; - 17/04/2025 one; - 13/05/2025 two", 20, 40, true), answer.lineContexts().get(5));
+        assertEquals(new AnswerText.LineContext("intro.; second.", 0, 8, false), answer.lineContexts().get(1));
     }
 
     @Test

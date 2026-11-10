@@ -85,6 +85,9 @@ final class EvalGate {
         if (s.citationDegraded()) {
             check(item, "citation-degraded", "citation-degraded: " + s.reason(), failures, known);
         }
+        if (s.outOfOrder() != null && !s.outOfOrder().isEmpty()) {
+            check(item, "order", "order: " + s.outOfOrder() + " before an earlier date", failures, known);
+        }
         if (s.sectionsWithoutCitation() != null && s.sectionsWithoutCitation() > 0) {
             check(item, "sections-uncited", "sections-uncited: " + s.sectionsWithoutCitation() + " of " + s.sections(),
                     failures, known);

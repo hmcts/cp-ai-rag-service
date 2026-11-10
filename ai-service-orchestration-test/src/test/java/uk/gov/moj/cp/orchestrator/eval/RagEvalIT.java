@@ -366,6 +366,9 @@ class RagEvalIT extends FunctionTestBase {
                 if (Boolean.FALSE.equals(r.score().retrievalOk())) {
                     notes.add("retrieval:" + r.score().retrievedDocuments());
                 }
+                if (r.score().outOfOrder() != null && !r.score().outOfOrder().isEmpty()) {
+                    notes.add("order:" + r.score().outOfOrder());
+                }
             });
             table.append(String.format("%-16s %2d/%-2d %6s %7s %7s %5d %s%n", item.id(), s.cleanRuns(), s.runs(),
                     s.meanFactRecall(), s.meanCitationPrecision(), s.meanGroundedness(), s.citationDegradedRuns(), notes));

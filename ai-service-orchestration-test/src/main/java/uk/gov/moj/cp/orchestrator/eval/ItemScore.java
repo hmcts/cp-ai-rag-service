@@ -19,6 +19,7 @@ import java.util.List;
  * @param citationPrecisionGated false for long-answer items, where M9 is report-only
  * @param citationDegraded       M10: the service recorded a citation guard reason
  * @param retrievedPages         the final chunks as {@code file#page}, in the order the service returned them
+ * @param outOfOrder             date facts stated before an earlier date, on items that ask for earliest first; null otherwise
  */
 public record ItemScore(String id,
                         String status,
@@ -42,5 +43,6 @@ public record ItemScore(String id,
                         String reason,
                         int chunks,
                         int answerChars,
-                        List<String> retrievedPages) {
+                        List<String> retrievedPages,
+                        List<String> outOfOrder) {
 }

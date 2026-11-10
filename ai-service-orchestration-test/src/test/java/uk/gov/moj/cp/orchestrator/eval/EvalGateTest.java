@@ -33,7 +33,7 @@ class EvalGateTest {
                                    final int outsideFilter, final boolean degraded) {
         return new ItemScore(id, status, 10, recall, recall == null ? null : recall >= 1.0, missing, forbidden, !refusalCorrect,
                 refusalCorrect, 1.0, retrievalOk, List.of(), outsideFilter, 1, 1.0, true, null, null, degraded,
-                degraded ? "[guard=off] Citations missing" : null, 3, 100, List.of("a.pdf#1"));
+                degraded ? "[guard=off] Citations missing" : null, 3, 100, List.of("a.pdf#1"), null);
     }
 
     private static ItemRun run(final String id, final int run, final ItemScore score) {
