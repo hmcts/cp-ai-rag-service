@@ -6,8 +6,10 @@ import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.Month;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
@@ -37,22 +39,67 @@ final class FactMatcher {
         return WHITESPACE.matcher(s).replaceAll(" ").strip();
     }
 
-    static boolean found(final String answer, final CorpusFact fact, final List<String> accept) {
-        final String text = normalise(answer);
-        if (accept.stream().anyMatch(a -> text.contains(normalise(a)))) {
-            return true;
-        }
-        return switch (fact.type()) {
-            case DATE -> datePatterns(LocalDate.parse(fact.value())).stream().anyMatch(p -> p.matcher(text).find());
-            case MONEY -> moneyPattern(new BigDecimal(fact.value())).matcher(text).find();
-            case TEMPERATURE -> temperaturePattern(new BigDecimal(fact.value())).matcher(text).find();
-            case NUMBER -> Pattern.compile("(?<!\\d)" + Pattern.quote(normalise(fact.value())) + "(?!\\d)").matcher(text).find();
-            case TEXT -> text.contains(normalise(fact.value()));
-        };
+    /** Where a match sits in a normalised text: {@code start} inclusive, {@code end} exclusive. */
+    record Span(int start, int end) {
     }
 
-    static boolean containsText(final String answer, final String text) {
-        return normalise(answer).contains(normalise(text));
+    static boolean found(final String answer, final CorpusFact fact, final List<String> accept) {
+        return !spans(normalise(answer), fact, accept).isEmpty();
+    }
+
+    /** Every place a normalised text states the fact, in one of its written forms or an accepted spelling. */
+    static List<Span> spans(final String normalised, final CorpusFact fact, final List<String> accept) {
+        final List<Pattern> patterns = new ArrayList<>(valuePatterns(fact));
+        accept.forEach(a -> patterns.add(literal(a)));
+        return spans(normalised, patterns);
+    }
+
+    static List<Span> spans(final String normalised, final List<Pattern> patterns) {
+        final List<Span> spans = new ArrayList<>();
+        patterns.forEach(p -> p.matcher(normalised).results().forEach(r -> spans.add(new Span(r.start(), r.end()))));
+        return spans;
+    }
+
+    /** Matches the normalised text literally. */
+    static Pattern literal(final String text) {
+        return Pattern.compile(Pattern.quote(normalise(text)));
+    }
+
+    /**
+     * Key-word groups: every group must have one of its words in the text, in any order. Hyphens read as
+     * spaces on both sides, so {@code two month} also matches {@code two-month}. The span runs from the
+     * first matched word to the last.
+     */
+    static Optional<Span> keywords(final String normalised, final List<List<String>> groups) {
+        if (groups.isEmpty()) {
+            return Optional.empty();
+        }
+        final String text = normalised.replace('-', ' ');
+        int start = Integer.MAX_VALUE;
+        int end = -1;
+        for (final List<String> group : groups) {
+            final Optional<Span> word = group.stream()
+                    .map(w -> normalise(w).replace('-', ' '))
+                    .filter(w -> !w.isEmpty() && text.contains(w))
+                    .map(w -> new Span(text.indexOf(w), text.indexOf(w) + w.length()))
+                    .min(Comparator.comparingInt(Span::start));
+            if (word.isEmpty()) {
+                return Optional.empty();
+            }
+            start = Math.min(start, word.get().start());
+            end = Math.max(end, word.get().end());
+        }
+        return Optional.of(new Span(start, end));
+    }
+
+    private static List<Pattern> valuePatterns(final CorpusFact fact) {
+        return switch (fact.type()) {
+            case DATE -> datePatterns(LocalDate.parse(fact.value()));
+            case MONEY -> List.of(moneyPattern(new BigDecimal(fact.value())));
+            case TEMPERATURE -> List.of(temperaturePattern(new BigDecimal(fact.value())));
+            case NUMBER -> List.of(Pattern.compile("(?<!\\d)" + Pattern.quote(normalise(fact.value())) + "(?!\\d)"));
+            case TEXT -> List.of(literal(fact.value()));
+        };
     }
 
     private static List<Pattern> datePatterns(final LocalDate date) {

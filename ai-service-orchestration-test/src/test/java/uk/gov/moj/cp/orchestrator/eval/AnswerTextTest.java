@@ -45,11 +45,22 @@ class AnswerTextTest {
     }
 
     @Test
-    @DisplayName("A refusal is the no-data sentinel, or an uncited answer using refusal wording")
-    void detectsRefusals() {
-        assertTrue(AnswerText.of("No data available matching the query.").isRefusal());
-        assertTrue(AnswerText.of("The retrieved documents do not contain information about an insurance policy.").isRefusal());
-        assertFalse(AnswerText.of("The policy is not mentioned ::(Source: [r.pdf], Pages 3|3|documentId=" + DOC + ")").isRefusal());
-        assertFalse(AnswerText.of("The peak temperature was 9.4°C.").isRefusal());
+    @DisplayName("The no-data sentinel is recognised, and refusal wording counts only in the opening sentence, cited or not")
+    void detectsRefusalWording() {
+        assertTrue(AnswerText.of("No data available matching the query.").isNoDataSentinel());
+        assertFalse(AnswerText.of("The peak was 9.4°C. No data available matching the query.").isNoDataSentinel());
+        assertTrue(AnswerText.of("The retrieved documents do not contain information about an insurance policy.").opensWithRefusal());
+        assertTrue(AnswerText.of("The policy is not mentioned ::(Source: [r.pdf], Pages 3|3|documentId=" + DOC + ").").opensWithRefusal());
+        assertFalse(AnswerText.of("The peak temperature was 9.4°C. The time of the peak is not provided.").opensWithRefusal());
+        assertFalse(AnswerText.of("").opensWithRefusal());
+    }
+
+    @Test
+    @DisplayName("Segments split on lines, sentence ends and semicolons, are normalised, and keep decimals and citations out")
+    void splitsSegments() {
+        final AnswerText answer = AnswerText.of("- 04/07/2017: **penalty** £800.\n- 12/05/2021: peak 9.4°C; later fixed ::(Source: [r.pdf], Pages 3|3|documentId="
+                + DOC + "). Done!\n\n");
+
+        assertEquals(List.of("- 04/07/2017: penalty £800.", "- 12/05/2021: peak 9.4°c;", "later fixed .", "done!"), answer.segments());
     }
 }

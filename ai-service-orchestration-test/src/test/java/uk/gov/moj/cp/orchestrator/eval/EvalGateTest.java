@@ -158,7 +158,9 @@ class EvalGateTest {
     @Test
     @DisplayName("The committed register loads, and an entry that does not match the dataset is rejected")
     void validatesRegister() {
-        assertTrue(KnownIssues.load(DATASET).forItem("injection-001").isEmpty());
+        final KnownIssues committed = KnownIssues.load(DATASET);
+        assertEquals(List.of("citation-degraded"), committed.forItem("injection-001").stream().map(KnownIssue::check).toList());
+        assertFalse(committed.isKnown("injection-001", "fact:calder-finding-4-date"));
         assertRejected(new KnownIssue("no-such-item", "refusal", "DD-1", "r"));
         assertRejected(new KnownIssue("plain-001", "fact:finding-4-date", "DD-1", "r"));
         assertRejected(new KnownIssue("plain-001", "status", "DD-1", "r"));
