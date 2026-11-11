@@ -66,7 +66,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The standalone end-to-end evaluation (DD-43887, design D2). Ingests the synthetic corpus through
+ * The standalone end-to-end evaluation (docs/eval-suite.md). Ingests the synthetic corpus through
  * {@code /document-upload}, runs every selected dataset item N times through the async query
  * path, scores each answer and writes {@code target/eval/eval-report.json}.
  *

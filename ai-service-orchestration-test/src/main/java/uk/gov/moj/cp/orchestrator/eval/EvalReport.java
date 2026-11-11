@@ -17,7 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
 /**
- * The output of one eval run (design D2): the settings it ran with, how ingestion went, every run
+ * The output of one eval run (docs/eval-suite.md, "Reading the output"): the settings it ran with, how ingestion went, every run
  * of every item with its measures, summaries and, when the gate is on, the gate decision
  * ({@link EvalGate}, null when the run is report-only).
  */
