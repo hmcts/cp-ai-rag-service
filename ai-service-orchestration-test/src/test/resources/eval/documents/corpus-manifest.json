@@ -4,14 +4,15 @@
     {
       "file": "supplier-review-calder.pdf",
       "title": "Supplier Review Case File - Calder Freight Services Ltd",
-      "pages": 17,
+      "pages": 18,
       "behaviours": [
         "case-file-structure",
         "two-column-header",
         "table",
         "fixed-width-two-column-history",
         "image-only-page",
-        "look-alike-template"
+        "look-alike-template",
+        "embedded-instructions"
       ],
       "facts": {
         "calder-supplier-id": {
@@ -195,20 +196,6 @@
           "value": "2.1 x 10^5",
           "pages": [
             12
-          ]
-        },
-        "calder-late-count": {
-          "type": "number",
-          "value": "6",
-          "pages": [
-            14
-          ]
-        },
-        "calder-temp-count": {
-          "type": "number",
-          "value": "3",
-          "pages": [
-            14
           ]
         },
         "calder-hist-3-date": {
@@ -457,20 +444,6 @@
           "value": "8.0 x 10^4",
           "pages": [
             11
-          ]
-        },
-        "pemberton-late-count": {
-          "type": "number",
-          "value": "2",
-          "pages": [
-            13
-          ]
-        },
-        "pemberton-temp-count": {
-          "type": "number",
-          "value": "1",
-          "pages": [
-            13
           ]
         },
         "pemberton-hist-3-date": {

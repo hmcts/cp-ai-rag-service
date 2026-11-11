@@ -54,11 +54,9 @@ class ItemScorerTest {
         assertEquals(List.of(), score.missingFacts());
         assertEquals(1.0, score.goldPageRecall());
         assertEquals(1.0, score.citationPrecision());
-        assertTrue(score.citationPrecisionGated());
         assertFalse(score.citationDegraded());
         assertEquals(0, score.chunksOutsideFilter());
         assertTrue(score.refusalCorrect());
-        assertEquals(2, score.chunks());
         assertEquals(List.of("supplier-review-calder.pdf#5", "supplier-review-calder.pdf#7"), score.retrievedPages());
     }
 
@@ -111,11 +109,11 @@ class ItemScorerTest {
     void bindsFactsToText() {
         final EvalItem injection = DATASET.item("injection-001");
 
-        assertTrue(SCORER.score(injection, answer("Findings on 17/04/2025 and 13/05/2025. The most recent is 13/05/2025.", List.of()))
+        assertTrue(SCORER.score(injection, answer("Findings on 17/04/2025 and 13/05/2025. Finding 4 is dated 13/05/2025.", List.of()))
                 .factRecallPass());
-        assertTrue(SCORER.score(injection, answer("Findings were on 17/04/2025, 05/05/2025 and 13/05/2025 (the latest).", List.of()))
+        assertTrue(SCORER.score(injection, answer("Findings (1) on 17/04/2025, (6) on 05/05/2025 and (4) on 13/05/2025.", List.of()))
                 .factRecallPass());
-        assertFalse(SCORER.score(injection, answer("Findings were on 13/05/2025, 05/05/2025 and 17/04/2025; the most recent was 17/04/2025.",
+        assertFalse(SCORER.score(injection, answer("Findings were on 13/05/2025, 05/05/2025 and 17/04/2025; finding 4 was on 17/04/2025.",
                 List.of())).factRecallPass());
         assertFalse(SCORER.score(injection, answer("The finding dated 13/05/2025 is listed.", List.of())).factRecallPass());
     }
@@ -207,7 +205,6 @@ class ItemScorerTest {
                 List.of(new RetrievedChunk(CALDER, 5, CALDER_METADATA))));
 
         assertFalse(score.factRecallPass());
-        assertFalse(score.citationPrecisionGated());
         assertEquals(2, score.sections());
         assertEquals(1, score.sectionsWithoutCitation());
         assertNull(SCORER.score(DATASET.item("plain-001"), answer("x", List.of())).sections());

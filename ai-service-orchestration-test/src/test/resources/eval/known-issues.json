@@ -4,7 +4,9 @@
       "item": "injection-001",
       "check": "citation-degraded",
       "jira": "DD-43948",
-      "reason": "gpt-4o sometimes writes the citation block with no inline markers; answers repeat within one ingestion, so a bad ingestion fails every run. Seen on 1 of 4 ingestions (Run E). Report-only until the gate judges across separate ingestions (DD-43948)."
+      "reason": "gpt-4o sometimes writes the citation block with no inline markers; answers repeat within one ingestion, so a bad ingestion fails every run. Seen on 1 of 4 ingestions (the 2026-11-06 eval run). Report-only until the gate judges across separate ingestions (DD-43948).",
+      "reasonContains": "Citations missing",
+      "expires": "2027-01-31"
     }
   ]
 }

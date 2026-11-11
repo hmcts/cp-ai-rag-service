@@ -6,13 +6,14 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
  * The PR gate (DD-43901) over the deterministic measures. A run fails the gate when the answer was
  * not generated (error, timeout, failed), fact recall over the gated facts is below the item
  * threshold, forbidden content appears, the refusal is wrong, a retrieval check fails, a chunk is
- * outside the filter, the answer is citation-degraded, or a section is uncited. A check in the
+ * outside the filter, the answer is citation-degraded, a section is uncited, or dates are out of order. A check in the
  * known-issues register is reported but not gated. Citation precision, gold-page recall,
  * groundedness and latency stay report-only.
  *
@@ -25,7 +26,6 @@ final class EvalGate {
     static final int ATTEMPTS = 3;
     static final int PASSES_NEEDED = 2;
 
-    private static final String ANSWER_GENERATED = "ANSWER_GENERATED";
 
     private final KnownIssues knownIssues;
 
@@ -45,8 +45,9 @@ final class EvalGate {
     record ItemVerdict(String itemId, boolean passed, List<RunOutcome> runs) {
     }
 
-    /** The gate decision for the whole eval run, written into the report. */
-    record Result(boolean passed, List<ItemVerdict> items, List<KnownIssues.KnownIssue> knownIssues) {
+    /** The gate decision for the whole eval run, written into the report, with the known issues in force and those expired. */
+    record Result(boolean passed, List<ItemVerdict> items, List<KnownIssues.KnownIssue> knownIssues,
+                  List<KnownIssues.KnownIssue> expiredKnownIssues) {
 
         List<ItemVerdict> failedItems() {
             return items.stream().filter(i -> !i.passed()).toList();
@@ -57,11 +58,20 @@ final class EvalGate {
         final ItemScore s = run.score();
         final List<String> failures = new ArrayList<>();
         final List<String> known = new ArrayList<>();
-        if (!ANSWER_GENERATED.equals(s.status())) {
+        if (!AnswerResult.ANSWER_GENERATED.equals(s.status())) {
             failures.add("status: " + s.status() + (run.error() == null ? "" : " (" + run.error() + ")"));
             return new RunOutcome(run.run(), List.copyOf(failures), List.of());
         }
 
+        checkFactRecall(item, s, failures, known);
+        checkAnswer(item, s, failures, known);
+        checkRetrievalAndCitations(item, s, failures, known);
+        checkLayout(item, s, failures, known);
+        return new RunOutcome(run.run(), List.copyOf(failures), List.copyOf(known));
+    }
+
+    /** Fact recall over the facts not registered as known issues, against the item's threshold. */
+    private void checkFactRecall(final EvalItem item, final ItemScore s, final List<String> failures, final List<String> known) {
         final List<String> knownFacts = item.expectedFacts().stream().map(f -> f.refs().get(0).factId())
                 .filter(id -> knownIssues.isKnown(item.id(), "fact:" + id)).toList();
         final List<String> gatedMissing = s.missingFacts().stream().filter(id -> !knownFacts.contains(id)).toList();
@@ -70,26 +80,61 @@ final class EvalGate {
         if (gatedFacts > 0 && (double) (gatedFacts - gatedMissing.size()) / gatedFacts < item.minFactRecall()) {
             failures.add("fact-recall: missing " + gatedMissing + " (threshold " + item.minFactRecall() + ")");
         }
+    }
 
+    /** Forbidden content and refusal: what the answer text says. */
+    private void checkAnswer(final EvalItem item, final ItemScore s, final List<String> failures, final List<String> known) {
         s.forbiddenHits().forEach(label -> check(item, "forbidden:" + label, "forbidden: " + label, failures, known));
         if (!s.refusalCorrect()) {
             check(item, "refusal", "refusal: " + (s.refused() ? "refused an answerable query" : "answered instead of refusing"),
                     failures, known);
         }
+    }
+
+    /** The retrieval check, chunks outside the filter and the citation guard: what the service did around the answer. */
+    private void checkRetrievalAndCitations(final EvalItem item, final ItemScore s, final List<String> failures,
+                                            final List<String> known) {
         if (Boolean.FALSE.equals(s.retrievalOk())) {
-            check(item, "retrieval", "retrieval: documents " + s.retrievedDocuments(), failures, known);
+            final List<String> missing = item.retrieval().mustInclude().stream()
+                    .filter(m -> m.contains("#") ? !s.retrievedPages().contains(m) : !s.retrievedDocuments().contains(m)).toList();
+            check(item, "retrieval", "retrieval: " + (missing.isEmpty() ? "" : "missing " + missing + ", ")
+                    + "documents " + s.retrievedDocuments(), failures, known);
         }
         if (s.chunksOutsideFilter() > 0) {
             check(item, "outside-filter", "outside-filter: " + s.chunksOutsideFilter() + " chunk(s)", failures, known);
         }
         if (s.citationDegraded()) {
-            check(item, "citation-degraded", "citation-degraded: " + s.reason(), failures, known);
+            check(item, "citation-degraded", s.reason(), "citation-degraded: " + s.reason(), failures, known);
+        }
+    }
+
+    /** Dates in order and a citation in every section: how the answer is laid out. */
+    private void checkLayout(final EvalItem item, final ItemScore s, final List<String> failures, final List<String> known) {
+        if (s.outOfOrder() != null && !s.outOfOrder().isEmpty()) {
+            check(item, "order", "order: " + s.outOfOrder() + " before an earlier date", failures, known);
         }
         if (s.sectionsWithoutCitation() != null && s.sectionsWithoutCitation() > 0) {
             check(item, "sections-uncited", "sections-uncited: " + s.sectionsWithoutCitation() + " of " + s.sections(),
                     failures, known);
         }
-        return new RunOutcome(run.run(), List.copyOf(failures), List.copyOf(known));
+    }
+
+    /**
+     * The extra runs the 2-of-3 rule needs: for each item whose first run failed, the run numbers after its last
+     * run, up to {@link #ATTEMPTS}. With {@code eval.runs} of three or more there is nothing to add.
+     */
+    List<Map.Entry<EvalItem, Integer>> plannedReruns(final List<EvalItem> items, final List<ItemRun> runs) {
+        final List<Map.Entry<EvalItem, Integer>> planned = new ArrayList<>();
+        for (final EvalItem item : items) {
+            final List<ItemRun> itemRuns = runs.stream().filter(r -> r.itemId().equals(item.id())).toList();
+            if (needsRerun(item, itemRuns)) {
+                final int last = itemRuns.stream().mapToInt(ItemRun::run).max().orElse(0);
+                for (int run = last + 1; run <= ATTEMPTS; run++) {
+                    planned.add(Map.entry(item, run));
+                }
+            }
+        }
+        return planned;
     }
 
     /** True when the item's first run failed and fewer than {@link #ATTEMPTS} runs exist. */
@@ -114,13 +159,22 @@ final class EvalGate {
         final List<ItemVerdict> verdicts = items.stream()
                 .map(i -> verdict(i, runs.stream().filter(r -> r.itemId().equals(i.id())).toList())).toList();
         final Set<KnownIssues.KnownIssue> relevant = new LinkedHashSet<>();
-        items.forEach(i -> relevant.addAll(knownIssues.forItem(i.id())));
-        return new Result(verdicts.stream().allMatch(ItemVerdict::passed), verdicts, List.copyOf(relevant));
+        final Set<KnownIssues.KnownIssue> expired = new LinkedHashSet<>();
+        items.forEach(i -> {
+            relevant.addAll(knownIssues.forItem(i.id()));
+            expired.addAll(knownIssues.expiredFor(i.id()));
+        });
+        return new Result(verdicts.stream().allMatch(ItemVerdict::passed), verdicts, List.copyOf(relevant), List.copyOf(expired));
     }
 
     private void check(final EvalItem item, final String check, final String failure,
                        final List<String> failures, final List<String> known) {
-        if (knownIssues.isKnown(item.id(), check)) {
+        check(item, check, null, failure, failures, known);
+    }
+
+    private void check(final EvalItem item, final String check, final String reason, final String failure,
+                       final List<String> failures, final List<String> known) {
+        if (knownIssues.isKnown(item.id(), check, reason)) {
             known.add(check);
         } else {
             failures.add(failure);

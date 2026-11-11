@@ -9,16 +9,16 @@ import java.util.List;
  * checks unless the item defines them.
  *
  * @param factRecall             M6: share of expected facts stated in the answer prose
- * @param factRecallPass         M6 against the item threshold ({@code minFactRecall}, default 1.0)
+ * @param factRecallPass         M6 against the item threshold ({@code minFactRecall}, default 1.0), on the exact share
  * @param forbiddenHits          M7: forbidden facts or texts present in the answer
  * @param refusalCorrect         M8: refused exactly when the item should refuse
  * @param goldPageRecall         M3: share of expected facts with at least one gold page in the final chunks
  * @param retrievalOk            M4: the item's document-level retrieval checks hold
  * @param chunksOutsideFilter    M5: chunks whose metadata does not satisfy the item's filter
  * @param citationPrecision      M9: share of cited pages that are gold pages
- * @param citationPrecisionGated false for long-answer items, where M9 is report-only
  * @param citationDegraded       M10: the service recorded a citation guard reason
  * @param retrievedPages         the final chunks as {@code file#page}, in the order the service returned them
+ * @param outOfOrder             date facts stated before an earlier date, on items that ask for earliest first; null otherwise
  */
 public record ItemScore(String id,
                         String status,
@@ -33,14 +33,11 @@ public record ItemScore(String id,
                         Boolean retrievalOk,
                         List<String> retrievedDocuments,
                         int chunksOutsideFilter,
-                        int citedPages,
                         Double citationPrecision,
-                        boolean citationPrecisionGated,
                         Integer sections,
                         Integer sectionsWithoutCitation,
                         boolean citationDegraded,
                         String reason,
-                        int chunks,
-                        int answerChars,
-                        List<String> retrievedPages) {
+                        List<String> retrievedPages,
+                        List<String> outOfOrder) {
 }

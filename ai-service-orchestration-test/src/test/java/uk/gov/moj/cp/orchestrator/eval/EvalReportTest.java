@@ -31,8 +31,14 @@ class EvalReportTest {
     private static ItemScore score(final String id, final String status, final Double recall, final boolean recallPass,
                                    final List<String> forbidden, final boolean degraded, final Double precision,
                                    final double seconds) {
-        return new ItemScore(id, status, seconds, recall, recallPass, List.of(), forbidden, false, true,
-                1.0, null, List.of(), 0, 1, precision, true, null, null, degraded, null, 3, 100, List.of());
+        final List<String> missing = recallPass ? List.of() : List.of(DATASET.item(id).expectedFacts().get(0).refs().get(0).factId());
+        return new ItemScore(id, status, seconds, recall, recallPass, missing, forbidden, false, true,
+                1.0, null, List.of(), 0, precision, null, null, degraded, degraded ? "[guard=off] Citations missing" : null,
+                List.of(), null);
+    }
+
+    private static boolean clean(final ItemScore score) {
+        return EvalReport.isClean(DATASET.item(score.id()), new ItemRun(score.id(), 1, "t", null, score, "answer", null));
     }
 
     private static EvalReport report(final List<ItemRun> runs) {
@@ -41,19 +47,19 @@ class EvalReportTest {
     }
 
     @Test
-    @DisplayName("A run is clean only when every applicable measure passes")
+    @DisplayName("A run is clean only when it passes every gated check")
     void decidesCleanRuns() {
-        assertTrue(EvalReport.isClean(score("plain-001", 1.0, true, List.of(), false, 1.0, 5)));
-        assertFalse(EvalReport.isClean(score("plain-001", 0.5, false, List.of(), false, 1.0, 5)));
-        assertFalse(EvalReport.isClean(score("plain-001", 1.0, true, List.of("x"), false, 1.0, 5)));
-        assertFalse(EvalReport.isClean(score("plain-001", 1.0, true, List.of(), true, 1.0, 5)));
+        assertTrue(clean(score("plain-001", 1.0, true, List.of(), false, 1.0, 5)));
+        assertFalse(clean(score("plain-001", 0.5, false, List.of(), false, 1.0, 5)));
+        assertFalse(clean(score("plain-001", 1.0, true, List.of("x"), false, 1.0, 5)));
+        assertFalse(clean(score("plain-001", 1.0, true, List.of(), true, 1.0, 5)));
     }
 
     @Test
     @DisplayName("A run without a generated answer is never clean, even when no measure applies")
     void runWithoutAnswerIsNotClean() {
-        assertFalse(EvalReport.isClean(score("refusal-001", "ERROR", null, true, List.of(), false, null, 5)));
-        assertFalse(EvalReport.isClean(score("refusal-001", "TIMEOUT", null, true, List.of(), false, null, 5)));
+        assertFalse(clean(score("refusal-001", "ERROR", null, true, List.of(), false, null, 5)));
+        assertFalse(clean(score("refusal-001", "TIMEOUT", null, true, List.of(), false, null, 5)));
     }
 
     @Test
@@ -68,6 +74,24 @@ class EvalReportTest {
         assertEquals(1, report.items().get(0).summary().cleanRuns());
         assertEquals(2, report.summary().runs());
         assertEquals(1, report.summary().errorRuns());
+    }
+
+    @Test
+    @DisplayName("A timed-out run counts as an error, and runs without an answer are left out of the quality means")
+    void countsTimeoutsAndKeepsThemOutOfMeans() {
+        final EvalReport report = report(List.of(
+                new ItemRun("plain-001", 1, "t1", null, score("plain-001", 1.0, true, List.of(), false, 1.0, 10), "answer", null),
+                new ItemRun("plain-001", 2, "t2", null, score("plain-001", "TIMEOUT", 0.0, false, List.of(), false, null, 300),
+                        null, null)));
+
+        final EvalReport.ItemSummary plain = report.items().get(0).summary();
+        assertEquals(1, plain.errorRuns());
+        assertEquals(1, plain.cleanRuns());
+        assertEquals(1.0, plain.meanFactRecall());
+        assertEquals(0, plain.refusalErrors());
+        assertEquals(1, report.summary().errorRuns());
+        assertEquals(1.0, report.summary().meanFactRecall());
+        assertEquals(300.0, report.summary().latencyP95Seconds());
     }
 
     @Test

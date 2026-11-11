@@ -118,7 +118,12 @@ class RagEvalIT extends FunctionTestBase {
             }
             itemRuns.addAll(execute(scorer, planned));
             if (gateEnabled) {
-                itemRuns.addAll(execute(scorer, reruns(gate, items, itemRuns)));
+                final List<Map.Entry<EvalItem, Integer>> reruns = gate.plannedReruns(items, itemRuns);
+                reruns.stream().map(Map.Entry::getKey).distinct().forEach(item -> LOGGER.warn(
+                        "Eval gate: {} failed its first run {}, re-running for the 2-of-{} decision", item.id(),
+                        gate.outcome(item, itemRuns.stream().filter(r -> r.itemId().equals(item.id()) && r.run() == 1)
+                                .findFirst().orElseThrow()).failures(), EvalGate.ATTEMPTS));
+                itemRuns.addAll(execute(scorer, reruns));
             }
         } else {
             // M1 fails the run anyway, and answers over a partial corpus would only mislead.
@@ -164,25 +169,6 @@ class RagEvalIT extends FunctionTestBase {
         return itemRuns;
     }
 
-    /** The extra runs the 2-of-3 rule needs: for each item whose first run failed, up to {@link EvalGate#ATTEMPTS} runs. */
-    private static List<Map.Entry<EvalItem, Integer>> reruns(final EvalGate gate, final List<EvalItem> items,
-                                                             final List<ItemRun> itemRuns) {
-        final List<Map.Entry<EvalItem, Integer>> planned = new ArrayList<>();
-        for (final EvalItem item : items) {
-            final List<ItemRun> runs = itemRuns.stream().filter(r -> r.itemId().equals(item.id())).toList();
-            if (gate.needsRerun(item, runs)) {
-                final int last = runs.stream().mapToInt(ItemRun::run).max().orElse(0);
-                LOGGER.warn("Eval gate: {} failed its first run {}, re-running for the 2-of-{} decision", item.id(),
-                        gate.outcome(item, runs.stream().filter(r -> r.run() == 1).findFirst().orElse(runs.get(0))).failures(),
-                        EvalGate.ATTEMPTS);
-                for (int run = last + 1; run <= EvalGate.ATTEMPTS; run++) {
-                    planned.add(Map.entry(item, run));
-                }
-            }
-        }
-        return planned;
-    }
-
     private static List<EvalItem> selectItems(final EvalDataset dataset) {
         final String ids = System.getProperty("eval.items", "");
         if (!ids.isBlank()) {
@@ -198,13 +184,14 @@ class RagEvalIT extends FunctionTestBase {
      * not waited on, so the report is still written.
      */
     private static List<DocumentIngestion> ingestCorpus(final EvalDataset dataset) {
-        final Instant started = Instant.now();
         final Map<String, String> referenceByFile = new LinkedHashMap<>();
+        final Map<String, Instant> uploadedAt = new LinkedHashMap<>();
         for (final DocumentSpec document : dataset.documents()) {
             final DocumentUploadRequest request = new DocumentUploadRequest()
                     .documentId(randomUUID().toString())
                     .documentName(document.file());
             document.metadata().forEach(m -> request.addMetadataFilterItem(new MetadataFilter(m.key(), m.value())));
+            uploadedAt.put(document.file(), Instant.now());
             try {
                 final FileStorageLocationReturnedSuccessfully location =
                         DocumentIngestionFlow.initiateUpload(spec(DOCUMENT_METADATA_CHECK_FUNCTION), request);
@@ -231,7 +218,7 @@ class RagEvalIT extends FunctionTestBase {
                 LOGGER.error("Eval: {} ended as {}", file, status);
             }
             outcomes.add(new DocumentIngestion(file, reference, status,
-                    Duration.between(started, Instant.now()).toMillis() / 1000.0));
+                    Duration.between(uploadedAt.get(file), Instant.now()).toMillis() / 1000.0));
         });
         return outcomes;
     }
@@ -247,10 +234,11 @@ class RagEvalIT extends FunctionTestBase {
             transactionId = submitQuery(item);
             final AnswerResult result = awaitAnswer(item, run, transactionId, started);
             final ItemScore score = scorer.score(item, result);
-            final Double groundedness = AnswerGenerationStatus.ANSWER_GENERATED.toString().equals(result.status())
+            final Double groundedness = AnswerResult.ANSWER_GENERATED.equals(result.status())
                     ? awaitGroundedness(transactionId) : null;
             LOGGER.info("Eval: {} run {} -> {} in {}s, recall={}, clean={}", item.id(), run, score.status(),
-                    score.elapsedSeconds(), score.factRecall(), EvalReport.isClean(score));
+                    score.elapsedSeconds(), score.factRecall(), EvalReport.isClean(item,
+                            new ItemRun(item.id(), run, transactionId, groundedness, score, result.llmResponse(), null)));
             return new ItemRun(item.id(), run, transactionId, groundedness, score, result.llmResponse(), null);
         } catch (final RuntimeException | AssertionError e) {
             LOGGER.error("Eval: {} run {} failed: {}", item.id(), run, e.toString());
@@ -326,8 +314,8 @@ class RagEvalIT extends FunctionTestBase {
     /** What this run used, so reports from different models or settings can be told apart. */
     private static Map<String, String> settings(final int runs, final boolean gateEnabled) {
         final Map<String, String> settings = new LinkedHashMap<>();
-        settings.put("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", System.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"));
-        settings.put("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME", System.getenv("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME"));
+        settings.put("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", System.getenv().getOrDefault("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", ""));
+        settings.put("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME", System.getenv().getOrDefault("AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME", ""));
         settings.put("LLM_CHAT_SERVICE_PROVIDER", System.getenv().getOrDefault("LLM_CHAT_SERVICE_PROVIDER", "openai"));
         settings.put("CLIENT_FILTERING_ENABLED", String.valueOf(harness().clientFilteringEnabled()));
         settings.putAll(ServiceTuningEnv.tuningEnvEntries());
@@ -365,6 +353,9 @@ class RagEvalIT extends FunctionTestBase {
                 }
                 if (Boolean.FALSE.equals(r.score().retrievalOk())) {
                     notes.add("retrieval:" + r.score().retrievedDocuments());
+                }
+                if (r.score().outOfOrder() != null && !r.score().outOfOrder().isEmpty()) {
+                    notes.add("order:" + r.score().outOfOrder());
                 }
             });
             table.append(String.format("%-16s %2d/%-2d %6s %7s %7s %5d %s%n", item.id(), s.cleanRuns(), s.runs(),
@@ -404,6 +395,9 @@ class RagEvalIT extends FunctionTestBase {
             LOGGER.info("Eval gate: known issue {} {} ({}) seen in {} of {} run(s), not gated{}", issue.item(), issue.check(),
                     issue.jira(), seen, runs.size(), seen == 0 ? "; if it stays fixed, remove it from eval/known-issues.json" : "");
         }
+        result.expiredKnownIssues().forEach(issue -> LOGGER.warn(
+                "Eval gate: known issue {} {} ({}) EXPIRED on {} and is gated again; fix it, or extend expires in eval/known-issues.json",
+                issue.item(), issue.check(), issue.jira(), issue.expires()));
         LOGGER.info("Eval gate: {} ({} of {} item(s) passed)", result.passed() ? "PASSED" : "FAILED",
                 result.items().stream().filter(EvalGate.ItemVerdict::passed).count(), result.items().size());
     }

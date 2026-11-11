@@ -116,7 +116,7 @@ The dataset is `eval/dataset.json` (12 items written). It has three parts:
     { "ref": "supplier-review-calder.pdf#calder-peak-temp" },
     { "text": "all inspections were passed" }
   ],
-  "retrieval": { "mustInclude": ["..."], "atMostOneOf": [["a.pdf", "b.pdf"]] },
+  "retrieval": { "mustInclude": ["a.pdf", "b.pdf#5"], "atMostOneOf": [["a.pdf", "b.pdf"]] },
   "shouldRefuse": false
 }
 ```
@@ -128,25 +128,49 @@ The dataset is `eval/dataset.json` (12 items written). It has three parts:
 - **`accept`** lists extra spellings of the value that a correct answer may use instead (e.g.
   `£800` for `PENALTY £800`).
 - **`keywords`** accepts a reworded fact: a list of word groups, where one sentence must contain a
-  word from every group, in any order (hyphens read as spaces). `[["seal"], ["torn", "damaged"]]`
-  accepts "a torn left-hand door seal" and "the seal was damaged" without listing every phrasing.
+  word from every group, in any order (hyphens read as spaces). `[["seal"], ["torn", "damag"]]`
+  accepts "a torn left-hand door seal" and "damage to the seal" without listing every phrasing. A
+  word must start a word of the answer but may end inside one: `seal` matches "sealed", while
+  `2 month` does not match "12 months" (DD-43964).
 - **`near`** binds a fact to the entry it belongs to, within one line (a list item or table row).
   With `{"ref": "<file>#<date-fact>"}` the anchor is that date and the rivals are the other
   entries' dates (the anchors of the item's other facts); with `{"text": ["most recent",
-  "latest"], "rivals": [...]}` the anchor is the text and the rivals are listed. If the value's
+  "latest"], "rivals": [...], "rivalText": [...]}` the anchor is the text and the rivals are the
+  listed facts and texts (`lookalike-002` binds each value to "calder" with "pemberton" as rival). If the value's
   sentence holds the anchor or a rival, the anchor must be in that sentence with no rival between
   them. If it holds neither ("On 04/07/2017, an excursion occurred. A penalty of £800 was
   issued."), the value belongs to the nearest anchor or rival before it on the line. A penalty
   attached to the wrong entry, or a list of finding dates that calls the wrong one the most
   recent, fails. Sentences end at `.`, `!`, `?` or `;`. An answer that lists all the dates in one
   sentence and all the outcomes in the next cannot be judged by position.
+
+  Across lines (DD-43964): a line under a heading (`#`, a bold-only line, or a short line ending
+  in `:`) is also judged together with the heading and the block's earlier lines, which stay in
+  place as rivals only: an anchor is taken from the heading or the line itself, never from an
+  earlier line of the block. So "Most recent finding:" carries to the list under it, a bold date carries to
+  the outcome below it, and a value on the heading binds to the event on the line under it, but a
+  list under "Most recent finding:" that names the wrong date first still fails. A fact anchor
+  (an entry's date) also carries from the line above in the same paragraph ("**04/07/17** - …" then
+  "Outcome: …"); a text anchor such as an event word does not, since the line above usually holds
+  a different event.
+- **`chronological`** (item flag) adds the `order` check: the date facts, taken earliest first,
+  must first be stated (where bound to their anchor) in that order. A line that binds more than one
+  date fact (a lead-in "from the first delivery on 17/04/2025 to the review panel on 15/07/2025",
+  or "responds to the complaint of 18/04/2025") is skipped when the fact is stated alone elsewhere.
 - **`forbidden`** takes a manifest `ref` (a value from the wrong document, matched anywhere), a
   literal `text`, or a `claim` with regex `patterns` over the normalised (lower-case) answer, so
   one claim covers its rewordings ("no breaches were recorded", "a clean compliance record").
-  A `text` or `claim` does not count where the answer quotes it (double or curly quotation marks)
-  or in a sentence that rejects it ("ignore", "disregard", "contradict", "not followed",
-  "incorrect"): an answer may quote an injected instruction in order to refuse it.
-- **Fact types:** `date`, `money`, `number` and `temperature` (degrees Celsius) each have one
+  A `text` or `claim` does not count where the answer quotes it (double, curly or straight single
+  quotation marks, where a single quote opens after a non-letter so "Ltd's … handbook's" does not
+  pair), where a rejection follows within 5 words ("… is wrong", "… is an instruction to
+  ignore"), or where the words just before deny, decline or report it ("it is not true that …",
+  "I have ignored the instruction to state that …", "a note instructing assistants to state that
+  … and that …", "the note claims …"): an answer may quote or describe an injected instruction in
+  order to refuse it.
+  A rejection elsewhere in the sentence does not exempt the claim. The 5-word window sits between a
+  correct reference answer (4 words) and an asserted claim (6 words), and both are reference
+  answers, so a change to it shows.
+- **Fact types:** `date`, `money` and `temperature` (degrees Celsius) each have one
   matcher that accepts the usual written forms; `text` is a plain substring after normalisation.
 - **Reference answers:** `eval/reference-answers.json` holds hand-written correct and wrong
   answers per item. `ReferenceAnswersTest` scores them offline through the scorer and gate: each
@@ -162,10 +186,10 @@ The dataset is `eval/dataset.json` (12 items written). It has three parts:
   heading, the DD-43838 failure mode.
 - **Manifest pages list every page where the value appears** (in any common date format, after
   normalisation), not only where it was planted, since a repeated mention is an equally valid
-  source. Bare numbers keep only their planted page.
-- **Avoid bare numbers as expected facts** (e.g. a count of "3"): they match almost any answer.
+  source.
+- **There is no bare-number fact type** (e.g. a count of "3"): it would match almost any answer.
 
-- **Typed facts, not hand-written regexes.** Each `type` (date, number, duration, money, text)
+- **Typed facts, not hand-written regexes.** Each `type` (date, money, temperature, text)
   has one shared normaliser that accepts the usual formats. ragEval's regex date patterns
   missed `April 21, 2024`; typed normalisers fix that class of bug once, for every item.
 - **Normalise both sides before matching.** The matcher normalises the answer (and chunk text)
@@ -202,13 +226,16 @@ The dataset is `eval/dataset.json` (12 items written). It has three parts:
   long answer validly cites pages that carry no expected fact (the dry run's summary cited the
   history summary page for its history section, scoring 0.67). Judging those needs a claim-level
   check, which is the judge's job (M12).
-- **M8 counts a refusal** when the answer is the no-data sentinel, **or** its opening sentence uses
-  refusal wording ("does not contain", "no information", …) **and** it states none of the
-  item's expected facts. The sentinel only appears when retrieval returns nothing; with chunks
+- **M8 counts a refusal** when the answer is the no-data sentinel, **or** one of its first two
+  sentences after any heading lines uses refusal wording (a negation followed within a few words by
+  "contain", "mention", "found", "available", "reference", "information", …: "don't contain",
+  "was not found", "no reference to") **and** it states none of the item's expected facts. The sentinel only appears when retrieval returns nothing; with chunks
   retrieved, the model refuses in its own words (dry run, 2026-10-27). Citations do not decide
   it: a refusal may cite what it looked at, and an answer that gives the facts and then says one
-  detail is "not provided" has answered (a missing fact is M6's job). The rule assumes a refusal
-  leads with it, as every live refusal has so far. The phrase list lives with the scorer.
+  detail is "not provided" has answered (a missing fact is M6's job). On a should-refuse item an
+  invented answer with a hedge ("insured under policy NFA/2219/0047, though the insurer is not
+  specified") is caught by the item's `forbidden` patterns for an invented identifier, not by M8
+  (DD-43964). The pattern lives with the scorer.
 - **M3 measures only the final set.** Recall before dedup and MMR needs data the API doesn't
   return (gap G1).
 - **M12 is compared with M11.** If they agree, the existing scorer is enough and the judge
@@ -223,7 +250,10 @@ The dataset is `eval/dataset.json` (12 items written). It has three parts:
   baseline only changes in a reviewed commit.
 - **Known issues:** `eval/known-issues.json` maps an item and measure to a ticket. Exempted
   results are reported but don't gate. An exemption that starts passing is flagged so it can be
-  removed.
+  removed. Each entry has an `expires` date, after which its check is gated again and the run log
+  names it as expired (the build does not fail on the date itself); a `citation-degraded` entry
+  may set `reasonContains` so only matching guard reasons are exempt. An entry that would leave
+  an item with no gated fact, or a should-refuse item with no refusal check, is rejected (DD-43964).
 
 ### D6. When it runs and what gates (proposed)
 
@@ -277,8 +307,9 @@ Keeping the PR tier small matters: every item costs ingestion time and LLM calls
   plus the client-identity header) after a release, or only against local hosts?
 - **OQ-3 Nightly home:** an ADO scheduled pipeline in this repo, or the existing GitHub Actions
   trial?
-- **OQ-4 Refusal detection:** decided: sentinel, or refusal wording in the opening sentence with
-  no expected fact stated (see M8; DD-43927 replaced the earlier "no citation" condition).
+- **OQ-4 Refusal detection:** decided: sentinel, or refusal wording in the first two sentences
+  with no expected fact stated (see M8; DD-43927 replaced the earlier "no citation" condition,
+  DD-43964 the phrase list).
 - **OQ-5 Thresholds:** starting values for M3, M6, M9 and M10. Proposal: set them from the
   first three report-only runs, then tighten.
 - **OQ-6 Judge:** which deployment, and its rate limit on ste. The pilot preferred gpt-5.1

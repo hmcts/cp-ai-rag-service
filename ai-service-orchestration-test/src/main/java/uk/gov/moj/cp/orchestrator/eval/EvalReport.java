@@ -29,11 +29,12 @@ public record EvalReport(String datasetVersion,
                          Summary summary,
                          EvalGate.Result gate) {
 
-    private static final String ANSWER_GENERATED = "ANSWER_GENERATED";
+
+    private static final EvalGate NO_KNOWN_ISSUES = new EvalGate(KnownIssues.none());
 
     private static final ObjectMapper MAPPER = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
-    /** M1: one corpus document's ingestion outcome. */
+    /** M1: one corpus document's ingestion outcome; {@code seconds} runs from its upload to its final status. */
     public record DocumentIngestion(String file, String documentId, String status, double seconds) {
     }
 
@@ -50,7 +51,10 @@ public record EvalReport(String datasetVersion,
     public record ItemResult(String id, String behaviour, List<ItemRun> runs, ItemSummary summary) {
     }
 
-    /** Counts and means over an item's runs, so run-to-run variance is visible. */
+    /**
+     * Counts and means over an item's runs, so run-to-run variance is visible. {@code errorRuns} counts runs that
+     * produced no answer (error, timeout, failed); the quality counts and means are over the runs that did.
+     */
     public record ItemSummary(int runs,
                               int cleanRuns,
                               int factRecallPasses,
@@ -63,6 +67,7 @@ public record EvalReport(String datasetVersion,
                               Double meanGroundedness) {
     }
 
+    /** The same over every run; quality means and the degraded rate are over the runs that produced an answer. */
     public record Summary(int items,
                           int runs,
                           int cleanRuns,
@@ -82,19 +87,20 @@ public record EvalReport(String datasetVersion,
         for (final EvalItem item : dataset.items()) {
             final List<ItemRun> itemRuns = runs.stream().filter(r -> r.itemId().equals(item.id())).toList();
             if (!itemRuns.isEmpty()) {
-                items.add(new ItemResult(item.id(), item.behaviour(), itemRuns, summarise(itemRuns)));
+                items.add(new ItemResult(item.id(), item.behaviour(), itemRuns, summarise(item, itemRuns)));
             }
         }
         final List<ItemScore> scores = runs.stream().map(ItemRun::score).toList();
+        final List<ItemScore> answered = answered(scores);
         final Summary summary = new Summary(
                 items.size(),
                 runs.size(),
-                count(scores, EvalReport::isClean),
-                (int) runs.stream().filter(r -> r.error() != null).count(),
+                (int) runs.stream().filter(r -> isClean(dataset.item(r.itemId()), r)).count(),
+                scores.size() - answered.size(),
                 ingestion.stream().allMatch(d -> "INGESTION_SUCCESS".equals(d.status())),
-                mean(scores.stream().map(ItemScore::factRecall).toList()),
-                mean(scores.stream().map(ItemScore::goldPageRecall).toList()),
-                scores.isEmpty() ? null : round((double) count(scores, ItemScore::citationDegraded) / scores.size()),
+                mean(answered.stream().map(ItemScore::factRecall).toList()),
+                mean(answered.stream().map(ItemScore::goldPageRecall).toList()),
+                answered.isEmpty() ? null : round((double) count(answered, ItemScore::citationDegraded) / answered.size()),
                 mean(runs.stream().map(ItemRun::groundedness).toList()),
                 percentile(scores, ItemScore::elapsedSeconds, 0.50),
                 percentile(scores, ItemScore::elapsedSeconds, 0.95));
@@ -107,19 +113,11 @@ public record EvalReport(String datasetVersion,
     }
 
     /**
-     * The answer was generated and every applicable measure passes: fact recall meets the item threshold, no forbidden content,
-     * refusal correct, retrieval checks hold, nothing outside the filter, not citation-degraded and
-     * every section cited. Citation precision is left out until it has a threshold (OQ-5).
+     * The run passes every gated check with no known issues applied: the gate's own outcome, so "clean"
+     * and "passed" cannot drift apart. Report-only measures do not affect it.
      */
-    static boolean isClean(final ItemScore s) {
-        return ANSWER_GENERATED.equals(s.status())
-                && !Boolean.FALSE.equals(s.factRecallPass())
-                && s.forbiddenHits().isEmpty()
-                && s.refusalCorrect()
-                && !Boolean.FALSE.equals(s.retrievalOk())
-                && s.chunksOutsideFilter() == 0
-                && !s.citationDegraded()
-                && (s.sectionsWithoutCitation() == null || s.sectionsWithoutCitation() == 0);
+    static boolean isClean(final EvalItem item, final ItemRun run) {
+        return NO_KNOWN_ISSUES.outcome(item, run).passed();
     }
 
     void write(final Path file) {
@@ -131,19 +129,25 @@ public record EvalReport(String datasetVersion,
         }
     }
 
-    private static ItemSummary summarise(final List<ItemRun> runs) {
+    private static ItemSummary summarise(final EvalItem item, final List<ItemRun> runs) {
         final List<ItemScore> scores = runs.stream().map(ItemRun::score).toList();
+        final List<ItemScore> answered = answered(scores);
         return new ItemSummary(
                 scores.size(),
-                count(scores, EvalReport::isClean),
-                count(scores, s -> Boolean.TRUE.equals(s.factRecallPass())),
-                count(scores, s -> !s.forbiddenHits().isEmpty()),
-                count(scores, s -> !s.refusalCorrect()),
-                count(scores, ItemScore::citationDegraded),
-                (int) runs.stream().filter(r -> r.error() != null).count(),
-                mean(scores.stream().map(ItemScore::factRecall).toList()),
-                mean(scores.stream().map(ItemScore::citationPrecision).toList()),
+                (int) runs.stream().filter(r -> isClean(item, r)).count(),
+                count(answered, s -> Boolean.TRUE.equals(s.factRecallPass())),
+                count(answered, s -> !s.forbiddenHits().isEmpty()),
+                count(answered, s -> !s.refusalCorrect()),
+                count(answered, ItemScore::citationDegraded),
+                scores.size() - answered.size(),
+                mean(answered.stream().map(ItemScore::factRecall).toList()),
+                mean(answered.stream().map(ItemScore::citationPrecision).toList()),
                 mean(runs.stream().map(ItemRun::groundedness).toList()));
+    }
+
+    /** The runs that produced an answer; an error or timeout says nothing about answer quality. */
+    private static List<ItemScore> answered(final List<ItemScore> scores) {
+        return scores.stream().filter(s -> AnswerResult.ANSWER_GENERATED.equals(s.status())).toList();
     }
 
     private static int count(final List<ItemScore> scores, final Predicate<ItemScore> predicate) {

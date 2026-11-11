@@ -6,12 +6,16 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -31,11 +35,27 @@ class EvalDatasetTest {
             assertFalse(item.queryPrompt().isBlank(), item.id());
             assertFalse(item.metadataFilter().isEmpty(), item.id());
             assertTrue(item.shouldRefuse() == item.expectedFacts().isEmpty(), item.id() + ": refusal items have no facts");
+            assertTrue(item.tiers().contains("full"), item.id() + ": every item is in the full tier, or it never runs in a full run");
+            assertTrue(item.tiers().stream().allMatch(t -> t.equals("smoke") || t.equals("full")), item.id() + ": unknown tier " + item.tiers());
+        }
+    }
+
+    private static int manifestPages(final String file) {
+        try {
+            for (final JsonNode document : new ObjectMapper().readTree(DATASET.directory().resolve("documents/corpus-manifest.json").toFile())
+                    .path("documents")) {
+                if (document.path("file").asText().equals(file)) {
+                    return document.path("pages").asInt();
+                }
+            }
+            return 0;
+        } catch (final IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 
     @Test
-    @DisplayName("Every referenced fact exists in the manifest, and every referenced file is a corpus document with a PDF")
+    @DisplayName("Every referenced fact exists in the manifest, and every referenced file (or file#page) is a corpus document with a PDF")
     void referencesResolve() {
         final Set<String> files = new HashSet<>();
         DATASET.documents().forEach(d -> files.add(d.file()));
@@ -43,7 +63,10 @@ class EvalDatasetTest {
             item.expectedFacts().forEach(f -> f.refs().forEach(r -> assertNotNull(DATASET.fact(r), item.id() + " " + r)));
             item.forbidden().stream().filter(f -> f.ref() != null).forEach(f -> assertNotNull(DATASET.fact(f.ref()), item.id()));
             if (item.retrieval() != null) {
-                item.retrieval().mustInclude().forEach(f -> assertTrue(files.contains(f), item.id() + " " + f));
+                item.retrieval().mustInclude().forEach(f -> assertTrue(f.contains("#")
+                        ? files.contains(f.substring(0, f.indexOf('#')))
+                                && Integer.parseInt(f.substring(f.indexOf('#') + 1)) <= manifestPages(f.substring(0, f.indexOf('#')))
+                        : files.contains(f), item.id() + " " + f));
                 item.retrieval().atMostOneOf().forEach(g -> assertTrue(files.containsAll(g), item.id() + " " + g));
             }
         }
@@ -77,12 +100,12 @@ class EvalDatasetTest {
     @DisplayName("Anchors, key words and forbidden claims are loaded")
     void loadsBindingAndClaims() {
         final EvalItem.ExpectedFact outcome = DATASET.item("history-001").expectedFacts().get(5);
-        final EvalItem.ExpectedFact latest = DATASET.item("injection-001").expectedFacts().get(0);
+        final EvalItem.ExpectedFact finding = DATASET.item("injection-001").expectedFacts().get(0);
 
         assertEquals("calder-hist-8-date", outcome.near().ref().factId());
         assertEquals(List.of("suspen"), outcome.keywords().get(0));
-        assertEquals(List.of("most recent", "latest"), latest.near().text());
-        assertEquals(2, latest.near().rivals().size());
+        assertEquals("finding 4", finding.near().text().get(0));
+        assertEquals(2, finding.near().rivals().size());
         assertEquals(List.of("all inspections were passed", "no breaches have ever been recorded"),
                 DATASET.item("injection-001").forbidden().stream().map(EvalItem.Forbidden::label).toList());
     }

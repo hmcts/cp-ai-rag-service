@@ -3,7 +3,6 @@ package uk.gov.moj.cp.orchestrator.eval;
 import uk.gov.moj.cp.orchestrator.eval.FactMatcher.Span;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -27,32 +26,47 @@ final class AnswerText {
 
     /**
      * With chunks retrieved the model refuses in its own words, not with the sentinel (dry run,
-     * 2026-10-27). An answer whose opening sentence uses one of these phrases says the information is missing.
+     * 2026-10-27): a negation followed within a few words by a word saying the information is missing
+     * ("do not contain", "don't mention", "was not found", "no reference to", "unable to find").
      */
-    private static final List<String> REFUSAL_PHRASES = List.of("no information", "does not contain", "do not contain",
-            "not contain any", "not available", "unable to find", "could not find", "cannot find", "not mentioned",
-            "not provided", "no details", "not specified", "no mention", "not include", "do not state", "does not state",
-            "do not specify", "does not specify", "no record of");
+    private static final Pattern REFUSAL = Pattern.compile(
+            "(?:\\bno|\\bnot|n['\u2019]t|\\bcannot|\\bunable to|\\bnothing|\\bnone)(?: [\\w'\u2019-]+){0,4}? "
+                    + "(?:contain|mention|stat|specif|provid|includ|find|found|available|record of|reference|information|detail"
+                    + "|appear|list|show|give|indicat|say|said|disclos|identif|present|locat|cover|determin|record(?:ed)? in"
+                    + "|in the (?:[a-z]+ )?(?:documents?|sources?|records?|files?|context|material))");
+    /** How many sentences, after any heading lines, may come before the refusal (a lead-in such as "I checked the documents."). */
+    private static final int REFUSAL_SENTENCES = 2;
     /** The space after a sentence or clause ending in {@code .}, {@code !}, {@code ?} or {@code ;}, in normalised text. */
     private static final Pattern SENTENCE_BREAK = Pattern.compile("(?<=[.!?;]) ");
 
     private static final int MAX_HEADING_LENGTH = 60;
 
     private final String raw;
+    private final String prose;
     private final List<Citation> citations;
+    private final List<Line> lines;
 
-    record Citation(String fileName, Set<Integer> pages, String documentId) {
+    record Citation(Set<Integer> pages, String documentId) {
+    }
+
+    /**
+     * One non-blank line of the prose: normalised, whether it is a heading, and the lines above it it may
+     * take an anchor from ({@link #lineContexts()}).
+     */
+    private record Line(String text, boolean heading, LineContext context) {
     }
 
     private AnswerText(final String raw) {
         this.raw = raw;
+        this.prose = CITATION.matcher(raw).replaceAll(" ");
+        this.lines = parseLines(prose);
         final List<Citation> found = new ArrayList<>();
         final Matcher m = CITATION.matcher(raw);
         while (m.find()) {
             final String individual = m.group(3).isBlank() ? m.group(2) : m.group(3);
             final Set<Integer> pages = new LinkedHashSet<>();
             NUMBER.matcher(individual).results().forEach(r -> pages.add(Integer.parseInt(r.group())));
-            found.add(new Citation(m.group(1), Set.copyOf(pages), m.group(4)));
+            found.add(new Citation(Set.copyOf(pages), m.group(4)));
         }
         this.citations = List.copyOf(found);
     }
@@ -61,16 +75,12 @@ final class AnswerText {
         return new AnswerText(answer == null ? "" : answer);
     }
 
-    String raw() {
-        return raw;
-    }
-
     List<Citation> citations() {
         return citations;
     }
 
     String prose() {
-        return CITATION.matcher(raw).replaceAll(" ");
+        return prose;
     }
 
     boolean isNoDataSentinel() {
@@ -78,19 +88,83 @@ final class AnswerText {
     }
 
     /**
-     * The opening sentence says the information is not there. Citations do not decide it: a refusal may
-     * cite what it looked at, and a correct answer may be uncited. The scorer also requires that no
-     * expected fact is stated, so an answer that gives the facts and then says one detail is missing is
-     * not a refusal.
+     * One of the first two sentences after any heading lines says the information is not there.
+     * Citations do not decide it: a refusal may cite what it looked at, and a correct answer may be
+     * uncited. The scorer also requires that no expected fact is stated, so an answer that gives the
+     * facts and then says one detail is missing is not a refusal; an invented answer on a should-refuse
+     * item is caught by the item's forbidden patterns, not here.
      */
     boolean opensWithRefusal() {
-        final List<String> segments = segments();
-        return !segments.isEmpty() && REFUSAL_PHRASES.stream().anyMatch(segments.get(0)::contains);
+        return lines.stream().filter(l -> !l.heading()).map(Line::text)
+                .flatMap(l -> sentences(l).stream().map(s -> l.substring(s.start(), s.end())))
+                .limit(REFUSAL_SENTENCES)
+                .anyMatch(s -> REFUSAL.matcher(s).find());
+    }
+
+    /** A markdown {@code #} heading, a bold-only line, or a short line ending with a colon. */
+    static boolean isHeading(final String line) {
+        final String s = line.strip();
+        return s.startsWith("#") || BOLD_HEADING.matcher(s).matches() || (s.endsWith(":") && s.length() < MAX_HEADING_LENGTH);
     }
 
     /** The prose split into lines (a list item or table row each), normalised, blank ones dropped. */
     List<String> lines() {
-        return Arrays.stream(prose().split("\n")).map(FactMatcher::normalise).filter(s -> !s.isEmpty()).toList();
+        return lines.stream().map(Line::text).toList();
+    }
+
+    /** For each line of {@link #lines()}, whether it is a heading line. */
+    List<Boolean> headingLines() {
+        return lines.stream().map(Line::heading).toList();
+    }
+
+    /** A line in the context of the lines above it that it may take an anchor from. */
+    record LineContext(String text, int headEnd, int lineStart, boolean underHeading) {
+    }
+
+    /**
+     * For each line of {@link #lines()}, the lines above it that it may take an anchor from, joined with
+     * {@code ; } and normalised: under a heading, the heading and every line of its block up to and
+     * including this one ("Most recent finding:" carries to the list under it, with the block's earlier
+     * lines still in place as rivals); otherwise the line just above it in the same paragraph (a date line
+     * followed by its outcome line). Null for a heading line and for a paragraph's first line.
+     * {@code lineStart} is where this line starts; {@code headEnd} is where the heading ends, or 0 for
+     * the line above, which lends its anchor but not its values (a date above must not take this line's event).
+     */
+    List<LineContext> lineContexts() {
+        return lines.stream().map(Line::context).toList();
+    }
+
+    /** Splits the prose into its non-blank lines once, so every per-line view stays index-aligned. */
+    private static List<Line> parseLines(final String prose) {
+        final List<Line> parsed = new ArrayList<>();
+        List<String> block = null;
+        String previous = null;
+        for (final String line : prose.split("\n")) {
+            final String normalised = FactMatcher.normalise(line);
+            if (normalised.isEmpty()) {
+                previous = null;
+                continue;
+            }
+            final boolean heading = isHeading(line);
+            final LineContext context;
+            if (heading) {
+                block = new ArrayList<>(List.of(normalised));
+                context = null;
+            } else if (block != null) {
+                block.add(normalised);
+                context = context(block, true);
+            } else {
+                context = previous == null ? null : context(List.of(previous, normalised), false);
+            }
+            parsed.add(new Line(normalised, heading, context));
+            previous = normalised;
+        }
+        return List.copyOf(parsed);
+    }
+
+    private static LineContext context(final List<String> lines, final boolean heading) {
+        final String text = String.join("; ", lines);
+        return new LineContext(text, heading ? lines.get(0).length() : 0, text.length() - lines.get(lines.size() - 1).length(), heading);
     }
 
     /** Where each sentence of a normalised line sits (a {@code ;} also ends one). */
@@ -111,15 +185,20 @@ final class AnswerText {
         return lines().stream().flatMap(l -> sentences(l).stream().map(s -> l.substring(s.start(), s.end()))).toList();
     }
 
-    /** Splits on heading lines: markdown {@code #}, a bold-only line, or a short line ending with a colon. */
+    /**
+     * Splits on heading lines: markdown {@code #}, a bold-only line, or a short line ending with a colon.
+     * Text before the first heading (an intro line) is not a section; an answer with no heading is one section.
+     */
     List<String> sections() {
         final List<String> sections = new ArrayList<>();
         final List<String> current = new ArrayList<>();
+        boolean headed = false;
         for (final String line : raw.split("\n", -1)) {
-            final String s = line.strip();
-            final boolean heading = s.startsWith("#") || BOLD_HEADING.matcher(s).matches()
-                    || (s.endsWith(":") && s.length() < MAX_HEADING_LENGTH);
-            if (heading && !current.isEmpty()) {
+            final boolean heading = isHeading(line);
+            if (heading && !headed) {
+                current.clear();
+                headed = true;
+            } else if (heading && !current.isEmpty()) {
                 sections.add(String.join("\n", current));
                 current.clear();
             }

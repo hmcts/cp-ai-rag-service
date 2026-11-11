@@ -8,7 +8,8 @@ import java.util.regex.Pattern;
  * already applied: {@code queryPrompt} falls back to the dataset prompt and {@code minFactRecall}
  * to 1.0 (every expected fact required).
  *
- * @param retrieval optional document-level checks on the final chunk set; null when absent
+ * @param retrieval optional checks on the final chunk set; null when absent
+ * @param chronological the answer must state the date facts earliest first
  */
 public record EvalItem(String id,
                        String behaviour,
@@ -21,12 +22,8 @@ public record EvalItem(String id,
                        RetrievalCheck retrieval,
                        boolean shouldRefuse,
                        double minFactRecall,
-                       boolean citationsPerSection) {
-
-    /** An item with a recall threshold below 1.0 expects a long answer (summary, chronology). */
-    public boolean isLongAnswer() {
-        return minFactRecall < 1.0;
-    }
+                       boolean citationsPerSection,
+                       boolean chronological) {
 
     /**
      * A fact the answer must contain. Several refs are alternatives (the same fact in duplicate
@@ -41,10 +38,11 @@ public record EvalItem(String id,
     /**
      * Binds a fact to the entry it belongs to: the value and the anchor (a manifest fact, such as the
      * entry's date, or one of several texts, such as "most recent") must be in the same sentence or
-     * line with no rival between them. Rivals are the listed facts plus the anchors of the item's other
-     * facts, so in a list of dated entries each value has to sit with its own date.
+     * line, or under the same heading, with no rival between them. Rivals are the listed facts and
+     * texts ({@code rivalText}, such as another document's name) plus the fact anchors of the item's
+     * other facts, so in a list of dated entries each value has to sit with its own date.
      */
-    public record Near(FactRef ref, List<String> text, List<FactRef> rivals) {
+    public record Near(FactRef ref, List<String> text, List<FactRef> rivals, List<String> rivalText) {
     }
 
     /**
@@ -58,7 +56,10 @@ public record EvalItem(String id,
         }
     }
 
-    /** Documents (by file name) that must appear in the final chunks, and groups of which at most one may. */
+    /**
+     * Documents or pages that must appear in the final chunks ({@code file} or {@code file#page}), and
+     * groups of documents of which at most one may.
+     */
     public record RetrievalCheck(List<String> mustInclude, List<List<String>> atMostOneOf) {
     }
 }
