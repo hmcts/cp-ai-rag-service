@@ -49,18 +49,19 @@ cover.
 
 ## Running it
 
-Every run starts the function apps locally (`RagHarness`) against the real ste Azure
-resources, with a per-run search index, containers, queues and tables that it deletes
-afterwards. It uploads the corpus through `POST /document-upload`, waits for ingestion, then asks
-each question through the async API and fetches the answer, the chunks the model saw and the
-citation guard reason.
+Every run starts the function apps locally (`RagHarness`) and needs a working Azure environment
+behind them, or an equivalent: storage, Document Intelligence, AI Search and the model
+deployments the service uses. Each run creates its own search index, containers, queues and
+tables, and deletes them afterwards. It uploads the corpus through `POST /document-upload`, waits
+for ingestion, then asks each question through the async API and fetches the answer, the chunks
+the model saw and the citation guard reason.
 
 **Prerequisites** (local runs):
 - Azure Functions Core Tools (`func`) on the path; the script stops without it
 - `ai-service-orchestration-test/.env` filled in from `.env.sample`
-- `az login`, with the non-live subscription as the default
-- RBAC on the ste resources enabled for your account (on demand). The PR build's service
-  principal has it permanently.
+- `az login`, with the subscription that holds those resources as the default
+- An identity with access to those resources: your account for a local run; the PR build uses its
+  own
 
 **Commands:**
 
@@ -85,8 +86,8 @@ MAVEN_PROFILE=ai-rag-eval MAVEN_EXTRA_ARGS="-Deval.items=history-001,chronology-
 | `-Deval.<VAR>=…` | Override one pinned service setting, e.g. `-Deval.SEARCH_MMR_FINAL_COUNT=15` |
 | `SKIP_BUILD=true` | Reuse the packaged function apps instead of rebuilding |
 
-**Settings are pinned.** Both eval runs set the retrieval, layout and token settings to the
-production app-setting values (`eval.*` properties in the module pom):
+**Settings are pinned.** Both eval runs set the retrieval, layout and token settings to fixed
+values that match how the deployed service is configured (`eval.*` properties in the module pom):
 - kNN 80, pool 60, MMR λ 0.8 down to 30 chunks
 - containment dedup on (shingle size 3, threshold 0.95), semantic dedup off
 - layout-aware text off
