@@ -29,7 +29,27 @@ public class SharedSystemVariables {
     public static final String LLM_MODEL_RESPONSE_MAX_TOKENS = "LLM_MODEL_RESPONSE_MAX_TOKENS";
     public static final String LLM_MODEL_RESPONSE_VERBOSITY = "LLM_MODEL_RESPONSE_VERBOSITY";
     public static final String LLM_CHAT_SERVICE_PROVIDER = "LLM_CHAT_SERVICE_PROVIDER";
+    // Optional provider for the scoring judge only; when unset the judge follows LLM_CHAT_SERVICE_PROVIDER.
+    public static final String JUDGE_LLM_CHAT_SERVICE_PROVIDER = "JUDGE_LLM_CHAT_SERVICE_PROVIDER";
     public static final String EMBEDDING_SERVICE_PROVIDER = "EMBEDDING_SERVICE_PROVIDER";
+
+    // Anthropic Claude through the AI gateway (AnthropicChatService), read for a role whose provider is
+    // claude-gateway: the gateway's Messages API base URL and one model per role (no fallback between them).
+    public static final String AI_GATEWAY_BASE_URL = "AI_GATEWAY_BASE_URL";
+    public static final String AI_GATEWAY_CHAT_MODEL = "AI_GATEWAY_CHAT_MODEL";
+    public static final String AI_GATEWAY_JUDGE_MODEL = "AI_GATEWAY_JUDGE_MODEL";
+    // The gateway takes an Entra token for its own app registration plus an APIM subscription key; both
+    // differ per gateway environment.
+    public static final String AI_GATEWAY_TOKEN_SCOPE = "AI_GATEWAY_TOKEN_SCOPE";
+    public static final String AI_GATEWAY_SUBSCRIPTION_KEY = "AI_GATEWAY_SUBSCRIPTION_KEY";
+    // Local development only: an Azure CLI subscription whose signed-in account has the gateway role,
+    // when that is a different account from the one used for the other Azure services. Never set in Azure.
+    public static final String AI_GATEWAY_LOCAL_CLI_SUBSCRIPTION = "AI_GATEWAY_LOCAL_CLI_SUBSCRIPTION";
+    // Optional Claude request settings: a single sampling temperature (Claude rejects temperature and
+    // top_p together), thinking (adaptive | disabled; unset = the model's default) and output effort.
+    public static final String LLM_ANTHROPIC_TEMPERATURE = "LLM_ANTHROPIC_TEMPERATURE";
+    public static final String LLM_ANTHROPIC_THINKING = "LLM_ANTHROPIC_THINKING";
+    public static final String LLM_ANTHROPIC_EFFORT = "LLM_ANTHROPIC_EFFORT";
     public static final String MAX_DOCUMENT_UPLOAD_BLOB_SIZE_MIB = "MAX_DOCUMENT_UPLOAD_BLOB_SIZE_MIB";
 
     // How long a queue worker's in-progress idempotency lease stays live before a

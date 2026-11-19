@@ -33,6 +33,11 @@
             <artifactId>openai-java</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.anthropic</groupId>
+            <artifactId>anthropic-java</artifactId>
+        </dependency>
+
         <!-- Azure Identity (for Managed Identity or Azure AD authentication) -->
         <dependency>
             <groupId>com.azure</groupId>

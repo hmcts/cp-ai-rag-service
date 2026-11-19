@@ -29,6 +29,7 @@
         <eval.LLM_MODEL_RESPONSE_MAX_TOKENS>4000</eval.LLM_MODEL_RESPONSE_MAX_TOKENS>
         <eval.LLM_REASONING_EFFORT>none</eval.LLM_REASONING_EFFORT>
         <eval.gate>true</eval.gate>
+        <it.llm.provider>openai</it.llm.provider>
     </properties>
 
     <dependencies>
@@ -106,7 +107,7 @@
                                     <skip>${it.enforcement.skip}</skip>
                                     <environmentVariables>
                                         <CLIENT_FILTERING_ENABLED>true</CLIENT_FILTERING_ENABLED>
-                                        <LLM_CHAT_SERVICE_PROVIDER>openai</LLM_CHAT_SERVICE_PROVIDER>
+                                        <LLM_CHAT_SERVICE_PROVIDER>${it.llm.provider}</LLM_CHAT_SERVICE_PROVIDER>
                                         <EMBEDDING_SERVICE_PROVIDER>openai</EMBEDDING_SERVICE_PROVIDER>
                                     </environmentVariables>
                                     <excludes>
@@ -126,7 +127,7 @@
                                     <skip>${it.legacy.skip}</skip>
                                     <environmentVariables>
                                         <CLIENT_FILTERING_ENABLED>false</CLIENT_FILTERING_ENABLED>
-                                        <LLM_CHAT_SERVICE_PROVIDER>openai</LLM_CHAT_SERVICE_PROVIDER>
+                                        <LLM_CHAT_SERVICE_PROVIDER>${it.llm.provider}</LLM_CHAT_SERVICE_PROVIDER>
                                         <EMBEDDING_SERVICE_PROVIDER>openai</EMBEDDING_SERVICE_PROVIDER>
                                     </environmentVariables>
                                     <excludes>
@@ -167,7 +168,7 @@
                                     <skip>${it.evalsmoke.skip}</skip>
                                     <environmentVariables>
                                         <CLIENT_FILTERING_ENABLED>true</CLIENT_FILTERING_ENABLED>
-                                        <LLM_CHAT_SERVICE_PROVIDER>openai</LLM_CHAT_SERVICE_PROVIDER>
+                                        <LLM_CHAT_SERVICE_PROVIDER>${it.llm.provider}</LLM_CHAT_SERVICE_PROVIDER>
                                         <EMBEDDING_SERVICE_PROVIDER>openai</EMBEDDING_SERVICE_PROVIDER>
                                         <INGESTION_LAYOUT_AWARE_TEXT_ENABLED>${eval.INGESTION_LAYOUT_AWARE_TEXT_ENABLED}</INGESTION_LAYOUT_AWARE_TEXT_ENABLED>
                                         <SEARCH_NEAREST_NEIGHBOURS_COUNT>${eval.SEARCH_NEAREST_NEIGHBOURS_COUNT}</SEARCH_NEAREST_NEIGHBOURS_COUNT>
@@ -220,7 +221,7 @@
                                 <configuration>
                                     <environmentVariables>
                                         <CLIENT_FILTERING_ENABLED>true</CLIENT_FILTERING_ENABLED>
-                                        <LLM_CHAT_SERVICE_PROVIDER>openai</LLM_CHAT_SERVICE_PROVIDER>
+                                        <LLM_CHAT_SERVICE_PROVIDER>${it.llm.provider}</LLM_CHAT_SERVICE_PROVIDER>
                                         <EMBEDDING_SERVICE_PROVIDER>openai</EMBEDDING_SERVICE_PROVIDER>
                                         <INGESTION_LAYOUT_AWARE_TEXT_ENABLED>${eval.INGESTION_LAYOUT_AWARE_TEXT_ENABLED}</INGESTION_LAYOUT_AWARE_TEXT_ENABLED>
                                         <SEARCH_NEAREST_NEIGHBOURS_COUNT>${eval.SEARCH_NEAREST_NEIGHBOURS_COUNT}</SEARCH_NEAREST_NEIGHBOURS_COUNT>
