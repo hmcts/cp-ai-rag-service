@@ -1,8 +1,7 @@
 package uk.gov.moj.cp.harness;
 
-import static java.util.stream.Collectors.joining;
-
 import uk.gov.moj.cp.ai.exception.ChatServiceException;
+import uk.gov.moj.cp.ai.service.AnthropicModelSettings;
 import uk.gov.moj.cp.ai.service.ChatService;
 import uk.gov.moj.cp.ai.service.TokenUsage;
 import uk.gov.moj.cp.ai.service.TokenUsageReporting;
@@ -15,32 +14,20 @@ import java.util.function.Consumer;
 import com.anthropic.bedrock.backends.BedrockBackend;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
-import com.anthropic.errors.AnthropicException;
-import com.anthropic.errors.AnthropicServiceException;
 import com.anthropic.foundry.backends.FoundryBackend;
-import com.anthropic.models.messages.Message;
-import com.anthropic.models.messages.MessageCreateParams;
-import com.anthropic.models.messages.OutputConfig;
-import com.anthropic.models.messages.OutputTokensDetails;
-import com.anthropic.models.messages.StopReason;
-import com.anthropic.models.messages.TextBlock;
-import com.anthropic.models.messages.ThinkingConfigAdaptive;
-import com.anthropic.models.messages.ThinkingConfigDisabled;
-import com.anthropic.models.messages.Usage;
 import com.azure.identity.AuthenticationUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.regions.Region;
 
 /**
- * Harness-local {@link ChatService} for Anthropic Claude models hosted on Azure AI Foundry or
- * Amazon Bedrock (see {@link Platform}).
+ * Harness {@link ChatService} for Anthropic Claude models hosted on Azure AI Foundry or
+ * Amazon Bedrock directly (see {@link Platform}).
  *
- * <p>Claude on Azure is served via the Anthropic Messages API — not Azure OpenAI chat
- * completions — so the production {@code AzureChatService}/{@code OpenAiChatService} cannot
- * reach it. This implementation is deliberately confined to the evaluation harness: the
- * Anthropic SDK is a harness-only dependency and nothing in the function apps or shared
- * artefacts references it.
+ * <p>This class builds the client for each host and reads the harness's own settings; the
+ * request and response handling is the shared {@link uk.gov.moj.cp.ai.service.AnthropicChatService},
+ * which the function apps use for Claude through the AI gateway. Direct Bedrock access stays
+ * here so the AWS SDK is not a dependency of the function apps.
  *
  * <p><b>Configuration</b> (read from the environment, exported by {@code run-harness.sh}):
  * <ul>
@@ -112,13 +99,8 @@ public class AnthropicChatService implements ChatService, TokenUsageReporting {
      */
     private static final ConcurrentHashMap<String, AnthropicClient> CLIENT_CACHE = new ConcurrentHashMap<>();
 
-    private final String model;
-    private final Platform platform;
-    private final AnthropicClient client;
-    private final long maxTokens;
-
-    /** Optional per-call usage listener (see {@link TokenUsageReporting}); no-op when unset. */
-    private volatile Consumer<TokenUsage> tokenUsageListener;
+    /** Shared request/response handling; this class only builds the client and reads harness settings. */
+    private final uk.gov.moj.cp.ai.service.AnthropicChatService delegate;
 
     /**
      * @param model           the Foundry deployment name (sent as the Messages API {@code model})
@@ -144,13 +126,12 @@ public class AnthropicChatService implements ChatService, TokenUsageReporting {
         if (model == null || model.isBlank()) {
             throw new IllegalArgumentException("Anthropic model/deployment name must be set.");
         }
-        this.model = model;
-        this.platform = platform;
         final String endpointKey = (endpointOverride == null || endpointOverride.isBlank())
                 ? ENV_DEFAULT_CLIENT_KEY : endpointOverride;
-        this.client = CLIENT_CACHE.computeIfAbsent(platform + "|" + endpointKey,
+        final AnthropicClient client = CLIENT_CACHE.computeIfAbsent(platform + "|" + endpointKey,
                 k -> platform == Platform.BEDROCK ? buildBedrockClient() : buildClient(endpointKey));
-        this.maxTokens = HarnessEnv.intEnv("LLM_MODEL_RESPONSE_MAX_TOKENS", DEFAULT_MAX_TOKENS);
+        this.delegate = new uk.gov.moj.cp.ai.service.AnthropicChatService(client, model, settingsFromHarnessEnv(),
+                "Anthropic " + platform);
     }
 
     /**
@@ -219,97 +200,20 @@ public class AnthropicChatService implements ChatService, TokenUsageReporting {
     @Override
     public <T> Optional<T> callModel(final String systemInstruction, final String userInstruction,
                                      final Class<T> responseClass) throws ChatServiceException {
-        if (responseClass != String.class) {
-            // The harness only ever requests the raw String; keep this implementation honest
-            // about its scope rather than half-supporting JSON deserialisation.
-            throw new ChatServiceException("AnthropicChatService supports String responses only, requested: "
-                    + responseClass.getName());
-        }
-
-        final MessageCreateParams.Builder params = MessageCreateParams.builder()
-                .model(model)
-                .maxTokens(maxTokens)
-                .system(systemInstruction)
-                .addUserMessage(userInstruction);
-
-        // Claude 4.x rejects temperature and top_p together — never replicate the production
-        // temperature=0 + top_p=0 pair here. Default: omit sampling entirely.
-        final String temperature = HarnessEnv.env(ENV_TEMPERATURE, "");
-        if (!temperature.isEmpty()) {
-            params.temperature(Double.parseDouble(temperature));
-            LOGGER.info("[anthropic] applied temperature={} for model '{}'", temperature, model);
-        }
-
-        final String thinking = HarnessEnv.env(ENV_THINKING, "").trim().toLowerCase();
-        if ("adaptive".equals(thinking)) {
-            params.thinking(ThinkingConfigAdaptive.builder().build());
-            LOGGER.info("[anthropic] adaptive thinking enabled for model '{}' — thinking shares the max_tokens budget ({})",
-                    model, maxTokens);
-        } else if ("disabled".equals(thinking)) {
-            params.thinking(ThinkingConfigDisabled.builder().build());
-            LOGGER.info("[anthropic] thinking explicitly disabled for model '{}'", model);
-        }
-
-        final String effort = HarnessEnv.env(ENV_EFFORT, "").trim().toLowerCase();
-        if (!effort.isEmpty()) {
-            params.outputConfig(OutputConfig.builder().effort(OutputConfig.Effort.of(effort)).build());
-            LOGGER.info("[anthropic] applied effort={} for model '{}'", effort, model);
-        }
-
-        try {
-            final Message message = client.messages().create(params.build());
-            reportTokenUsage(message.usage());
-            final String text = message.content().stream()
-                    .flatMap(block -> block.text().stream())
-                    .map(TextBlock::text)
-                    .collect(joining());
-
-            logStopReason(message);
-
-            if (text.isBlank()) {
-                throw new ChatServiceException("LLM produced an empty response. Stop reason: "
-                        + message.stopReason().map(StopReason::toString).orElse("(none)"));
-            }
-            return Optional.of(responseClass.cast(text));
-        } catch (final AnthropicServiceException e) {
-            throw new ChatServiceException("Anthropic " + platform + " call failed with HTTP " + e.statusCode()
-                    + " for model '" + model + "'", e);
-        } catch (final AnthropicException e) {
-            throw new ChatServiceException("Anthropic " + platform + " call failed for model '" + model + "'", e);
-        }
+        return delegate.callModel(systemInstruction, userInstruction, responseClass);
     }
 
     @Override
     public void setTokenUsageListener(final Consumer<TokenUsage> listener) {
-        this.tokenUsageListener = listener;
+        delegate.setTokenUsageListener(listener);
     }
 
-    private void reportTokenUsage(final Usage usage) {
-        final TokenUsage tokenUsage = new TokenUsage(
-                usage.inputTokens(),
-                usage.outputTokens(),
-                usage.outputTokensDetails().map(OutputTokensDetails::thinkingTokens).orElse(0L),
-                usage.cacheReadInputTokens().orElse(0L));
-        LOGGER.info("[anthropic] token usage for model '{}': input={} output={} (thinking={}) cachedInput={}",
-                model, tokenUsage.inputTokens(), tokenUsage.outputTokens(),
-                tokenUsage.reasoningTokens(), tokenUsage.cachedInputTokens());
-        final Consumer<TokenUsage> listener = tokenUsageListener;
-        if (listener != null) {
-            listener.accept(tokenUsage);
-        }
-    }
-
-    private void logStopReason(final Message message) {
-        final StopReason stopReason = message.stopReason().orElse(null);
-        if (StopReason.MAX_TOKENS.equals(stopReason)) {
-            // The analogue of finish_reason=length: the answer (and likely the <FACT_MAP_JSON>
-            // block) was cut off — surfaces in the harness as jsonBlockPresent=false.
-            LOGGER.warn("[anthropic] response truncated at max_tokens={} for model '{}' — citation block may be incomplete",
-                    maxTokens, model);
-        } else if (StopReason.REFUSAL.equals(stopReason)) {
-            LOGGER.warn("[anthropic] model '{}' returned stop_reason=refusal — content may be empty or partial", model);
-        } else {
-            LOGGER.info("[anthropic] received response from model '{}'. Stop reason: {}", model, stopReason);
-        }
+    /** Request settings from the harness's own variables (see the class Javadoc). */
+    private static AnthropicModelSettings settingsFromHarnessEnv() {
+        return AnthropicModelSettings.of(
+                HarnessEnv.intEnv("LLM_MODEL_RESPONSE_MAX_TOKENS", DEFAULT_MAX_TOKENS),
+                HarnessEnv.env(ENV_TEMPERATURE, ""),
+                HarnessEnv.env(ENV_THINKING, ""),
+                HarnessEnv.env(ENV_EFFORT, ""));
     }
 }

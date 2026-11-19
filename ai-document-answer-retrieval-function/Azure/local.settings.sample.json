@@ -38,6 +38,10 @@
     "AZURE_OPENAI_ENDPOINT": "<azure-openai-endpoint>",
     "AZURE_OPENAI_CHAT_DEPLOYMENT_NAME": "<azure-openai-chat-deployment-name>",
     "LLM_CHAT_SERVICE_PROVIDER": "openai",
+    "AI_GATEWAY_BASE_URL": "<ai-gateway-messages-base-url; read only when LLM_CHAT_SERVICE_PROVIDER=claude-gateway>",
+    "AI_GATEWAY_CHAT_MODEL": "<claude-model-id>",
+    "AI_GATEWAY_TOKEN_SCOPE": "<api://gateway-app-client-id/.default>",
+    "AI_GATEWAY_SUBSCRIPTION_KEY": "<gateway-subscription-key>",
     "LLM_MODEL_RESPONSE_MAX_TOKENS": "4000",
     "LLM_REASONING_EFFORT": "none",
 

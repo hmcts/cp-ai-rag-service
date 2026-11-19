@@ -3,6 +3,7 @@ package uk.gov.moj.cp.ai.client;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import uk.gov.moj.cp.ai.service.AzureChatService;
 import uk.gov.moj.cp.ai.service.ChatService;
@@ -73,12 +74,21 @@ class ChatServiceFactoryTest {
     }
 
     @Test
+    @DisplayName("claude-gateway builds the AI gateway Claude service, which fails fast without its gateway settings")
+    void claudeGatewayProviderBuildsTheGatewayService() {
+        final IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> ChatServiceFactory.getInstance("https://gateway.example.test/messages", "eu.anthropic.claude-sonnet-4-6",
+                        " Claude-Gateway "));
+        assertTrue(exception.getMessage().contains("AI_GATEWAY_TOKEN_SCOPE"), exception.getMessage());
+    }
+
+    @Test
     @DisplayName("Throws IllegalArgumentException for unrecognised provider value")
     void throwsIllegalArgumentExceptionForUnknownProvider() {
         final IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> ChatServiceFactory.getInstance(ENDPOINT, DEPLOYMENT_NAME, "oepnai"));
         assertEquals(
-                "Unknown LLM_CHAT_SERVICE_PROVIDER value: 'oepnai'. Expected one of: azure, openai.",
+                "Unknown chat service provider value: 'oepnai'. Expected one of: azure, openai, claude-gateway.",
                 exception.getMessage());
     }
 

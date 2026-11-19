@@ -8,6 +8,7 @@ import static uk.gov.moj.cp.orchestrator.FunctionAppName.ANSWER_SCORING_FUNCTION
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_INGESTION_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_METADATA_CHECK_FUNCTION;
 import static uk.gov.moj.cp.orchestrator.FunctionAppName.DOCUMENT_STATUS_CHECK_FUNCTION;
+import static uk.gov.moj.cp.orchestrator.extension.ClaudeGatewayEnv.claudeGatewayEnvEntries;
 import static uk.gov.moj.cp.orchestrator.extension.ProviderEnv.providerEnvEntries;
 import static uk.gov.moj.cp.orchestrator.extension.ServiceTuningEnv.tuningEnvEntries;
 import static uk.gov.moj.cp.orchestrator.util.BlobUtil.deleteContainer;
@@ -396,6 +397,9 @@ public final class RagHarness implements ExtensionContext.Store.CloseableResourc
         // Tuning variables (retrieval stages, layout-aware text, token budget) only when the leg
         // sets them; unset ones leave the hosts on their code defaults. Same no-overlap rule.
         envVarMap.putAll(tuningEnvEntries());
+        // Claude through the AI gateway (judge provider, gateway credentials, Claude settings), only
+        // when set. Same no-overlap rule.
+        envVarMap.putAll(claudeGatewayEnvEntries());
 
         return Map.copyOf(envVarMap);
     }
