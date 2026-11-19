@@ -15,6 +15,11 @@
     "AZURE_JUDGE_OPENAI_ENDPOINT": "<model-connection-string>>",
     "AZURE_JUDGE_OPENAI_CHAT_DEPLOYMENT_NAME": "<model-deployment-name>",
     "LLM_CHAT_SERVICE_PROVIDER": "openai",
+    "JUDGE_LLM_CHAT_SERVICE_PROVIDER": "openai",
+    "AI_GATEWAY_BASE_URL": "<ai-gateway-messages-base-url; read only when the judge provider is claude-gateway>",
+    "AI_GATEWAY_JUDGE_MODEL": "<claude-model-id>",
+    "AI_GATEWAY_TOKEN_SCOPE": "<api://gateway-app-client-id/.default>",
+    "AI_GATEWAY_SUBSCRIPTION_KEY": "<gateway-subscription-key>",
 
     "STORAGE_ACCOUNT_QUEUE_ANSWER_SCORING": "answer-scoring-queue",
     "STORAGE_ACCOUNT_TABLE_ANSWER_GENERATION": "answergeneration",

@@ -6,6 +6,7 @@ import static uk.gov.moj.cp.ai.util.EnvVarUtil.getRequiredEnv;
 import static uk.gov.moj.cp.ai.util.StringUtil.isNullOrEmpty;
 import static uk.gov.moj.cp.ai.util.StringUtil.unescapeContent;
 
+import uk.gov.moj.cp.ai.client.ChatRole;
 import uk.gov.moj.cp.ai.client.ChatServiceFactory;
 import uk.gov.moj.cp.ai.exception.ChatServiceException;
 import uk.gov.moj.cp.ai.model.ChunkedEntry;
@@ -40,10 +41,7 @@ public class ResponseGenerationService {
     private final CitationGuardMode guardMode;
 
     public ResponseGenerationService() {
-        String endpoint = getRequiredEnv("AZURE_OPENAI_ENDPOINT");
-        String deploymentName = getRequiredEnv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME");
-
-        chatService = ChatServiceFactory.getInstance(endpoint, deploymentName);
+        chatService = ChatServiceFactory.getInstance(ChatRole.ANSWER_GENERATION);
         citationProcessor = new CitationProcessor();
         chunkFormatterUtility = new ChunkFormatterUtility();
         userInstructionService = new UserInstructionService();
