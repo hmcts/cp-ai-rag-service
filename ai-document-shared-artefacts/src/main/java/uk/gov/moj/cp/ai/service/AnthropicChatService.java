@@ -5,6 +5,7 @@ import static uk.gov.moj.cp.ai.util.ChatModelUtil.ensureRawJsonAsConvertingPaylo
 import static uk.gov.moj.cp.ai.util.ObjectMapperFactory.getObjectMapper;
 import static uk.gov.moj.cp.ai.util.StringUtil.validateNullOrEmpty;
 
+import uk.gov.moj.cp.ai.client.AiGatewayBackend;
 import uk.gov.moj.cp.ai.client.AnthropicClientFactory;
 import uk.gov.moj.cp.ai.exception.ChatServiceException;
 
@@ -100,7 +101,10 @@ public class AnthropicChatService implements ChatService, TokenUsageReporting {
             }
             return Optional.ofNullable(getObjectMapper().readValue(ensureRawJsonAsConvertingPayloadToObject(text), responseClass));
         } catch (final AnthropicServiceException e) {
-            throw new ChatServiceException(hostLabel + " call failed with HTTP " + e.statusCode() + " for model '" + model + "'", e);
+            final String correlation = e.headers().values(AiGatewayBackend.HEADER_CORRELATION_ID).stream().findFirst()
+                    .map(id -> " (x-correlation-id: " + id + ")").orElse("");
+            throw new ChatServiceException(hostLabel + " call failed with HTTP " + e.statusCode() + " for model '" + model
+                    + "'" + correlation, e);
         } catch (final AnthropicException e) {
             throw new ChatServiceException(hostLabel + " call failed for model '" + model + "'", e);
         } catch (final JsonProcessingException e) {
