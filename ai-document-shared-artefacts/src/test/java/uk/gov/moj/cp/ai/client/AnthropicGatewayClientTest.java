@@ -13,10 +13,17 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.anthropic.client.AnthropicClient;
+import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
@@ -38,8 +45,12 @@ class AnthropicGatewayClientTest {
     private HttpServer server;
     private final AtomicReference<HttpExchange> lastExchange = new AtomicReference<>();
     private final AtomicReference<String> lastBody = new AtomicReference<>();
-    private volatile int responseStatus;
-    private volatile String responseBody;
+    private final AtomicInteger requestCount = new AtomicInteger();
+    private final Queue<Reply> queuedReplies = new ConcurrentLinkedQueue<>();
+    private volatile Reply defaultReply;
+
+    private record Reply(int status, String body, Map<String, String> headers) {
+    }
 
     @BeforeEach
     void startServer() throws IOException {
@@ -47,9 +58,13 @@ class AnthropicGatewayClientTest {
         server.createContext("/", exchange -> {
             lastExchange.set(exchange);
             lastBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-            final byte[] bytes = responseBody.getBytes(StandardCharsets.UTF_8);
+            requestCount.incrementAndGet();
+            final Reply queued = queuedReplies.poll();
+            final Reply reply = queued != null ? queued : defaultReply;
+            final byte[] bytes = reply.body().getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
-            exchange.sendResponseHeaders(responseStatus, bytes.length);
+            reply.headers().forEach((name, value) -> exchange.getResponseHeaders().add(name, value));
+            exchange.sendResponseHeaders(reply.status(), bytes.length);
             try (OutputStream out = exchange.getResponseBody()) {
                 out.write(bytes);
             }
@@ -62,16 +77,26 @@ class AnthropicGatewayClientTest {
         server.stop(0);
     }
 
+    private String baseUrl() {
+        return "http://127.0.0.1:" + server.getAddress().getPort() + GATEWAY_PATH;
+    }
+
     private AnthropicChatService chatService(final AnthropicModelSettings settings) {
-        final String baseUrl = "http://127.0.0.1:" + server.getAddress().getPort() + GATEWAY_PATH;
         return new AnthropicChatService(
-                AnthropicClientFactory.buildAiGatewayClient(baseUrl, () -> "test-token", "test-key"),
+                AnthropicClientFactory.buildAiGatewayClient(baseUrl(), () -> "test-token", "test-key"),
                 MODEL, settings, "AI gateway");
     }
 
     private void respondWith(final int status, final String body) {
-        responseStatus = status;
-        responseBody = body;
+        respondWith(status, body, Map.of());
+    }
+
+    private void respondWith(final int status, final String body, final Map<String, String> headers) {
+        defaultReply = new Reply(status, body, headers);
+    }
+
+    private void respondFirstWith(final int status, final String body, final Map<String, String> headers) {
+        queuedReplies.add(new Reply(status, body, headers));
     }
 
     private static String messageWithText(final String text) throws IOException {
@@ -162,5 +187,37 @@ class AnthropicGatewayClientTest {
         final ChatServiceException e = assertThrows(ChatServiceException.class, () -> service.callModel("s", "u", String.class));
         assertTrue(e.getMessage().contains("HTTP 401"), e.getMessage());
         assertTrue(e.getMessage().contains(MODEL), e.getMessage());
+    }
+
+    @Test
+    void includesGatewayCorrelationIdInFailure() {
+        respondWith(403, "{\"error\":{\"message\":\"not permitted\",\"type\":\"permission_error\",\"code\":\"model_not_permitted\"}}",
+                Map.of("x-correlation-id", "corr-123"));
+
+        final AnthropicChatService service = chatService(AnthropicModelSettings.withMaxTokens(100));
+
+        final ChatServiceException e = assertThrows(ChatServiceException.class, () -> service.callModel("s", "u", String.class));
+        assertTrue(e.getMessage().contains("HTTP 403"), e.getMessage());
+        assertTrue(e.getMessage().contains("x-correlation-id: corr-123"), e.getMessage());
+    }
+
+    @Test
+    void retriesAfterTheCappedWaitInsteadOfTheGatewayRetryAfter() throws Exception {
+        respondFirstWith(429, "{\"error\":{\"message\":\"Token quota exceeded\",\"type\":\"rate_limit_error\",\"code\":\"token_quota_exceeded\"}}",
+                Map.of("Retry-After", "60", "x-correlation-id", "corr-429"));
+        respondWith(200, messageWithText("ok"));
+        final AnthropicClient client = AnthropicOkHttpClient.builder()
+                .backend(new AiGatewayBackend(baseUrl(), () -> "test-token", "test-key", Duration.ofMillis(100), Clock.systemUTC()))
+                .maxRetries(1)
+                .build();
+        final AnthropicChatService service = new AnthropicChatService(client, MODEL, AnthropicModelSettings.withMaxTokens(100), "AI gateway");
+
+        final long start = System.nanoTime();
+        final Optional<String> answer = service.callModel("s", "u", String.class);
+        final Duration elapsed = Duration.ofNanos(System.nanoTime() - start);
+
+        assertEquals(Optional.of("ok"), answer);
+        assertEquals(2, requestCount.get());
+        assertTrue(elapsed.compareTo(Duration.ofSeconds(10)) < 0, "waited " + elapsed + " instead of the capped delay");
     }
 }
